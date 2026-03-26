@@ -1,8 +1,11 @@
 from mimetypes import guess_type
 
+from markupsafe import Markup
+
 from httk.web.engine.discovery import normalize_route, resolve_route
+from httk.web.functions import PythonFunctionHandler
 from httk.web.model.config import SiteConfig
-from httk.web.model.errors import NotFoundError
+from httk.web.model.errors import FunctionInjectionError, NotFoundError
 from httk.web.model.page import PageResult, ResolvedRoute
 from httk.web.renderers import RENDERERS_BY_SUFFIX
 from httk.web.templating import JinjaTemplateEngine, TemplateRenderInput
@@ -12,11 +15,12 @@ class SiteEngine:
     def __init__(self, config: SiteConfig) -> None:
         self.config = config
         self.template_engine = JinjaTemplateEngine(template_dir=config.template_dir)
+        self.function_handler = PythonFunctionHandler(functions_dir=config.functions_dir)
 
     def resolve(self, route: str) -> ResolvedRoute:
         return resolve_route(config=self.config, route=route)
 
-    def render(self, route: str) -> PageResult:
+    def render(self, route: str, query: dict[str, str] | None = None) -> PageResult:
         resolved = self.resolve(route)
 
         if resolved.kind == "missing" or resolved.source_path is None:
@@ -26,18 +30,22 @@ class SiteEngine:
             content_type = guess_type(str(resolved.source_path))[0] or "application/octet-stream"
             return PageResult(status_code=200, content_type=content_type, body=resolved.source_path.read_bytes())
 
+        query_params = dict(query or {})
         rendered_html, metadata = self._render_content_without_templates(resolved)
         route_key = normalize_route(route)
 
-        template_name = self._as_optional_str(metadata.get("template"), default="default")
-        base_template_name = self._as_optional_str(metadata.get("base_template"), default="base_default")
+        template_name = self._metadata_string(metadata, "template", default="default")
+        base_template_name = self._metadata_string(metadata, "base_template", default="base_default")
+
+        context = self._build_template_context(route_key=route_key, metadata=metadata, query=query_params)
+        self._apply_function_injections(metadata=metadata, context=context, query=query_params)
 
         content_html = self.template_engine.render(
             TemplateRenderInput(
                 content_html=rendered_html,
                 template_name=template_name,
                 base_template_name=base_template_name,
-                context=self._build_template_context(route_key=route_key, metadata=metadata),
+                context=context,
             )
         )
 
@@ -60,7 +68,13 @@ class SiteEngine:
         rendered = renderer.render(resolved.source_path)
         return rendered.html, dict(rendered.metadata)
 
-    def _build_template_context(self, *, route_key: str, metadata: dict[str, object]) -> dict[str, object]:
+    def _build_template_context(
+        self,
+        *,
+        route_key: str,
+        metadata: dict[str, object],
+        query: dict[str, str],
+    ) -> dict[str, object]:
         context: dict[str, object] = dict(metadata)
         page_cache: dict[str, tuple[str, dict[str, object]]] = {}
 
@@ -121,12 +135,79 @@ class SiteEngine:
         context["first_value"] = first_value
         context["listdir"] = listdir
         context["pages"] = pages
+        context["query"] = dict(query)
         context["page"] = {
             "relurl": route_key,
             "absurl": self._absolute_url(route_key),
             "relbaseurl": self._relative_base(route_key),
         }
         return context
+
+    def _apply_function_injections(
+        self,
+        *,
+        metadata: dict[str, object],
+        context: dict[str, object],
+        query: dict[str, str],
+    ) -> None:
+        function_keys = [key for key in metadata if key.endswith("-function")]
+
+        for function_key in function_keys:
+            try:
+                raw_spec = metadata.get(function_key)
+                if not isinstance(raw_spec, str):
+                    del metadata[function_key]
+                    continue
+
+                output_name = function_key[: -len("-function")]
+                function_name, arg_specs, function_template = self._parse_function_spec(raw_spec)
+                required = [x.strip() for x in arg_specs.split(",") if x.strip()]
+
+                if not self._function_args_satisfied(required, query):
+                    context[output_name] = ""
+                    metadata[output_name] = ""
+                    del metadata[function_key]
+                    continue
+
+                result = self.function_handler.execute(function_name=function_name, query=query, global_data=context)
+                joint_context = dict(context)
+                joint_context["result"] = result
+
+                fragment = self.template_engine.render_fragment(template_name=function_template, context=joint_context)
+                if fragment is None:
+                    output = str(result)
+                else:
+                    output = Markup(fragment)
+
+                context[output_name] = output
+                metadata[output_name] = output
+                del metadata[function_key]
+            except Exception as exc:
+                raise FunctionInjectionError(f"Failed processing function metadata '{function_key}': {exc}") from exc
+
+    def _parse_function_spec(self, spec: str) -> tuple[str, str, str]:
+        parts = spec.split(":", 2)
+        if len(parts) != 3:
+            raise ValueError(f"Invalid function spec: {spec}")
+
+        function_name = parts[0].strip()
+        function_args = parts[1].strip()
+        function_template = parts[2].strip()
+        if not function_name:
+            raise ValueError(f"Invalid function name in spec: {spec}")
+        return function_name, function_args, function_template
+
+    def _function_args_satisfied(self, arg_specs: list[str], query: dict[str, str]) -> bool:
+        for arg_spec in arg_specs:
+            if arg_spec.startswith("?"):
+                continue
+            if arg_spec.startswith("!"):
+                if arg_spec[1:] in query:
+                    return False
+                continue
+            if arg_spec not in query:
+                return False
+        return True
 
     def _absolute_url(self, route_key: str) -> str:
         if self.config.baseurl is None:
@@ -142,7 +223,12 @@ class SiteEngine:
             return "."
         return "/".join(".." for _ in range(depth))
 
-    def _as_optional_str(self, value: object, *, default: str | None = None) -> str | None:
+    def _metadata_string(self, metadata: dict[str, object], key: str, *, default: str | None = None) -> str | None:
+        value = metadata.get(key)
+        if value is None and key:
+            title_case_key = f"{key[0].upper()}{key[1:]}"
+            value = metadata.get(title_case_key)
+
         if value is None:
             return default
         if isinstance(value, str):
