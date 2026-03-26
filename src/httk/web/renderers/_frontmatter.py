@@ -21,9 +21,7 @@ def split_front_matter(text: str) -> tuple[dict[str, Any], str]:
             try:
                 loaded = yaml.safe_load(frontmatter_text)
             except yaml.YAMLError as exc:
-                raise WebError(
-                    f"Malformed YAML front matter: {exc}", status_code=500
-                ) from exc
+                raise WebError(f"Malformed YAML front matter: {exc}", status_code=500) from exc
             if loaded is None:
                 return {}, body
             if isinstance(loaded, dict):

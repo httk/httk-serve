@@ -6,7 +6,6 @@ from docutils.writers.html5_polyglot import Writer
 
 from .base import RenderResult
 
-
 _RST_SETTINGS_OVERRIDES = {
     "raw_enabled": False,
     "file_insertion_enabled": False,
