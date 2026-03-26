@@ -5,7 +5,7 @@ from markupsafe import Markup
 from httk.web.engine.discovery import normalize_route, resolve_route
 from httk.web.functions import PythonFunctionHandler
 from httk.web.model.config import SiteConfig
-from httk.web.model.errors import NotFoundError
+from httk.web.model.errors import FunctionInjectionError, NotFoundError
 from httk.web.model.page import PageResult, ResolvedRoute
 from httk.web.renderers import RENDERERS_BY_SUFFIX
 from httk.web.templating import JinjaTemplateEngine, TemplateRenderInput
@@ -153,34 +153,37 @@ class SiteEngine:
         function_keys = [key for key in metadata if key.endswith("-function")]
 
         for function_key in function_keys:
-            raw_spec = metadata.get(function_key)
-            if not isinstance(raw_spec, str):
+            try:
+                raw_spec = metadata.get(function_key)
+                if not isinstance(raw_spec, str):
+                    del metadata[function_key]
+                    continue
+
+                output_name = function_key[: -len("-function")]
+                function_name, arg_specs, function_template = self._parse_function_spec(raw_spec)
+                required = [x.strip() for x in arg_specs.split(",") if x.strip()]
+
+                if not self._function_args_satisfied(required, query):
+                    context[output_name] = ""
+                    metadata[output_name] = ""
+                    del metadata[function_key]
+                    continue
+
+                result = self.function_handler.execute(function_name=function_name, query=query, global_data=context)
+                joint_context = dict(context)
+                joint_context["result"] = result
+
+                fragment = self.template_engine.render_fragment(template_name=function_template, context=joint_context)
+                if fragment is None:
+                    output = str(result)
+                else:
+                    output = Markup(fragment)
+
+                context[output_name] = output
+                metadata[output_name] = output
                 del metadata[function_key]
-                continue
-
-            output_name = function_key[: -len("-function")]
-            function_name, arg_specs, function_template = self._parse_function_spec(raw_spec)
-            required = [x.strip() for x in arg_specs.split(",") if x.strip()]
-
-            if not self._function_args_satisfied(required, query):
-                context[output_name] = ""
-                metadata[output_name] = ""
-                del metadata[function_key]
-                continue
-
-            result = self.function_handler.execute(function_name=function_name, query=query, global_data=context)
-            joint_context = dict(context)
-            joint_context["result"] = result
-
-            fragment = self.template_engine.render_fragment(template_name=function_template, context=joint_context)
-            if fragment is None:
-                output = str(result)
-            else:
-                output = Markup(fragment)
-
-            context[output_name] = output
-            metadata[output_name] = output
-            del metadata[function_key]
+            except Exception as exc:
+                raise FunctionInjectionError(f"Failed processing function metadata '{function_key}': {exc}") from exc
 
     def _parse_function_spec(self, spec: str) -> tuple[str, str, str]:
         parts = spec.split(":", 2)

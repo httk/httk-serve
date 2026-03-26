@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import threading
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -9,6 +10,7 @@ class PythonFunctionHandler:
     def __init__(self, functions_dir: Path) -> None:
         self.functions_dir = functions_dir
         self._module_cache: dict[Path, ModuleType] = {}
+        self._cache_lock = threading.Lock()
 
     def execute(self, *, function_name: str, query: dict[str, str], global_data: dict[str, object]) -> Any:
         module_path = self._resolve_function_path(function_name)
@@ -49,13 +51,18 @@ class PythonFunctionHandler:
         if cached is not None:
             return cached
 
-        digest = hashlib.sha256(str(module_path).encode("utf-8")).hexdigest()[:16]
-        module_name = f"httk_web_userfunc_{digest}"
-        spec = importlib.util.spec_from_file_location(module_name, module_path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot load module spec for {module_path}")
+        with self._cache_lock:
+            cached = self._module_cache.get(module_path)
+            if cached is not None:
+                return cached
 
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        self._module_cache[module_path] = module
-        return module
+            digest = hashlib.sha256(str(module_path).encode("utf-8")).hexdigest()[:16]
+            module_name = f"httk_web_userfunc_{digest}"
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Cannot load module spec for {module_path}")
+
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self._module_cache[module_path] = module
+            return module

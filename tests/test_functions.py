@@ -83,3 +83,53 @@ Body text
 
     assert "Hello" not in missing_required.text
     assert "Hello" not in blocked_present.text
+
+
+def test_invalid_function_spec_returns_controlled_500(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "templates" / "default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+
+    (src / "content" / "index.md").write_text(
+        """---
+template: default
+broken-function: not:enough
+---
+
+Body text
+""",
+        encoding="utf-8",
+    )
+
+    app = create_asgi_app(src)
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 500
+    assert "Failed processing function metadata" in response.text
+
+
+def test_missing_function_module_returns_controlled_500(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "templates" / "default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+
+    (src / "content" / "index.md").write_text(
+        """---
+template: default
+greeting-function: does_not_exist:name:greeting_fragment
+---
+
+Body text
+""",
+        encoding="utf-8",
+    )
+
+    app = create_asgi_app(src)
+    with TestClient(app) as client:
+        response = client.get("/?name=Rick")
+
+    assert response.status_code == 500
+    assert "Failed processing function metadata" in response.text
