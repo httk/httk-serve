@@ -12,7 +12,7 @@ class PythonFunctionHandler:
         self._module_cache: dict[Path, ModuleType] = {}
         self._cache_lock = threading.Lock()
 
-    def execute(self, *, function_name: str, query: dict[str, str], global_data: dict[str, object]) -> Any:
+    def execute(self, *, function_name: str, params: dict[str, str], global_data: dict[str, object]) -> Any:
         module_path = self._resolve_function_path(function_name)
         module = self._load_module(module_path)
 
@@ -20,7 +20,7 @@ class PythonFunctionHandler:
         if execute_fn is None or not callable(execute_fn):
             raise ValueError(f"Function module missing callable execute(): {module_path}")
 
-        callargs: dict[str, object] = dict(query)
+        callargs: dict[str, object] = dict(params)
         callargs["global_data"] = global_data
         return execute_fn(**callargs)
 

@@ -17,7 +17,8 @@ dependencies = [
   "PyYAML>=6.0",
   "docutils>=0.20",
   "starlette>=0.37",
-  "uvicorn>=0.30"
+  "uvicorn>=0.30",
+  "python-multipart>=0.0.9"
 ]
 keywords = [
   "Materials Discovery",

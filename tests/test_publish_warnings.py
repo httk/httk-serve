@@ -39,7 +39,7 @@ Body text
     )
 
     report = publish(src, out, "http://localhost/")
-    assert any("query constraints not satisfied" in warning for warning in report.warnings)
+    assert any("input parameter constraints not satisfied" in warning for warning in report.warnings)
 
 
 def test_publish_reports_warning_when_function_template_missing(tmp_path: Path) -> None:
