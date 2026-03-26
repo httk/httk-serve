@@ -15,6 +15,7 @@ class PageResult:
     status_code: int
     content_type: str
     body: bytes
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
