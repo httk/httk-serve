@@ -85,6 +85,39 @@ Body text
     assert "Hello" not in blocked_present.text
 
 
+def test_function_injection_accepts_post_form_params(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "functions" / "hello.py").write_text(
+        """def execute(name, global_data, **kwargs):
+    return f"FROM-POST:{name}"
+""",
+        encoding="utf-8",
+    )
+
+    (src / "templates" / "default.html.j2").write_text("{{ greeting }}|{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "greeting_fragment.html.j2").write_text("Hello {{ result }}!", encoding="utf-8")
+
+    (src / "content" / "index.md").write_text(
+        """---
+template: default
+greeting-function: hello:name:greeting_fragment
+---
+
+Body text
+""",
+        encoding="utf-8",
+    )
+
+    app = create_asgi_app(src)
+    with TestClient(app) as client:
+        response = client.post("/", data={"name": "Rick"})
+
+    assert response.status_code == 200
+    assert "Hello FROM-POST:Rick!" in response.text
+
+
 def test_invalid_function_spec_returns_controlled_500(tmp_path: Path) -> None:
     src = _make_src(tmp_path)
 

@@ -7,6 +7,7 @@ from httk.web.functions import PythonFunctionHandler
 from httk.web.model.config import SiteConfig
 from httk.web.model.errors import FunctionInjectionError, NotFoundError
 from httk.web.model.page import PageResult, ResolvedRoute
+from httk.web.model.request import HttpRequestContext
 from httk.web.renderers import RENDERERS_BY_SUFFIX
 from httk.web.templating import JinjaTemplateEngine, TemplateRenderInput
 
@@ -20,7 +21,12 @@ class SiteEngine:
     def resolve(self, route: str) -> ResolvedRoute:
         return resolve_route(config=self.config, route=route)
 
-    def render(self, route: str, query: dict[str, str] | None = None) -> PageResult:
+    def render(
+        self,
+        route: str,
+        query: dict[str, str] | None = None,
+        request: HttpRequestContext | None = None,
+    ) -> PageResult:
         resolved = self.resolve(route)
 
         if resolved.kind == "missing" or resolved.source_path is None:
@@ -30,7 +36,22 @@ class SiteEngine:
             content_type = guess_type(str(resolved.source_path))[0] or "application/octet-stream"
             return PageResult(status_code=200, content_type=content_type, body=resolved.source_path.read_bytes())
 
-        query_params = dict(query or {})
+        if request is None:
+            request_context = HttpRequestContext(query=dict(query or {}))
+        else:
+            request_context = request
+            if query is not None:
+                request_context = HttpRequestContext(
+                    method=request.method,
+                    query=dict(query),
+                    postvars=request.postvars,
+                    headers=request.headers,
+                )
+
+        query_params = dict(request_context.query)
+        postvars = dict(request_context.postvars)
+        request_params = dict(query_params)
+        request_params.update(postvars)
         rendered_html, metadata = self._render_content_without_templates(resolved)
         route_key = normalize_route(route)
         warnings: list[str] = []
@@ -38,11 +59,17 @@ class SiteEngine:
         template_name = self._metadata_string(metadata, "template", default="default")
         base_template_name = self._metadata_string(metadata, "base_template", default="base_default")
 
-        context = self._build_template_context(route_key=route_key, metadata=metadata, query=query_params)
+        context = self._build_template_context(
+            route_key=route_key,
+            metadata=metadata,
+            query=query_params,
+            postvars=postvars,
+            request=request_context,
+        )
         self._apply_function_injections(
             metadata=metadata,
             context=context,
-            query=query_params,
+            params=request_params,
             route_key=route_key,
             warnings=warnings,
         )
@@ -82,6 +109,8 @@ class SiteEngine:
         route_key: str,
         metadata: dict[str, object],
         query: dict[str, str],
+        postvars: dict[str, str],
+        request: HttpRequestContext,
     ) -> dict[str, object]:
         context: dict[str, object] = dict(metadata)
         page_cache: dict[str, tuple[str, dict[str, object]]] = {}
@@ -144,6 +173,8 @@ class SiteEngine:
         context["listdir"] = listdir
         context["pages"] = pages
         context["query"] = dict(query)
+        context["postvars"] = dict(postvars)
+        context["request"] = request
         context["page"] = {
             "relurl": route_key,
             "absurl": self._absolute_url(route_key),
@@ -156,7 +187,7 @@ class SiteEngine:
         *,
         metadata: dict[str, object],
         context: dict[str, object],
-        query: dict[str, str],
+        params: dict[str, str],
         route_key: str,
         warnings: list[str],
     ) -> None:
@@ -173,16 +204,16 @@ class SiteEngine:
                 function_name, arg_specs, function_template = self._parse_function_spec(raw_spec)
                 required = [x.strip() for x in arg_specs.split(",") if x.strip()]
 
-                if not self._function_args_satisfied(required, query):
+                if not self._function_args_satisfied(required, params):
                     context[output_name] = ""
                     metadata[output_name] = ""
                     warnings.append(
-                        f"Function '{function_name}' on route '{route_key}' skipped: query constraints not satisfied."
+                        f"Function '{function_name}' on route '{route_key}' skipped: input parameter constraints not satisfied."
                     )
                     del metadata[function_key]
                     continue
 
-                result = self.function_handler.execute(function_name=function_name, query=query, global_data=context)
+                result = self.function_handler.execute(function_name=function_name, params=params, global_data=context)
                 joint_context = dict(context)
                 joint_context["result"] = result
 
