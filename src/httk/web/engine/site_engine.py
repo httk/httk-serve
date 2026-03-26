@@ -62,6 +62,7 @@ class SiteEngine:
 
     def _build_template_context(self, *, route_key: str, metadata: dict[str, object]) -> dict[str, object]:
         context: dict[str, object] = dict(metadata)
+        page_cache: dict[str, tuple[str, dict[str, object]]] = {}
 
         def first_value(*values: object) -> object:
             for value in values:
@@ -97,17 +98,24 @@ class SiteEngine:
             return files
 
         def pages(path: str, field: str) -> object:
-            target = self.resolve(path)
-            if target.kind != "content" or target.source_path is None:
-                return None
+            normalized = normalize_route(path)
 
-            page_html, page_metadata = self._render_content_without_templates(target)
+            cached = page_cache.get(normalized)
+            if cached is not None:
+                page_html, page_metadata = cached
+            else:
+                target = self.resolve(path)
+                if target.kind != "content" or target.source_path is None:
+                    return None
+                page_html, page_metadata = self._render_content_without_templates(target)
+                page_cache[normalized] = (page_html, page_metadata)
+
             if field in page_metadata:
                 return page_metadata[field]
             if field in {"content", "html"}:
                 return page_html
             if field == "relurl":
-                return normalize_route(path)
+                return normalized
             return None
 
         context["first_value"] = first_value

@@ -51,11 +51,14 @@ class JinjaTemplateEngine:
         if not candidate:
             return None
 
+        path_candidate = Path(candidate)
+        if not self._is_safe_relative_path(path_candidate):
+            return None
+
         direct = self.template_dir / candidate
         if direct.exists() and direct.is_file():
             return candidate
 
-        path_candidate = Path(candidate)
         if path_candidate.suffix:
             return None
 
@@ -65,3 +68,16 @@ class JinjaTemplateEngine:
                 return f"{candidate}{suffix}"
 
         return None
+
+    def _is_safe_relative_path(self, path_candidate: Path) -> bool:
+        if path_candidate.is_absolute():
+            return False
+
+        base_dir = self.template_dir.resolve(strict=False)
+        resolved_candidate = (self.template_dir / path_candidate).resolve(strict=False)
+
+        try:
+            resolved_candidate.relative_to(base_dir)
+        except ValueError:
+            return False
+        return True

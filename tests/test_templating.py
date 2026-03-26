@@ -75,3 +75,41 @@ def test_template_helper_pages_reads_other_page_metadata(tmp_path: Path) -> None
     result = engine.render("index")
 
     assert result.body.decode("utf-8") == "About Page"
+
+
+def test_template_resolution_rejects_parent_path_escape(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+    outside = tmp_path / "outside.html.j2"
+    outside.write_text("OUTSIDE", encoding="utf-8")
+
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "content" / "index.md").write_text(
+        "---\ntemplate: ../outside\nbase_template: base_default\n---\n\n# Hello",
+        encoding="utf-8",
+    )
+
+    engine = SiteEngine(SiteConfig.from_srcdir(src))
+    result = engine.render("index")
+
+    html = result.body.decode("utf-8")
+    assert "OUTSIDE" not in html
+    assert "<h1>Hello</h1>" in html
+
+
+def test_template_resolution_rejects_absolute_path(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+    outside = tmp_path / "outside_abs.html.j2"
+    outside.write_text("OUTSIDE-ABS", encoding="utf-8")
+
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "content" / "index.md").write_text(
+        f"---\ntemplate: {outside}\nbase_template: base_default\n---\n\n# Hello",
+        encoding="utf-8",
+    )
+
+    engine = SiteEngine(SiteConfig.from_srcdir(src))
+    result = engine.render("index")
+
+    html = result.body.decode("utf-8")
+    assert "OUTSIDE-ABS" not in html
+    assert "<h1>Hello</h1>" in html
