@@ -43,6 +43,13 @@ class JinjaTemplateEngine:
 
         return content
 
+    def render_fragment(self, *, template_name: str, context: dict[str, object]) -> str | None:
+        template_key = self._resolve_template(template_name)
+        if template_key is None:
+            return None
+        template = self._environment.get_template(template_key)
+        return template.render(**context)
+
     def _resolve_template(self, name: str | None) -> str | None:
         if name is None:
             return None

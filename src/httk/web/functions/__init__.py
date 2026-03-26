@@ -1,1 +1,3 @@
-# Placeholder package for Phase 4 function handlers.
+from .python_module import PythonFunctionHandler
+
+__all__ = ["PythonFunctionHandler"]
