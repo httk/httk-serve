@@ -15,8 +15,14 @@ TEMPLATE_SUFFIXES: tuple[str, ...] = (
 
 
 class JinjaTemplateEngine:
-    def __init__(self, template_dir: Path) -> None:
+    def __init__(
+        self,
+        template_dir: Path,
+        *,
+        template_suffixes: tuple[str, ...] = TEMPLATE_SUFFIXES,
+    ) -> None:
         self.template_dir = template_dir
+        self.template_suffixes = template_suffixes
         self._environment = Environment(
             loader=FileSystemLoader(str(template_dir)),
             autoescape=True,
@@ -69,7 +75,7 @@ class JinjaTemplateEngine:
         if path_candidate.suffix:
             return None
 
-        for suffix in TEMPLATE_SUFFIXES:
+        for suffix in self.template_suffixes:
             with_suffix = self.template_dir / f"{candidate}{suffix}"
             if with_suffix.exists() and with_suffix.is_file():
                 return f"{candidate}{suffix}"
@@ -135,7 +141,7 @@ class JinjaTemplateEngine:
         # For bare names, probe the same suffix families as standard template
         # resolution plus legacy html-style names used by old function metadata.
         if not path_candidate.suffix:
-            for suffix in TEMPLATE_SUFFIXES:
+            for suffix in self.template_suffixes:
                 template_key = self._resolve_template(f"{candidate}{suffix}")
                 if template_key is not None:
                     return template_key
