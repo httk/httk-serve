@@ -16,6 +16,7 @@ class PageResult:
     content_type: str
     body: bytes
     metadata: dict[str, object] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

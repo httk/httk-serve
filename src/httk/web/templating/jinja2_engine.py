@@ -44,7 +44,7 @@ class JinjaTemplateEngine:
         return content
 
     def render_fragment(self, *, template_name: str, context: dict[str, object]) -> str | None:
-        template_key = self._resolve_template(template_name)
+        template_key = self._resolve_fragment_template(template_name)
         if template_key is None:
             return None
         template = self._environment.get_template(template_key)
@@ -88,3 +88,56 @@ class JinjaTemplateEngine:
         except ValueError:
             return False
         return True
+
+    def _resolve_fragment_template(self, name: str) -> str | None:
+        """
+        Resolve function-fragment templates with extra legacy compatibility.
+
+        In old httkweb metadata, function templates often used bare names
+        (e.g. `hello_world_result`) and were resolved against the active
+        template engine extension. Here we keep that behavior by probing a few
+        additional suffix variants.
+        """
+        template_key = self._resolve_template(name)
+        if template_key is not None:
+            return template_key
+
+        candidate = name.strip()
+        if not candidate:
+            return None
+
+        path_candidate = Path(candidate)
+        if not self._is_safe_relative_path(path_candidate):
+            return None
+
+        # If metadata already carries an HTML-like suffix (e.g. "fragment.html"),
+        # also probe common Jinja variants that may be present in v2 projects.
+        # This mirrors old usage where function metadata often referenced ".html"
+        # while active template files could be ".html.j2" / ".jinja" / ".j2".
+        if candidate.endswith(".httkweb.html"):
+            stem = candidate[: -len(".httkweb.html")]
+            probes = [f"{candidate}.j2", f"{candidate}.jinja", f"{stem}.html.j2", f"{stem}.jinja", f"{stem}.j2"]
+            for probe in probes:
+                template_key = self._resolve_template(probe)
+                if template_key is not None:
+                    return template_key
+            return None
+
+        if candidate.endswith(".html"):
+            stem = candidate[: -len(".html")]
+            probes = [f"{candidate}.j2", f"{candidate}.jinja", f"{stem}.html.j2", f"{stem}.jinja", f"{stem}.j2"]
+            for probe in probes:
+                template_key = self._resolve_template(probe)
+                if template_key is not None:
+                    return template_key
+            return None
+
+        # For bare names, probe the same suffix families as standard template
+        # resolution plus legacy html-style names used by old function metadata.
+        if not path_candidate.suffix:
+            for suffix in TEMPLATE_SUFFIXES:
+                template_key = self._resolve_template(f"{candidate}{suffix}")
+                if template_key is not None:
+                    return template_key
+
+        return None
