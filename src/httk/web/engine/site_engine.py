@@ -9,13 +9,22 @@ from httk.web.model.errors import FunctionInjectionError, NotFoundError
 from httk.web.model.page import PageResult, ResolvedRoute
 from httk.web.model.request import HttpRequestContext
 from httk.web.renderers import RENDERERS_BY_SUFFIX
-from httk.web.templating import JinjaTemplateEngine, TemplateRenderInput
+from httk.web.templating import (
+    HttkCompatTemplateEngine,
+    JinjaTemplateEngine,
+    TemplateEngine,
+    TemplateRenderInput,
+)
 
 
 class SiteEngine:
     def __init__(self, config: SiteConfig) -> None:
         self.config = config
-        self.template_engine = JinjaTemplateEngine(template_dir=config.template_dir)
+        self.template_engine: TemplateEngine
+        if config.compatibility_mode:
+            self.template_engine = HttkCompatTemplateEngine(template_dir=config.template_dir)
+        else:
+            self.template_engine = JinjaTemplateEngine(template_dir=config.template_dir)
         self.function_handler = PythonFunctionHandler(functions_dir=config.functions_dir)
 
     def resolve(self, route: str) -> ResolvedRoute:

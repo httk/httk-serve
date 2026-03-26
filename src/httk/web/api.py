@@ -14,9 +14,10 @@ def create_asgi_app(
     srcdir: str | Path,
     *,
     baseurl: str | None = None,
+    compatibility_mode: bool = False,
     debug: bool = False,
 ) -> Starlette:
-    config = SiteConfig.from_srcdir(srcdir=srcdir, baseurl=baseurl)
+    config = SiteConfig.from_srcdir(srcdir=srcdir, baseurl=baseurl, compatibility_mode=compatibility_mode)
     engine = SiteEngine(config)
     return create_app(engine=engine, debug=debug)
 
@@ -27,9 +28,10 @@ def serve(
     host: str = "127.0.0.1",
     port: int = 8080,
     baseurl: str | None = None,
+    compatibility_mode: bool = False,
     debug: bool = False,
 ) -> None:
-    app = create_asgi_app(srcdir=srcdir, baseurl=baseurl, debug=debug)
+    app = create_asgi_app(srcdir=srcdir, baseurl=baseurl, compatibility_mode=compatibility_mode, debug=debug)
     run_dev_server(app=app, host=host, port=port)
 
 
@@ -37,7 +39,9 @@ def publish(
     srcdir: str | Path,
     outdir: str | Path,
     baseurl: str,
+    *,
+    compatibility_mode: bool = False,
 ) -> PublishReport:
-    config = SiteConfig.from_srcdir(srcdir=srcdir, baseurl=baseurl)
+    config = SiteConfig.from_srcdir(srcdir=srcdir, baseurl=baseurl, compatibility_mode=compatibility_mode)
     engine = SiteEngine(config)
     return publish_site(engine=engine, outdir=outdir)

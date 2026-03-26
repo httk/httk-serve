@@ -11,10 +11,17 @@ class SiteConfig:
     template_subdir: str = "templates"
     functions_subdir: str = "functions"
     baseurl: str | None = None
+    compatibility_mode: bool = False
 
     @classmethod
-    def from_srcdir(cls, srcdir: str | Path, *, baseurl: str | None = None) -> Self:
-        return cls(srcdir=Path(srcdir).resolve(), baseurl=baseurl)
+    def from_srcdir(
+        cls,
+        srcdir: str | Path,
+        *,
+        baseurl: str | None = None,
+        compatibility_mode: bool = False,
+    ) -> Self:
+        return cls(srcdir=Path(srcdir).resolve(), baseurl=baseurl, compatibility_mode=compatibility_mode)
 
     @property
     def content_dir(self) -> Path:

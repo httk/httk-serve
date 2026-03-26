@@ -1,4 +1,5 @@
-from .base import TemplateRenderInput
+from .base import TemplateEngine, TemplateRenderInput
+from .httk_compat import HttkCompatTemplateEngine
 from .jinja2_engine import JinjaTemplateEngine
 
-__all__ = ["TemplateRenderInput", "JinjaTemplateEngine"]
+__all__ = ["TemplateRenderInput", "TemplateEngine", "JinjaTemplateEngine", "HttkCompatTemplateEngine"]
