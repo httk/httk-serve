@@ -118,6 +118,120 @@ Body text
     assert "Hello FROM-POST:Rick!" in response.text
 
 
+def test_function_injection_accepts_post_json_params(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "functions" / "hello.py").write_text(
+        """def execute(name, global_data, **kwargs):
+    return f"FROM-JSON:{name}"
+""",
+        encoding="utf-8",
+    )
+
+    (src / "templates" / "default.html.j2").write_text("{{ greeting }}|{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "greeting_fragment.html.j2").write_text("Hello {{ result }}!", encoding="utf-8")
+
+    (src / "content" / "index.md").write_text(
+        """---
+template: default
+greeting-function: hello:name:greeting_fragment
+---
+
+Body text
+""",
+        encoding="utf-8",
+    )
+
+    app = create_asgi_app(src)
+    with TestClient(app) as client:
+        response = client.post("/", json={"name": "Rick"})
+
+    assert response.status_code == 200
+    assert "Hello FROM-JSON:Rick!" in response.text
+
+
+def test_function_injection_accepts_post_multipart_and_maps_upload_filename(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "functions" / "hello.py").write_text(
+        """def execute(name, upload, global_data, **kwargs):
+    return f"{name}:{upload}"
+""",
+        encoding="utf-8",
+    )
+
+    (src / "templates" / "default.html.j2").write_text("{{ greeting }}|{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "greeting_fragment.html.j2").write_text("Hello {{ result }}!", encoding="utf-8")
+
+    (src / "content" / "index.md").write_text(
+        """---
+template: default
+greeting-function: hello:name,upload:greeting_fragment
+---
+
+Body text
+""",
+        encoding="utf-8",
+    )
+
+    app = create_asgi_app(src)
+    with TestClient(app) as client:
+        response = client.post("/", data={"name": "Rick"}, files={"upload": ("example.txt", b"abc", "text/plain")})
+
+    assert response.status_code == 200
+    assert "Hello Rick:example.txt!" in response.text
+
+
+def test_invalid_json_post_does_not_crash_and_skips_required_function(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "functions" / "hello.py").write_text(
+        """def execute(name, global_data, **kwargs):
+    return name.upper()
+""",
+        encoding="utf-8",
+    )
+
+    (src / "templates" / "default.html.j2").write_text("{{ greeting }}|{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "greeting_fragment.html.j2").write_text("Hello {{ result }}!", encoding="utf-8")
+
+    (src / "content" / "index.md").write_text(
+        """---
+template: default
+greeting-function: hello:name:greeting_fragment
+---
+
+Body text
+""",
+        encoding="utf-8",
+    )
+
+    app = create_asgi_app(src)
+    with TestClient(app) as client:
+        response = client.post("/", content="{bad json", headers={"content-type": "application/json"})
+
+    assert response.status_code == 200
+    assert "Hello" not in response.text
+
+
+def test_oversized_json_post_returns_413(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "templates" / "default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "content" / "index.md").write_text("---\ntemplate: default\n---\n\nBody text", encoding="utf-8")
+
+    app = create_asgi_app(src)
+    payload = "x" * 1_100_000
+    with TestClient(app) as client:
+        response = client.post("/", content=payload, headers={"content-type": "application/json"})
+
+    assert response.status_code == 413
+
+
 def test_invalid_function_spec_returns_controlled_500(tmp_path: Path) -> None:
     src = _make_src(tmp_path)
 
