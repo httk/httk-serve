@@ -34,6 +34,7 @@ def publish_site(*, engine: SiteEngine, outdir: str | Path) -> PublishReport:
             rel = content_file.relative_to(content_dir)
             route = str(rel.with_suffix(""))
             result = engine.render(route)
+            warnings.extend(result.warnings)
 
             target = output_root / rel.with_suffix(".html")
             target.parent.mkdir(parents=True, exist_ok=True)

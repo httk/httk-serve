@@ -33,12 +33,19 @@ class SiteEngine:
         query_params = dict(query or {})
         rendered_html, metadata = self._render_content_without_templates(resolved)
         route_key = normalize_route(route)
+        warnings: list[str] = []
 
         template_name = self._metadata_string(metadata, "template", default="default")
         base_template_name = self._metadata_string(metadata, "base_template", default="base_default")
 
         context = self._build_template_context(route_key=route_key, metadata=metadata, query=query_params)
-        self._apply_function_injections(metadata=metadata, context=context, query=query_params)
+        self._apply_function_injections(
+            metadata=metadata,
+            context=context,
+            query=query_params,
+            route_key=route_key,
+            warnings=warnings,
+        )
 
         content_html = self.template_engine.render(
             TemplateRenderInput(
@@ -54,6 +61,7 @@ class SiteEngine:
             content_type="text/html; charset=utf-8",
             body=content_html.encode("utf-8"),
             metadata=metadata,
+            warnings=warnings,
         )
 
     def _render_content_without_templates(self, resolved: ResolvedRoute) -> tuple[str, dict[str, object]]:
@@ -149,6 +157,8 @@ class SiteEngine:
         metadata: dict[str, object],
         context: dict[str, object],
         query: dict[str, str],
+        route_key: str,
+        warnings: list[str],
     ) -> None:
         function_keys = [key for key in metadata if key.endswith("-function")]
 
@@ -166,6 +176,9 @@ class SiteEngine:
                 if not self._function_args_satisfied(required, query):
                     context[output_name] = ""
                     metadata[output_name] = ""
+                    warnings.append(
+                        f"Function '{function_name}' on route '{route_key}' skipped: query constraints not satisfied."
+                    )
                     del metadata[function_key]
                     continue
 
@@ -176,6 +189,9 @@ class SiteEngine:
                 fragment = self.template_engine.render_fragment(template_name=function_template, context=joint_context)
                 if fragment is None:
                     output = str(result)
+                    warnings.append(
+                        f"Function '{function_name}' on route '{route_key}' rendered without template '{function_template}'."
+                    )
                 else:
                     output = Markup(fragment)
 
