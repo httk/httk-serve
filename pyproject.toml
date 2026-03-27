@@ -44,6 +44,16 @@ dev = [
   "pyright",
   "mypy"
 ]
+docs = [
+  "sphinx",
+  "furo",
+  "myst-parser",
+  "myst-nb",
+  "sphinx-autodoc-typehints",
+  "sphinx-copybutton",
+  "sphinx-autoapi"
+]
+
 
 [tool.setuptools]
 package-dir = {"" = "src"}

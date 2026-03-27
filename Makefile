@@ -1,8 +1,17 @@
 PYTHON ?= python3
 
-.PHONY: clean format format-check typecheck typecheck_pyright lint test test_fastfail audit
+.PHONY: docs docs-live docs-clean clean format format-check typecheck typecheck_pyright lint test test_fastfail audit
 
-clean:
+docs:
+	$(PYTHON) -m sphinx -b html -W --keep-going docs docs/_build/html
+
+docs-live:
+	sphinx-autobuild docs docs/_build/html
+
+docs-clean:
+	rm -rf docs/_build docs/reference/autoapi
+
+clean: docs-clean
 	find . -name "*.pyc" -print0 | xargs -0 rm -f
 	find . -name "*~" -print0 | xargs -0 rm -f
 	find . -name "__pycache__" -print0 | xargs -0 rm -rf
