@@ -12,6 +12,7 @@ class SiteConfig:
     functions_subdir: str = "functions"
     baseurl: str | None = None
     compatibility_mode: bool = False
+    config_name: str = "config"
 
     @classmethod
     def from_srcdir(
@@ -20,8 +21,14 @@ class SiteConfig:
         *,
         baseurl: str | None = None,
         compatibility_mode: bool = False,
+        config_name: str = "config",
     ) -> Self:
-        return cls(srcdir=Path(srcdir).resolve(), baseurl=baseurl, compatibility_mode=compatibility_mode)
+        return cls(
+            srcdir=Path(srcdir).resolve(),
+            baseurl=baseurl,
+            compatibility_mode=compatibility_mode,
+            config_name=config_name,
+        )
 
     @property
     def content_dir(self) -> Path:
@@ -37,4 +44,11 @@ class SiteConfig:
 
     @property
     def functions_dir(self) -> Path:
-        return self.srcdir / self.functions_subdir
+        primary = self.srcdir / self.functions_subdir
+        if primary.exists():
+            return primary
+        if self.compatibility_mode:
+            legacy = self.srcdir / "_functions"
+            if legacy.exists():
+                return legacy
+        return primary

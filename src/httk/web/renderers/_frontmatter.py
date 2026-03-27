@@ -39,6 +39,8 @@ def split_front_matter(text: str) -> tuple[dict[str, Any], str]:
                         target_list = normalized[base_key]
                         if isinstance(value, list):
                             target_list.extend(value)
+                        elif isinstance(value, str):
+                            target_list.extend([x.strip() for x in value.split(",") if x.strip()])
                         elif value is not None:
                             target_list.append(value)
                     else:

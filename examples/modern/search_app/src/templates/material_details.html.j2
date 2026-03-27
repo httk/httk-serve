@@ -1,0 +1,10 @@
+{% if result %}
+<ul>
+  <li><strong>ID:</strong> {{ result['id'] }}</li>
+  <li><strong>Formula:</strong> {{ result['formula'] }}</li>
+  <li><strong>Name:</strong> {{ result['name'] }}</li>
+  <li><strong>Spacegroup:</strong> {{ result['spacegroup'] }}</li>
+</ul>
+{% else %}
+<p>No details found.</p>
+{% endif %}

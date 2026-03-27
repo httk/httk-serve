@@ -1,0 +1,13 @@
+<article>
+  <h2>{{ title }}</h2>
+  {{ content }}
+  <h3>Latest posts</h3>
+  <ul>
+    {% for rel in blogposts_latest %}
+    <li>
+      <a href="{{ page.relbaseurl }}/{{ pages(rel, 'relurl') }}.html">{{ pages(rel, 'title') }}</a>
+      ({{ pages(rel, 'date') }})
+    </li>
+    {% endfor %}
+  </ul>
+</article>
