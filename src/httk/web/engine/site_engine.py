@@ -200,7 +200,7 @@ class SiteEngine:
         page_data = {
             key: value
             for key, value in metadata.items()
-            if isinstance(key, str) and key and not key.startswith("_") and not key.endswith("-function")
+            if isinstance(key, str) and key and not key.startswith("_") and not key.lower().endswith("-function")
         }
         page_data.update(
             {

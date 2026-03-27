@@ -21,9 +21,9 @@ class HttkTemplateFormatter(string.Formatter):
 
     def _format_field(self, value: Any, spec: str, quote: bool | None) -> str:
         if spec == "unquoted" or spec.startswith("unquoted:"):
-            return self._format_field(value, spec[len("unquoted::") :], quote=False)
+            return self._format_field(value, spec[len("unquoted:") :], quote=False)
         if spec == "quote" or spec.startswith("quote:"):
-            return self._format_field(value, spec[len("quote::") :], quote=True)
+            return self._format_field(value, spec[len("quote:") :], quote=True)
 
         if spec.startswith("repeat:"):
             template = spec.partition("::")[-1]
@@ -174,6 +174,12 @@ class HttkTemplateFormatter(string.Formatter):
             return None, field_name
 
     def vformat(self, format_string: str, args: Sequence[Any], kwargs: Mapping[str, Any]) -> str:
+        previous_args = self._current_args
+        previous_kwargs = self._current_kwargs
         self._current_args = args
         self._current_kwargs = kwargs
-        return super().vformat(format_string, args, kwargs)
+        try:
+            return super().vformat(format_string, args, kwargs)
+        finally:
+            self._current_args = previous_args
+            self._current_kwargs = previous_kwargs
