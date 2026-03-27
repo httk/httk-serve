@@ -7,6 +7,7 @@ Quick links
 -----------
 
 - :doc:`how_it_works`
+- :doc:`migration_legacy_to_jinja2`
 - :doc:`reference`
 
 .. toctree::
@@ -14,4 +15,5 @@ Quick links
    :caption: Documentation
 
    how_it_works
+   migration_legacy_to_jinja2
    reference

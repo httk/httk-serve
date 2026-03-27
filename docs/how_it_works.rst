@@ -99,3 +99,5 @@ Migrated legacy examples are available under ``examples/legacy``:
 - ``search_app``
 
 For legacy examples that use optional old ``httk`` subsystems, availability depends on those dependencies.
+
+See also: :doc:`migration_legacy_to_jinja2`.
