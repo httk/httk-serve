@@ -1,0 +1,21 @@
+<section>
+  <h1>{{ title }}</h1>
+  {{ content }}
+
+  <form method="get" action="{{ page.relbaseurl }}/index.html">
+    <label>
+      Query
+      <input type="text" name="q" value="{{ query.get('q', '') }}" />
+    </label>
+    <button type="submit">Search</button>
+  </form>
+
+  {% if results %}
+  {{ results }}
+  {% endif %}
+
+  {% if details %}
+  <h2>Material details</h2>
+  {{ details }}
+  {% endif %}
+</section>

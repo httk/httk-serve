@@ -1,0 +1,12 @@
+<article>
+  <h2>{{ title }}</h2>
+  {{ content }}
+  <ul>
+    {% for rel in blogposts %}
+    <li>
+      <a href="{{ page.relbaseurl }}/{{ pages(rel, 'relurl') }}.html">{{ pages(rel, 'title') }}</a>
+      by {{ pages(rel, 'author') }} ({{ pages(rel, 'date') }})
+    </li>
+    {% endfor %}
+  </ul>
+</article>

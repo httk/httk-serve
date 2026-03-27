@@ -26,6 +26,8 @@ class SiteEngine:
         else:
             self.template_engine = JinjaTemplateEngine(template_dir=config.template_dir)
         self.function_handler = PythonFunctionHandler(functions_dir=config.functions_dir)
+        self.global_data: dict[str, object] = self._load_global_config_metadata()
+        self._run_init_function()
 
     def resolve(self, route: str) -> ResolvedRoute:
         return resolve_route(config=self.config, route=route)
@@ -65,8 +67,17 @@ class SiteEngine:
         route_key = normalize_route(route)
         warnings: list[str] = []
 
-        template_name = self._metadata_string(metadata, "template", default="default")
-        base_template_name = self._metadata_string(metadata, "base_template", default="base_default")
+        render_mode = "serve" if request is not None else "publish"
+        template_name = self._metadata_string(
+            metadata,
+            f"template_{render_mode}",
+            default=self._metadata_string(metadata, "template", default="default"),
+        )
+        base_template_name = self._metadata_string(
+            metadata,
+            f"base_template_{render_mode}",
+            default=self._metadata_string(metadata, "base_template", default="base_default"),
+        )
 
         context = self._build_template_context(
             route_key=route_key,
@@ -121,7 +132,8 @@ class SiteEngine:
         postvars: dict[str, str],
         request: HttpRequestContext,
     ) -> dict[str, object]:
-        context: dict[str, object] = dict(metadata)
+        context: dict[str, object] = dict(self.global_data)
+        context.update(metadata)
         page_cache: dict[str, tuple[str, dict[str, object]]] = {}
 
         def first_value(*values: object) -> object:
@@ -170,8 +182,9 @@ class SiteEngine:
                 page_html, page_metadata = self._render_content_without_templates(target)
                 page_cache[normalized] = (page_html, page_metadata)
 
-            if field in page_metadata:
-                return page_metadata[field]
+            metadata_value = self._metadata_field_value(page_metadata, field)
+            if metadata_value is not None:
+                return metadata_value
             if field in {"content", "html"}:
                 return page_html
             if field == "relurl":
@@ -184,11 +197,20 @@ class SiteEngine:
         context["query"] = dict(query)
         context["postvars"] = dict(postvars)
         context["request"] = request
-        context["page"] = {
-            "relurl": route_key,
-            "absurl": self._absolute_url(route_key),
-            "relbaseurl": self._relative_base(route_key),
+        page_data = {
+            key: value
+            for key, value in metadata.items()
+            if isinstance(key, str) and key and not key.startswith("_") and not key.endswith("-function")
         }
+        page_data.update(
+            {
+                "relurl": route_key,
+                "absurl": self._absolute_url(route_key),
+                "relbaseurl": self._relative_base(route_key),
+                "functionurl": self._absolute_url(route_key),
+            }
+        )
+        context["page"] = page_data
         return context
 
     def _apply_function_injections(
@@ -200,7 +222,7 @@ class SiteEngine:
         route_key: str,
         warnings: list[str],
     ) -> None:
-        function_keys = [key for key in metadata if key.endswith("-function")]
+        function_keys = [key for key in metadata if isinstance(key, str) and key.lower().endswith("-function")]
 
         for function_key in function_keys:
             try:
@@ -291,3 +313,67 @@ class SiteEngine:
             stripped = value.strip()
             return stripped if stripped else default
         return default
+
+    def _load_global_config_metadata(self) -> dict[str, object]:
+        config_name = self.config.config_name.strip()
+        if not config_name:
+            return {}
+
+        for suffix, renderer in RENDERERS_BY_SUFFIX.items():
+            candidate = self.config.srcdir / f"{config_name}{suffix}"
+            if not candidate.exists() or not candidate.is_file():
+                continue
+            rendered = renderer.render(candidate)
+            metadata = dict(rendered.metadata)
+            return self._normalize_legacy_list_keys(metadata)
+
+        return {}
+
+    def _run_init_function(self) -> None:
+        init_file = self.config.functions_dir / "init.py"
+        if not init_file.exists() or not init_file.is_file():
+            return
+
+        init_context = dict(self.global_data)
+        init_context["pages"] = self._global_pages_helper
+        self.function_handler.execute(function_name="init", params={}, global_data=init_context)
+        self.global_data.update(init_context)
+
+    def _normalize_legacy_list_keys(self, metadata: dict[str, object]) -> dict[str, object]:
+        normalized = dict(metadata)
+        for key, value in list(metadata.items()):
+            if not isinstance(key, str) or not key.endswith("-list"):
+                continue
+            base_key = key[: -len("-list")]
+            if isinstance(value, list):
+                normalized[base_key] = value
+            elif isinstance(value, str):
+                normalized[base_key] = [x.strip() for x in value.split(",") if x.strip()]
+            elif value is None:
+                normalized[base_key] = []
+            else:
+                normalized[base_key] = [value]
+        return normalized
+
+    def _global_pages_helper(self, path: str, field: str) -> object:
+        target = self.resolve(path)
+        if target.kind != "content" or target.source_path is None:
+            return None
+
+        page_html, page_metadata = self._render_content_without_templates(target)
+        metadata_value = self._metadata_field_value(page_metadata, field)
+        if metadata_value is not None:
+            return metadata_value
+        if field in {"content", "html"}:
+            return page_html
+        if field == "relurl":
+            return normalize_route(path)
+        return None
+
+    def _metadata_field_value(self, metadata: dict[str, object], field: str) -> object:
+        if field in metadata:
+            return metadata[field]
+        for key, value in metadata.items():
+            if isinstance(key, str) and key.lower() == field.lower():
+                return value
+        return None
