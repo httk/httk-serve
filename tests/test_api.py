@@ -102,6 +102,110 @@ def test_publish_can_add_html_suffix_to_links(tmp_path: Path) -> None:
     assert "|index.html" in rendered
 
 
+def test_publish_split_hosting_routes_links_by_page_dynamism(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    out = tmp_path / "public"
+    (src / "content").mkdir(parents=True)
+    (src / "static").mkdir(parents=True)
+    (src / "templates").mkdir(parents=True)
+    (src / "functions").mkdir(parents=True)
+
+    (src / "functions" / "dynamic.py").write_text(
+        "def execute(global_data=None, **kwargs):\n"
+        "    return 'ok'\n",
+        encoding="utf-8",
+    )
+    (src / "templates" / "dynamic_fragment.html.j2").write_text("{{ result }}", encoding="utf-8")
+
+    (src / "content" / "about.md").write_text("---\ntitle: About\n---\n\nabout", encoding="utf-8")
+    (src / "content" / "search.md").write_text(
+        "---\ntitle: Search\nresult-function: dynamic::dynamic_fragment\n---\n\nsearch",
+        encoding="utf-8",
+    )
+    (src / "content" / "index.md").write_text(
+        "---\ntemplate: default\n---\n\n[About](about)\n[Search](search)\n",
+        encoding="utf-8",
+    )
+    (src / "templates" / "default.html.j2").write_text(
+        (
+            "about={{ pages(\"about\", \"relurl\") }}"
+            "|search={{ pages(\"search\", \"relurl\") }}"
+            "|abs={{ page.absurl }}"
+            "|{{ content }}"
+        ),
+        encoding="utf-8",
+    )
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+
+    publish(
+        src,
+        out,
+        "https://dynamic.example",
+        host_static="https://static.example",
+        use_urls_without_ext=False,
+    )
+
+    rendered = (out / "index.html").read_text(encoding="utf-8")
+    assert "about=about.html" in rendered
+    assert "search=https://dynamic.example/search.html" in rendered
+    assert "abs=https://static.example/index.html" in rendered
+    assert 'href="about.html"' in rendered
+    assert 'href="https://dynamic.example/search.html"' in rendered
+
+
+def test_publish_split_hosting_frontmatter_overrides(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    out = tmp_path / "public"
+    (src / "content").mkdir(parents=True)
+    (src / "static").mkdir(parents=True)
+    (src / "templates").mkdir(parents=True)
+    (src / "functions").mkdir(parents=True)
+
+    (src / "functions" / "dynamic.py").write_text(
+        "def execute(global_data=None, **kwargs):\n"
+        "    return 'ok'\n",
+        encoding="utf-8",
+    )
+    (src / "templates" / "dynamic_fragment.html.j2").write_text("{{ result }}", encoding="utf-8")
+
+    (src / "content" / "precomputed.md").write_text(
+        (
+            "---\n"
+            "title: Precomputed\n"
+            "hosting: static\n"
+            "result-function: dynamic::dynamic_fragment\n"
+            "---\n\nprecomputed\n"
+        ),
+        encoding="utf-8",
+    )
+    (src / "content" / "docs.md").write_text(
+        "---\ntitle: Docs\nhosting: dynamic\n---\n\ndocs",
+        encoding="utf-8",
+    )
+    (src / "content" / "index.md").write_text("---\ntemplate: default\n---\n\nhome", encoding="utf-8")
+    (src / "templates" / "default.html.j2").write_text(
+        "pre={{ pages(\"precomputed\", \"relurl\") }}|docs={{ pages(\"docs\", \"relurl\") }}|abs={{ page.absurl }}|{{ content }}",
+        encoding="utf-8",
+    )
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+
+    publish(
+        src,
+        out,
+        "https://dynamic.example",
+        host_static="https://static.example",
+        use_urls_without_ext=False,
+    )
+
+    index_rendered = (out / "index.html").read_text(encoding="utf-8")
+    assert "pre=precomputed.html" in index_rendered
+    assert "docs=https://dynamic.example/docs.html" in index_rendered
+    assert "abs=https://static.example/index.html" in index_rendered
+
+    docs_rendered = (out / "docs.html").read_text(encoding="utf-8")
+    assert "abs=https://dynamic.example/docs.html" in docs_rendered
+
+
 def test_publish_rewrites_markdown_internal_links_with_html_suffix(tmp_path: Path) -> None:
     src = tmp_path / "src"
     out = tmp_path / "public"

@@ -11,6 +11,7 @@ class SiteConfig:
     template_subdir: str = "templates"
     functions_subdir: str = "functions"
     baseurl: str | None = None
+    host_static: str | None = None
     compatibility_mode: bool = False
     config_name: str = "config"
     publish_use_urls_without_ext: bool = True
@@ -21,6 +22,7 @@ class SiteConfig:
         srcdir: str | Path,
         *,
         baseurl: str | None = None,
+        host_static: str | None = None,
         compatibility_mode: bool = False,
         config_name: str = "config",
         publish_use_urls_without_ext: bool = True,
@@ -28,6 +30,7 @@ class SiteConfig:
         return cls(
             srcdir=Path(srcdir).resolve(),
             baseurl=baseurl,
+            host_static=host_static,
             compatibility_mode=compatibility_mode,
             config_name=config_name,
             publish_use_urls_without_ext=publish_use_urls_without_ext,
