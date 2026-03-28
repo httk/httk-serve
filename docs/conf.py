@@ -15,6 +15,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
+    "myst_parser",
 ]
 
 templates_path = ["_templates"]
@@ -41,3 +42,12 @@ intersphinx_mapping = {
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
+
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist",
+    "fieldlist",
+    "substitution",
+    "tasklist",
+]
+myst_heading_anchors = 3
