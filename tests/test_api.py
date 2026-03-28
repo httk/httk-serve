@@ -137,6 +137,7 @@ def test_publish_link_rewrite_skips_data_attrs_and_script_text(tmp_path: Path) -
     (src / "templates" / "default.html.j2").write_text(
         (
             "<a title='a>b' href='about'>about</a>"
+            "<button onclick=\"if (x > 0) { console.log('href=about'); }\">x</button>"
             "<div data-href='about'>data</div>"
             "<script>const x = \"href='about'\";</script>"
             "<img src='about'/>"
@@ -152,6 +153,7 @@ def test_publish_link_rewrite_skips_data_attrs_and_script_text(tmp_path: Path) -
     assert "title='a>b'" in rendered
     assert "src='about.html'" in rendered
     assert "data-href='about'" in rendered
+    assert "onclick=\"if (x > 0) { console.log('href=about'); }\"" in rendered
     assert "href='about'\";</script>" in rendered
 
 

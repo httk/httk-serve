@@ -394,9 +394,6 @@ class SiteEngine:
         return route_key
 
     _HTML_TAG_PATTERN = re.compile(r"""<(?:[^<>"']+|"[^"]*"|'[^']*')+>""")
-    _URL_ATTR_PATTERN = re.compile(
-        r"(?:(?<=^)|(?<=\s)|(?<=<))" r"(?P<prefix>(?:href|src)\s*=\s*)" r"(?P<quote>['\"])" r"(?P<url>.*?)(?P=quote)"
-    )
     _ASSET_EXTENSIONS = {
         ".css",
         ".js",
@@ -427,23 +424,92 @@ class SiteEngine:
 
         route_exists_cache: dict[str, bool] = {}
 
-        def replace_attr(match: re.Match[str]) -> str:
-            original_url = match.group("url")
-            rewritten_url = self._rewrite_internal_url(
-                original_url, route_key=route_key, route_exists_cache=route_exists_cache
-            )
-            if rewritten_url is None:
-                return match.group(0)
-            return f"{match.group('prefix')}{match.group('quote')}{rewritten_url}{match.group('quote')}"
-
         def replace_tag(match: re.Match[str]) -> str:
             tag = match.group(0)
             # Keep declarations/comments/closing tags untouched.
             if tag.startswith("</") or tag.startswith("<!--") or tag.startswith("<!"):
                 return tag
-            return self._URL_ATTR_PATTERN.sub(replace_attr, tag)
+            return self._rewrite_tag_urls(tag, route_key=route_key, route_exists_cache=route_exists_cache)
 
         return self._HTML_TAG_PATTERN.sub(replace_tag, html)
+
+    def _rewrite_tag_urls(self, tag: str, *, route_key: str, route_exists_cache: dict[str, bool]) -> str:
+        n = len(tag)
+        if n < 3 or not tag.startswith("<") or not tag.endswith(">"):
+            return tag
+
+        i = 1
+        while i < n - 1 and tag[i].isspace():
+            i += 1
+
+        # Skip tag name.
+        while i < n - 1 and not tag[i].isspace() and tag[i] not in {"/", ">"}:
+            i += 1
+
+        parts: list[str] = []
+        last = 0
+        while i < n - 1:
+            while i < n - 1 and tag[i].isspace():
+                i += 1
+            if i >= n - 1 or tag[i] in {">", "/"}:
+                break
+
+            name_start = i
+            while i < n - 1 and not tag[i].isspace() and tag[i] not in {"=", ">", "/"}:
+                i += 1
+            if i == name_start:
+                i += 1
+                continue
+            attr_name = tag[name_start:i].lower()
+
+            while i < n - 1 and tag[i].isspace():
+                i += 1
+            if i >= n - 1 or tag[i] != "=":
+                continue
+            i += 1
+
+            while i < n - 1 and tag[i].isspace():
+                i += 1
+            if i >= n - 1:
+                break
+
+            if tag[i] in {"'", '"'}:
+                quote = tag[i]
+                value_start = i + 1
+                value_end = tag.find(quote, value_start)
+                if value_end < 0:
+                    break
+                raw_value = tag[value_start:value_end]
+                if attr_name in {"href", "src"}:
+                    rewritten_value = self._rewrite_internal_url(
+                        raw_value, route_key=route_key, route_exists_cache=route_exists_cache
+                    )
+                    if rewritten_value is not None:
+                        parts.append(tag[last:value_start])
+                        parts.append(rewritten_value)
+                        last = value_end
+                i = value_end + 1
+                continue
+
+            # Unquoted attribute value.
+            value_start = i
+            while i < n - 1 and not tag[i].isspace() and tag[i] != ">":
+                i += 1
+            value_end = i
+            raw_value = tag[value_start:value_end]
+            if attr_name in {"href", "src"}:
+                rewritten_value = self._rewrite_internal_url(
+                    raw_value, route_key=route_key, route_exists_cache=route_exists_cache
+                )
+                if rewritten_value is not None:
+                    parts.append(tag[last:value_start])
+                    parts.append(rewritten_value)
+                    last = value_end
+
+        if not parts:
+            return tag
+        parts.append(tag[last:])
+        return "".join(parts)
 
     def _rewrite_internal_url(
         self,
