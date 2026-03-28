@@ -81,7 +81,7 @@ Use Jinja2 control blocks directly.
 Legacy:
 
 ```text
-{error_404_reason:if:Reason: {error_404_reason}}
+{error_404_reason:if::Reason: {error_404_reason}}
 ```
 
 Modern:
