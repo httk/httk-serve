@@ -58,6 +58,28 @@ def test_publish_uses_extensionless_links_by_default_for_modern_mode(tmp_path: P
     assert "|index" in rendered
 
 
+def test_publish_uses_html_suffix_links_by_default_for_compatibility_mode(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    out = tmp_path / "public"
+    (src / "content").mkdir(parents=True)
+    (src / "static").mkdir(parents=True)
+    (src / "templates").mkdir(parents=True)
+
+    (src / "content" / "about.md").write_text("---\ntitle: About\n---\n\nabout", encoding="utf-8")
+    (src / "content" / "index.md").write_text("---\ntemplate: default\n---\n\nhome", encoding="utf-8")
+    (src / "templates" / "default.html.j2").write_text(
+        "<a href='{{ pages(\"about\", \"relurl\") }}'>about</a>|{{ page.relurl }}",
+        encoding="utf-8",
+    )
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+
+    publish(src, out, "http://localhost/", compatibility_mode=True)
+
+    rendered = (out / "index.html").read_text(encoding="utf-8")
+    assert "href='about.html'" in rendered
+    assert "|index.html" in rendered
+
+
 def test_publish_can_add_html_suffix_to_links(tmp_path: Path) -> None:
     src = tmp_path / "src"
     out = tmp_path / "public"
@@ -114,7 +136,7 @@ def test_publish_link_rewrite_skips_data_attrs_and_script_text(tmp_path: Path) -
     (src / "content" / "index.md").write_text("---\ntemplate: default\n---\n\nhome", encoding="utf-8")
     (src / "templates" / "default.html.j2").write_text(
         (
-            "<a href='about'>about</a>"
+            "<a title='a>b' href='about'>about</a>"
             "<div data-href='about'>data</div>"
             "<script>const x = \"href='about'\";</script>"
             "<img src='about'/>"
@@ -127,6 +149,7 @@ def test_publish_link_rewrite_skips_data_attrs_and_script_text(tmp_path: Path) -
 
     rendered = (out / "index.html").read_text(encoding="utf-8")
     assert "href='about.html'" in rendered
+    assert "title='a>b'" in rendered
     assert "src='about.html'" in rendered
     assert "data-href='about'" in rendered
     assert "href='about'\";</script>" in rendered

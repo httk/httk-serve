@@ -393,7 +393,7 @@ class SiteEngine:
             return f"{route_key}.html"
         return route_key
 
-    _HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+    _HTML_TAG_PATTERN = re.compile(r"""<(?:[^<>"']+|"[^"]*"|'[^']*')+>""")
     _URL_ATTR_PATTERN = re.compile(
         r"(?:(?<=^)|(?<=\s)|(?<=<))" r"(?P<prefix>(?:href|src)\s*=\s*)" r"(?P<quote>['\"])" r"(?P<url>.*?)(?P=quote)"
     )
