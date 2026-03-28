@@ -110,8 +110,16 @@ def test_publish_rewrites_markdown_internal_links_with_html_suffix(tmp_path: Pat
     (src / "templates").mkdir(parents=True)
 
     (src / "content" / "about.md").write_text("---\ntitle: About\n---\n\nabout", encoding="utf-8")
+    (src / "content" / "guide.rst").write_text("Guide\n=====\n\nGuide body.\n", encoding="utf-8")
     (src / "content" / "index.md").write_text(
-        "---\ntemplate: default\n---\n\n[About](about)\n[Query](about?x=1#top)\n[External](https://example.com)\n",
+        (
+            "---\ntemplate: default\n---\n\n"
+            "[About](about)\n"
+            "[AboutMd](about.md)\n"
+            "[GuideRst](guide.rst)\n"
+            "[Query](about?x=1#top)\n"
+            "[External](https://example.com)\n"
+        ),
         encoding="utf-8",
     )
     (src / "templates" / "default.html.j2").write_text("{{ content }}", encoding="utf-8")
@@ -121,6 +129,7 @@ def test_publish_rewrites_markdown_internal_links_with_html_suffix(tmp_path: Pat
 
     rendered = (out / "index.html").read_text(encoding="utf-8")
     assert 'href="about.html"' in rendered
+    assert 'href="guide.html"' in rendered
     assert 'href="about.html?x=1#top"' in rendered
     assert 'href="https://example.com"' in rendered
 

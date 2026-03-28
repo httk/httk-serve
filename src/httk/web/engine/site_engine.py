@@ -567,8 +567,11 @@ class SiteEngine:
         if joined.startswith("../"):
             return None
 
-        if joined.endswith(".html"):
-            joined = joined[: -len(".html")]
+        joined_lower = joined.lower()
+        for suffix in sorted(RENDERERS_BY_SUFFIX.keys(), key=len, reverse=True):
+            if joined_lower.endswith(suffix):
+                joined = joined[: -len(suffix)]
+                break
 
         return normalize_route(joined)
 
