@@ -388,6 +388,8 @@ class SiteEngine:
 
     def _route_url_path(self, route_key: str, *, render_mode: str) -> str:
         if render_mode == "publish" and not self.config.publish_use_urls_without_ext:
+            if route_key.endswith(".html"):
+                return route_key
             return f"{route_key}.html"
         return route_key
 
@@ -423,9 +425,13 @@ class SiteEngine:
         if self.config.publish_use_urls_without_ext:
             return html
 
+        route_exists_cache: dict[str, bool] = {}
+
         def replace_attr(match: re.Match[str]) -> str:
             original_url = match.group("url")
-            rewritten_url = self._rewrite_internal_url(original_url, route_key=route_key)
+            rewritten_url = self._rewrite_internal_url(
+                original_url, route_key=route_key, route_exists_cache=route_exists_cache
+            )
             if rewritten_url is None:
                 return match.group(0)
             return f"{match.group('prefix')}{match.group('quote')}{rewritten_url}{match.group('quote')}"
@@ -439,7 +445,13 @@ class SiteEngine:
 
         return self._HTML_TAG_PATTERN.sub(replace_tag, html)
 
-    def _rewrite_internal_url(self, url: str, *, route_key: str) -> str | None:
+    def _rewrite_internal_url(
+        self,
+        url: str,
+        *,
+        route_key: str,
+        route_exists_cache: dict[str, bool],
+    ) -> str | None:
         if not url or url.startswith("#") or url.startswith("//"):
             return None
 
@@ -462,8 +474,12 @@ class SiteEngine:
         if candidate_route is None:
             return None
 
-        resolved = self.resolve(candidate_route)
-        if resolved.kind != "content" or resolved.source_path is None:
+        is_content_route = route_exists_cache.get(candidate_route)
+        if is_content_route is None:
+            resolved = self.resolve(candidate_route)
+            is_content_route = resolved.kind == "content" and resolved.source_path is not None
+            route_exists_cache[candidate_route] = is_content_route
+        if not is_content_route:
             return None
 
         target_path = self._route_url_path(candidate_route, render_mode="publish")

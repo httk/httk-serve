@@ -38,8 +38,8 @@ make generate
 
 This writes output to `public/`.
 
-If you need `.html` links for a static host, set
-`use_urls_without_ext=False` in `publish_static.py`.
+If you need `.html` links for a static host, pass `use_urls_without_ext=False`
+to `httk.web.publish(...)` in your publish script.
 
 ## GitHub Pages publishing
 
