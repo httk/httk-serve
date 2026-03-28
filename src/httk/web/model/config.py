@@ -13,6 +13,7 @@ class SiteConfig:
     baseurl: str | None = None
     compatibility_mode: bool = False
     config_name: str = "config"
+    publish_use_urls_without_ext: bool = True
 
     @classmethod
     def from_srcdir(
@@ -22,12 +23,14 @@ class SiteConfig:
         baseurl: str | None = None,
         compatibility_mode: bool = False,
         config_name: str = "config",
+        publish_use_urls_without_ext: bool = True,
     ) -> Self:
         return cls(
             srcdir=Path(srcdir).resolve(),
             baseurl=baseurl,
             compatibility_mode=compatibility_mode,
             config_name=config_name,
+            publish_use_urls_without_ext=publish_use_urls_without_ext,
         )
 
     @property

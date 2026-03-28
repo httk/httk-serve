@@ -38,6 +38,9 @@ make generate
 
 This writes output to `public/`.
 
+If you need `.html` links for a static host, set
+`use_urls_without_ext=False` in `publish_static.py`.
+
 ## GitHub Pages publishing
 
 The template repository includes a GitHub Actions workflow for Pages publishing.

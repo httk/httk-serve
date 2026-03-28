@@ -45,6 +45,13 @@ from httk.web import publish
 publish("src", "public", "http://127.0.0.1/")
 ```
 
+To control link style in published output:
+
+```python
+publish("src", "public", "http://127.0.0.1/", use_urls_without_ext=False)  # -> /about.html
+publish("src", "public", "http://127.0.0.1/", use_urls_without_ext=True)   # -> /about
+```
+
 ### Examples
 
 Modern examples live under `examples/modern`:
