@@ -1,6 +1,6 @@
-# `httk-web`
-
-`httk-web` provides web serving and static publishing functionality for `httk` v2.
+# *httk-web*
+	
+*httk-web* is a [*httk v2*](https://github.com/httk/httk2) module providing web serving and static publishing functionality.
 
 ```{admonition} Quick links
 :class: tip
