@@ -1,4 +1,7 @@
+import posixpath
+import re
 from mimetypes import guess_type
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from markupsafe import Markup
 
@@ -85,6 +88,7 @@ class SiteEngine:
             query=query_params,
             postvars=postvars,
             request=request_context,
+            render_mode=render_mode,
         )
         self._apply_function_injections(
             metadata=metadata,
@@ -102,6 +106,8 @@ class SiteEngine:
                 context=context,
             )
         )
+        if render_mode == "publish":
+            content_html = self._rewrite_publish_links(content_html, route_key=route_key)
 
         return PageResult(
             status_code=200,
@@ -131,6 +137,7 @@ class SiteEngine:
         query: dict[str, str],
         postvars: dict[str, str],
         request: HttpRequestContext,
+        render_mode: str,
     ) -> dict[str, object]:
         context: dict[str, object] = dict(self.global_data)
         context.update(metadata)
@@ -188,7 +195,7 @@ class SiteEngine:
             if field in {"content", "html"}:
                 return page_html
             if field == "relurl":
-                return normalized
+                return self._route_url_path(normalized, render_mode=render_mode)
             return None
 
         context["first_value"] = first_value
@@ -204,10 +211,10 @@ class SiteEngine:
         }
         page_data.update(
             {
-                "relurl": route_key,
-                "absurl": self._absolute_url(route_key),
+                "relurl": self._route_url_path(route_key, render_mode=render_mode),
+                "absurl": self._absolute_url(route_key, render_mode=render_mode),
                 "relbaseurl": self._relative_base(route_key),
-                "functionurl": self._absolute_url(route_key),
+                "functionurl": self._absolute_url(route_key, render_mode=render_mode),
             }
         )
         context["page"] = page_data
@@ -287,13 +294,14 @@ class SiteEngine:
                 return False
         return True
 
-    def _absolute_url(self, route_key: str) -> str:
+    def _absolute_url(self, route_key: str, *, render_mode: str) -> str:
+        route_path = self._route_url_path(route_key, render_mode=render_mode)
         if self.config.baseurl is None:
-            return route_key
+            return route_path
         base = self.config.baseurl
         if not base.endswith("/"):
             base += "/"
-        return f"{base}{route_key}"
+        return f"{base}{route_path}"
 
     def _relative_base(self, route_key: str) -> str:
         depth = max(0, route_key.count("/"))
@@ -367,7 +375,7 @@ class SiteEngine:
         if field in {"content", "html"}:
             return page_html
         if field == "relurl":
-            return normalize_route(path)
+            return self._route_url_path(normalize_route(path), render_mode="publish")
         return None
 
     def _metadata_field_value(self, metadata: dict[str, object], field: str) -> object:
@@ -377,3 +385,203 @@ class SiteEngine:
             if isinstance(key, str) and key.lower() == field.lower():
                 return value
         return None
+
+    def _route_url_path(self, route_key: str, *, render_mode: str) -> str:
+        if render_mode == "publish" and not self.config.publish_use_urls_without_ext:
+            if route_key.endswith(".html"):
+                return route_key
+            return f"{route_key}.html"
+        return route_key
+
+    _HTML_TAG_PATTERN = re.compile(r"""<(?:[^<>"']+|"[^"]*"|'[^']*')+>""")
+    _ASSET_EXTENSIONS = {
+        ".css",
+        ".js",
+        ".json",
+        ".txt",
+        ".xml",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".ico",
+        ".webp",
+        ".avif",
+        ".pdf",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".mp4",
+        ".webm",
+        ".mp3",
+        ".wav",
+    }
+
+    def _rewrite_publish_links(self, html: str, *, route_key: str) -> str:
+        if self.config.publish_use_urls_without_ext:
+            return html
+
+        route_exists_cache: dict[str, bool] = {}
+
+        def replace_tag(match: re.Match[str]) -> str:
+            tag = match.group(0)
+            # Keep declarations/comments/closing tags untouched.
+            if tag.startswith("</") or tag.startswith("<!--") or tag.startswith("<!"):
+                return tag
+            return self._rewrite_tag_urls(tag, route_key=route_key, route_exists_cache=route_exists_cache)
+
+        return self._HTML_TAG_PATTERN.sub(replace_tag, html)
+
+    def _rewrite_tag_urls(self, tag: str, *, route_key: str, route_exists_cache: dict[str, bool]) -> str:
+        n = len(tag)
+        if n < 3 or not tag.startswith("<") or not tag.endswith(">"):
+            return tag
+
+        i = 1
+        while i < n - 1 and tag[i].isspace():
+            i += 1
+
+        # Skip tag name.
+        while i < n - 1 and not tag[i].isspace() and tag[i] not in {"/", ">"}:
+            i += 1
+
+        parts: list[str] = []
+        last = 0
+        while i < n - 1:
+            while i < n - 1 and tag[i].isspace():
+                i += 1
+            if i >= n - 1 or tag[i] in {">", "/"}:
+                break
+
+            name_start = i
+            while i < n - 1 and not tag[i].isspace() and tag[i] not in {"=", ">", "/"}:
+                i += 1
+            if i == name_start:
+                i += 1
+                continue
+            attr_name = tag[name_start:i].lower()
+
+            while i < n - 1 and tag[i].isspace():
+                i += 1
+            if i >= n - 1 or tag[i] != "=":
+                continue
+            i += 1
+
+            while i < n - 1 and tag[i].isspace():
+                i += 1
+            if i >= n - 1:
+                break
+
+            if tag[i] in {"'", '"'}:
+                quote = tag[i]
+                value_start = i + 1
+                value_end = tag.find(quote, value_start)
+                if value_end < 0:
+                    break
+                raw_value = tag[value_start:value_end]
+                if attr_name in {"href", "src"}:
+                    rewritten_value = self._rewrite_internal_url(
+                        raw_value, route_key=route_key, route_exists_cache=route_exists_cache
+                    )
+                    if rewritten_value is not None:
+                        parts.append(tag[last:value_start])
+                        parts.append(rewritten_value)
+                        last = value_end
+                i = value_end + 1
+                continue
+
+            # Unquoted attribute value.
+            value_start = i
+            while i < n - 1 and not tag[i].isspace() and tag[i] != ">":
+                i += 1
+            value_end = i
+            raw_value = tag[value_start:value_end]
+            if attr_name in {"href", "src"}:
+                rewritten_value = self._rewrite_internal_url(
+                    raw_value, route_key=route_key, route_exists_cache=route_exists_cache
+                )
+                if rewritten_value is not None:
+                    parts.append(tag[last:value_start])
+                    parts.append(rewritten_value)
+                    last = value_end
+
+        if not parts:
+            return tag
+        parts.append(tag[last:])
+        return "".join(parts)
+
+    def _rewrite_internal_url(
+        self,
+        url: str,
+        *,
+        route_key: str,
+        route_exists_cache: dict[str, bool],
+    ) -> str | None:
+        if not url or url.startswith("#") or url.startswith("//"):
+            return None
+
+        parts = urlsplit(url)
+        if parts.scheme or parts.netloc:
+            return None
+
+        if not parts.path:
+            return None
+
+        # Keep clearly non-page assets untouched.
+        if parts.path.endswith("/"):
+            path_ext = ""
+        else:
+            path_ext = posixpath.splitext(parts.path)[1].lower()
+        if path_ext and path_ext not in {"", ".html"} and path_ext in self._ASSET_EXTENSIONS:
+            return None
+
+        candidate_route = self._candidate_route_from_link_path(parts.path, route_key=route_key)
+        if candidate_route is None:
+            return None
+
+        is_content_route = route_exists_cache.get(candidate_route)
+        if is_content_route is None:
+            resolved = self.resolve(candidate_route)
+            is_content_route = resolved.kind == "content" and resolved.source_path is not None
+            route_exists_cache[candidate_route] = is_content_route
+        if not is_content_route:
+            return None
+
+        target_path = self._route_url_path(candidate_route, render_mode="publish")
+        rewritten_path = self._format_rewritten_path(parts.path, route_key=route_key, target_path=target_path)
+        rewritten = SplitResult(parts.scheme, parts.netloc, rewritten_path, parts.query, parts.fragment)
+        return urlunsplit(rewritten)
+
+    def _candidate_route_from_link_path(self, path: str, *, route_key: str) -> str | None:
+        if not path:
+            return None
+
+        current_dir = posixpath.dirname(route_key)
+        if path.startswith("/"):
+            joined = posixpath.normpath(path.lstrip("/"))
+        else:
+            base = current_dir if current_dir else "."
+            joined = posixpath.normpath(posixpath.join(base, path))
+
+        if joined.startswith("../"):
+            return None
+
+        joined_lower = joined.lower()
+        for suffix in sorted(RENDERERS_BY_SUFFIX.keys(), key=len, reverse=True):
+            if joined_lower.endswith(suffix):
+                joined = joined[: -len(suffix)]
+                break
+
+        return normalize_route(joined)
+
+    def _format_rewritten_path(self, original_path: str, *, route_key: str, target_path: str) -> str:
+        if original_path.startswith("/"):
+            return f"/{target_path}"
+
+        current_dir = posixpath.dirname(route_key)
+        start = current_dir if current_dir else "."
+        rel = posixpath.relpath(target_path, start=start)
+        if rel == ".":
+            return target_path
+        return rel

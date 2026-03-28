@@ -55,12 +55,15 @@ def publish(
     *,
     compatibility_mode: bool = False,
     config_name: str = "config",
+    use_urls_without_ext: bool | None = None,
 ) -> PublishReport:
+    publish_use_urls_without_ext = use_urls_without_ext if use_urls_without_ext is not None else not compatibility_mode
     config = SiteConfig.from_srcdir(
         srcdir=srcdir,
         baseurl=baseurl,
         compatibility_mode=compatibility_mode,
         config_name=config_name,
+        publish_use_urls_without_ext=publish_use_urls_without_ext,
     )
     engine = SiteEngine(config)
     return publish_site(engine=engine, outdir=outdir)
