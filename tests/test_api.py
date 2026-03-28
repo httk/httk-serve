@@ -103,6 +103,35 @@ def test_publish_rewrites_markdown_internal_links_with_html_suffix(tmp_path: Pat
     assert 'href="https://example.com"' in rendered
 
 
+def test_publish_link_rewrite_skips_data_attrs_and_script_text(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    out = tmp_path / "public"
+    (src / "content").mkdir(parents=True)
+    (src / "static").mkdir(parents=True)
+    (src / "templates").mkdir(parents=True)
+
+    (src / "content" / "about.md").write_text("---\ntitle: About\n---\n\nabout", encoding="utf-8")
+    (src / "content" / "index.md").write_text("---\ntemplate: default\n---\n\nhome", encoding="utf-8")
+    (src / "templates" / "default.html.j2").write_text(
+        (
+            "<a href='about'>about</a>"
+            "<div data-href='about'>data</div>"
+            "<script>const x = \"href='about'\";</script>"
+            "<img src='about'/>"
+        ),
+        encoding="utf-8",
+    )
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+
+    publish(src, out, "http://localhost/", use_urls_without_ext=False)
+
+    rendered = (out / "index.html").read_text(encoding="utf-8")
+    assert "href='about.html'" in rendered
+    assert "src='about.html'" in rendered
+    assert "data-href='about'" in rendered
+    assert "href='about'\";</script>" in rendered
+
+
 def test_create_asgi_app_compatibility_mode_prefers_httkweb_templates(tmp_path: Path) -> None:
     src = tmp_path / "src"
     (src / "content").mkdir(parents=True)

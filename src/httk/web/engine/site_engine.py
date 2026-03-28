@@ -391,7 +391,10 @@ class SiteEngine:
             return f"{route_key}.html"
         return route_key
 
-    _URL_ATTR_PATTERN = re.compile(r"(?P<prefix>\b(?:href|src)\s*=\s*)(?P<quote>['\"])(?P<url>.*?)(?P=quote)")
+    _HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+    _URL_ATTR_PATTERN = re.compile(
+        r"(?:(?<=^)|(?<=\s)|(?<=<))" r"(?P<prefix>(?:href|src)\s*=\s*)" r"(?P<quote>['\"])" r"(?P<url>.*?)(?P=quote)"
+    )
     _ASSET_EXTENSIONS = {
         ".css",
         ".js",
@@ -420,14 +423,21 @@ class SiteEngine:
         if self.config.publish_use_urls_without_ext:
             return html
 
-        def replace(match: re.Match[str]) -> str:
+        def replace_attr(match: re.Match[str]) -> str:
             original_url = match.group("url")
             rewritten_url = self._rewrite_internal_url(original_url, route_key=route_key)
             if rewritten_url is None:
                 return match.group(0)
             return f"{match.group('prefix')}{match.group('quote')}{rewritten_url}{match.group('quote')}"
 
-        return self._URL_ATTR_PATTERN.sub(replace, html)
+        def replace_tag(match: re.Match[str]) -> str:
+            tag = match.group(0)
+            # Keep declarations/comments/closing tags untouched.
+            if tag.startswith("</") or tag.startswith("<!--") or tag.startswith("<!"):
+                return tag
+            return self._URL_ATTR_PATTERN.sub(replace_attr, tag)
+
+        return self._HTML_TAG_PATTERN.sub(replace_tag, html)
 
     def _rewrite_internal_url(self, url: str, *, route_key: str) -> str | None:
         if not url or url.startswith("#") or url.startswith("//"):

@@ -21,7 +21,7 @@ Subheading
 
 Here is some nice math:
 
-\(\int (x+y) dx\)
+$\int (x+y)\,dx$
 
 And a code segment:
 
