@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import sys
 import threading
 from pathlib import Path
 from types import ModuleType
@@ -63,6 +64,16 @@ class PythonFunctionHandler:
                 raise ImportError(f"Cannot load module spec for {module_path}")
 
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            # Allow function modules to import sibling helpers from src/functions/.
+            module_dir = str(module_path.parent)
+            inserted = False
+            if module_dir not in sys.path:
+                sys.path.insert(0, module_dir)
+                inserted = True
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                if inserted:
+                    sys.path.remove(module_dir)
             self._module_cache[module_path] = module
             return module

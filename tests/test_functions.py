@@ -280,3 +280,44 @@ Body text
 
     assert response.status_code == 500
     assert "Failed processing function metadata" in response.text
+
+
+def test_function_module_can_import_sibling_helper(tmp_path: Path) -> None:
+    src = _make_src(tmp_path)
+
+    (src / "functions" / "helper.py").write_text(
+        """def normalize(name):
+    return name.strip().upper()
+""",
+        encoding="utf-8",
+    )
+    (src / "functions" / "hello.py").write_text(
+        """from helper import normalize
+
+def execute(name, global_data, **kwargs):
+    return normalize(name)
+""",
+        encoding="utf-8",
+    )
+
+    (src / "templates" / "default.html.j2").write_text("{{ greeting }}|{{ content }}", encoding="utf-8")
+    (src / "templates" / "base_default.html.j2").write_text("{{ content }}", encoding="utf-8")
+    (src / "templates" / "greeting_fragment.html.j2").write_text("Hello {{ result }}!", encoding="utf-8")
+
+    (src / "content" / "index.md").write_text(
+        """---
+template: default
+greeting-function: hello:name:greeting_fragment
+---
+
+Body text
+""",
+        encoding="utf-8",
+    )
+
+    app = create_asgi_app(src)
+    with TestClient(app) as client:
+        response = client.get("/?name=Rick")
+
+    assert response.status_code == 200
+    assert "Hello RICK!" in response.text
