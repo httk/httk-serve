@@ -16,7 +16,9 @@ from inmemory_backend import InMemoryStore
 from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, serve
 from httk.optimade.backend import default_field_handlers, simple_property_handlers
 from httk.optimade.backend.handlers import set_handler
+from httk.optimade.backend.partial import PartialDimension, PartialValue
 from httk.optimade.schema.served import build_served_schema
+from httk.optimade.schema.trajectories import trajectories_entry_info
 
 
 def structure(
@@ -186,6 +188,60 @@ REFERENCE_COLUMNS = {
 }
 
 
+# One 5-frame trajectory of the GaTi structure. The per-frame Cartesian site
+# positions (5 frames x 2 sites x 3 coordinates) vary slightly frame to frame;
+# everything else is constant across the trajectory and served in compact form.
+_TRAJECTORY_POSITIONS = [[[0.0 + 0.01 * f, 0.0, 0.0], [0.5, 0.5, 0.5 + 0.01 * f]] for f in range(5)]
+
+TRAJECTORIES = [
+    {
+        '__id': 'traj-1',
+        'nframes': 5,
+        'reference_frames': [0, 4],
+        'positions_frames': _TRAJECTORY_POSITIONS,
+    },
+]
+
+
+def trajectory_positions(row: dict[str, Any]) -> PartialValue:
+    frames = row['positions_frames']
+
+    def fetch(slices: tuple[slice, ...]) -> Any:
+        frame_slice, site_slice, spatial_slice = slices
+        return [[site[spatial_slice] for site in frame[site_slice]] for frame in frames[frame_slice]]
+
+    return PartialValue(
+        dimensions=(
+            PartialDimension('dim_frames', length=row['nframes'], sliceable=True),
+            PartialDimension('dim_sites', length=2),
+            PartialDimension('dim_spatial', length=3),
+        ),
+        fetch=fetch,
+    )
+
+
+TRAJECTORY_FIELDS = {
+    'type': lambda x: "trajectories",
+    'id': lambda x: x['__id'],
+    'nframes': lambda x: x['nframes'],
+    'reference_frames': lambda x: x['reference_frames'],
+    # Constant across frames: served as single-item lists (compact 'constant').
+    'elements': lambda x: [['Ga', 'Ti']],
+    'nelements': lambda x: [2],
+    'lattice_vectors': lambda x: [_CUBIC_CELL],
+    'chemical_formula_descriptive': lambda x: ['GaTi'],
+    'dimension_types': lambda x: [[1, 1, 1]],
+    'species_at_sites': lambda x: [['Ga', 'Ti']],
+    # Large per-frame data: transferred via the partial data protocol.
+    'cartesian_site_positions': trajectory_positions,
+}
+
+# OPTIMADE property -> backend column, for the queryable trajectory properties.
+TRAJECTORY_COLUMNS = {
+    'nframes': 'nframes',
+}
+
+
 # The properties served for each entry type; the same lists the default httk
 # schema serves, restated here so a custom (sortable-enabled) schema can be built.
 STRUCTURE_PROPERTIES = [
@@ -236,6 +292,21 @@ FILE_PROPERTIES = [
     'checksums',
 ]
 
+# The structures properties reused (frame-wrapped) for the trajectory.
+TRAJECTORY_STRUCTURE_PROPERTIES = [
+    'id',
+    'type',
+    'elements',
+    'nelements',
+    'lattice_vectors',
+    'chemical_formula_descriptive',
+    'dimension_types',
+    'species_at_sites',
+    'cartesian_site_positions',
+]
+
+TRAJECTORY_PROPERTIES = TRAJECTORY_STRUCTURE_PROPERTIES + ['nframes', 'reference_frames']
+
 DEFAULT_RESPONSE_OVERRIDES = {
     'structures': [
         'structure_features',
@@ -269,6 +340,17 @@ DEFAULT_RESPONSE_OVERRIDES = {
         'media_type',
         'description',
     ],
+    'trajectories': [
+        'nframes',
+        'reference_frames',
+        'elements',
+        'nelements',
+        'lattice_vectors',
+        'chemical_formula_descriptive',
+        'dimension_types',
+        'species_at_sites',
+        'cartesian_site_positions',
+    ],
 }
 
 # OPTIMADE property -> backend column name, for the sortable structure properties.
@@ -286,6 +368,7 @@ def make_adapter() -> BackendAdapter:
             'calculations': CALCULATIONS,
             'references': REFERENCES,
             'files': FILES,
+            'trajectories': TRAJECTORIES,
         }
     )
     schema = build_served_schema(
@@ -294,7 +377,9 @@ def make_adapter() -> BackendAdapter:
             'calculations': CALCULATION_PROPERTIES,
             'references': REFERENCE_PROPERTIES,
             'files': FILE_PROPERTIES,
+            'trajectories': TRAJECTORY_PROPERTIES,
         },
+        extra_entry_info={'trajectories': trajectories_entry_info(TRAJECTORY_STRUCTURE_PROPERTIES)},
         default_response_overrides=DEFAULT_RESPONSE_OVERRIDES,
         sortable={'structures': list(STRUCTURE_SORT_COLUMNS)},
     )
@@ -303,6 +388,9 @@ def make_adapter() -> BackendAdapter:
         'references', REFERENCE_COLUMNS, schema.entry_info['references']
     )
     field_handlers['files'] = simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files'])
+    field_handlers['trajectories'] = simple_property_handlers(
+        'trajectories', TRAJECTORY_COLUMNS, schema.entry_info['trajectories']
+    )
     # A relationship filter handler: `references.id HAS "ref-1"` matches over the
     # structure row's 'references' column (a list of related reference ids).
     structures_handlers = dict(field_handlers['structures'])
@@ -336,6 +424,7 @@ def make_adapter() -> BackendAdapter:
             ),
             'references': (EntrySource(target='references', fields=REFERENCE_FIELDS),),
             'files': (EntrySource(target='files', fields=FILE_FIELDS),),
+            'trajectories': (EntrySource(target='trajectories', fields=TRAJECTORY_FIELDS),),
         },
         field_handlers=field_handlers,
         schema=schema,
