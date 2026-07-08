@@ -54,3 +54,23 @@ def test_unknown_response_fields() -> None:
 def test_valid_endpoints() -> None:
     for endpoint in ("", "info", "links", "structures", "calculations", "info/structures", "info/calculations"):
         assert endpoint in httk_entries.httk_valid_endpoints
+
+
+def test_optimade_v12_v13_properties_present() -> None:
+    properties = entries.entry_info["structures"]["properties"]
+    for name in (
+        "space_group_symmetry_operations_xyz",
+        "space_group_symbol_hall",
+        "space_group_symbol_hermann_mauguin",
+        "space_group_symbol_hermann_mauguin_extended",
+        "space_group_it_number",
+        "fractional_site_positions",
+        "site_coordinate_span",
+        "site_coordinate_span_description",
+        "optimization_type",
+        "wyckoff_positions",
+    ):
+        assert name in properties
+        # Not implemented by the httk backend, so they must be recognized as
+        # valid-but-unknown response fields:
+        assert name in httk_entries.httk_unknown_response_fields["structures"]
