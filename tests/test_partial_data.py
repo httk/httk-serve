@@ -342,3 +342,16 @@ def test_partial_data_links_percent_encode_ids() -> None:
     assert response.status_code == 200
     header = json.loads(response.text.splitlines()[0])
     assert header["entry"]["id"] == "demo 1?x"
+
+
+def test_partial_data_offset_beyond_length_is_wellformed() -> None:
+    # An offset at or past the end used to emit returned_ranges with
+    # stop < start; the range must be omitted for an empty chunk.
+    client = make_client()
+    response = client.get("/partial_data/structures/demo-1/cartesian_site_positions?offset=99")
+    assert response.status_code == 200
+    lines = response.text.splitlines()
+    header = json.loads(lines[0])
+    assert "returned_ranges" not in header
+    assert json.loads(lines[-1]) == ["PARTIAL-DATA-END", [""]]
+    assert len(lines) == 2

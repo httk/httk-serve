@@ -56,11 +56,14 @@ def generate_partial_data_reply(
     header: dict[str, Any] = {
         "optimade-partial-data": {"format": "1.2"},
         "layout": "dense",
-        "returned_ranges": [{"start": offset, "stop": offset + len(items) - 1, "step": 1}],
         "property_name": prop,
         "entry": {"id": entry_id, "type": entry},
         "has_references": False,
     }
+    if items:
+        # returned_ranges is RECOMMENDED and cannot be expressed for an empty
+        # chunk (an offset at or beyond the data produces no items).
+        header["returned_ranges"] = [{"start": offset, "stop": offset + len(items) - 1, "step": 1}]
 
     lines = [json.dumps(header)]
     for item in items:
