@@ -88,7 +88,15 @@ class StoreResults:
         if source.relationships is not None:
             relationships = source.relationships(row)
 
-        return ResultRow(values=result, relationships=relationships)
+        property_metadata: dict[str, Any] = {}
+        for prop in self.response_fields:
+            extractor = source.property_metadata.get(prop)
+            if extractor is not None:
+                metadata = extractor(row)
+                if metadata is not None:
+                    property_metadata[prop] = metadata
+
+        return ResultRow(values=result, relationships=relationships, property_metadata=property_metadata)
 
 
 def execute_query(

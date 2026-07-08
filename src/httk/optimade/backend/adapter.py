@@ -19,12 +19,16 @@ class EntrySource:
     ``relationships``, when set, is an extractor mapping a matched row to a
     dictionary keyed by related entry type, each value a list of
     ``{'id': str, 'description': str?, 'role': str?}`` dictionaries.
+    ``property_metadata`` maps response-field names to extractors returning the
+    per-property metadata dictionary for a matched row (or ``None`` when there
+    is no metadata for that row).
     """
 
     target: Any
     fields: Mapping[str, FieldExtractor]
     sort_columns: Mapping[str, str] = field(default_factory=dict)
     relationships: FieldExtractor | None = None
+    property_metadata: Mapping[str, FieldExtractor] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

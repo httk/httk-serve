@@ -42,6 +42,11 @@ def _resource_object(row: ResultRow) -> dict[str, Any]:
     }
     if row.relationships:
         obj['relationships'] = _relationships_block(row.relationships)
+    meta: dict[str, Any] = {}
+    if row.property_metadata:
+        meta['property_metadata'] = dict(row.property_metadata)
+    if meta:
+        obj['meta'] = meta
     return obj
 
 

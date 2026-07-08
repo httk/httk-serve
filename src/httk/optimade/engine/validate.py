@@ -35,6 +35,10 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
         response_fields = [x.strip() for x in query['response_fields'].split(",")]
         if endpoint in schema.properties_by_entry:
             for response_field in response_fields:
+                if response_field == 'property_metadata':
+                    # A reserved token requesting per-property metadata rather
+                    # than an attribute; handled in validate_optimade_request.
+                    continue
                 if response_field in schema.properties_by_entry[endpoint]:
                     # Defensive programming; don't trust '=='/in to be byte-for-byte equivalent,
                     # so don't use the insecure string from the user
@@ -172,6 +176,11 @@ def validate_optimade_request(
         response_fields = [x.strip() for x in query['response_fields'].split(",")]
         if endpoint in schema.properties_by_entry:
             for response_field in response_fields:
+                if response_field == 'property_metadata':
+                    # A reserved token requesting per-property metadata; it must
+                    # not be treated as an attribute, nor rejected as unknown.
+                    validated_request.property_metadata_requested = True
+                    continue
                 if response_field in schema.properties_by_entry[endpoint]:
                     # Defensive programming; don't trust '=='/in to be byte-for-byte equivalent,
                     # so don't use the insecure string from the user

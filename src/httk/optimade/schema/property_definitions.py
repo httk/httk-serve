@@ -66,6 +66,79 @@ def _inner_definition(fulltype: str, unit: str) -> dict[str, Any]:
     return definition
 
 
+def _slice_object_definition() -> dict[str, Any]:
+    """A modest definition of a "slice object" (start/stop/step)."""
+    integer_field = {
+        "x-optimade-type": "integer",
+        "x-optimade-unit": "inapplicable",
+        "type": ["integer", "null"],
+    }
+    return {
+        "x-optimade-type": "dictionary",
+        "x-optimade-unit": "inapplicable",
+        "type": ["object", "null"],
+        "properties": {
+            "start": dict(integer_field),
+            "stop": dict(integer_field),
+            "step": dict(integer_field),
+        },
+    }
+
+
+def _generated_metadata_definition(name: str) -> dict[str, Any]:
+    """A standard ``x-optimade-metadata-definition`` describing ``list_axes``.
+
+    Generated for properties that declare dimensions but do not carry an
+    explicit metadata definition. It describes the ``list_axes`` metadata field
+    used by the slicing protocol (see the OPTIMADE specification section
+    "Slices of list properties").
+    """
+    return {
+        "title": f"Metadata for the {name} field",
+        "description": f"This field contains the per-entry metadata for the {name} field.",
+        "x-optimade-type": "dictionary",
+        "x-optimade-unit": "inapplicable",
+        "type": ["object", "null"],
+        "properties": {
+            "list_axes": {
+                "title": "List axes",
+                "description": (
+                    "Descriptive information related to the axes of this list property, including "
+                    "sliceable axes. Each item, in order, represents a list axis as declared in the "
+                    "property definition."
+                ),
+                "x-optimade-type": "list",
+                "x-optimade-unit": "inapplicable",
+                "type": ["array", "null"],
+                "items": {
+                    "x-optimade-type": "dictionary",
+                    "x-optimade-unit": "inapplicable",
+                    "type": ["object", "null"],
+                    "properties": {
+                        "dimension_name": {
+                            "x-optimade-type": "string",
+                            "x-optimade-unit": "inapplicable",
+                            "type": ["string"],
+                        },
+                        "requested_slice": _slice_object_definition(),
+                        "length": {
+                            "x-optimade-type": "integer",
+                            "x-optimade-unit": "inapplicable",
+                            "type": ["integer", "null"],
+                        },
+                        "sliceable": {
+                            "x-optimade-type": "boolean",
+                            "x-optimade-unit": "inapplicable",
+                            "type": ["boolean", "null"],
+                        },
+                        "available_slice": _slice_object_definition(),
+                    },
+                },
+            },
+        },
+    }
+
+
 def property_definition(entry: str, name: str, info: PropertyInfo) -> dict[str, Any]:
     """Build an OPTIMADE Property Definition for one property."""
     fulltype = info.get("fulltype", "string")
@@ -111,6 +184,20 @@ def property_definition(entry: str, name: str, info: PropertyInfo) -> dict[str, 
         }
     if unit == "angstrom":
         definition["x-optimade-unit-definitions"] = [_ANGSTROM_UNIT_DEFINITION]
+
+    dimensions = info.get("dimensions")
+    if dimensions is not None:
+        x_dimensions: dict[str, Any] = {"names": dimensions["names"], "sizes": dimensions["sizes"]}
+        if "compactable" in dimensions:
+            x_dimensions["compactable"] = dimensions["compactable"]
+        definition["x-optimade-dimensions"] = x_dimensions
+
+    metadata_definition = info.get("metadata_definition")
+    if metadata_definition is not None:
+        definition["x-optimade-metadata-definition"] = metadata_definition
+    elif dimensions is not None:
+        definition["x-optimade-metadata-definition"] = _generated_metadata_definition(name)
+
     return definition
 
 

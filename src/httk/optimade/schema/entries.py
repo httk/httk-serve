@@ -7,7 +7,7 @@
 #
 # (Note, this only applies to this one specific file.)
 
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 class PropertyInfo(TypedDict, total=False):
@@ -25,6 +25,15 @@ class PropertyInfo(TypedDict, total=False):
     # For dictionary-typed properties: maps each standard inner key to its
     # inner fulltype, so property definitions can emit their ``properties``.
     dict_properties: dict[str, str]
+    # For list-typed properties: describes the property's dimensions. Holds the
+    # keys ``names`` and ``sizes`` (parallel lists; a ``None`` size means the
+    # length is entry-dependent) and optionally ``compactable``. Emitted as the
+    # ``x-optimade-dimensions`` field of the property definition.
+    dimensions: dict[str, Any]
+    # An explicit ``x-optimade-metadata-definition`` for this property. When
+    # unset but ``dimensions`` is present, a standard ``list_axes`` definition
+    # is generated instead.
+    metadata_definition: dict[str, Any]
 
 
 class EntryInfo(TypedDict):
@@ -177,6 +186,7 @@ entry_info: dict[str, EntryInfo] = {
                 'required_query': False,
                 'required_response': False,
                 'default_response': False,
+                'dimensions': {'names': ['dim_lattice', 'dim_spatial'], 'sizes': [3, 3]},
             },
             'cartesian_site_positions': {
                 'description': "Cartesian positions of each site in the structure. A site is usually used to describe positions of atoms; what atoms can be encountered at a given site is conveyed by the species_at_sites property, and the species themselves are described in the species property.",
@@ -188,6 +198,7 @@ entry_info: dict[str, EntryInfo] = {
                 'required_query': False,
                 'required_response': False,
                 'default_response': False,
+                'dimensions': {'names': ['dim_sites', 'dim_spatial'], 'sizes': [None, 3]},
             },
             'nsites': {
                 'description': "An integer specifying the length of the cartesian_site_positions property.",

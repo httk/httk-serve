@@ -65,6 +65,7 @@ class ValidatedRequest:
     unrecognized_response_fields: list[str] = field(default_factory=list)
     sort_fields: list[tuple[str, bool]] = field(default_factory=list)
     include_paths: list[str] = field(default_factory=list)
+    property_metadata_requested: bool = False
 
 
 @dataclass(slots=True)
