@@ -53,7 +53,7 @@ def test_basic_query_maps_fields() -> None:
     adapter = make_adapter([Row(sid="a", nelements=2)])
     results = execute_query(adapter, ["structures"], ["id", "type", "nelements"], [], 10, 0)
     out = list(results)
-    assert out == [{"id": "a", "type": "structures", "nelements": 2}]
+    assert [d.values for d in out] == [{"id": "a", "type": "structures", "nelements": 2}]
     assert results.more_data_available is False
 
 
@@ -61,7 +61,7 @@ def test_unknown_response_fields_are_null() -> None:
     adapter = make_adapter([Row(sid="a")])
     results = execute_query(adapter, ["structures"], ["id", "type"], ["species"], 10, 0)
     out = list(results)
-    assert out[0]["species"] is None
+    assert out[0].values["species"] is None
 
 
 def test_prefixed_field_fallback_reads_attribute() -> None:
@@ -69,14 +69,14 @@ def test_prefixed_field_fallback_reads_attribute() -> None:
     results = execute_query(adapter, ["structures"], ["id", "type", "_httk_extra"], [], 10, 0)
     out = list(results)
     # Parity with httk v1: the prefix is stripped in the output key.
-    assert out[0]["extra"] == "hello"
+    assert out[0].values["extra"] == "hello"
 
 
 def test_limit_truncates_and_reports_more_data() -> None:
     adapter = make_adapter(rows(5))
     results = execute_query(adapter, ["structures"], ["id", "type"], [], 3, 0)
     out = list(results)
-    assert [d["id"] for d in out] == ["s0", "s1", "s2"]
+    assert [d.values["id"] for d in out] == ["s0", "s1", "s2"]
     assert results.more_data_available is True
 
 
@@ -84,7 +84,7 @@ def test_offset_within_first_searcher() -> None:
     adapter = make_adapter(rows(5))
     results = execute_query(adapter, ["structures"], ["id", "type"], [], 10, 2)
     out = list(results)
-    assert [d["id"] for d in out] == ["s2", "s3", "s4"]
+    assert [d.values["id"] for d in out] == ["s2", "s3", "s4"]
     assert results.more_data_available is False
 
 
@@ -92,7 +92,7 @@ def test_offset_spanning_searcher_boundary() -> None:
     adapter = make_adapter([], aimd=rows(3, "a"), elastic=rows(3, "e"))
     results = execute_query(adapter, ["calculations"], ["id", "type"], [], 10, 4)
     out = list(results)
-    assert [d["id"] for d in out] == ["e1", "e2"]
+    assert [d.values["id"] for d in out] == ["e1", "e2"]
 
 
 def test_offset_sets_dummy_limit_for_sqlite() -> None:
@@ -107,7 +107,7 @@ def test_limit_spanning_searcher_boundary() -> None:
     adapter = make_adapter([], aimd=rows(3, "a"), elastic=rows(3, "e"))
     results = execute_query(adapter, ["calculations"], ["id", "type"], [], 4, 0)
     out = list(results)
-    assert [d["id"] for d in out] == ["a0", "a1", "a2", "e0"]
+    assert [d.values["id"] for d in out] == ["a0", "a1", "a2", "e0"]
     assert results.more_data_available is True
 
 

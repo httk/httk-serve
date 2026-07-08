@@ -14,6 +14,7 @@ from httk.optimade.endpoints import (
 from httk.optimade.model import (
     OptimadeConfig,
     OptimadeError,
+    ResultRow,
     ValidatedParameters,
     ValidatedRequest,
 )
@@ -27,8 +28,8 @@ class StubResults:
     def count(self) -> int:
         return len(self.rows)
 
-    def __iter__(self) -> Iterator[dict[str, Any]]:
-        return iter(self.rows)
+    def __iter__(self) -> Iterator[ResultRow]:
+        return iter(ResultRow(values=row) for row in self.rows)
 
 
 def make_validated(endpoint: str, **query_kwargs: Any) -> ValidatedRequest:

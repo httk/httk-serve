@@ -3,7 +3,7 @@ from typing import Any, Iterator
 import pytest
 
 from httk.optimade.engine import process, process_init
-from httk.optimade.model import OptimadeConfig, OptimadeError, RawRequest
+from httk.optimade.model import OptimadeConfig, OptimadeError, RawRequest, ResultRow
 
 
 class StubResults:
@@ -14,8 +14,8 @@ class StubResults:
     def count(self) -> int:
         return len(self.rows)
 
-    def __iter__(self) -> Iterator[dict[str, Any]]:
-        return iter(self.rows)
+    def __iter__(self) -> Iterator[ResultRow]:
+        return iter(ResultRow(values=row) for row in self.rows)
 
 
 class StubQueryFunction:

@@ -13,15 +13,15 @@ def generate_entry_endpoint_reply(
 ) -> dict[str, Any]:
     ndata_returned = data.count()
     data_part = []
-    for d in data:
-        attributes = dict(d)
-        del attributes['id']
-        del attributes['type']
+    for row in data:
+        attributes = dict(row.values)
+        row_id = attributes.pop('id')
+        row_type = attributes.pop('type')
         data_part += [
             {
                 'attributes': attributes,
-                'id': d['id'],
-                'type': d['type'],
+                'id': row_id,
+                'type': row_type,
             }
         ]
 
@@ -53,15 +53,15 @@ def generate_single_entry_endpoint_reply(
     request: ValidatedRequest, config: OptimadeConfig, data: QueryResults
 ) -> dict[str, Any]:
     data_part = []
-    for d in data:
-        attributes = dict(d)
-        del attributes['id']
-        del attributes['type']
+    for row in data:
+        attributes = dict(row.values)
+        row_id = attributes.pop('id')
+        row_type = attributes.pop('type')
         data_part += [
             {
                 'attributes': attributes,
-                'id': d['id'],
-                'type': d['type'],
+                'id': row_id,
+                'type': row_type,
             }
         ]
 

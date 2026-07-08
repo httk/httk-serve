@@ -4,6 +4,7 @@ from typing import Any, Iterator
 
 from ..filter.parser import FilterAst
 from ..model.errors import OptimadeError
+from ..model.results import ResultRow
 from .adapter import BackendAdapter, EntrySource
 from .protocols import Searcher
 from .translation import translate_filter
@@ -13,8 +14,9 @@ class StoreResults:
     """Results of a query over one or more searchers.
 
     Implements the :class:`~httk.optimade.model.results.QueryResults`
-    protocol. Iteration yields one dict per entry, mapping response-field
-    names to values extracted from the matched row objects.
+    protocol. Iteration yields one
+    :class:`~httk.optimade.model.results.ResultRow` per entry, whose values
+    map response-field names to values extracted from the matched row objects.
     """
 
     def __init__(
@@ -47,7 +49,7 @@ class StoreResults:
     def __iter__(self) -> "StoreResults":
         return self
 
-    def __next__(self) -> dict[str, Any]:
+    def __next__(self) -> ResultRow:
         if self.cur is None:
             raise StopIteration
         try:
@@ -82,7 +84,7 @@ class StoreResults:
 
         self._count += 1
 
-        return result
+        return ResultRow(values=result)
 
 
 def execute_query(
