@@ -187,7 +187,7 @@ def generate_entry_endpoint_reply(
             config=config,
             data_count=ndata_returned,
             more_data_available=data.more_data_available,
-            data_available=config.data_available[request.endpoint],
+            data_available=config.data_available.get(request.endpoint),
             warnings=request.warnings or None,
             last_id=last_id,
         ),
@@ -247,7 +247,7 @@ def generate_single_entry_endpoint_reply(
             config=config,
             data_count=ndata,
             more_data_available=False,
-            data_available=config.data_available[request.endpoint],
+            data_available=config.data_available.get(request.endpoint),
             warnings=request.warnings or None,
         ),
     }

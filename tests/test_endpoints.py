@@ -174,3 +174,12 @@ def test_entry_info_endpoint_reply_custom_property_definitions() -> None:
     assert energy["$id"].startswith("https://httk.org/")
     assert energy["x-optimade-type"] == "float"
     assert energy["type"] == ["number", "null"]
+
+
+def test_entry_reply_without_data_available_counts() -> None:
+    # A config whose data_available was never populated (process_init not run
+    # for this entry type) must not crash the reply; the meta field is omitted.
+    config = OptimadeConfig()
+    rows = [{"id": "1", "type": "structures"}]
+    reply = generate_entry_endpoint_reply(make_validated("structures"), config, StubResults(rows))
+    assert "data_available" not in reply["meta"]
