@@ -1,6 +1,6 @@
 """Translation of OPTIMADE filter syntax trees into backend search expressions."""
 
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from ..filter.parser import FilterAst
 from ..model.errors import TranslatorError
@@ -55,7 +55,10 @@ def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) 
 
 
 def translate_filter(
-    filter_ast: FilterAst | None, entries: list[str], adapter: BackendAdapter
+    filter_ast: FilterAst | None,
+    entries: list[str],
+    adapter: BackendAdapter,
+    sort: Sequence[tuple[str, bool]] | None = None,
 ) -> list[tuple[EntrySource, Searcher]]:
     """Build one searcher per entry source, with the filter applied to each."""
 
@@ -68,6 +71,9 @@ def translate_filter(
             searcher = adapter.store.searcher()
             search_variable = searcher.variable(source.target)
             searcher.output(search_variable, entry)
+            if sort is not None:
+                for name, descending in sort:
+                    searcher.add_sort(getattr(search_variable, source.sort_columns[name]), descending)
             if filter_ast is not None:
                 search_expr, needs_post = translate_filter_node(
                     filter_ast,

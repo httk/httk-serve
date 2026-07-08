@@ -94,6 +94,7 @@ class FakeSearcher:
         self.outputs: list[tuple[FakeVariable, str]] = []
         self.expressions: list[FakeExpression] = []
         self.all_expressions: list[FakeExpression] = []
+        self.sorts: list[tuple[str, bool]] = []
 
     def variable(self, target: Any) -> FakeVariable:
         variable = FakeVariable(target)
@@ -118,8 +119,19 @@ class FakeSearcher:
     def add_offset(self, offset: int) -> None:
         self.offset += offset
 
+    def add_sort(self, column: FakeColumn, descending: bool) -> None:
+        self.sorts.append((column.name, descending))
+
+    def _sorted_rows(self) -> list[Any]:
+        rows = list(self.rows)
+        # Stable multi-key sort: apply keys in reverse declaration order so the
+        # first-declared sort key is the most significant. None sorts first.
+        for name, descending in reversed(self.sorts):
+            rows.sort(key=lambda row, n=name: (getattr(row, n) is None, getattr(row, n)), reverse=descending)
+        return rows
+
     def __iter__(self) -> Iterator[Any]:
-        rows = self.rows[self.offset:]
+        rows = self._sorted_rows()[self.offset:]
         if self.limit is not None and self.limit >= 0:
             rows = rows[: self.limit]
         return iter([((row,),) for row in rows])

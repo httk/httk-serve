@@ -117,6 +117,7 @@ def process(
                     validated_parameters.page_limit,
                     validated_parameters.page_offset,
                     filter_ast,
+                    sort=validated_request.sort_fields or None,
                     debug=debug,
                 )
             except TranslatorError as e:
@@ -129,6 +130,7 @@ def process(
                 unknown_response_fields,
                 validated_parameters.page_limit,
                 validated_parameters.page_offset,
+                sort=validated_request.sort_fields or None,
                 debug=debug,
             )
 

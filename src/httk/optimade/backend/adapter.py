@@ -20,6 +20,7 @@ class EntrySource:
 
     target: Any
     fields: Mapping[str, FieldExtractor]
+    sort_columns: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,23 @@ class BackendAdapter:
     field_handlers: Mapping[str, HandlerTable] = field(default_factory=default_field_handlers)
     schema: ServedSchema = field(default_factory=default_served_schema)
 
+    def __post_init__(self) -> None:
+        # Every property declared sortable for an entry type must have a
+        # backend column mapping in every source of that entry type.
+        for entry, sortable in self.schema.sortable_response_fields.items():
+            if not sortable:
+                continue
+            for source in self.sources.get(entry, ()):
+                for name in sortable:
+                    if name not in source.sort_columns:
+                        raise ValueError(
+                            "Property '"
+                            + name
+                            + "' is marked sortable for entry type '"
+                            + entry
+                            + "' but has no sort_columns mapping in one of its sources."
+                        )
+
     def query_function(self) -> QueryFunction:
         from .execution import execute_query
 
@@ -47,6 +65,7 @@ class BackendAdapter:
             page_offset: int,
             filter_ast: FilterAst | None = None,
             *,
+            sort: Sequence[tuple[str, bool]] | None = None,
             debug: bool = False,
         ) -> QueryResults:
             return execute_query(
@@ -57,6 +76,7 @@ class BackendAdapter:
                 page_limit,
                 page_offset,
                 filter_ast,
+                sort=sort,
                 debug=debug,
             )
 

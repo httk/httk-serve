@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Protocol
+from typing import Any, Iterator, Protocol, Sequence
 
 from ..filter.parser import FilterAst
 
@@ -40,5 +40,6 @@ class QueryFunction(Protocol):
         page_offset: int,
         filter_ast: FilterAst | None = None,
         *,
+        sort: Sequence[tuple[str, bool]] | None = None,
         debug: bool = False,
     ) -> QueryResults: ...

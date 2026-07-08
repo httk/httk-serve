@@ -14,6 +14,7 @@ from typing import Any
 from inmemory_backend import InMemoryStore
 
 from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, serve
+from httk.optimade.schema.served import build_served_schema
 
 
 def structure(
@@ -70,14 +71,80 @@ CALCULATION_FIELDS = {
 }
 
 
+# The properties served for each entry type; the same lists the default httk
+# schema serves, restated here so a custom (sortable-enabled) schema can be built.
+STRUCTURE_PROPERTIES = [
+    'id',
+    'type',
+    'elements',
+    'nelements',
+    'chemical_formula_descriptive',
+    'dimension_types',
+    'nperiodic_dimensions',
+    'lattice_vectors',
+    'structure_features',
+    'nsites',
+    'species_at_sites',
+    'cartesian_site_positions',
+    'chemical_formula_anonymous',
+    'chemical_formula_reduced',
+]
+
+CALCULATION_PROPERTIES = [
+    'id',
+    'type',
+    '_httk_total_energy',
+    '_httk_structure_id',
+]
+
+DEFAULT_RESPONSE_OVERRIDES = {
+    'structures': [
+        'structure_features',
+        'lattice_vectors',
+        'elements',
+        'nelements',
+        'chemical_formula_descriptive',
+        'dimension_types',
+        'nperiodic_dimensions',
+        'nsites',
+        'species_at_sites',
+        'cartesian_site_positions',
+        'chemical_formula_anonymous',
+        'chemical_formula_reduced',
+    ],
+    'calculations': [
+        '_httk_total_energy',
+        '_httk_structure_id',
+    ],
+}
+
+# OPTIMADE property -> backend column name, for the sortable structure properties.
+STRUCTURE_SORT_COLUMNS = {
+    'id': '__id',
+    'nelements': 'number_of_elements',
+    'chemical_formula_descriptive': 'formula',
+}
+
+
 def make_adapter() -> BackendAdapter:
     store = InMemoryStore({'structures': STRUCTURES, 'calculations': CALCULATIONS})
+    schema = build_served_schema(
+        {
+            'structures': STRUCTURE_PROPERTIES,
+            'calculations': CALCULATION_PROPERTIES,
+        },
+        default_response_overrides=DEFAULT_RESPONSE_OVERRIDES,
+        sortable={'structures': list(STRUCTURE_SORT_COLUMNS)},
+    )
     return BackendAdapter(
         store=store,
         sources={
-            'structures': (EntrySource(target='structures', fields=STRUCTURE_FIELDS),),
+            'structures': (
+                EntrySource(target='structures', fields=STRUCTURE_FIELDS, sort_columns=STRUCTURE_SORT_COLUMNS),
+            ),
             'calculations': (EntrySource(target='calculations', fields=CALCULATION_FIELDS),),
         },
+        schema=schema,
     )
 
 

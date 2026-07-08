@@ -32,6 +32,7 @@ class StubQueryFunction:
         page_offset: int,
         filter_ast: Any = None,
         *,
+        sort: Any = None,
         debug: bool = False,
     ) -> StubResults:
         self.calls.append(
@@ -42,6 +43,7 @@ class StubQueryFunction:
                 "page_limit": page_limit,
                 "page_offset": page_offset,
                 "filter_ast": filter_ast,
+                "sort": sort,
             }
         )
         return StubResults([dict(row) for row in self.rows])

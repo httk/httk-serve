@@ -92,6 +92,7 @@ def property_definition(entry: str, name: str, info: PropertyInfo) -> dict[str, 
             "label": f"{name.lstrip('_')}_{source}_{entry}",
         },
         "type": _type_field(optimade_type, nullable),
+        "sortable": info.get("sortable", False),
         "x-optimade-implementation": {
             "sortable": info.get("sortable", False),
             "response-default": info.get("default_response", False),

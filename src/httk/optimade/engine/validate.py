@@ -58,6 +58,12 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
     if 'filter' in query and query['filter'] is not None:
         validated_parameters.filter = query['filter']
 
+    # The sort parameter is only meaningful for entry endpoints; on other
+    # endpoints it is ignored. The raw string is stored here; parsing into
+    # (property, descending) pairs happens in validate_optimade_request.
+    if 'sort' in query and query['sort'] is not None and endpoint in schema.all_entries:
+        validated_parameters.sort = query['sort']
+
     return validated_parameters
 
 
@@ -182,6 +188,23 @@ def validate_optimade_request(
         for response_field in schema.required_response_fields[endpoint]:
             if response_field not in validated_request.recognized_response_fields:
                 validated_request.recognized_response_fields += [response_field]
+
+    # Parse the sort parameter (JSON:API 1.1: comma-separated property names,
+    # a leading '-' meaning descending) into (property, descending) pairs.
+    if validated_request.query.sort is not None:
+        sortable = schema.sortable_response_fields[endpoint]
+        for token in validated_request.query.sort.split(","):
+            token = token.strip()
+            if token == "":
+                continue
+            descending = token.startswith("-")
+            name = token[1:] if descending else token
+            if name not in sortable:
+                raise OptimadeError("Sorting not supported for field: " + name, 400, "Bad request")
+            # Defensive programming; don't trust '=='/in to be byte-for-byte
+            # equivalent, so don't use the insecure string from the user.
+            canonical = sortable[sortable.index(name)]
+            validated_request.sort_fields.append((canonical, descending))
 
     if validated_request.version != version:
         raise OptimadeError("validate_optimade_request: unexpected version", 500, "Internal server error")

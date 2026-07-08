@@ -1,9 +1,9 @@
 """Query execution: runs translated searchers and adapts results for the endpoints."""
 
-from typing import Any, Iterator
+from typing import Any, Iterator, Sequence
 
 from ..filter.parser import FilterAst
-from ..model.errors import OptimadeError
+from ..model.errors import OptimadeError, TranslatorError
 from ..model.results import ResultRow
 from .adapter import BackendAdapter, EntrySource
 from .protocols import Searcher
@@ -96,10 +96,14 @@ def execute_query(
     response_offset: int | None,
     filter_ast: FilterAst | None = None,
     *,
+    sort: Sequence[tuple[str, bool]] | None = None,
     debug: bool = False,
 ) -> StoreResults:
 
-    pairs = translate_filter(filter_ast, entries, adapter)
+    pairs = translate_filter(filter_ast, entries, adapter, sort)
+
+    if sort and len(pairs) > 1:
+        raise TranslatorError("Sorting across multiple data sources is not implemented.", 501, "Not implemented")
 
     if response_offset is not None and response_offset != 0:
         remaining_offset = response_offset

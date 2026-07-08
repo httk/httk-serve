@@ -122,6 +122,7 @@ class MemorySearcher:
         self._tables = tables
         self._rows: list[Row] = []
         self._expressions: list[MemoryExpression] = []
+        self._sorts: list[tuple[MemoryColumn, bool]] = []
         self.offset = 0
         self._limit: int | None = None
 
@@ -139,8 +140,21 @@ class MemorySearcher:
         # Post filtering is not needed: set predicates evaluate exactly here.
         pass
 
+    def add_sort(self, column: MemoryColumn, descending: bool) -> None:
+        self._sorts.append((column, descending))
+
     def _matches(self) -> list[Row]:
-        return [row for row in self._rows if all(e.predicate(row) for e in self._expressions)]
+        rows = [row for row in self._rows if all(e.predicate(row) for e in self._expressions)]
+        # Stable multi-key sort: apply keys in reverse declaration order so the
+        # first-declared sort key is the most significant. None sorts first.
+        for column, descending in reversed(self._sorts):
+
+            def key(row: Row, c: MemoryColumn = column) -> tuple[bool, Any]:
+                value = c._value(row)
+                return (value is None, value)
+
+            rows = sorted(rows, key=key, reverse=descending)
+        return rows
 
     def count(self) -> int:
         return len(self._matches())
