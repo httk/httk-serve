@@ -17,16 +17,16 @@ clean: docs-clean
 	find . -name "__pycache__" -print0 | xargs -0 rm -rf
 
 format:
-	$(PYTHON) -m ruff check src --select F401 --fix
-	$(PYTHON) -m isort src
-	$(PYTHON) -m black src
+	$(PYTHON) -m ruff check src examples --select F401 --fix
+	$(PYTHON) -m isort src examples
+	$(PYTHON) -m black src examples
 
 format-check:
-	$(PYTHON) -m isort --check-only src
-	$(PYTHON) -m black --check src
+	$(PYTHON) -m isort --check-only src examples
+	$(PYTHON) -m black --check src examples
 
 lint:
-	$(PYTHON) -m ruff check src
+	$(PYTHON) -m ruff check src examples
 
 typecheck_pyright:
 	$(PYTHON) -m pyright
