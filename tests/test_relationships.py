@@ -205,7 +205,7 @@ def test_resolver_dedupes_by_type_and_id() -> None:
     duplicate = ResultRow(values={"id": "ref-1", "type": "references", "title": "T"})
     other = ResultRow(values={"id": "ref-2", "type": "references", "title": "U"})
     qf = StubQueryFunction({"references": [duplicate, other, duplicate]})
-    resolver = _make_related_resolver(qf, schema)
+    resolver = _make_related_resolver(qf, schema, "http://x/")
     included = resolver({"references": {"ref-1", "ref-2"}})
     ids = sorted(obj["id"] for obj in included)
     assert ids == ["ref-1", "ref-2"]
@@ -354,3 +354,17 @@ def test_asgi_include_bogus_400() -> None:
     response = client.get("/structures/demo-1", params={"include": "bogus"})
     assert response.status_code == 400
     assert response.json()["errors"][0]["status"] == 400
+
+
+def test_resolver_passes_baseurl_for_partial_values() -> None:
+    # Included resources with PartialValue attributes used to get relative
+    # partial-data links because the resolver dropped the base URL.
+    from httk.optimade.backend.partial import PartialDimension, PartialValue
+
+    pv = PartialValue(dimensions=(PartialDimension("dim_x", length=2, sliceable=True),), fetch=lambda s: [1, 2])
+    row = ResultRow(values={"id": "ref-1", "type": "references", "title": pv})
+    qf = StubQueryFunction({"references": [row]})
+    resolver = _make_related_resolver(qf, relationships_schema(), "http://example.org/")
+    included = resolver({"references": {"ref-1"}})
+    link = included[0]["meta"]["partial_data_links"]["title"][0]["link"]
+    assert link.startswith("http://example.org/partial_data/references/ref-1/")

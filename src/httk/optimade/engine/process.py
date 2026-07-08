@@ -29,7 +29,7 @@ logger = logging.getLogger("httk.optimade")
 
 
 def _make_related_resolver(
-    query_function: QueryFunction, schema: ServedSchema, *, debug: bool = False
+    query_function: QueryFunction, schema: ServedSchema, baseurl: str, *, debug: bool = False
 ) -> "Callable[[dict[str, set[str]]], list[dict[str, Any]]]":
     """Build a resolver that fetches related resources for the ``included`` field.
 
@@ -67,7 +67,7 @@ def _make_related_resolver(
                 debug=debug,
             )
             for row in results:
-                obj = _resource_object(row)
+                obj = _resource_object(row, baseurl)
                 key = (obj['type'], obj['id'])
                 if key in seen:
                     continue
@@ -190,7 +190,7 @@ def process(
                 debug=debug,
             )
 
-        related_resolver = _make_related_resolver(query_function, schema, debug=debug)
+        related_resolver = _make_related_resolver(query_function, schema, validated_request.baseurl, debug=debug)
 
         if request_id is not None:
             response = generate_single_entry_endpoint_reply(validated_request, config, results, related_resolver)
