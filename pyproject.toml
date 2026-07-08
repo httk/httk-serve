@@ -55,6 +55,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"httk.optimade.filter" = ["*.ebnf"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
@@ -65,6 +68,10 @@ profile = "black"
 target-version = "py311"
 src = ["src"]
 
+[tool.ruff.lint.per-file-ignores]
+# Vendored LR(1) parser from httk v1; kept close to its upstream form.
+"src/httk/optimade/filter/_miniparser.py" = ["E741", "E712"]
+
 [tool.black]
 target-version = ["py311"]
 line-length = 120
@@ -73,6 +80,8 @@ skip-string-normalization = true
 [tool.pyright]
 pythonVersion = "3.11"
 include = ["src"]
+# Vendored LR(1) parser from httk v1; kept close to its upstream form.
+exclude = ["src/httk/optimade/filter/_miniparser.py"]
 reportMissingImports = true
 extraPaths = []
 
@@ -83,3 +92,8 @@ mypy_path = ["src"]
 namespace_packages = true
 explicit_package_bases = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# Vendored LR(1) parser from httk v1; kept close to its upstream form.
+module = "httk.optimade.filter._miniparser"
+disable_error_code = ["var-annotated", "assignment", "arg-type", "operator", "index", "union-attr", "attr-defined", "return-value", "func-returns-value"]
