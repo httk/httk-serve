@@ -495,7 +495,8 @@ if __name__ == "__main__":
                 "homepage": "https://httk.org",
                 "link_type": "root",
             },
-        ]
+        ],
+        schema_url="https://schemas.optimade.org/openapi/v1.3/optimade.json",
     )
 
     serve(make_adapter(), config, port=8080, debug=True)
