@@ -21,8 +21,10 @@ class OptimadeConfig:
     ``implementation`` dictionary (e.g. ``issue_tracker``, ``source_url``,
     ``maintainer``). ``database``, ``schema_url``, and ``request_delay``
     populate the corresponding optional ``meta`` fields (OPTIMADE v1.2+)
-    when set. ``data_available`` is filled in by ``process_init`` with the
-    number of available entries per entry endpoint.
+    when set. ``license``, ``available_licenses``, and
+    ``available_licenses_for_entries`` populate the corresponding optional
+    base-info attributes when set. ``data_available`` is filled in by
+    ``process_init`` with the number of available entries per entry endpoint.
     """
 
     provider: dict[str, Any] = field(default_factory=_default_provider)
@@ -31,5 +33,8 @@ class OptimadeConfig:
     database: dict[str, Any] | None = None
     schema_url: str | None = None
     request_delay: float | None = None
+    license: dict[str, Any] | str | None = None
+    available_licenses: list[str] | None = None
+    available_licenses_for_entries: list[str] | None = None
     data_available: dict[str, int] = field(default_factory=dict)
     partial_data_chunk_size: int = 1000

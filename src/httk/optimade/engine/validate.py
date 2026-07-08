@@ -249,6 +249,17 @@ def validate_optimade_request(
                     )
                 else:
                     validated_request.unrecognized_response_fields += [response_field]
+                    validated_request.warnings.append(
+                        {
+                            "type": "warning",
+                            "title": "Unrecognized response field",
+                            "detail": (
+                                "Unknown provider-specific response field: "
+                                + response_field
+                                + ". It is served as null."
+                            ),
+                        }
+                    )
     else:
         if endpoint in schema.default_response_fields:
             validated_request.recognized_response_fields = list(schema.default_response_fields[endpoint])

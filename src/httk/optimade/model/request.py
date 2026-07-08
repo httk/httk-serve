@@ -91,6 +91,7 @@ class ValidatedRequest:
     property_metadata_requested: bool = False
     partial_data_parts: tuple[str, str, str] | None = None
     partial_data_offset: int = 0
+    warnings: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)

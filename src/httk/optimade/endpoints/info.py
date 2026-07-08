@@ -16,24 +16,37 @@ def generate_info_endpoint_reply(
     for ver in optimade_supported_versions:
         available_api_versions += [{'version': optimade_supported_versions[ver], 'url': request.baseurl + ver}]
 
+    attributes: dict[str, Any] = {
+        "api_version": request.version,
+        "available_api_versions": available_api_versions,
+        "formats": [
+            "json",
+        ],
+        "entry_types_by_format": {
+            "json": list(schema.all_entries),
+        },
+        "available_endpoints": ["info", "links"] + list(schema.all_entries),
+        "is_index": False,
+    }
+    if config.license is not None:
+        attributes["license"] = config.license
+    if config.available_licenses is not None:
+        attributes["available_licenses"] = config.available_licenses
+    if config.available_licenses_for_entries is not None:
+        attributes["available_licenses_for_entries"] = config.available_licenses_for_entries
+
     response = {
         "data": {
             "id": "/",
             "type": "info",
-            "attributes": {
-                "api_version": request.version,
-                "available_api_versions": available_api_versions,
-                "formats": [
-                    "json",
-                ],
-                "entry_types_by_format": {
-                    "json": list(schema.all_entries),
-                },
-                "available_endpoints": ["info", "links"] + list(schema.all_entries),
-                "is_index": False,
-            },
+            "attributes": attributes,
         },
-        "meta": generate_meta(representation=request.representation, api_version=request.version, config=config),
+        "meta": generate_meta(
+            representation=request.representation,
+            api_version=request.version,
+            config=config,
+            warnings=request.warnings or None,
+        ),
     }
     return response
 
@@ -54,7 +67,12 @@ def generate_entry_info_endpoint_reply(
                 "json": list(schema.properties_by_entry[entry]),
             },
         },
-        "meta": generate_meta(representation=request.representation, api_version=request.version, config=config),
+        "meta": generate_meta(
+            representation=request.representation,
+            api_version=request.version,
+            config=config,
+            warnings=request.warnings or None,
+        ),
     }
 
 
@@ -113,5 +131,6 @@ def generate_links_endpoint_reply(request: ValidatedRequest, config: OptimadeCon
             config=config,
             data_count=len(links),
             more_data_available=False,
+            warnings=request.warnings or None,
         ),
     }

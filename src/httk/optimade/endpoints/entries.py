@@ -172,6 +172,10 @@ def generate_entry_endpoint_reply(
         links = {"next": request.baseurl + request.endpoint + "?" + urlencode(query)}
     else:
         links = {"next": None}
+    if config.schema_url is not None:
+        links["describedby"] = config.schema_url
+
+    last_id = data_part[-1]['id'] if data_part else None
 
     response: dict[str, Any] = {
         "links": links,
@@ -183,6 +187,8 @@ def generate_entry_endpoint_reply(
             data_count=ndata_returned,
             more_data_available=data.more_data_available,
             data_available=config.data_available[request.endpoint],
+            warnings=request.warnings or None,
+            last_id=last_id,
         ),
     }
 
@@ -227,8 +233,12 @@ def generate_single_entry_endpoint_reply(
             "Internal server error",
         )
 
+    links: dict[str, str | None] = {"next": None}
+    if config.schema_url is not None:
+        links["describedby"] = config.schema_url
+
     response: dict[str, Any] = {
-        "links": {"next": None},
+        "links": links,
         "data": single_data_part,
         "meta": generate_meta(
             representation=request.representation,
@@ -237,6 +247,7 @@ def generate_single_entry_endpoint_reply(
             data_count=ndata,
             more_data_available=False,
             data_available=config.data_available[request.endpoint],
+            warnings=request.warnings or None,
         ),
     }
 

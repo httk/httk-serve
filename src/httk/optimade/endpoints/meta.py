@@ -18,6 +18,8 @@ def generate_meta(
     data_count: int | None = None,
     more_data_available: bool = False,
     data_available: int | None = None,
+    warnings: list[dict[str, Any]] | None = None,
+    last_id: str | None = None,
 ) -> dict[str, Any]:
     implementation = {
         "name": "httk-optimade",
@@ -48,4 +50,8 @@ def generate_meta(
         meta['data_returned'] = data_count
     if data_available is not None:
         meta['data_available'] = data_available
+    if warnings:
+        meta['warnings'] = warnings
+    if last_id is not None:
+        meta['last_id'] = last_id
     return meta
