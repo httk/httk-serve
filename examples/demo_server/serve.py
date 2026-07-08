@@ -52,6 +52,7 @@ def structure(
     formula: str,
     species_at_sites: list[str],
     positions: list[list[float]],
+    last_modified: str,
     references: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
@@ -63,22 +64,26 @@ def structure(
         'number_of_elements': len(set(species_at_sites)),
         'species_at_sites': species_at_sites,
         'positions': positions,
+        'last_modified': last_modified,
         'references': references if references is not None else [],
     }
 
 
 STRUCTURES = [
-    structure('demo-1', 'GaTi', ['Ga', 'Ti'], [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], references=['ref-1']),
-    structure('demo-2', 'Si', ['Si'], [[0.0, 0.0, 0.0]]),
+    structure(
+        'demo-1', 'GaTi', ['Ga', 'Ti'], [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], '2021-03-14T08:00:00Z', references=['ref-1']
+    ),
+    structure('demo-2', 'Si', ['Si'], [[0.0, 0.0, 0.0]], '2021-05-02T12:30:00Z'),
     structure(
         'demo-3',
         'SiO2',
         ['Si', 'O', 'O'],
         [[0.0, 0.0, 0.0], [0.3, 0.3, 0.3], [0.6, 0.6, 0.6]],
+        '2019-11-20T16:45:00Z',
         references=['ref-2'],
     ),
-    structure('demo-4', 'GaAs', ['Ga', 'As'], [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]]),
-    structure('demo-5', 'NaCl', ['Na', 'Cl'], [[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]]),
+    structure('demo-4', 'GaAs', ['Ga', 'As'], [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]], '2022-01-10T09:15:00Z'),
+    structure('demo-5', 'NaCl', ['Na', 'Cl'], [[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]], '2020-07-07T07:07:00Z'),
 ]
 
 CALCULATIONS = [
@@ -88,8 +93,16 @@ CALCULATIONS = [
         'structure': 'demo-1',
         'files': [('file-1', 'input'), ('file-2', 'output')],
         'file_ids': ['file-1', 'file-2'],
+        'last_modified': '2021-03-15T10:20:00Z',
     },
-    {'__id': 'calc-2', 'total_energy': -5.4, 'structure': 'demo-2', 'files': [], 'file_ids': []},
+    {
+        '__id': 'calc-2',
+        'total_energy': -5.4,
+        'structure': 'demo-2',
+        'files': [],
+        'file_ids': [],
+        'last_modified': '2021-05-03T11:00:00Z',
+    },
 ]
 
 FILES = [
@@ -101,6 +114,7 @@ FILES = [
         'media_type': 'text/plain',
         'description': 'Input settings file',
         'checksums': {'sha256': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'},
+        'last_modified': '2021-03-15T10:20:00Z',
     },
     {
         '__id': 'file-2',
@@ -110,6 +124,7 @@ FILES = [
         'media_type': 'text/plain',
         'description': 'Output log file',
         'checksums': {'sha256': '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'},
+        'last_modified': '2021-03-15T10:25:00Z',
     },
 ]
 
@@ -121,6 +136,7 @@ REFERENCES = [
         'year': '2021',
         'doi': '10.1234/demo.2021.1',
         'authors': [{'name': 'Ada Lovelace'}, {'name': 'Alan Turing'}],
+        'last_modified': '2021-02-01T00:00:00Z',
     },
     {
         '__id': 'ref-2',
@@ -129,6 +145,7 @@ REFERENCES = [
         'year': '2019',
         'doi': '10.1234/demo.2019.7',
         'authors': [{'name': 'Grace Hopper'}],
+        'last_modified': '2019-09-09T09:00:00Z',
     },
 ]
 
@@ -137,6 +154,7 @@ _CUBIC_CELL = [[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]]
 STRUCTURE_FIELDS = {
     'type': lambda x: "structures",
     'id': lambda x: x['__id'],
+    'last_modified': lambda x: x['last_modified'],
     'structure_features': lambda x: [],
     'lattice_vectors': lambda x: _CUBIC_CELL,
     'elements': lambda x: sorted(set(x['formula_symbols'])),
@@ -154,6 +172,7 @@ STRUCTURE_FIELDS = {
 CALCULATION_FIELDS = {
     'type': lambda x: "calculations",
     'id': lambda x: x['__id'],
+    'last_modified': lambda x: x['last_modified'],
     '_httk_total_energy': lambda x: x['total_energy'],
     '_httk_structure_id': lambda x: x['structure'],
 }
@@ -169,6 +188,7 @@ def calculation_relationships(row: dict[str, Any]) -> dict[str, list[dict[str, A
 FILE_FIELDS = {
     'type': lambda x: "files",
     'id': lambda x: x['__id'],
+    'last_modified': lambda x: x['last_modified'],
     'url': lambda x: x['url'],
     'name': lambda x: x['name'],
     'size': lambda x: x['size'],
@@ -197,6 +217,7 @@ def structure_relationships(row: dict[str, Any]) -> dict[str, list[dict[str, Any
 REFERENCE_FIELDS = {
     'type': lambda x: "references",
     'id': lambda x: x['__id'],
+    'last_modified': lambda x: x['last_modified'],
     'title': lambda x: x['title'],
     'journal': lambda x: x['journal'],
     'year': lambda x: x['year'],
@@ -224,6 +245,7 @@ TRAJECTORIES = [
         'nframes': 5,
         'reference_frames': [0, 4],
         'positions_frames': _TRAJECTORY_POSITIONS,
+        'last_modified': '2021-03-14T08:30:00Z',
     },
 ]
 
@@ -248,6 +270,7 @@ def trajectory_positions(row: dict[str, Any]) -> PartialValue:
 TRAJECTORY_FIELDS = {
     'type': lambda x: "trajectories",
     'id': lambda x: x['__id'],
+    'last_modified': lambda x: x['last_modified'],
     'nframes': lambda x: x['nframes'],
     'reference_frames': lambda x: x['reference_frames'],
     # Constant across frames: served as single-item lists (compact 'constant').
@@ -272,6 +295,7 @@ TRAJECTORY_COLUMNS = {
 STRUCTURE_PROPERTIES = [
     'id',
     'type',
+    'last_modified',
     'elements',
     'nelements',
     'chemical_formula_descriptive',
@@ -289,6 +313,7 @@ STRUCTURE_PROPERTIES = [
 CALCULATION_PROPERTIES = [
     'id',
     'type',
+    'last_modified',
     '_httk_total_energy',
     '_httk_structure_id',
 ]
@@ -296,6 +321,7 @@ CALCULATION_PROPERTIES = [
 REFERENCE_PROPERTIES = [
     'id',
     'type',
+    'last_modified',
     'title',
     'journal',
     'year',
@@ -308,6 +334,7 @@ REFERENCE_PROPERTIES = [
 FILE_PROPERTIES = [
     'id',
     'type',
+    'last_modified',
     'url',
     'name',
     'size',
@@ -321,6 +348,7 @@ FILE_PROPERTIES = [
 TRAJECTORY_STRUCTURE_PROPERTIES = [
     'id',
     'type',
+    'last_modified',
     'elements',
     'nelements',
     'lattice_vectors',
