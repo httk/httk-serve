@@ -14,6 +14,7 @@ from typing import Any
 from inmemory_backend import InMemoryStore
 
 from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, serve
+from httk.optimade.backend import default_field_handlers, simple_property_handlers
 from httk.optimade.schema.served import build_served_schema
 
 
@@ -44,6 +45,25 @@ CALCULATIONS = [
     {'__id': 'calc-2', 'total_energy': -5.4, 'structure': 'demo-2'},
 ]
 
+REFERENCES = [
+    {
+        '__id': 'ref-1',
+        'title': 'A study of gallium titanium compounds',
+        'journal': 'Journal of Demo Materials',
+        'year': '2021',
+        'doi': '10.1234/demo.2021.1',
+        'authors': [{'name': 'Ada Lovelace'}, {'name': 'Alan Turing'}],
+    },
+    {
+        '__id': 'ref-2',
+        'title': 'Silicon dioxide polymorphs revisited',
+        'journal': 'Demo Letters',
+        'year': '2019',
+        'doi': '10.1234/demo.2019.7',
+        'authors': [{'name': 'Grace Hopper'}],
+    },
+]
+
 _CUBIC_CELL = [[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]]
 
 STRUCTURE_FIELDS = {
@@ -68,6 +88,24 @@ CALCULATION_FIELDS = {
     'id': lambda x: x['__id'],
     '_httk_total_energy': lambda x: x['total_energy'],
     '_httk_structure_id': lambda x: x['structure'],
+}
+
+REFERENCE_FIELDS = {
+    'type': lambda x: "references",
+    'id': lambda x: x['__id'],
+    'title': lambda x: x['title'],
+    'journal': lambda x: x['journal'],
+    'year': lambda x: x['year'],
+    'doi': lambda x: x['doi'],
+    'authors': lambda x: x['authors'],
+}
+
+# OPTIMADE property -> backend column, for the queryable reference properties.
+REFERENCE_COLUMNS = {
+    'doi': 'doi',
+    'year': 'year',
+    'title': 'title',
+    'journal': 'journal',
 }
 
 
@@ -97,6 +135,18 @@ CALCULATION_PROPERTIES = [
     '_httk_structure_id',
 ]
 
+REFERENCE_PROPERTIES = [
+    'id',
+    'type',
+    'title',
+    'journal',
+    'year',
+    'doi',
+    'authors',
+    'url',
+    'bib_type',
+]
+
 DEFAULT_RESPONSE_OVERRIDES = {
     'structures': [
         'structure_features',
@@ -116,6 +166,13 @@ DEFAULT_RESPONSE_OVERRIDES = {
         '_httk_total_energy',
         '_httk_structure_id',
     ],
+    'references': [
+        'title',
+        'journal',
+        'year',
+        'doi',
+        'authors',
+    ],
 }
 
 # OPTIMADE property -> backend column name, for the sortable structure properties.
@@ -127,14 +184,19 @@ STRUCTURE_SORT_COLUMNS = {
 
 
 def make_adapter() -> BackendAdapter:
-    store = InMemoryStore({'structures': STRUCTURES, 'calculations': CALCULATIONS})
+    store = InMemoryStore({'structures': STRUCTURES, 'calculations': CALCULATIONS, 'references': REFERENCES})
     schema = build_served_schema(
         {
             'structures': STRUCTURE_PROPERTIES,
             'calculations': CALCULATION_PROPERTIES,
+            'references': REFERENCE_PROPERTIES,
         },
         default_response_overrides=DEFAULT_RESPONSE_OVERRIDES,
         sortable={'structures': list(STRUCTURE_SORT_COLUMNS)},
+    )
+    field_handlers = default_field_handlers()
+    field_handlers['references'] = simple_property_handlers(
+        'references', REFERENCE_COLUMNS, schema.entry_info['references']
     )
     return BackendAdapter(
         store=store,
@@ -143,7 +205,9 @@ def make_adapter() -> BackendAdapter:
                 EntrySource(target='structures', fields=STRUCTURE_FIELDS, sort_columns=STRUCTURE_SORT_COLUMNS),
             ),
             'calculations': (EntrySource(target='calculations', fields=CALCULATION_FIELDS),),
+            'references': (EntrySource(target='references', fields=REFERENCE_FIELDS),),
         },
+        field_handlers=field_handlers,
         schema=schema,
     )
 

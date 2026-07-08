@@ -4,6 +4,7 @@ from .handlers import (
     default_calculation_fields,
     default_field_handlers,
     default_structure_fields,
+    simple_property_handlers,
 )
 from .protocols import (
     QueryFunction,
@@ -25,6 +26,7 @@ __all__ = [
     "default_calculation_fields",
     "default_field_handlers",
     "default_structure_fields",
+    "simple_property_handlers",
     "QueryFunction",
     "QueryResults",
     "SearchColumn",

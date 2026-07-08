@@ -16,6 +16,7 @@ import operator
 from typing import Any, Callable, Mapping
 
 from ..model.errors import TranslatorError
+from ..schema.entries import EntryInfo
 from .protocols import SearchExpression, SearchVariable
 
 HandlerTable = Mapping[str, Mapping[str, Callable[..., Any]]]
@@ -184,6 +185,56 @@ def structure_features_length_handler(op: str, value: Any, search_variable: Sear
         return true_handler(search_variable)
     else:
         return false_handler(search_variable)
+
+
+def simple_property_handlers(
+    entry_type: str, columns: Mapping[str, str], entry_info: EntryInfo
+) -> dict[str, Mapping[str, Callable[..., Any]]]:
+    """Build a filter handler table for an entry type from a column map.
+
+    Always provides the standard ``id`` (matched against the ``__id`` column)
+    and ``type`` (a constant equal to ``entry_type``) handlers. For every
+    property named in ``columns`` (which maps OPTIMADE property names to backend
+    column names), handlers are generated from the property's ``fulltype`` in
+    ``entry_info``: string properties get comparison and stringmatching
+    handlers; integer and float properties get a numeric comparison handler;
+    ``list of ...`` properties get a HAS (set membership) handler. Every
+    generated property also gets a ``known`` unknown handler.
+
+    This builder is reused for entry types (references, files, trajectories)
+    whose backend rows are plain column maps.
+    """
+    handlers: dict[str, Mapping[str, Callable[..., Any]]] = {
+        'id': {
+            'comparison': lambda entry, op, value, sv: string_handler('__id', op, value, sv),
+            'unknown': known_unknown_handler,
+            'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('__id', value, smtype, sv),
+        },
+        'type': {
+            'comparison': lambda entry, op, value, sv: constant_comparison_handler(value, op, entry_type, sv),
+            'unknown': known_unknown_handler,
+            'stringmatching': lambda entry, value, smtype, sv: constant_stringmatching_handler(
+                value, entry_type, smtype, sv
+            ),
+        },
+    }
+    properties = entry_info['properties']
+    for name, column in columns.items():
+        fulltype = properties.get(name, {}).get('fulltype', 'string')
+        table: dict[str, Callable[..., Any]] = {'unknown': known_unknown_handler}
+        if fulltype.startswith('list of '):
+            table['HAS'] = lambda entry, ops, values, sv, has_type, inv, col=column: set_handler(
+                col, ops, values, inv, has_type, sv
+            )
+        elif fulltype in ('integer', 'float'):
+            table['comparison'] = lambda entry, op, value, sv, col=column: number_handler(col, op, value, sv)
+        else:
+            table['comparison'] = lambda entry, op, value, sv, col=column: string_handler(col, op, value, sv)
+            table['stringmatching'] = lambda entry, value, smtype, sv, col=column: stringmatching_handler(
+                col, value, smtype, sv
+            )
+        handlers[name] = table
+    return handlers
 
 
 def default_field_handlers() -> dict[str, HandlerTable]:
