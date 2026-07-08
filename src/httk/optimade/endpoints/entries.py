@@ -1,5 +1,5 @@
 from typing import Any, Callable
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from ..backend.partial import PartialDimension, PartialValue
 from ..model.config import OptimadeConfig
@@ -102,7 +102,8 @@ def _resolve_partial_value(
         data = value.fetch(tuple(slices))
         return data, None, {"list_axes": _list_axes(dimensions, sliced)}
 
-    links = [{"format": "jsonlines", "link": baseurl + f"partial_data/{row_type}/{row_id}/{prop}"}]
+    quoted = f"partial_data/{quote(row_type, safe='')}/{quote(str(row_id), safe='')}/{quote(prop, safe='')}"
+    links = [{"format": "jsonlines", "link": baseurl + quoted}]
     return None, links, {"list_axes": _list_axes(dimensions)}
 
 

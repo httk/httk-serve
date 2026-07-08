@@ -311,3 +311,34 @@ def test_partial_data_endpoint_non_partial_property_404() -> None:
     client = make_client()
     response = client.get("/partial_data/structures/demo-1/nelements")
     assert response.status_code == 404
+
+
+def test_partial_data_links_percent_encode_ids() -> None:
+    # Entry ids may contain any printable ASCII (including '?', '#', spaces);
+    # partial-data links must percent-encode them to stay valid URLs, and the
+    # encoded link must round-trip through the ASGI route.
+    positions = [[float(i)] for i in range(3)]
+    store = FakeStore(rows_by_target={"structure-table": [Row("demo 1?x", positions)]})
+    fields: dict[str, Any] = {
+        "type": lambda x: "structures",
+        "id": lambda x: x.sid,
+        "nelements": lambda x: 2,
+        "cartesian_site_positions": _partial_positions,
+    }
+    adapter = BackendAdapter(
+        store=store,
+        sources={"structures": (EntrySource(target="structure-table", fields=fields),)},
+        schema=_schema(),
+    )
+    app = create_asgi_app(adapter, OptimadeConfig(), baseurl="http://testserver/")
+    client = TestClient(app, base_url="http://testserver")
+
+    listing = client.get("/structures").json()
+    link = listing["data"][0]["meta"]["partial_data_links"]["cartesian_site_positions"][0]["link"]
+    assert "demo%201%3Fx" in link
+    assert "?" not in link.replace("%3F", "")
+
+    response = client.get(link)
+    assert response.status_code == 200
+    header = json.loads(response.text.splitlines()[0])
+    assert header["entry"]["id"] == "demo 1?x"

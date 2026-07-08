@@ -9,6 +9,7 @@ JSON Lines document, with a next-marker when more data remains.
 
 import json
 from typing import Any
+from urllib.parse import quote
 
 from ..backend.partial import PartialValue
 from ..filter.parser import FilterAst
@@ -67,7 +68,8 @@ def generate_partial_data_reply(
 
     next_offset = offset + len(items)
     if next_offset < outer_length:
-        next_link = request.baseurl + f"partial_data/{entry}/{entry_id}/{prop}?offset={next_offset}"
+        quoted = f"partial_data/{quote(entry, safe='')}/{quote(entry_id, safe='')}/{quote(prop, safe='')}"
+        next_link = request.baseurl + quoted + f"?offset={next_offset}"
         lines.append(json.dumps(["PARTIAL-DATA-NEXT", [next_link]]))
     else:
         lines.append(json.dumps(["PARTIAL-DATA-END", [""]]))
