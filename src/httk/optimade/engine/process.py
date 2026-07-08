@@ -2,8 +2,10 @@
 
 import logging
 from pprint import pformat
+from typing import Any, Callable
 
 from ..endpoints.entries import (
+    _resource_object,
     generate_entry_endpoint_reply,
     generate_single_entry_endpoint_reply,
 )
@@ -23,6 +25,56 @@ from ..schema.served import ServedSchema, default_served_schema
 from .validate import validate_optimade_request
 
 logger = logging.getLogger("httk.optimade")
+
+
+def _make_related_resolver(
+    query_function: QueryFunction, schema: ServedSchema, *, debug: bool = False
+) -> "Callable[[dict[str, set[str]]], list[dict[str, Any]]]":
+    """Build a resolver that fetches related resources for the ``included`` field.
+
+    Given a mapping of related entry type to the set of related ids, it queries
+    each entry type (depth-1 only, never recursing further) with its default
+    response fields, formats each result as a full resource object (including
+    its own relationships block), and returns the deduplicated list.
+    """
+
+    def resolve(collected: dict[str, set[str]]) -> list[dict[str, Any]]:
+        included: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+        for etype, ids in collected.items():
+            if not ids or etype not in schema.all_entries:
+                continue
+            id_list = sorted(ids)
+
+            response_fields = list(schema.default_response_fields.get(etype, ()))
+            for required in schema.required_response_fields.get(etype, ()):
+                if required not in response_fields:
+                    response_fields.append(required)
+
+            filter_ast: FilterAst | None = None
+            for rid in id_list:
+                node: FilterAst = ('=', ('Identifier', 'id'), ('String', rid))
+                filter_ast = node if filter_ast is None else ('OR', filter_ast, node)
+
+            results = query_function(
+                [etype],
+                response_fields,
+                [],
+                len(id_list),
+                0,
+                filter_ast,
+                debug=debug,
+            )
+            for row in results:
+                obj = _resource_object(row)
+                key = (obj['type'], obj['id'])
+                if key in seen:
+                    continue
+                seen.add(key)
+                included.append(obj)
+        return included
+
+    return resolve
 
 
 def process(
@@ -134,10 +186,12 @@ def process(
                 debug=debug,
             )
 
+        related_resolver = _make_related_resolver(query_function, schema, debug=debug)
+
         if request_id is not None:
-            response = generate_single_entry_endpoint_reply(validated_request, config, results)
+            response = generate_single_entry_endpoint_reply(validated_request, config, results, related_resolver)
         else:
-            response = generate_entry_endpoint_reply(validated_request, config, results)
+            response = generate_entry_endpoint_reply(validated_request, config, results, related_resolver)
 
         if debug:
             logger.debug("==== END RESULT: %s", pformat(response))

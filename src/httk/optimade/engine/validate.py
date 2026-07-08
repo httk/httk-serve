@@ -64,6 +64,13 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
     if 'sort' in query and query['sort'] is not None and endpoint in schema.all_entries:
         validated_parameters.sort = query['sort']
 
+    # The include parameter is only meaningful for entry endpoints. The raw
+    # string is stored here only when the client explicitly provides it (so
+    # next-links reproduce the user's intent); parsing into the list of served
+    # entry types happens in validate_optimade_request.
+    if 'include' in query and query['include'] is not None and endpoint in schema.all_entries:
+        validated_parameters.include = query['include']
+
     return validated_parameters
 
 
@@ -205,6 +212,30 @@ def validate_optimade_request(
             # equivalent, so don't use the insecure string from the user.
             canonical = sortable[sortable.index(name)]
             validated_request.sort_fields.append((canonical, descending))
+
+    # Parse the include parameter (a comma-separated list of relationship
+    # paths) into the list of served entry types whose related resources are to
+    # be returned under the top-level "included" field. When the parameter is
+    # absent the default is 'references' (filtered to the served entry types);
+    # an explicit empty string means include nothing; each listed path must be
+    # a served entry type (only depth-1 paths are supported) or the request is
+    # rejected with 400.
+    if endpoint in schema.all_entries:
+        if validated_request.query.include is None:
+            validated_request.include_paths = [e for e in ('references',) if e in schema.all_entries]
+        elif validated_request.query.include.strip() == "":
+            validated_request.include_paths = []
+        else:
+            for token in validated_request.query.include.split(","):
+                token = token.strip()
+                if token == "":
+                    continue
+                if token not in schema.all_entries:
+                    raise OptimadeError("Unrecognized relationship path in include: " + token, 400, "Bad request")
+                # Defensive programming; don't trust '=='/in to be byte-for-byte
+                # equivalent, so don't use the insecure string from the user.
+                canonical = schema.all_entries[schema.all_entries.index(token)]
+                validated_request.include_paths.append(canonical)
 
     if validated_request.version != version:
         raise OptimadeError("validate_optimade_request: unexpected version", 500, "Internal server error")

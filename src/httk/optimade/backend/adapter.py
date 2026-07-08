@@ -16,11 +16,15 @@ class EntrySource:
 
     ``target`` is what gets passed to ``searcher.variable()``; ``fields`` maps
     OPTIMADE response-field names to extractors applied to matched row objects.
+    ``relationships``, when set, is an extractor mapping a matched row to a
+    dictionary keyed by related entry type, each value a list of
+    ``{'id': str, 'description': str?, 'role': str?}`` dictionaries.
     """
 
     target: Any
     fields: Mapping[str, FieldExtractor]
     sort_columns: Mapping[str, str] = field(default_factory=dict)
+    relationships: FieldExtractor | None = None
 
 
 @dataclass(frozen=True)

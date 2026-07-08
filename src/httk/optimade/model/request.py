@@ -30,6 +30,7 @@ class ValidatedParameters:
     response_fields: str | None = None
     filter: str | None = None
     sort: str | None = None
+    include: str | None = None
 
     def as_query_dict(self) -> dict[str, str]:
         """Return the parameters as a URL query dict, omitting unset values."""
@@ -44,6 +45,8 @@ class ValidatedParameters:
             query['filter'] = self.filter
         if self.sort is not None:
             query['sort'] = self.sort
+        if self.include is not None:
+            query['include'] = self.include
         return query
 
 
@@ -61,6 +64,7 @@ class ValidatedRequest:
     recognized_response_fields: list[str] = field(default_factory=list)
     unrecognized_response_fields: list[str] = field(default_factory=list)
     sort_fields: list[tuple[str, bool]] = field(default_factory=list)
+    include_paths: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

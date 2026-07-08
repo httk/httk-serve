@@ -83,6 +83,7 @@ def translate_filter(
                     field_handlers,
                     adapter.schema.recognized_prefixes,
                     False,
+                    served_entries=adapter.schema.all_entries,
                 )
                 searcher.add(search_expr)
                 if needs_post:
@@ -101,6 +102,7 @@ def translate_filter_node(
     recognized_prefixes: tuple[str, ...],
     inv_toggle: bool,
     recursion: int = 0,
+    served_entries: tuple[str, ...] = (),
 ) -> tuple[SearchExpression, bool]:
 
     search_expr: SearchExpression | None = None
@@ -116,6 +118,7 @@ def translate_filter_node(
             recognized_prefixes,
             inv_toggle,
             recursion=recursion + 1,
+            served_entries=served_entries,
         )
         rhs_search_expr, rhs_needs_post = translate_filter_node(
             node[2],
@@ -126,6 +129,7 @@ def translate_filter_node(
             recognized_prefixes,
             inv_toggle,
             recursion=recursion + 1,
+            served_entries=served_entries,
         )
         needs_post = needs_post or rhs_needs_post
         search_expr = search_expr & rhs_search_expr
@@ -139,6 +143,7 @@ def translate_filter_node(
             recognized_prefixes,
             inv_toggle,
             recursion=recursion + 1,
+            served_entries=served_entries,
         )
         rhs_search_expr, rhs_needs_post = translate_filter_node(
             node[2],
@@ -149,6 +154,7 @@ def translate_filter_node(
             recognized_prefixes,
             inv_toggle,
             recursion=recursion + 1,
+            served_entries=served_entries,
         )
         needs_post = needs_post or rhs_needs_post
         search_expr = search_expr | rhs_search_expr
@@ -162,6 +168,7 @@ def translate_filter_node(
             recognized_prefixes,
             not inv_toggle,
             recursion=recursion + 1,
+            served_entries=served_entries,
         )
         search_expr = ~search_expr
     elif node[0] in ['HAS_ALL', 'HAS_ANY', 'HAS_ONLY']:
@@ -170,6 +177,26 @@ def translate_filter_node(
         right = node[3]
         assert left[0] == 'Identifier'
         has_handler: Callable[..., Any] | None
+        if len(left) > 2 and left[1] in served_entries:
+            # Filtering on a relationship, e.g. `references.id HAS "ref-1"`.
+            if left[2] == 'id':
+                rel_key = left[1] + '.id'
+                has_handler = handlers.get(rel_key, {}).get('HAS')
+                if has_handler is None:
+                    raise TranslatorError(
+                        "Filtering on relationship " + rel_key + " not implemented.", 501, "Not implemented"
+                    )
+                values = format_value('list of string', right)
+                if ops != tuple(['='] * len(values)):
+                    raise TranslatorError(
+                        "HAS queries with non-equal operators not implemented yet.", 501, "Not implemented"
+                    )
+                search_expr, needs_post = has_handler(rel_key, ops, values, search_variable, node[0], inv_toggle)
+                assert search_expr is not None
+                return search_expr, needs_post
+            raise TranslatorError(
+                "Filtering on relationship " + ".".join(left[1:]) + " not implemented.", 501, "Not implemented"
+            )
         if left[1] not in entry_info:
             if left[1].startswith(recognized_prefixes):
                 raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
@@ -190,6 +217,10 @@ def translate_filter_node(
         op = node[2]
         right = node[3]
         assert left[0] == 'Identifier'
+        if len(left) > 2 and left[1] in served_entries:
+            raise TranslatorError(
+                "Filtering on relationship " + ".".join(left[1:]) + " not implemented.", 501, "Not implemented"
+            )
         if right[0] == 'Identifier':
             raise TranslatorError(
                 "LENGTH comparisons with non-constant right hand side not implemented.", 501, "Not implemented"
@@ -232,6 +263,10 @@ def translate_filter_node(
                 left, right = right, left
                 op = _invert_op[op]
             assert left[0] == 'Identifier'
+            if len(left) > 2 and left[1] in served_entries:
+                raise TranslatorError(
+                    "Filtering on relationship " + ".".join(left[1:]) + " not implemented.", 501, "Not implemented"
+                )
             comparison_handler: Callable[..., Any] | None
             if left[1] not in entry_info:
                 if left[1].startswith(recognized_prefixes):
@@ -252,6 +287,10 @@ def translate_filter_node(
         left = node[1]
         right = node[2]
         assert left[0] == 'Identifier'
+        if len(left) > 2 and left[1] in served_entries:
+            raise TranslatorError(
+                "Filtering on relationship " + ".".join(left[1:]) + " not implemented.", 501, "Not implemented"
+            )
         if right[0] == 'Identifier':
             raise TranslatorError(
                 "Identifier vs. Identifier string comparisons not implemented.", 501, "Not implemented"
@@ -273,6 +312,10 @@ def translate_filter_node(
     elif node[0] in ['IS_UNKNOWN', 'IS_KNOWN']:
         left = node[1]
         assert left[0] == 'Identifier'
+        if len(left) > 2 and left[1] in served_entries:
+            raise TranslatorError(
+                "Filtering on relationship " + ".".join(left[1:]) + " not implemented.", 501, "Not implemented"
+            )
         if left[1] not in entry_info:
             if left[1].startswith(recognized_prefixes):
                 raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")

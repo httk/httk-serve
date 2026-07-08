@@ -15,11 +15,17 @@ from inmemory_backend import InMemoryStore
 
 from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, serve
 from httk.optimade.backend import default_field_handlers, simple_property_handlers
+from httk.optimade.backend.handlers import set_handler
 from httk.optimade.schema.served import build_served_schema
 
 
 def structure(
-    sid: str, formula: str, anonymous: str, species_at_sites: list[str], positions: list[list[float]]
+    sid: str,
+    formula: str,
+    anonymous: str,
+    species_at_sites: list[str],
+    positions: list[list[float]],
+    references: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         '__id': sid,
@@ -29,13 +35,21 @@ def structure(
         'number_of_elements': len(set(species_at_sites)),
         'species_at_sites': species_at_sites,
         'positions': positions,
+        'references': references if references is not None else [],
     }
 
 
 STRUCTURES = [
-    structure('demo-1', 'GaTi', 'AB', ['Ga', 'Ti'], [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]),
+    structure('demo-1', 'GaTi', 'AB', ['Ga', 'Ti'], [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], references=['ref-1']),
     structure('demo-2', 'Si', 'A', ['Si'], [[0.0, 0.0, 0.0]]),
-    structure('demo-3', 'SiO2', 'AB2', ['Si', 'O', 'O'], [[0.0, 0.0, 0.0], [0.3, 0.3, 0.3], [0.6, 0.6, 0.6]]),
+    structure(
+        'demo-3',
+        'SiO2',
+        'AB2',
+        ['Si', 'O', 'O'],
+        [[0.0, 0.0, 0.0], [0.3, 0.3, 0.3], [0.6, 0.6, 0.6]],
+        references=['ref-2'],
+    ),
     structure('demo-4', 'GaAs', 'AB', ['Ga', 'As'], [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]]),
     structure('demo-5', 'NaCl', 'AB', ['Na', 'Cl'], [[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]]),
 ]
@@ -89,6 +103,16 @@ CALCULATION_FIELDS = {
     '_httk_total_energy': lambda x: x['total_energy'],
     '_httk_structure_id': lambda x: x['structure'],
 }
+
+
+def structure_relationships(row: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    ref_ids = row.get('references') or []
+    if not ref_ids:
+        return {}
+    return {
+        'references': [{'id': rid, 'description': 'Reference for this structure'} for rid in ref_ids],
+    }
+
 
 REFERENCE_FIELDS = {
     'type': lambda x: "references",
@@ -198,11 +222,23 @@ def make_adapter() -> BackendAdapter:
     field_handlers['references'] = simple_property_handlers(
         'references', REFERENCE_COLUMNS, schema.entry_info['references']
     )
+    # A relationship filter handler: `references.id HAS "ref-1"` matches over the
+    # structure row's 'references' column (a list of related reference ids).
+    structures_handlers = dict(field_handlers['structures'])
+    structures_handlers['references.id'] = {
+        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
+    }
+    field_handlers['structures'] = structures_handlers
     return BackendAdapter(
         store=store,
         sources={
             'structures': (
-                EntrySource(target='structures', fields=STRUCTURE_FIELDS, sort_columns=STRUCTURE_SORT_COLUMNS),
+                EntrySource(
+                    target='structures',
+                    fields=STRUCTURE_FIELDS,
+                    sort_columns=STRUCTURE_SORT_COLUMNS,
+                    relationships=structure_relationships,
+                ),
             ),
             'calculations': (EntrySource(target='calculations', fields=CALCULATION_FIELDS),),
             'references': (EntrySource(target='references', fields=REFERENCE_FIELDS),),

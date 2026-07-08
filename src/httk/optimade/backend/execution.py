@@ -84,7 +84,11 @@ class StoreResults:
 
         self._count += 1
 
-        return ResultRow(values=result)
+        relationships: dict[str, list[dict[str, Any]]] = {}
+        if source.relationships is not None:
+            relationships = source.relationships(row)
+
+        return ResultRow(values=result, relationships=relationships)
 
 
 def execute_query(
