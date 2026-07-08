@@ -13,6 +13,7 @@ from ..model.config import OptimadeConfig
 from ..model.request import EndpointResponse, RawRequest
 from ..model.results import QueryFunction
 from ..model.versions import optimade_default_version
+from ..schema.served import ServedSchema, default_served_schema
 
 
 def _json_format(response: Any) -> str:
@@ -58,7 +59,7 @@ async def _handle_request(request: Request) -> Response:
 
     try:
         version = determine_optimade_version(raw_request)
-        output = process(raw_request, state.query_function, version, state.config, debug=state.debug)
+        output = process(raw_request, state.query_function, version, state.config, state.schema, debug=state.debug)
     except Exception as ex:
         output = _error_output(ex, raw_request, state.config)
 
@@ -69,17 +70,21 @@ def create_app(
     *,
     query_function: QueryFunction,
     config: OptimadeConfig,
+    schema: ServedSchema | None = None,
     baseurl: str | None = None,
     debug: bool = False,
 ) -> Starlette:
+    if schema is None:
+        schema = default_served_schema()
     if baseurl is not None and not baseurl.endswith("/"):
         baseurl += "/"
 
-    process_init(config, query_function, debug=debug)
+    process_init(config, query_function, schema, debug=debug)
 
     app = Starlette(debug=debug, routes=[Route("/{path:path}", _handle_request, methods=["GET"])])
     app.state.query_function = query_function
     app.state.config = config
+    app.state.schema = schema
     app.state.baseurl = baseurl
     app.state.debug = debug
     return app

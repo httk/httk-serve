@@ -3,6 +3,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from ..filter.parser import FilterAst
 from ..model.results import QueryFunction, QueryResults
+from ..schema.served import ServedSchema, default_served_schema
 from .handlers import HandlerTable, default_field_handlers
 from .protocols import Store
 
@@ -33,6 +34,7 @@ class BackendAdapter:
     store: Store
     sources: Mapping[str, Sequence[EntrySource]]
     field_handlers: Mapping[str, HandlerTable] = field(default_factory=default_field_handlers)
+    schema: ServedSchema = field(default_factory=default_served_schema)
 
     def query_function(self) -> QueryFunction:
         from .execution import execute_query

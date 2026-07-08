@@ -19,11 +19,7 @@ from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError, TranslatorError
 from ..model.request import EndpointResponse, RawRequest
 from ..model.results import QueryFunction
-from ..schema.httk_entries import (
-    default_response_fields,
-    httk_all_entries,
-    required_response_fields,
-)
+from ..schema.served import ServedSchema, default_served_schema
 from .validate import validate_optimade_request
 
 logger = logging.getLogger("httk.optimade")
@@ -34,6 +30,7 @@ def process(
     query_function: QueryFunction,
     version: str,
     config: OptimadeConfig,
+    schema: ServedSchema | None = None,
     *,
     debug: bool = False,
 ) -> EndpointResponse:
@@ -42,13 +39,17 @@ def process(
     ``request`` carries the incoming request; only ``baseurl`` and
     ``representation`` must be set, missing information is derived from
     ``representation``. ``query_function`` is the callback used to execute
-    entry queries against the backend.
+    entry queries against the backend. ``schema`` describes the served entry
+    types and properties; when omitted, the default httk schema is used.
     """
+
+    if schema is None:
+        schema = default_served_schema()
 
     if debug:
         logger.debug("==== OPTIMADE REQUEST FOR: %s", request.representation)
 
-    validated_request = validate_optimade_request(request, version)
+    validated_request = validate_optimade_request(request, version, schema)
     endpoint = validated_request.endpoint
     request_id = validated_request.request_id
     validated_parameters = validated_request.query
@@ -75,18 +76,18 @@ def process(
         response = generate_links_endpoint_reply(validated_request, config)
 
     elif endpoint == 'info':
-        response = generate_info_endpoint_reply(validated_request, config)
+        response = generate_info_endpoint_reply(validated_request, config, schema)
 
-    elif endpoint in httk_all_entries:
+    elif endpoint in schema.all_entries:
 
         response_fields = validated_request.recognized_response_fields
         unknown_response_fields = validated_request.unrecognized_response_fields
         entries = [endpoint]
 
         if not response_fields:
-            response_fields = list(default_response_fields[endpoint])
+            response_fields = list(schema.default_response_fields[endpoint])
 
-        for response_field in required_response_fields[endpoint]:
+        for response_field in schema.required_response_fields[endpoint]:
             if response_field not in response_fields:
                 response_fields += [response_field]
 
@@ -142,8 +143,8 @@ def process(
     elif endpoint.startswith("info/"):
         info, _sep, base = endpoint.partition("/")
         assert info == "info"
-        if base in httk_all_entries:
-            response = generate_entry_info_endpoint_reply(validated_request, config, base)
+        if base in schema.all_entries:
+            response = generate_entry_info_endpoint_reply(validated_request, config, base, schema)
         else:
             raise OptimadeError("Internal error: unexpected endpoint.", 500, "Internal server error")
 
@@ -158,9 +159,13 @@ def process(
     )
 
 
-def process_init(config: OptimadeConfig, query_function: QueryFunction, *, debug: bool = False) -> None:
+def process_init(
+    config: OptimadeConfig, query_function: QueryFunction, schema: ServedSchema | None = None, *, debug: bool = False
+) -> None:
     """Precompute the number of available entries per entry endpoint."""
+    if schema is None:
+        schema = default_served_schema()
     config.data_available = {}
-    for endpoint in httk_all_entries:
+    for endpoint in schema.all_entries:
         results = query_function([endpoint], [], [], 0, 0, debug=debug)
         config.data_available[endpoint] = results.count()

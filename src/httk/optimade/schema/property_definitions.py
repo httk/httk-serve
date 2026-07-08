@@ -2,15 +2,15 @@
 
 The entry listing info endpoints must present each property as an OPTIMADE
 Property Definition. These are generated mechanically from the property
-information in :mod:`httk.optimade.schema.httk_entries`; standard OPTIMADE
-properties reference their official definition URIs at schemas.optimade.org.
+information in a served schema; standard OPTIMADE properties reference their
+official definition URIs at schemas.optimade.org.
 """
 
-from functools import lru_cache
 from typing import Any
 
-from .entries import PropertyInfo
-from .httk_entries import httk_entry_info, httk_recognized_prefixes
+from .entries import EntryInfo, PropertyInfo
+
+RECOGNIZED_PREFIXES: tuple[str, ...] = ('_httk_', '_omdb_')
 
 PROPERTY_DEFINITION_META_SCHEMA = "https://schemas.optimade.org/meta/v1.2/optimade/property_definition.json"
 
@@ -71,7 +71,7 @@ def property_definition(entry: str, name: str, info: PropertyInfo) -> dict[str, 
     unit = info.get("unit", "dimensionless")
     nullable = not info.get("required_response", False)
 
-    if name.startswith(httk_recognized_prefixes):
+    if name.startswith(RECOGNIZED_PREFIXES):
         definition_id = f"{_HTTK_DEFS_BASE}/{entry}/{name}"
         source = "httk"
     else:
@@ -104,7 +104,6 @@ def property_definition(entry: str, name: str, info: PropertyInfo) -> dict[str, 
     return definition
 
 
-@lru_cache(maxsize=None)
-def entry_property_definitions(entry: str) -> dict[str, dict[str, Any]]:
+def entry_property_definitions(entry: str, entry_info: dict[str, EntryInfo]) -> dict[str, dict[str, Any]]:
     """Property Definitions for all properties served for an entry type."""
-    return {name: property_definition(entry, name, info) for name, info in httk_entry_info[entry]["properties"].items()}
+    return {name: property_definition(entry, name, info) for name, info in entry_info[entry]["properties"].items()}

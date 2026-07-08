@@ -4,7 +4,6 @@ from typing import Any, Iterator
 
 from ..filter.parser import FilterAst
 from ..model.errors import OptimadeError
-from ..schema.httk_entries import httk_recognized_prefixes
 from .adapter import BackendAdapter, EntrySource
 from .protocols import Searcher
 from .translation import translate_filter
@@ -25,8 +24,10 @@ class StoreResults:
         unknown_response_fields: list[str],
         limit: int | None,
         offset: int,
+        recognized_prefixes: tuple[str, ...],
     ) -> None:
         self.pairs = pairs
+        self.recognized_prefixes = recognized_prefixes
         self.cur: Iterator[tuple[EntrySource, Any]] | None = (
             (source, item) for source, searcher in pairs for item in searcher
         )
@@ -61,8 +62,8 @@ class StoreResults:
             for field in self.response_fields:
                 if field in source.fields:
                     result[field] = source.fields[field](row)
-                elif field.startswith(httk_recognized_prefixes):
-                    for prefix in httk_recognized_prefixes:
+                elif field.startswith(self.recognized_prefixes):
+                    for prefix in self.recognized_prefixes:
                         if field.startswith(prefix):
                             field = field[len(prefix) :]
                             break
@@ -127,4 +128,6 @@ def execute_query(
                 break
 
     # Offset (and limit, but it doesn't matter) is already handled by the searcher.
-    return StoreResults(pairs, response_fields, unknown_response_fields, response_limit, 0)
+    return StoreResults(
+        pairs, response_fields, unknown_response_fields, response_limit, 0, adapter.schema.recognized_prefixes
+    )

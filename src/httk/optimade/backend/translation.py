@@ -1,10 +1,10 @@
 """Translation of OPTIMADE filter syntax trees into backend search expressions."""
 
-from typing import Any
+from typing import Any, Callable
 
 from ..filter.parser import FilterAst
 from ..model.errors import TranslatorError
-from ..schema.httk_entries import httk_entry_info, httk_recognized_prefixes
+from ..schema.entries import PropertyInfo
 from .adapter import BackendAdapter, EntrySource
 from .handlers import (
     HandlerTable,
@@ -63,13 +63,20 @@ def translate_filter(
 
     for entry in entries:
         field_handlers = adapter.field_handlers.get(entry, {})
+        entry_info = adapter.schema.entry_info[entry]['properties']
         for source in adapter.sources.get(entry, ()):
             searcher = adapter.store.searcher()
             search_variable = searcher.variable(source.target)
             searcher.output(search_variable, entry)
             if filter_ast is not None:
                 search_expr, needs_post = translate_filter_node(
-                    filter_ast, search_variable, entry, field_handlers, False
+                    filter_ast,
+                    search_variable,
+                    entry,
+                    entry_info,
+                    field_handlers,
+                    adapter.schema.recognized_prefixes,
+                    False,
                 )
                 searcher.add(search_expr)
                 if needs_post:
@@ -83,36 +90,72 @@ def translate_filter_node(
     node: FilterAst,
     search_variable: SearchVariable,
     entry: str,
+    entry_info: dict[str, PropertyInfo],
     handlers: HandlerTable,
+    recognized_prefixes: tuple[str, ...],
     inv_toggle: bool,
     recursion: int = 0,
 ) -> tuple[SearchExpression, bool]:
 
     search_expr: SearchExpression | None = None
     needs_post = False
-    entry_info = httk_entry_info[entry]['properties']
 
     if node[0] in ['AND']:
         search_expr, needs_post = translate_filter_node(
-            node[1], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+            node[1],
+            search_variable,
+            entry,
+            entry_info,
+            handlers,
+            recognized_prefixes,
+            inv_toggle,
+            recursion=recursion + 1,
         )
         rhs_search_expr, rhs_needs_post = translate_filter_node(
-            node[2], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+            node[2],
+            search_variable,
+            entry,
+            entry_info,
+            handlers,
+            recognized_prefixes,
+            inv_toggle,
+            recursion=recursion + 1,
         )
         needs_post = needs_post or rhs_needs_post
         search_expr = search_expr & rhs_search_expr
     elif node[0] in ['OR']:
         search_expr, needs_post = translate_filter_node(
-            node[1], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+            node[1],
+            search_variable,
+            entry,
+            entry_info,
+            handlers,
+            recognized_prefixes,
+            inv_toggle,
+            recursion=recursion + 1,
         )
         rhs_search_expr, rhs_needs_post = translate_filter_node(
-            node[2], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+            node[2],
+            search_variable,
+            entry,
+            entry_info,
+            handlers,
+            recognized_prefixes,
+            inv_toggle,
+            recursion=recursion + 1,
         )
         needs_post = needs_post or rhs_needs_post
         search_expr = search_expr | rhs_search_expr
     elif node[0] in ['NOT']:
         search_expr, needs_post = translate_filter_node(
-            node[1], search_variable, entry, handlers, not inv_toggle, recursion=recursion + 1
+            node[1],
+            search_variable,
+            entry,
+            entry_info,
+            handlers,
+            recognized_prefixes,
+            not inv_toggle,
+            recursion=recursion + 1,
         )
         search_expr = ~search_expr
     elif node[0] in ['HAS_ALL', 'HAS_ANY', 'HAS_ONLY']:
@@ -120,8 +163,9 @@ def translate_filter_node(
         left = node[2]
         right = node[3]
         assert left[0] == 'Identifier'
+        has_handler: Callable[..., Any] | None
         if left[1] not in entry_info:
-            if left[1].startswith(httk_recognized_prefixes):
+            if left[1].startswith(recognized_prefixes):
                 raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
             else:
                 # TODO: this should warn
@@ -129,7 +173,9 @@ def translate_filter_node(
                 values = format_value('list of unknown', right)
         else:
             values = format_value(entry_info[left[1]].get('fulltype', 'unknown'), right)
-            has_handler = handlers[left[1]]['HAS']
+            has_handler = handlers.get(left[1], {}).get('HAS')
+            if has_handler is None:
+                raise TranslatorError("Filtering on property " + left[1] + " not implemented.", 501, "Not implemented")
         if ops != tuple(['='] * len(values)):
             raise TranslatorError("HAS queries with non-equal operators not implemented yet.", 501, "Not implemented")
         search_expr, needs_post = has_handler(left[1], ops, values, search_variable, node[0], inv_toggle)
@@ -148,15 +194,18 @@ def translate_filter_node(
                 501,
                 "Not implemented",
             )
+        length_handler: Callable[..., Any] | None
         if left[1] not in entry_info:
-            if left[1].startswith(httk_recognized_prefixes):
+            if left[1].startswith(recognized_prefixes):
                 raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
             else:
                 # TODO: this should warn
                 length_handler = unknown_length_handler
                 value = format_value('unknown', right)
         else:
-            length_handler = handlers[left[1]]['length']
+            length_handler = handlers.get(left[1], {}).get('length')
+            if length_handler is None:
+                raise TranslatorError("Filtering on property " + left[1] + " not implemented.", 501, "Not implemented")
             assert entry_info[left[1]].get('fulltype', '').startswith("list of ")
             value = format_value("integer", right)
         search_expr = length_handler(left[1], op, value, search_variable)
@@ -177,15 +226,20 @@ def translate_filter_node(
                 left, right = right, left
                 op = _invert_op[op]
             assert left[0] == 'Identifier'
+            comparison_handler: Callable[..., Any] | None
             if left[1] not in entry_info:
-                if left[1].startswith(httk_recognized_prefixes):
+                if left[1].startswith(recognized_prefixes):
                     raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
                 else:
                     # TODO: this should warn
                     comparison_handler = unknown_comparison_handler
                     value = format_value('unknown', right)
             else:
-                comparison_handler = handlers[left[1]]['comparison']
+                comparison_handler = handlers.get(left[1], {}).get('comparison')
+                if comparison_handler is None:
+                    raise TranslatorError(
+                        "Filtering on property " + left[1] + " not implemented.", 501, "Not implemented"
+                    )
                 value = format_value(entry_info[left[1]].get('fulltype', 'unknown'), right)
             search_expr = comparison_handler(left[1], op, value, search_variable)
     elif node[0] in ['ENDS', 'STARTS', 'CONTAINS']:
@@ -196,22 +250,25 @@ def translate_filter_node(
             raise TranslatorError(
                 "Identifier vs. Identifier string comparisons not implemented.", 501, "Not implemented"
             )
+        stringmatching: Callable[..., Any] | None
         if left[1] not in entry_info:
-            if left[1].startswith(httk_recognized_prefixes):
+            if left[1].startswith(recognized_prefixes):
                 raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
             else:
                 # TODO: this should warn
                 stringmatching = unknown_stringmatching_handler
                 value = format_value('unknown', right)
         else:
-            stringmatching = handlers[left[1]]['stringmatching']
+            stringmatching = handlers.get(left[1], {}).get('stringmatching')
+            if stringmatching is None:
+                raise TranslatorError("Filtering on property " + left[1] + " not implemented.", 501, "Not implemented")
             value = format_value(entry_info[left[1]].get('fulltype', 'unknown'), right)
         search_expr = stringmatching(left[1], value, node[0], search_variable)
     elif node[0] in ['IS_UNKNOWN', 'IS_KNOWN']:
         left = node[1]
         assert left[0] == 'Identifier'
         if left[1] not in entry_info:
-            if left[1].startswith(httk_recognized_prefixes):
+            if left[1].startswith(recognized_prefixes):
                 raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
             else:
                 # TODO: this should warn

@@ -3,20 +3,12 @@ from urllib.parse import parse_qsl, urlparse
 from ..model.errors import OptimadeError
 from ..model.request import RawRequest, ValidatedParameters, ValidatedRequest
 from ..model.versions import optimade_default_version, optimade_supported_versions
-from ..schema.httk_entries import (
-    default_response_fields,
-    httk_all_entries,
-    httk_recognized_prefixes,
-    httk_unknown_response_fields,
-    httk_valid_endpoints,
-    httk_valid_response_fields,
-    required_response_fields,
-)
+from ..schema.served import ServedSchema, default_served_schema
 
 PAGE_LIMIT_MAX = 50
 
 
-def _validate_query(endpoint: str, query: dict[str, str]) -> ValidatedParameters:
+def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) -> ValidatedParameters:
     validated_parameters = ValidatedParameters()
 
     if ('response_format' in query and query['response_format'] is not None) and query['response_format'] != 'json':
@@ -41,16 +33,16 @@ def _validate_query(endpoint: str, query: dict[str, str]) -> ValidatedParameters
     if 'response_fields' in query and query['response_fields'] is not None:
         validated_response_fields = []
         response_fields = [x.strip() for x in query['response_fields'].split(",")]
-        if endpoint in httk_valid_response_fields:
+        if endpoint in schema.properties_by_entry:
             for response_field in response_fields:
-                if response_field in httk_valid_response_fields[endpoint]:
+                if response_field in schema.properties_by_entry[endpoint]:
                     # Defensive programming; don't trust '=='/in to be byte-for-byte equivalent,
                     # so don't use the insecure string from the user
-                    valid_fields = httk_valid_response_fields[endpoint]
+                    valid_fields = schema.properties_by_entry[endpoint]
                     validated_response_fields += [valid_fields[valid_fields.index(response_field)]]
-                elif response_field in httk_unknown_response_fields[endpoint]:
+                elif response_field in schema.unknown_response_fields[endpoint]:
                     validated_response_fields += [response_field]
-                elif response_field.startswith(httk_recognized_prefixes) or (
+                elif response_field.startswith(schema.recognized_prefixes) or (
                     len(response_field) > 0 and response_field[0] != '_'
                 ):
                     raise OptimadeError(
@@ -69,7 +61,11 @@ def _validate_query(endpoint: str, query: dict[str, str]) -> ValidatedParameters
     return validated_parameters
 
 
-def validate_optimade_request(request: RawRequest, version: str) -> ValidatedRequest:
+def validate_optimade_request(
+    request: RawRequest, version: str, schema: ServedSchema | None = None
+) -> ValidatedRequest:
+    if schema is None:
+        schema = default_served_schema()
     endpoint = request.endpoint
     request_id = request.request_id
     validated_version = request.version if request.version is not None else optimade_default_version
@@ -105,16 +101,16 @@ def validate_optimade_request(request: RawRequest, version: str) -> ValidatedReq
         first_level_endpoint, _sep, path_request_id = endpoint_str.partition('/')
 
         # First check fixed endpoints
-        if endpoint_str in httk_valid_endpoints:
+        if endpoint_str in schema.valid_endpoints:
             # Defensive programming; don't trust '=='/in to be byte-for-byte equivalent,
             # so don't use the insecure string from the user
-            endpoint = httk_valid_endpoints[httk_valid_endpoints.index(endpoint_str)]
+            endpoint = schema.valid_endpoints[schema.valid_endpoints.index(endpoint_str)]
 
         # Then check "entries" endpoint with a request_id
-        elif first_level_endpoint in httk_all_entries:
+        elif first_level_endpoint in schema.all_entries:
             # Defensive programming; don't trust '=='/in to be byte-for-byte equivalent,
             # so don't use the insecure string from the user
-            endpoint = httk_valid_endpoints[httk_valid_endpoints.index(first_level_endpoint)]
+            endpoint = schema.valid_endpoints[schema.valid_endpoints.index(first_level_endpoint)]
             # Only allow printable ascii characters in id; this is not in the standard, but your
             # database really should adhere to it or you are doing weird things.
             if len(path_request_id) > 0:
@@ -156,21 +152,21 @@ def validate_optimade_request(request: RawRequest, version: str) -> ValidatedReq
         version=validated_version,
         url_version=url_version,
         request_id=request_id,
-        query=_validate_query(endpoint, query),
+        query=_validate_query(endpoint, query, schema),
     )
 
     if 'response_fields' in query and query['response_fields'] is not None:
         response_fields = [x.strip() for x in query['response_fields'].split(",")]
-        if endpoint in httk_valid_response_fields:
+        if endpoint in schema.properties_by_entry:
             for response_field in response_fields:
-                if response_field in httk_valid_response_fields[endpoint]:
+                if response_field in schema.properties_by_entry[endpoint]:
                     # Defensive programming; don't trust '=='/in to be byte-for-byte equivalent,
                     # so don't use the insecure string from the user
-                    valid_fields = httk_valid_response_fields[endpoint]
+                    valid_fields = schema.properties_by_entry[endpoint]
                     validated_request.recognized_response_fields += [valid_fields[valid_fields.index(response_field)]]
-                elif response_field in httk_unknown_response_fields[endpoint]:
+                elif response_field in schema.unknown_response_fields[endpoint]:
                     validated_request.unrecognized_response_fields += [response_field]
-                elif response_field.startswith(httk_recognized_prefixes) or (
+                elif response_field.startswith(schema.recognized_prefixes) or (
                     len(response_field) > 0 and response_field[0] != '_'
                 ):
                     raise OptimadeError(
@@ -179,11 +175,11 @@ def validate_optimade_request(request: RawRequest, version: str) -> ValidatedReq
                 else:
                     validated_request.unrecognized_response_fields += [response_field]
     else:
-        if endpoint in default_response_fields:
-            validated_request.recognized_response_fields = list(default_response_fields[endpoint])
+        if endpoint in schema.default_response_fields:
+            validated_request.recognized_response_fields = list(schema.default_response_fields[endpoint])
 
-    if endpoint in required_response_fields:
-        for response_field in required_response_fields[endpoint]:
+    if endpoint in schema.required_response_fields:
+        for response_field in schema.required_response_fields[endpoint]:
             if response_field not in validated_request.recognized_response_fields:
                 validated_request.recognized_response_fields += [response_field]
 

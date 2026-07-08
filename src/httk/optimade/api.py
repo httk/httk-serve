@@ -16,7 +16,9 @@ def create_asgi_app(
     """Create an ASGI application serving an OPTIMADE API for the given backend."""
     if config is None:
         config = OptimadeConfig()
-    return create_app(query_function=adapter.query_function(), config=config, baseurl=baseurl, debug=debug)
+    return create_app(
+        query_function=adapter.query_function(), config=config, schema=adapter.schema, baseurl=baseurl, debug=debug
+    )
 
 
 def serve(

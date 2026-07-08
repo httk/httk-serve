@@ -3,12 +3,15 @@ from typing import Any
 from ..model.config import OptimadeConfig
 from ..model.request import ValidatedRequest
 from ..model.versions import optimade_supported_versions
-from ..schema.httk_entries import httk_all_entries, httk_entry_info
-from ..schema.property_definitions import entry_property_definitions
+from ..schema.served import ServedSchema, default_served_schema
 from .meta import generate_meta
 
 
-def generate_info_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig) -> dict[str, Any]:
+def generate_info_endpoint_reply(
+    request: ValidatedRequest, config: OptimadeConfig, schema: ServedSchema | None = None
+) -> dict[str, Any]:
+    if schema is None:
+        schema = default_served_schema()
     available_api_versions = []
     for ver in optimade_supported_versions:
         available_api_versions += [{'version': optimade_supported_versions[ver], 'url': request.baseurl + ver}]
@@ -24,9 +27,9 @@ def generate_info_endpoint_reply(request: ValidatedRequest, config: OptimadeConf
                     "json",
                 ],
                 "entry_types_by_format": {
-                    "json": list(httk_all_entries),
+                    "json": list(schema.all_entries),
                 },
-                "available_endpoints": ["info", "links"] + list(httk_all_entries),
+                "available_endpoints": ["info", "links"] + list(schema.all_entries),
                 "is_index": False,
             },
         },
@@ -35,16 +38,20 @@ def generate_info_endpoint_reply(request: ValidatedRequest, config: OptimadeConf
     return response
 
 
-def generate_entry_info_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig, entry: str) -> dict[str, Any]:
+def generate_entry_info_endpoint_reply(
+    request: ValidatedRequest, config: OptimadeConfig, entry: str, schema: ServedSchema | None = None
+) -> dict[str, Any]:
+    if schema is None:
+        schema = default_served_schema()
     return {
         "data": {
             "id": entry,
             "type": "info",
-            "description": httk_entry_info[entry]["description"],
-            "properties": entry_property_definitions(entry),
+            "description": schema.entry_info[entry]["description"],
+            "properties": schema.property_definitions[entry],
             "formats": ["json"],
             "output_fields_by_format": {
-                "json": [x for x in httk_entry_info[entry]["properties"]],
+                "json": list(schema.properties_by_entry[entry]),
             },
         },
         "meta": generate_meta(representation=request.representation, api_version=request.version, config=config),
