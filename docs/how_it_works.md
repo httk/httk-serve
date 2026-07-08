@@ -75,11 +75,54 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
   v1.3 (`fractional_site_positions`, `site_coordinate_span`,
   `optimization_type`, `wyckoff_positions`, ...) — recognized in filters and
   as response fields; they are served as `null` until a backend implements
-  them.
+  them,
+- sorting of entry listings (the `sort` query parameter),
+- relationships between entries and the `include` query parameter (compound
+  documents with a top-level `included` field),
+- the `references`, `files`, and `trajectories` entry types,
+- per-property metadata (`meta.property_metadata` and the
+  `x-optimade-metadata-definition` in property definitions),
+- the partial data protocol (JSON Lines format and the `dimension_slices`
+  query parameter) with the compact list representation for trajectories,
+- the `license`, `available_licenses`, and `available_licenses_for_entries`
+  base-info attributes, and the `warnings`, `last_id`, and `links.describedby`
+  response fields via `OptimadeConfig`.
 
-Optional parts of the specification that are not implemented: the `files`,
-`trajectories`, and `references` entry types, the partial data protocol,
-per-property metadata, transaction mechanisms, and sorting.
+Optional parts of the specification that are not implemented: cross-source sort
+merging, filtering on relationship `.target.*`/`.description`/`.role`
+properties, the sparse JSON Lines layout, index meta-databases, transaction
+mechanisms, and rejection of unrecognized query parameters.
+
+## Serving additional entry types
+
+The served entry types and their properties are described by a `ServedSchema`
+(`schema/served.py`), built with `build_served_schema()`. A backend registers
+extra entry types by passing them in and wiring an `EntrySource` for each:
+
+- `build_served_schema(entries={...})` derives the endpoint/field tables from a
+  per-entry list of served properties; `extra_entry_info=` injects entry-info
+  blocks for entry types whose property definitions are generated rather than
+  taken from the built-in `schema/entries.py` (this is how `trajectories` wraps
+  the structures properties — see `schema/trajectories.py`).
+- `BackendAdapter(schema=..., sources={entry: (EntrySource(...),)})` binds each
+  served entry type to a queryable target and its field extractors.
+
+The `examples/demo_server/` backend registers `references`, `files`, and
+`trajectories` this way alongside `structures` and `calculations`.
+
+## Large properties and slicing
+
+Field extractors may return a `PartialValue` (`backend/partial.py`) instead of
+a concrete value for large, dimensioned properties (e.g. a trajectory's
+`cartesian_site_positions`). In a normal reply such a value is served as `null`
+with a `meta.partial_data_links` entry pointing at
+`partial_data/<type>/<id>/<property>`, which streams the data in the JSON Lines
+format. A client may instead request an inline slice with the
+`dimension_slices=name[start:stop:step]` query parameter (single-entry
+endpoints only); note that `stop` is *inclusive* per the specification. Values
+that are constant across a dimension (e.g. `nelements` across a trajectory's
+frames) are served as single-item `constant` compact lists, which is legal
+because those axes are declared `compactable`.
 
 ## Differences from the httk v1 implementation
 

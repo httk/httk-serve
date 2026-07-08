@@ -9,7 +9,7 @@
 
 """The ``trajectories`` entry type, derived from the ``structures`` properties.
 
-A :entry:`trajectories` entry describes an ordered sequence of structures
+A ``trajectories`` entry describes an ordered sequence of structures
 (frames). Every structures property (other than ``id`` and ``type``) is reused
 with an extra leading ``dim_frames`` dimension so it can vary per frame; that
 leading dimension is declared compactable (``constant``) so a server MAY send a

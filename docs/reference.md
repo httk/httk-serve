@@ -30,6 +30,33 @@ This section documents the supported public API.
    :show-inheritance:
 ```
 
+## Served schema
+
+```{eval-rst}
+.. automodule:: httk.optimade.schema.served
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+## Trajectories schema
+
+```{eval-rst}
+.. automodule:: httk.optimade.schema.trajectories
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+## Partial data
+
+```{eval-rst}
+.. automodule:: httk.optimade.backend.partial
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
 ## Request processing
 
 ```{eval-rst}
