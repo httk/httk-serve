@@ -50,6 +50,10 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
             validated_parameters.page_limit = int(query['page_limit'])
         except ValueError:
             raise OptimadeError("Cannot interprete page_limit.", 400, "Bad request")
+        if validated_parameters.page_limit < 0:
+            # A negative limit must not reach the backend: the execution layer
+            # interprets negative limits as "no bound", which would bypass the cap.
+            raise OptimadeError("page_limit must be a non-negative integer.", 400, "Bad request")
         if validated_parameters.page_limit > PAGE_LIMIT_MAX:
             validated_parameters.page_limit = PAGE_LIMIT_MAX
 

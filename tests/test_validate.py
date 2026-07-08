@@ -171,3 +171,11 @@ def test_determine_optimade_version_two_char_prefix() -> None:
     # v1 required len > 2 in determine_optimade_version but >= 2 in validation;
     # the port treats /v1 consistently in both.
     assert determine_optimade_version(make_request("/v1/info")) == "1.3.0"
+
+
+def test_negative_page_limit_rejected() -> None:
+    # A negative page_limit used to flow into the execution layer, where
+    # negative limits mean "no bound" and bypassed the page-size cap entirely.
+    with pytest.raises(OptimadeError) as excinfo:
+        validate_optimade_request(make_request("/structures?page_limit=-2"), "1.3.0")
+    assert excinfo.value.response_code == 400
