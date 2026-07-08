@@ -368,3 +368,23 @@ def test_resolver_passes_baseurl_for_partial_values() -> None:
     included = resolver({"references": {"ref-1"}})
     link = included[0]["meta"]["partial_data_links"]["title"][0]["link"]
     assert link.startswith("http://example.org/partial_data/references/ref-1/")
+
+
+def test_resolver_handles_many_related_ids() -> None:
+    # The resolver used to build a linear OR chain, which overflowed the
+    # translator's recursion for large id sets; the tree must be balanced.
+    from fake_backend import FakeStore
+
+    from httk.optimade.backend import BackendAdapter, EntrySource, simple_property_handlers
+
+    schema = relationships_schema()
+    entry_info = schema.entry_info["references"]
+    adapter = BackendAdapter(
+        store=FakeStore(rows_by_target={"ref-table": []}),
+        sources={"references": (EntrySource(target="ref-table", fields={}),), "structures": ()},
+        field_handlers={"references": simple_property_handlers("references", {}, entry_info)},
+        schema=schema,
+    )
+    resolver = _make_related_resolver(adapter.query_function(), schema, "http://x/")
+    included = resolver({"references": {f"ref-{i}" for i in range(3000)}})
+    assert included == []

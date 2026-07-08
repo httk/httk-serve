@@ -52,10 +52,14 @@ def _make_related_resolver(
                 if required not in response_fields:
                     response_fields.append(required)
 
-            filter_ast: FilterAst | None = None
-            for rid in id_list:
-                node: FilterAst = ('=', ('Identifier', 'id'), ('String', rid))
-                filter_ast = node if filter_ast is None else ('OR', filter_ast, node)
+            # Build a balanced OR tree: the filter translator recurses per node,
+            # so a linear chain would overflow the stack for many related ids.
+            nodes: list[FilterAst] = [('=', ('Identifier', 'id'), ('String', rid)) for rid in id_list]
+            while len(nodes) > 1:
+                nodes = [
+                    ('OR', nodes[i], nodes[i + 1]) if i + 1 < len(nodes) else nodes[i] for i in range(0, len(nodes), 2)
+                ]
+            filter_ast: FilterAst | None = nodes[0] if nodes else None
 
             results = query_function(
                 [etype],
