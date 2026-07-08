@@ -139,3 +139,12 @@ def test_zero_limit_counts_without_rows() -> None:
     results = execute_query(adapter, ["structures"], [], [], 0, 0)
     assert results.count() == 4
     assert list(results) == []
+
+
+def test_prefixed_field_without_row_attribute_is_null() -> None:
+    # A schema-served prefixed property with neither an extractor nor a row
+    # attribute used to raise AttributeError (an HTTP 500); it must be null.
+    adapter = make_adapter([Row(sid="a")])
+    results = execute_query(adapter, ["structures"], ["id", "type", "_httk_missing_prop"], [], 10, 0)
+    out = list(results)
+    assert out[0].values["_httk_missing_prop"] is None

@@ -65,11 +65,17 @@ class StoreResults:
                 if field in source.fields:
                     result[field] = source.fields[field](row)
                 elif field.startswith(self.recognized_prefixes):
+                    stripped = field
                     for prefix in self.recognized_prefixes:
                         if field.startswith(prefix):
-                            field = field[len(prefix) :]
+                            stripped = field[len(prefix) :]
                             break
-                    result[field] = getattr(row, field)
+                    try:
+                        result[stripped] = getattr(row, stripped)
+                    except AttributeError:
+                        # The row object has no such attribute; serve the
+                        # requested field as null instead of failing the query.
+                        result[field] = None
                 else:
                     # A recognized (schema-advertised) property for which this
                     # source provides no extractor. Per the OPTIMADE spec, an
