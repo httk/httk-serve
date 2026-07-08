@@ -60,6 +60,27 @@ and shipping a `make_..._adapter(store) -> BackendAdapter` factory — no
 changes in httk-optimade are needed. Until then, the repository's
 `examples/demo_server/` shows a complete in-memory implementation.
 
+## OPTIMADE version support
+
+The served API version is **1.3.0** (versioned base URLs `/v1`, `/v1.3`, `/v1.3.0`).
+Relative to OPTIMADE v1.0.0, the implementation includes:
+
+- boolean values (`TRUE`/`FALSE`) in the filter language (v1.2),
+- the v1.2 entry listing info format: top-level `id`/`type` and properties
+  presented as OPTIMADE Property Definitions (`schema/property_definitions.py`),
+- extended `meta` information: `implementation` with `source_url` and
+  `issue_tracker`, and the optional `schema`, `database`, and `request_delay`
+  fields via `OptimadeConfig`,
+- the structures properties added in v1.2 (space-group symmetry fields) and
+  v1.3 (`fractional_site_positions`, `site_coordinate_span`,
+  `optimization_type`, `wyckoff_positions`, ...) — recognized in filters and
+  as response fields; they are served as `null` until a backend implements
+  them.
+
+Optional parts of the specification that are not implemented: the `files`,
+`trajectories`, and `references` entry types, the partial data protocol,
+per-property metadata, transaction mechanisms, and sorting.
+
 ## Differences from the httk v1 implementation
 
 - The stdlib `httk.httkweb.webserver` binding was replaced by a Starlette
