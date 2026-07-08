@@ -228,6 +228,12 @@ def simple_property_handlers(
             )
         elif fulltype in ('integer', 'float'):
             table['comparison'] = lambda entry, op, value, sv, col=column: number_handler(col, op, value, sv)
+        elif fulltype == 'timestamp':
+            # Timestamps are RFC 3339 strings; lexicographic comparison is
+            # correct for same-format UTC timestamps, so string_handler applies.
+            # No stringmatching handler: substring matching on timestamps is not
+            # meaningful.
+            table['comparison'] = lambda entry, op, value, sv, col=column: string_handler(col, op, value, sv)
         else:
             table['comparison'] = lambda entry, op, value, sv, col=column: string_handler(col, op, value, sv)
             table['stringmatching'] = lambda entry, value, smtype, sv, col=column: stringmatching_handler(
@@ -287,19 +293,22 @@ def default_field_handlers() -> dict[str, HandlerTable]:
                 'length': lambda entry, op, value, sv: structure_features_length_handler(op, value, sv),
                 'unknown': known_unknown_handler,
             },
-            # TODO: The 'comparison' handlers for nsites, species_at_sites, and
-            # cartesian_site_positions do not match the property; they carry over
-            # unchanged from httk v1.
+            # TODO: nsites, species_at_sites, and cartesian_site_positions have
+            # no backend column in this schema yet. Only 'unknown' (IS KNOWN /
+            # IS UNKNOWN) handlers are provided; a missing 'comparison' handler
+            # makes the translation layer return a clean 501 ("not implemented")
+            # rather than silently querying number_of_elements (a copy-paste bug
+            # carried over from httk v1). A future httk-db backend must map these
+            # to their real columns. (The comparison handlers were in any case
+            # unreachable for the two list-typed properties, which format_value
+            # rejects as a scalar-vs-list type mismatch (400) first.)
             'nsites': {
-                'comparison': lambda entry, op, value, sv: number_handler('number_of_elements', op, value, sv),
                 'unknown': known_unknown_handler,
             },
             'species_at_sites': {
-                'comparison': lambda entry, op, value, sv: number_handler('number_of_elements', op, value, sv),
                 'unknown': known_unknown_handler,
             },
             'cartesian_site_positions': {
-                'comparison': lambda entry, op, value, sv: number_handler('number_of_elements', op, value, sv),
                 'unknown': known_unknown_handler,
             },
             'chemical_formula_anonymous': {

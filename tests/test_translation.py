@@ -4,7 +4,7 @@ from httk.optimade.backend import BackendAdapter, EntrySource, translate_filter
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import TranslatorError
 
-from fake_backend import FakeStore
+from fake_backend import FakeStore, FakeVariable
 
 
 def make_adapter(store: FakeStore | None = None) -> BackendAdapter:
@@ -183,3 +183,45 @@ def test_boolean_vs_nonboolean_property_type_mismatch() -> None:
     with pytest.raises(TranslatorError) as excinfo:
         translate_one('nelements = TRUE')
     assert excinfo.value.response_code == 400
+
+
+def test_nsites_comparison_not_implemented() -> None:
+    # nsites has no backend column in the default schema, so the bogus
+    # (number_of_elements) comparison handler was removed; comparison filters now
+    # return an honest 501 instead of silently querying the wrong column.
+    with pytest.raises(TranslatorError) as excinfo:
+        translate_one('nsites = 3')
+    assert excinfo.value.response_code == 501
+
+
+def test_list_typed_property_scalar_comparison_is_rejected() -> None:
+    # species_at_sites / cartesian_site_positions are 'list of ...'. With their
+    # bogus comparison handlers removed, a scalar comparison returns a clean 501.
+    with pytest.raises(TranslatorError) as excinfo:
+        translate_one('species_at_sites = "Si"')
+    assert excinfo.value.response_code == 501
+    with pytest.raises(TranslatorError) as excinfo:
+        translate_one('cartesian_site_positions = 0.5')
+    assert excinfo.value.response_code == 501
+    # The removed handlers were in any case unreachable: a scalar right-hand side
+    # against a 'list of ...' property is rejected by format_value (400) first.
+    from httk.optimade.backend.translation import format_value
+
+    with pytest.raises(TranslatorError) as excinfo:
+        format_value('list of string', ('String', 'Si'))
+    assert excinfo.value.response_code == 400
+
+
+def test_simple_property_handlers_timestamp_generates_comparison() -> None:
+    from httk.optimade.backend.handlers import simple_property_handlers
+
+    entry_info = {'properties': {'last_modified': {'fulltype': 'timestamp'}}}
+    handlers = simple_property_handlers('files', {'last_modified': 'last_modified'}, entry_info)  # type: ignore[arg-type]
+    table = handlers['last_modified']
+    assert 'comparison' in table
+    assert 'unknown' in table
+    # Substring matching on timestamps is not meaningful.
+    assert 'stringmatching' not in table
+    sv = FakeVariable('files')
+    expr = table['comparison']('last_modified', '>=', '2021-01-01T00:00:00Z', sv)
+    assert expr.tree == ("ge", ("column", "last_modified"), "2021-01-01T00:00:00Z")
