@@ -5,9 +5,9 @@ from httk.optimade.model import OptimadeConfig, OptimadeError, RawRequest
 
 def test_generate_meta_basic() -> None:
     config = OptimadeConfig()
-    meta = generate_meta(representation="/structures", api_version="1.0.0", config=config)
+    meta = generate_meta(representation="/structures", api_version="1.3.0", config=config)
     assert meta["query"]["representation"] == "/structures"
-    assert meta["api_version"] == "1.0.0"
+    assert meta["api_version"] == "1.3.0"
     assert meta["implementation"]["name"] == "httk"
     assert meta["provider"]["prefix"] == "httk"
     assert meta["more_data_available"] is False
@@ -19,7 +19,7 @@ def test_generate_meta_counts() -> None:
     config = OptimadeConfig()
     meta = generate_meta(
         representation="/structures",
-        api_version="1.0.0",
+        api_version="1.3.0",
         config=config,
         data_count=7,
         more_data_available=True,
@@ -48,12 +48,12 @@ def test_format_optimade_error_from_optimade_error() -> None:
 def test_format_optimade_error_from_generic_exception() -> None:
     config = OptimadeConfig()
     request = RawRequest(baseurl="http://localhost/", representation="/structures")
-    output = format_optimade_error(ValueError("boom"), request, config, version="1.0.0")
+    output = format_optimade_error(ValueError("boom"), request, config, version="1.3.0")
     assert output.response_code == 500
     assert output.response_msg == "Internal Server Error"
     assert output.json_response is not None
     assert output.json_response["errors"][0]["detail"] == "boom"
-    assert output.json_response["meta"]["api_version"] == "1.0.0"
+    assert output.json_response["meta"]["api_version"] == "1.3.0"
 
 
 def test_optimade_error_longmsg() -> None:

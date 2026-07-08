@@ -36,7 +36,7 @@ def make_validated(endpoint: str, **query_kwargs: Any) -> ValidatedRequest:
         baseurl="http://localhost/",
         representation="/" + endpoint,
         endpoint=endpoint,
-        version="1.0.0",
+        version="1.3.0",
         query=ValidatedParameters(**query_kwargs),
     )
 
@@ -51,8 +51,8 @@ def test_info_endpoint_reply() -> None:
     reply = generate_info_endpoint_reply(make_validated("info"), make_config())
     attributes = reply["data"]["attributes"]
     assert reply["data"]["type"] == "info"
-    assert attributes["api_version"] == "1.0.0"
-    assert {v["version"] for v in attributes["available_api_versions"]} == {"1.0.0"}
+    assert attributes["api_version"] == "1.3.0"
+    assert {v["version"] for v in attributes["available_api_versions"]} == {"1.3.0"}
     assert attributes["entry_types_by_format"]["json"] == ["structures", "calculations"]
     assert attributes["available_endpoints"] == ["info", "links", "structures", "calculations"]
     assert attributes["is_index"] is False
@@ -68,7 +68,7 @@ def test_entry_info_endpoint_reply() -> None:
 def test_base_endpoint_reply() -> None:
     reply = generate_base_endpoint_reply(make_validated(""), make_config())
     assert reply.startswith("<!DOCTYPE html>")
-    assert "OPTIMADE version:1.0.0" in reply
+    assert "OPTIMADE version:1.3.0" in reply
 
 
 def test_versions_endpoint_reply() -> None:

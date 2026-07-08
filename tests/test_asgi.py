@@ -70,7 +70,7 @@ def test_info_endpoint() -> None:
     assert response.headers["content-type"] == "application/vnd.api+json"
     payload = response.json()
     assert payload["data"]["type"] == "info"
-    assert payload["meta"]["api_version"] == "1.0.0"
+    assert payload["meta"]["api_version"] == "1.3.0"
 
 
 def test_structures_endpoint() -> None:
