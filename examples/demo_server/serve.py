@@ -9,6 +9,9 @@ then query, e.g.::
     curl 'http://localhost:8080/structures?filter=elements HAS "Ga" AND nelements=2'
 """
 
+from collections import Counter
+from functools import reduce
+from math import gcd
 from typing import Any
 
 from inmemory_backend import InMemoryStore
@@ -21,10 +24,32 @@ from httk.optimade.schema.served import build_served_schema
 from httk.optimade.schema.trajectories import trajectories_entry_info
 
 
+def _reduced_formula(species_at_sites: list[str]) -> str:
+    """The OPTIMADE ``chemical_formula_reduced``: elements in alphabetical order
+    with integer proportions reduced by their greatest common divisor and the
+    proportion ``1`` omitted."""
+    counts = Counter(species_at_sites)
+    divisor = reduce(gcd, counts.values())
+    parts = []
+    for element in sorted(counts):
+        proportion = counts[element] // divisor
+        parts.append(element + (str(proportion) if proportion > 1 else ''))
+    return ''.join(parts)
+
+
+def _anonymous_formula(species_at_sites: list[str]) -> str:
+    """The OPTIMADE ``chemical_formula_anonymous``: proportions reduced and
+    sorted in descending order, labelled A, B, C, ... with ``1`` omitted."""
+    counts = Counter(species_at_sites)
+    divisor = reduce(gcd, counts.values())
+    proportions = sorted((c // divisor for c in counts.values()), reverse=True)
+    labels = (chr(ord('A') + i) for i in range(len(proportions)))
+    return ''.join(label + (str(p) if p > 1 else '') for label, p in zip(labels, proportions))
+
+
 def structure(
     sid: str,
     formula: str,
-    anonymous: str,
     species_at_sites: list[str],
     positions: list[list[float]],
     references: list[str] | None = None,
@@ -32,7 +57,8 @@ def structure(
     return {
         '__id': sid,
         'formula': formula,
-        'anonymous_formula': anonymous,
+        'reduced_formula': _reduced_formula(species_at_sites),
+        'anonymous_formula': _anonymous_formula(species_at_sites),
         'formula_symbols': sorted(set(species_at_sites)),
         'number_of_elements': len(set(species_at_sites)),
         'species_at_sites': species_at_sites,
@@ -42,18 +68,17 @@ def structure(
 
 
 STRUCTURES = [
-    structure('demo-1', 'GaTi', 'AB', ['Ga', 'Ti'], [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], references=['ref-1']),
-    structure('demo-2', 'Si', 'A', ['Si'], [[0.0, 0.0, 0.0]]),
+    structure('demo-1', 'GaTi', ['Ga', 'Ti'], [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], references=['ref-1']),
+    structure('demo-2', 'Si', ['Si'], [[0.0, 0.0, 0.0]]),
     structure(
         'demo-3',
         'SiO2',
-        'AB2',
         ['Si', 'O', 'O'],
         [[0.0, 0.0, 0.0], [0.3, 0.3, 0.3], [0.6, 0.6, 0.6]],
         references=['ref-2'],
     ),
-    structure('demo-4', 'GaAs', 'AB', ['Ga', 'As'], [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]]),
-    structure('demo-5', 'NaCl', 'AB', ['Na', 'Cl'], [[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]]),
+    structure('demo-4', 'GaAs', ['Ga', 'As'], [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]]),
+    structure('demo-5', 'NaCl', ['Na', 'Cl'], [[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]]),
 ]
 
 CALCULATIONS = [
@@ -117,7 +142,7 @@ STRUCTURE_FIELDS = {
     'elements': lambda x: sorted(set(x['formula_symbols'])),
     'nelements': lambda x: x['number_of_elements'],
     'chemical_formula_descriptive': lambda x: x['formula'],
-    'chemical_formula_reduced': lambda x: x['formula'],
+    'chemical_formula_reduced': lambda x: x['reduced_formula'],
     'chemical_formula_anonymous': lambda x: x['anonymous_formula'],
     'dimension_types': lambda x: [1, 1, 1],
     'nperiodic_dimensions': lambda x: 3,
