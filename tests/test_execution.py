@@ -64,6 +64,15 @@ def test_unknown_response_fields_are_null() -> None:
     assert out[0].values["species"] is None
 
 
+def test_recognized_response_field_without_extractor_is_null() -> None:
+    # A schema-advertised property that this source has no extractor for must be
+    # served as ``null`` (OPTIMADE spec) rather than raising a server error.
+    adapter = make_adapter([Row(sid="a")])
+    results = execute_query(adapter, ["structures"], ["id", "type", "chemical_formula_reduced"], [], 10, 0)
+    out = list(results)
+    assert out[0].values["chemical_formula_reduced"] is None
+
+
 def test_prefixed_field_fallback_reads_attribute() -> None:
     adapter = make_adapter([Row(sid="a", extra="hello")])
     results = execute_query(adapter, ["structures"], ["id", "type", "_httk_extra"], [], 10, 0)

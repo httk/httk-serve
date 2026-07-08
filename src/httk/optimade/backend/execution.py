@@ -3,7 +3,7 @@
 from typing import Any, Iterator, Sequence
 
 from ..filter.parser import FilterAst
-from ..model.errors import OptimadeError, TranslatorError
+from ..model.errors import TranslatorError
 from ..model.results import ResultRow
 from .adapter import BackendAdapter, EntrySource
 from .protocols import Searcher
@@ -71,7 +71,12 @@ class StoreResults:
                             break
                     result[field] = getattr(row, field)
                 else:
-                    raise OptimadeError("Unexpected field requested:" + str(field), 500, "Internal server error")
+                    # A recognized (schema-advertised) property for which this
+                    # source provides no extractor. Per the OPTIMADE spec, an
+                    # OPTIONAL property with an unknown value that is explicitly
+                    # requested via ``response_fields`` MUST be returned as
+                    # ``null`` rather than causing an error.
+                    result[field] = None
         except StopIteration:
             self.more_data_available = False
             self.cur = None
