@@ -5,9 +5,11 @@ Filter = [Spaces], Expression ;
 
 (* Values *)
 
-Constant = String | Number ;
+Boolean = TRUE | FALSE ;
 
-Value = String | Number | Property ;
+Constant = String | Number | Boolean ;
+
+Value = String | Number | Boolean | Property ;
 (* Note: support for Property in Value is OPTIONAL *)
 
 ValueList = [ Operator ], Value, { Comma, [ Operator ], Value } ;
@@ -94,6 +96,11 @@ HAS = 'HAS', [Spaces] ;
 ALL = 'ALL', [Spaces] ;
 ONLY = 'ONLY', [Spaces] ;
 ANY = 'ANY', [Spaces] ;
+
+(* Boolean value tokens: *)
+
+TRUE = 'TRUE', [Spaces] ;
+FALSE = 'FALSE', [Spaces] ;
 
 (* Comparison operator tokens: *)
 

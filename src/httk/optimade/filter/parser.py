@@ -59,6 +59,8 @@ def _optimade_parser_ls() -> dict[str, Any]:
         "ONLY",
         "EXACTLY",
         "ANY",
+        "TRUE",
+        "FALSE",
         " ",
         "\t",
         "\n",
@@ -129,6 +131,9 @@ def _fix_const(node: tuple[Any, ...]) -> tuple[Any, ...]:
         assert node[1][-1] == '"'
         assert node[1][0] == '"'
         return ('String', node[1][1:-1])
+    elif node[0] == 'Boolean':
+        assert node[1][0] in ('TRUE', 'FALSE')
+        return ('Boolean', node[1][0])
     else:
         return node
 

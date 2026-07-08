@@ -166,3 +166,20 @@ def test_calculation_total_energy_comparison() -> None:
     assert len(searchers) == 2
     for searcher in searchers:
         assert searcher.expressions[0].tree == ("lt", ("column", "total_energy"), -1.5)
+
+
+def test_boolean_comparison_on_unknown_property_matches_nothing() -> None:
+    (searcher,) = translate_one('bananas = TRUE')
+    assert searcher.expressions[0].tree == ("ne", ("column", "hexhash"), ("column", "hexhash"))
+
+
+def test_boolean_with_ordering_operator_not_implemented() -> None:
+    with pytest.raises(TranslatorError) as excinfo:
+        translate_one('bananas > TRUE')
+    assert excinfo.value.response_code == 501
+
+
+def test_boolean_vs_nonboolean_property_type_mismatch() -> None:
+    with pytest.raises(TranslatorError) as excinfo:
+        translate_one('nelements = TRUE')
+    assert excinfo.value.response_code == 400

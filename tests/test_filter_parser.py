@@ -151,3 +151,25 @@ def test_grammar_loads_from_package_data() -> None:
 
     _optimade_parser_ls.cache_clear()
     assert parse_optimade_filter('nelements=1') == ('=', ('Identifier', 'nelements'), ('Number', '1'))
+
+
+def test_boolean_values() -> None:
+    # Boolean values were added to the filter language in OPTIMADE v1.2.
+    assert parse_optimade_filter('_httk_stable = TRUE') == (
+        '=',
+        ('Identifier', '_httk_stable'),
+        ('Boolean', 'TRUE'),
+    )
+    assert parse_optimade_filter('_httk_stable != FALSE') == (
+        '!=',
+        ('Identifier', '_httk_stable'),
+        ('Boolean', 'FALSE'),
+    )
+
+
+def test_boolean_constant_first() -> None:
+    assert parse_optimade_filter('TRUE = _httk_stable') == (
+        '=',
+        ('Boolean', 'TRUE'),
+        ('Identifier', '_httk_stable'),
+    )

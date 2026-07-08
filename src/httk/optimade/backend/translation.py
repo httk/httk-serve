@@ -19,7 +19,7 @@ from .handlers import (
 )
 from .protocols import Searcher, SearchExpression, SearchVariable
 
-constant_types = ['String', 'Number']
+constant_types = ['String', 'Number', 'Boolean']
 
 
 def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) -> Any:
@@ -37,6 +37,9 @@ def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) 
         return outvals
     elif allow_null and val[0] == 'Null':
         return None
+    elif fulltype == 'boolean':
+        if val[0] in ['Boolean']:
+            return val[1] == 'TRUE'
     elif fulltype == 'integer':
         if val[0] in ['Number']:
             return int(val[1])
@@ -161,6 +164,10 @@ def translate_filter_node(
         op = node[0]
         left = node[1]
         right = node[2]
+        if (left[0] == 'Boolean' or right[0] == 'Boolean') and op not in ('=', '!='):
+            raise TranslatorError(
+                "Boolean values only support the = and != comparison operators.", 501, "Not implemented"
+            )
         if left[0] in constant_types and right[0] in constant_types:
             raise TranslatorError("Constant vs. Constant comparisons not implemented.", 501, "Not implemented")
         elif left[0] == 'Identifier' and right[0] == 'Identifier':
