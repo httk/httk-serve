@@ -4,6 +4,7 @@ from ..model.config import OptimadeConfig
 from ..model.request import ValidatedRequest
 from ..model.versions import optimade_supported_versions
 from ..schema.httk_entries import httk_all_entries, httk_entry_info
+from ..schema.property_definitions import entry_property_definitions
 from .meta import generate_meta
 
 
@@ -37,13 +38,10 @@ def generate_info_endpoint_reply(request: ValidatedRequest, config: OptimadeConf
 def generate_entry_info_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig, entry: str) -> dict[str, Any]:
     return {
         "data": {
+            "id": entry,
+            "type": "info",
             "description": httk_entry_info[entry]["description"],
-            "properties": {
-                x: {
-                    "description": httk_entry_info[entry]["properties"][x].get("description", ""),
-                }
-                for x in httk_entry_info[entry]["properties"]
-            },
+            "properties": entry_property_definitions(entry),
             "formats": ["json"],
             "output_fields_by_format": {
                 "json": [x for x in httk_entry_info[entry]["properties"]],

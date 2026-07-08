@@ -142,3 +142,34 @@ def test_single_entry_endpoint_reply_multiple_is_error() -> None:
     with pytest.raises(OptimadeError) as excinfo:
         generate_single_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults(rows))
     assert excinfo.value.response_code == 500
+
+
+def test_entry_info_endpoint_reply_v12_format() -> None:
+    # OPTIMADE v1.2 requires top-level id/type in the entry listing info data,
+    # and properties presented as OPTIMADE Property Definitions.
+    reply = generate_entry_info_endpoint_reply(make_validated("info/structures"), make_config(), "structures")
+    assert reply["data"]["id"] == "structures"
+    assert reply["data"]["type"] == "info"
+    nelements = reply["data"]["properties"]["nelements"]
+    assert nelements["$id"] == "https://schemas.optimade.org/defs/v1.2/properties/optimade/structures/nelements"
+    assert nelements["x-optimade-type"] == "integer"
+    assert nelements["type"] == ["integer", "null"]
+    assert nelements["x-optimade-definition"]["kind"] == "property"
+    # id/type are required in responses and therefore not nullable:
+    assert reply["data"]["properties"]["id"]["type"] == ["string"]
+    # List properties carry inner item definitions:
+    elements = reply["data"]["properties"]["elements"]
+    assert elements["x-optimade-type"] == "list"
+    assert elements["items"]["x-optimade-type"] == "string"
+    lattice = reply["data"]["properties"]["lattice_vectors"]
+    assert lattice["x-optimade-unit"] == "angstrom"
+    assert lattice["items"]["items"]["x-optimade-type"] == "float"
+    assert lattice["x-optimade-unit-definitions"][0]["symbol"] == "angstrom"
+
+
+def test_entry_info_endpoint_reply_custom_property_definitions() -> None:
+    reply = generate_entry_info_endpoint_reply(make_validated("info/calculations"), make_config(), "calculations")
+    energy = reply["data"]["properties"]["_httk_total_energy"]
+    assert energy["$id"].startswith("https://httk.org/")
+    assert energy["x-optimade-type"] == "float"
+    assert energy["type"] == ["number", "null"]
