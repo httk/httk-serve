@@ -1,9 +1,10 @@
 from typing import Any, Callable
 from urllib.parse import urlencode
 
+from ..backend.partial import PartialDimension, PartialValue
 from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError
-from ..model.request import ValidatedRequest
+from ..model.request import RequestedSlice, ValidatedRequest
 from ..model.results import QueryResults, ResultRow
 from .meta import generate_meta
 
@@ -30,11 +31,108 @@ def _relationships_block(relationships: dict[str, list[dict[str, Any]]]) -> dict
     return block
 
 
-def _resource_object(row: ResultRow) -> dict[str, Any]:
+def _list_axes(
+    dimensions: tuple[PartialDimension, ...],
+    sliced: dict[str, RequestedSlice] | None = None,
+) -> list[dict[str, Any]]:
+    """Build the ``list_axes`` metadata for a partial (sliceable) property.
+
+    One entry per declared list axis, echoing the raw requested slice for any
+    axis named in ``sliced``.
+    """
+    axes: list[dict[str, Any]] = []
+    for dimension in dimensions:
+        axis: dict[str, Any] = {"dimension_name": dimension.name}
+        if dimension.length is not None:
+            axis["length"] = dimension.length
+        axis["sliceable"] = dimension.sliceable
+        if sliced is not None and dimension.name in sliced:
+            requested = sliced[dimension.name]
+            requested_slice: dict[str, int] = {}
+            if requested.start is not None:
+                requested_slice["start"] = requested.start
+            if requested.stop is not None:
+                requested_slice["stop"] = requested.stop
+            if requested.step is not None:
+                requested_slice["step"] = requested.step
+            axis["requested_slice"] = requested_slice
+        axes.append(axis)
+    return axes
+
+
+def _resolve_partial_value(
+    prop: str,
+    value: PartialValue,
+    baseurl: str,
+    row_type: str,
+    row_id: str,
+    dimension_slices: dict[str, RequestedSlice] | None,
+) -> tuple[Any, list[dict[str, Any]] | None, dict[str, Any]]:
+    """Turn a :class:`PartialValue` attribute into (value, links, metadata).
+
+    Without a matching slice request the value is omitted (``null``) and a
+    partial-data link is returned. When the request slices one or more of the
+    property's axes the value is fetched inline (honouring the *inclusive* stop
+    convention) and no link is returned; a 501 is raised if a requested axis is
+    not sliceable.
+    """
+    dimensions = value.dimensions
+    sliced: dict[str, RequestedSlice] = {}
+    if dimension_slices:
+        for dimension in dimensions:
+            if dimension.name in dimension_slices:
+                sliced[dimension.name] = dimension_slices[dimension.name]
+
+    if sliced:
+        slices: list[slice] = []
+        for dimension in dimensions:
+            if dimension.name in sliced:
+                if not dimension.sliceable:
+                    raise OptimadeError(
+                        "Slicing is not supported for dimension: " + dimension.name, 501, "Not implemented"
+                    )
+                requested = sliced[dimension.name]
+                start = requested.start if requested.start is not None else 0
+                # The requested stop is inclusive; Python slice stop is exclusive.
+                stop = (requested.stop + 1) if requested.stop is not None else dimension.length
+                step = requested.step if requested.step is not None else 1
+                slices.append(slice(start, stop, step))
+            else:
+                slices.append(slice(None))
+        data = value.fetch(tuple(slices))
+        return data, None, {"list_axes": _list_axes(dimensions, sliced)}
+
+    links = [{"format": "jsonlines", "link": baseurl + f"partial_data/{row_type}/{row_id}/{prop}"}]
+    return None, links, {"list_axes": _list_axes(dimensions)}
+
+
+def _resource_object(
+    row: ResultRow,
+    baseurl: str = "",
+    dimension_slices: dict[str, RequestedSlice] | None = None,
+) -> dict[str, Any]:
     """Build a JSON:API resource object (attributes/id/type/relationships) from a row."""
-    attributes = dict(row.values)
-    row_id = attributes.pop('id')
-    row_type = attributes.pop('type')
+    row_id = row.values['id']
+    row_type = row.values['type']
+    attributes: dict[str, Any] = {}
+    property_metadata: dict[str, Any] = dict(row.property_metadata)
+    partial_data_links: dict[str, Any] = {}
+    for key, value in row.values.items():
+        if key in ('id', 'type'):
+            continue
+        if isinstance(value, PartialValue):
+            attributes[key], links, axes_meta = _resolve_partial_value(
+                key, value, baseurl, row_type, row_id, dimension_slices
+            )
+            if links is not None:
+                partial_data_links[key] = links
+            existing = property_metadata.get(key)
+            merged = dict(existing) if isinstance(existing, dict) else {}
+            merged.update(axes_meta)
+            property_metadata[key] = merged
+        else:
+            attributes[key] = value
+
     obj: dict[str, Any] = {
         'attributes': attributes,
         'id': row_id,
@@ -43,8 +141,10 @@ def _resource_object(row: ResultRow) -> dict[str, Any]:
     if row.relationships:
         obj['relationships'] = _relationships_block(row.relationships)
     meta: dict[str, Any] = {}
-    if row.property_metadata:
-        meta['property_metadata'] = dict(row.property_metadata)
+    if property_metadata:
+        meta['property_metadata'] = property_metadata
+    if partial_data_links:
+        meta['partial_data_links'] = partial_data_links
     if meta:
         obj['meta'] = meta
     return obj
@@ -60,7 +160,7 @@ def generate_entry_endpoint_reply(
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:
-        data_part += [_resource_object(row)]
+        data_part += [_resource_object(row, request.baseurl)]
         for etype, rels in row.relationships.items():
             if etype in request.include_paths:
                 collected.setdefault(etype, set()).update(rel["id"] for rel in rels)
@@ -101,7 +201,7 @@ def generate_single_entry_endpoint_reply(
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:
-        data_part += [_resource_object(row)]
+        data_part += [_resource_object(row, request.baseurl, request.query.dimension_slices)]
         for etype, rels in row.relationships.items():
             if etype in request.include_paths:
                 collected.setdefault(etype, set()).update(rel["id"] for rel in rels)

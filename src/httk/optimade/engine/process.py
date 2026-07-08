@@ -16,6 +16,7 @@ from ..endpoints.info import (
     generate_links_endpoint_reply,
     generate_versions_endpoint_reply,
 )
+from ..endpoints.partial_data import generate_partial_data_reply
 from ..filter.parser import FilterAst, ParserSyntaxError, parse_optimade_filter
 from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError, TranslatorError
@@ -129,6 +130,9 @@ def process(
 
     elif endpoint == 'info':
         response = generate_info_endpoint_reply(validated_request, config, schema)
+
+    elif endpoint == 'partial_data':
+        return generate_partial_data_reply(validated_request, config, query_function, schema)
 
     elif endpoint in schema.all_entries:
 

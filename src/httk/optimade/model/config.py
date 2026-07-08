@@ -32,3 +32,4 @@ class OptimadeConfig:
     schema_url: str | None = None
     request_delay: float | None = None
     data_available: dict[str, int] = field(default_factory=dict)
+    partial_data_chunk_size: int = 1000

@@ -1,11 +1,42 @@
+import re
 from urllib.parse import parse_qsl, urlparse
 
 from ..model.errors import OptimadeError
-from ..model.request import RawRequest, ValidatedParameters, ValidatedRequest
+from ..model.request import (
+    RawRequest,
+    RequestedSlice,
+    ValidatedParameters,
+    ValidatedRequest,
+)
 from ..model.versions import optimade_default_version, optimade_supported_versions
 from ..schema.served import ServedSchema, default_served_schema
 
 PAGE_LIMIT_MAX = 50
+
+# A single dimension_slices specification: a dimension name, then '[', the
+# start/stop/step components (optional non-negative integers) separated by two
+# mandatory colons, then ']'.
+_DIMENSION_SLICE_RE = re.compile(r'^([^\[\]:]+)\[(\d*):(\d*):(\d*)\]$')
+
+
+def _parse_dimension_slices(value: str) -> dict[str, RequestedSlice]:
+    """Parse the ``dimension_slices`` query parameter into requested slices."""
+    result: dict[str, RequestedSlice] = {}
+    for part in value.split(","):
+        part = part.strip()
+        if part == "":
+            continue
+        match = _DIMENSION_SLICE_RE.match(part)
+        if match is None:
+            raise OptimadeError("Malformed dimension_slices specification: " + part, 400, "Bad request")
+        name, start_str, stop_str, step_str = match.groups()
+        start = int(start_str) if start_str != "" else None
+        stop = int(stop_str) if stop_str != "" else None
+        step = int(step_str) if step_str != "" else None
+        if step == 0:
+            raise OptimadeError("dimension_slices step must be a non-zero positive integer.", 400, "Bad request")
+        result[name] = RequestedSlice(start=start, stop=stop, step=step)
+    return result
 
 
 def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) -> ValidatedParameters:
@@ -87,6 +118,7 @@ def validate_optimade_request(
     request_id = request.request_id
     validated_version = request.version if request.version is not None else optimade_default_version
     url_version: str | None = None
+    partial_data_parts: tuple[str, str, str] | None = None
 
     if endpoint is None:
         if request.relurl is not None:
@@ -137,6 +169,27 @@ def validate_optimade_request(
                     raise OptimadeError("Unexpected characters in entry id.", 400, "Bad request")
             else:
                 request_id = None
+
+        # Then check the partial data endpoint: partial_data/<entry>/<id>/<property>
+        elif first_level_endpoint == 'partial_data':
+            parts = endpoint_str.split('/')
+            if len(parts) != 4:
+                raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
+            _partial, pd_entry, pd_id, pd_property = parts
+            if pd_entry not in schema.all_entries:
+                raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
+            # Defensive programming; don't trust '=='/in to be byte-for-byte
+            # equivalent, so don't use the insecure string from the user.
+            pd_entry = schema.all_entries[schema.all_entries.index(pd_entry)]
+            if len(pd_id) == 0 or not all(ord(c) >= 32 and ord(c) <= 126 for c in pd_id):
+                raise OptimadeError("Unexpected characters in entry id.", 400, "Bad request")
+            if pd_property not in schema.properties_by_entry[pd_entry]:
+                raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
+            valid_properties = schema.properties_by_entry[pd_entry]
+            pd_property = valid_properties[valid_properties.index(pd_property)]
+            endpoint = 'partial_data'
+            request_id = None
+            partial_data_parts = (pd_entry, pd_id, pd_property)
 
         # Finally check the special versions endpoint
         elif endpoint_str == 'versions':
@@ -245,6 +298,30 @@ def validate_optimade_request(
                 # equivalent, so don't use the insecure string from the user.
                 canonical = schema.all_entries[schema.all_entries.index(token)]
                 validated_request.include_paths.append(canonical)
+
+    # The partial data endpoint carries the target entry/id/property in the URL
+    # path and an optional non-negative ``offset`` query parameter.
+    if endpoint == 'partial_data':
+        validated_request.partial_data_parts = partial_data_parts
+        if 'offset' in query and query['offset'] is not None and query['offset'] != "":
+            try:
+                offset = int(query['offset'])
+            except ValueError:
+                raise OptimadeError("Cannot interprete offset.", 400, "Bad request")
+            if offset < 0:
+                raise OptimadeError("offset must be a non-negative integer.", 400, "Bad request")
+            validated_request.partial_data_offset = offset
+
+    # The dimension_slices parameter is only supported on single-entry endpoints.
+    if (
+        'dimension_slices' in query
+        and query['dimension_slices'] is not None
+        and query['dimension_slices'].strip() != ""
+    ):
+        if endpoint in schema.all_entries:
+            if validated_request.request_id is None:
+                raise OptimadeError("dimension_slices is only supported on single-entry endpoints.", 400, "Bad request")
+            validated_request.query.dimension_slices = _parse_dimension_slices(query['dimension_slices'])
 
     if validated_request.version != version:
         raise OptimadeError("validate_optimade_request: unexpected version", 500, "Internal server error")

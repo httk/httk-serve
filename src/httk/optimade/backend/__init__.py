@@ -6,6 +6,7 @@ from .handlers import (
     default_structure_fields,
     simple_property_handlers,
 )
+from .partial import PartialDimension, PartialValue
 from .protocols import (
     QueryFunction,
     QueryResults,
@@ -21,6 +22,8 @@ __all__ = [
     "BackendAdapter",
     "EntrySource",
     "FieldExtractor",
+    "PartialDimension",
+    "PartialValue",
     "StoreResults",
     "execute_query",
     "default_calculation_fields",
