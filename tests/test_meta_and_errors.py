@@ -8,7 +8,7 @@ def test_generate_meta_basic() -> None:
     meta = generate_meta(representation="/structures", api_version="1.3.0", config=config)
     assert meta["query"]["representation"] == "/structures"
     assert meta["api_version"] == "1.3.0"
-    assert meta["implementation"]["name"] == "httk"
+    assert meta["implementation"]["name"] == "httk-optimade"
     assert meta["provider"]["prefix"] == "httk"
     assert meta["more_data_available"] is False
     assert "data_returned" not in meta
@@ -61,3 +61,36 @@ def test_optimade_error_longmsg() -> None:
     assert err.content == "much longer explanation"
     err2 = OptimadeError("short", 400, "Bad request")
     assert err2.content == "short"
+
+
+def test_generate_meta_implementation_fields() -> None:
+    meta = generate_meta(representation="/", api_version="1.3.0", config=OptimadeConfig())
+    implementation = meta["implementation"]
+    assert implementation["source_url"] == "https://github.com/httk/httk-optimade"
+    assert implementation["issue_tracker"] == "https://github.com/httk/httk-optimade/issues"
+
+
+def test_generate_meta_implementation_override() -> None:
+    config = OptimadeConfig(implementation={"name": "my-server", "maintainer": {"email": "admin@example.org"}})
+    meta = generate_meta(representation="/", api_version="1.3.0", config=config)
+    assert meta["implementation"]["name"] == "my-server"
+    assert meta["implementation"]["maintainer"] == {"email": "admin@example.org"}
+
+
+def test_generate_meta_optional_v12_fields() -> None:
+    config = OptimadeConfig(
+        database={"id": "example_db", "name": "Example"},
+        schema_url="https://schemas.optimade.org/openapi/v1.3/optimade.json",
+        request_delay=0.1,
+    )
+    meta = generate_meta(representation="/", api_version="1.3.0", config=config)
+    assert meta["database"]["id"] == "example_db"
+    assert meta["schema"] == "https://schemas.optimade.org/openapi/v1.3/optimade.json"
+    assert meta["request_delay"] == 0.1
+
+
+def test_generate_meta_optional_fields_absent_by_default() -> None:
+    meta = generate_meta(representation="/", api_version="1.3.0", config=OptimadeConfig())
+    assert "database" not in meta
+    assert "schema" not in meta
+    assert "request_delay" not in meta

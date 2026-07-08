@@ -17,10 +17,18 @@ def _default_provider() -> dict[str, Any]:
 class OptimadeConfig:
     """Configuration of a served OPTIMADE database.
 
-    ``data_available`` is filled in by ``process_init`` with the number of
-    available entries per entry endpoint.
+    ``implementation`` extends/overrides the fields of the ``meta`` ->
+    ``implementation`` dictionary (e.g. ``issue_tracker``, ``source_url``,
+    ``maintainer``). ``database``, ``schema_url``, and ``request_delay``
+    populate the corresponding optional ``meta`` fields (OPTIMADE v1.2+)
+    when set. ``data_available`` is filled in by ``process_init`` with the
+    number of available entries per entry endpoint.
     """
 
     provider: dict[str, Any] = field(default_factory=_default_provider)
     links: list[dict[str, Any]] = field(default_factory=list)
+    implementation: dict[str, Any] = field(default_factory=dict)
+    database: dict[str, Any] | None = None
+    schema_url: str | None = None
+    request_delay: float | None = None
     data_available: dict[str, int] = field(default_factory=dict)

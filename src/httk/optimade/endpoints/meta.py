@@ -19,6 +19,15 @@ def generate_meta(
     more_data_available: bool = False,
     data_available: int | None = None,
 ) -> dict[str, Any]:
+    implementation = {
+        "name": "httk-optimade",
+        "version": _implementation_version,
+        "homepage": "https://httk.org/",
+        "source_url": "https://github.com/httk/httk-optimade",
+        "issue_tracker": "https://github.com/httk/httk-optimade/issues",
+    }
+    implementation.update(config.implementation)
+
     meta: dict[str, Any] = {
         "query": {
             "representation": representation,
@@ -26,13 +35,15 @@ def generate_meta(
         "api_version": api_version,
         "time_stamp": datetime.datetime.now(datetime.UTC).isoformat(),
         "more_data_available": more_data_available,
-        "implementation": {
-            "name": "httk",
-            "version": _implementation_version,
-            "homepage": "https://httk.org/",
-        },
+        "implementation": implementation,
         "provider": config.provider,
     }
+    if config.schema_url is not None:
+        meta['schema'] = config.schema_url
+    if config.database is not None:
+        meta['database'] = config.database
+    if config.request_delay is not None:
+        meta['request_delay'] = config.request_delay
     if data_count is not None:
         meta['data_returned'] = data_count
     if data_available is not None:
