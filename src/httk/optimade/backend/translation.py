@@ -1,0 +1,218 @@
+"""Translation of OPTIMADE filter syntax trees into backend search expressions."""
+
+from typing import Any
+
+from ..filter.parser import FilterAst
+from ..model.errors import TranslatorError
+from ..schema.httk_entries import httk_entry_info, httk_recognized_prefixes
+from .adapter import BackendAdapter, EntrySource
+from .handlers import (
+    HandlerTable,
+)
+from .handlers import invert_op as _invert_op
+from .handlers import (
+    unknown_comparison_handler,
+    unknown_has_handler,
+    unknown_length_handler,
+    unknown_stringmatching_handler,
+    unknown_unknown_handler,
+)
+from .protocols import Searcher, SearchExpression, SearchVariable
+
+constant_types = ['String', 'Number']
+
+
+def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) -> Any:
+    if fulltype.startswith('list of '):
+        if not isinstance(val[0], tuple):
+            raise TranslatorError(
+                "Type mismatch in filter, query had single value when list of values was expected.",
+                400,
+                "Bad request",
+            )
+        inner_fulltype = fulltype[len('list of ') :]
+        outvals = []
+        for v in val:
+            outvals += [format_value(inner_fulltype, v, allow_null=allow_null)]
+        return outvals
+    elif allow_null and val[0] == 'Null':
+        return None
+    elif fulltype == 'integer':
+        if val[0] in ['Number']:
+            return int(val[1])
+    elif fulltype == 'float':
+        if val[0] in ['Number']:
+            return float(val[1])
+    elif fulltype == 'string':
+        if val[0] in ['String']:
+            return val[1]
+    elif fulltype == 'unknown':
+        return val[1]
+    raise TranslatorError("Type mismatch in filter, expected:" + fulltype + ", query has:" + val[0], 400, "Bad request")
+
+
+def translate_filter(
+    filter_ast: FilterAst | None, entries: list[str], adapter: BackendAdapter
+) -> list[tuple[EntrySource, Searcher]]:
+    """Build one searcher per entry source, with the filter applied to each."""
+
+    pairs: list[tuple[EntrySource, Searcher]] = []
+
+    for entry in entries:
+        field_handlers = adapter.field_handlers.get(entry, {})
+        for source in adapter.sources.get(entry, ()):
+            searcher = adapter.store.searcher()
+            search_variable = searcher.variable(source.target)
+            searcher.output(search_variable, entry)
+            if filter_ast is not None:
+                search_expr, needs_post = translate_filter_node(
+                    filter_ast, search_variable, entry, field_handlers, False
+                )
+                searcher.add(search_expr)
+                if needs_post:
+                    searcher.add_all(search_expr)
+            pairs.append((source, searcher))
+
+    return pairs
+
+
+def translate_filter_node(
+    node: FilterAst,
+    search_variable: SearchVariable,
+    entry: str,
+    handlers: HandlerTable,
+    inv_toggle: bool,
+    recursion: int = 0,
+) -> tuple[SearchExpression, bool]:
+
+    search_expr: SearchExpression | None = None
+    needs_post = False
+    entry_info = httk_entry_info[entry]['properties']
+
+    if node[0] in ['AND']:
+        search_expr, needs_post = translate_filter_node(
+            node[1], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+        )
+        rhs_search_expr, rhs_needs_post = translate_filter_node(
+            node[2], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+        )
+        needs_post = needs_post or rhs_needs_post
+        search_expr = search_expr & rhs_search_expr
+    elif node[0] in ['OR']:
+        search_expr, needs_post = translate_filter_node(
+            node[1], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+        )
+        rhs_search_expr, rhs_needs_post = translate_filter_node(
+            node[2], search_variable, entry, handlers, inv_toggle, recursion=recursion + 1
+        )
+        needs_post = needs_post or rhs_needs_post
+        search_expr = search_expr | rhs_search_expr
+    elif node[0] in ['NOT']:
+        search_expr, needs_post = translate_filter_node(
+            node[1], search_variable, entry, handlers, not inv_toggle, recursion=recursion + 1
+        )
+        search_expr = ~search_expr
+    elif node[0] in ['HAS_ALL', 'HAS_ANY', 'HAS_ONLY']:
+        ops = node[1]
+        left = node[2]
+        right = node[3]
+        assert left[0] == 'Identifier'
+        if left[1] not in entry_info:
+            if left[1].startswith(httk_recognized_prefixes):
+                raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
+            else:
+                # TODO: this should warn
+                has_handler = unknown_has_handler
+                values = format_value('list of unknown', right)
+        else:
+            values = format_value(entry_info[left[1]].get('fulltype', 'unknown'), right)
+            has_handler = handlers[left[1]]['HAS']
+        if ops != tuple(['='] * len(values)):
+            raise TranslatorError("HAS queries with non-equal operators not implemented yet.", 501, "Not implemented")
+        search_expr, needs_post = has_handler(left[1], ops, values, search_variable, node[0], inv_toggle)
+    elif node[0] in ['LENGTH']:
+        left = node[1]
+        op = node[2]
+        right = node[3]
+        assert left[0] == 'Identifier'
+        if right[0] == 'Identifier':
+            raise TranslatorError(
+                "LENGTH comparisons with non-constant right hand side not implemented.", 501, "Not implemented"
+            )
+        if right[0] != 'Number':
+            raise TranslatorError(
+                "LENGTH comparison can only be done with Numbers. Unexpected right hand side type:" + right[0],
+                501,
+                "Not implemented",
+            )
+        if left[1] not in entry_info:
+            if left[1].startswith(httk_recognized_prefixes):
+                raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
+            else:
+                # TODO: this should warn
+                length_handler = unknown_length_handler
+                value = format_value('unknown', right)
+        else:
+            length_handler = handlers[left[1]]['length']
+            assert entry_info[left[1]].get('fulltype', '').startswith("list of ")
+            value = format_value("integer", right)
+        search_expr = length_handler(left[1], op, value, search_variable)
+    elif node[0] in ['>', '>=', '<', '<=', '=', '!=']:
+        op = node[0]
+        left = node[1]
+        right = node[2]
+        if left[0] in constant_types and right[0] in constant_types:
+            raise TranslatorError("Constant vs. Constant comparisons not implemented.", 501, "Not implemented")
+        elif left[0] == 'Identifier' and right[0] == 'Identifier':
+            raise TranslatorError("Identifier vs. Identifier comparisons not implemented.", 501, "Not implemented")
+        else:
+            if right[0] == 'Identifier' and left[0] in constant_types:
+                left, right = right, left
+                op = _invert_op[op]
+            assert left[0] == 'Identifier'
+            if left[1] not in entry_info:
+                if left[1].startswith(httk_recognized_prefixes):
+                    raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
+                else:
+                    # TODO: this should warn
+                    comparison_handler = unknown_comparison_handler
+                    value = format_value('unknown', right)
+            else:
+                comparison_handler = handlers[left[1]]['comparison']
+                value = format_value(entry_info[left[1]].get('fulltype', 'unknown'), right)
+            search_expr = comparison_handler(left[1], op, value, search_variable)
+    elif node[0] in ['ENDS', 'STARTS', 'CONTAINS']:
+        left = node[1]
+        right = node[2]
+        assert left[0] == 'Identifier'
+        if right[0] == 'Identifier':
+            raise TranslatorError(
+                "Identifier vs. Identifier string comparisons not implemented.", 501, "Not implemented"
+            )
+        if left[1] not in entry_info:
+            if left[1].startswith(httk_recognized_prefixes):
+                raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
+            else:
+                # TODO: this should warn
+                stringmatching = unknown_stringmatching_handler
+                value = format_value('unknown', right)
+        else:
+            stringmatching = handlers[left[1]]['stringmatching']
+            value = format_value(entry_info[left[1]].get('fulltype', 'unknown'), right)
+        search_expr = stringmatching(left[1], value, node[0], search_variable)
+    elif node[0] in ['IS_UNKNOWN', 'IS_KNOWN']:
+        left = node[1]
+        assert left[0] == 'Identifier'
+        if left[1] not in entry_info:
+            if left[1].startswith(httk_recognized_prefixes):
+                raise TranslatorError("Filter invokes unrecognized property name: " + left[1], 400, "Bad request")
+            else:
+                # TODO: this should warn
+                unknown = unknown_unknown_handler
+        else:
+            unknown = handlers[left[1]]['unknown']
+        search_expr = unknown(left[1], search_variable, node[0])
+    else:
+        raise TranslatorError("Unexpected translation error at: " + str(node[0]), 500, "Internal server error.")
+    assert search_expr is not None
+    return search_expr, needs_post
