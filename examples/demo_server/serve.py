@@ -58,10 +58,14 @@ def structure(
     return {
         '__id': sid,
         'formula': formula,
-        'reduced_formula': _reduced_formula(species_at_sites),
-        'anonymous_formula': _anonymous_formula(species_at_sites),
+        # Spec-compliant reduced/anonymous formulas, stored as real backend
+        # columns so filters compare against exactly what the attribute
+        # extractors serve (see STRUCTURE_FIELDS, which read these columns).
+        'formula_reduced': _reduced_formula(species_at_sites),
+        'formula_anonymous': _anonymous_formula(species_at_sites),
         'formula_symbols': sorted(set(species_at_sites)),
         'number_of_elements': len(set(species_at_sites)),
+        'nsites': len(positions),
         'species_at_sites': species_at_sites,
         'positions': positions,
         'last_modified': last_modified,
@@ -160,11 +164,11 @@ STRUCTURE_FIELDS = {
     'elements': lambda x: sorted(set(x['formula_symbols'])),
     'nelements': lambda x: x['number_of_elements'],
     'chemical_formula_descriptive': lambda x: x['formula'],
-    'chemical_formula_reduced': lambda x: x['reduced_formula'],
-    'chemical_formula_anonymous': lambda x: x['anonymous_formula'],
+    'chemical_formula_reduced': lambda x: x['formula_reduced'],
+    'chemical_formula_anonymous': lambda x: x['formula_anonymous'],
     'dimension_types': lambda x: [1, 1, 1],
     'nperiodic_dimensions': lambda x: 3,
-    'nsites': lambda x: len(x['positions']),
+    'nsites': lambda x: x['nsites'],
     'species_at_sites': lambda x: x['species_at_sites'],
     'cartesian_site_positions': lambda x: x['positions'],
 }
@@ -199,6 +203,7 @@ FILE_FIELDS = {
 
 # OPTIMADE property -> backend column, for the queryable file properties.
 FILE_COLUMNS = {
+    'last_modified': 'last_modified',
     'url': 'url',
     'name': 'name',
     'media_type': 'media_type',
@@ -227,6 +232,7 @@ REFERENCE_FIELDS = {
 
 # OPTIMADE property -> backend column, for the queryable reference properties.
 REFERENCE_COLUMNS = {
+    'last_modified': 'last_modified',
     'doi': 'doi',
     'year': 'year',
     'title': 'title',
@@ -286,6 +292,7 @@ TRAJECTORY_FIELDS = {
 
 # OPTIMADE property -> backend column, for the queryable trajectory properties.
 TRAJECTORY_COLUMNS = {
+    'last_modified': 'last_modified',
     'nframes': 'nframes',
 }
 
@@ -413,6 +420,23 @@ STRUCTURE_SORT_COLUMNS = {
     'chemical_formula_descriptive': 'formula',
 }
 
+# OPTIMADE property -> backend column, for the structure properties whose filter
+# handlers override the httk defaults. These point at the columns holding the
+# spec-compliant computed values (reduced/anonymous formula), the real site count,
+# and the modification timestamp, so filters agree with the served attributes.
+STRUCTURE_FILTER_COLUMNS = {
+    'chemical_formula_reduced': 'formula_reduced',
+    'chemical_formula_anonymous': 'formula_anonymous',
+    'nsites': 'nsites',
+    'last_modified': 'last_modified',
+}
+
+# OPTIMADE property -> backend column, for the calculation properties added on top
+# of the httk defaults.
+CALCULATION_FILTER_COLUMNS = {
+    'last_modified': 'last_modified',
+}
+
 
 def make_adapter() -> BackendAdapter:
     store = InMemoryStore(
@@ -444,15 +468,30 @@ def make_adapter() -> BackendAdapter:
     field_handlers['trajectories'] = simple_property_handlers(
         'trajectories', TRAJECTORY_COLUMNS, schema.entry_info['trajectories']
     )
+    # Override the structure filter handlers that must point at real columns:
+    # chemical_formula_reduced/anonymous at the computed-formula columns, nsites
+    # at the site-count column, last_modified at the timestamp column. The httk
+    # defaults for elements/nelements/id/type/... are kept intact.
+    structures_handlers = dict(field_handlers['structures'])
+    structure_overrides = simple_property_handlers(
+        'structures', STRUCTURE_FILTER_COLUMNS, schema.entry_info['structures']
+    )
+    for name in STRUCTURE_FILTER_COLUMNS:
+        structures_handlers[name] = structure_overrides[name]
     # A relationship filter handler: `references.id HAS "ref-1"` matches over the
     # structure row's 'references' column (a list of related reference ids).
-    structures_handlers = dict(field_handlers['structures'])
     structures_handlers['references.id'] = {
         'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
     }
     field_handlers['structures'] = structures_handlers
-    # `files.id HAS "file-1"` matches over the calculation row's 'file_ids' column.
+    # Add last_modified filtering to calculations on top of the httk defaults.
     calculations_handlers = dict(field_handlers['calculations'])
+    calculation_overrides = simple_property_handlers(
+        'calculations', CALCULATION_FILTER_COLUMNS, schema.entry_info['calculations']
+    )
+    for name in CALCULATION_FILTER_COLUMNS:
+        calculations_handlers[name] = calculation_overrides[name]
+    # `files.id HAS "file-1"` matches over the calculation row's 'file_ids' column.
     calculations_handlers['files.id'] = {
         'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('file_ids', ops, values, inv, has_type, sv),
     }
