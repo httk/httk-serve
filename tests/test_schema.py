@@ -2,7 +2,7 @@ from httk.optimade.schema import entries, httk_entries
 
 
 def test_entry_info_integrity() -> None:
-    assert set(entries.entry_info.keys()) == {"structures", "calculations", "references"}
+    assert set(entries.entry_info.keys()) == {"structures", "calculations", "references", "files"}
     for entry_info in entries.entry_info.values():
         assert "descripion" not in entry_info
         assert isinstance(entry_info["description"], str)

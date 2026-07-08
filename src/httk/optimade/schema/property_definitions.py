@@ -61,6 +61,8 @@ def _inner_definition(fulltype: str, unit: str) -> dict[str, Any]:
     }
     if optimade_type == "list":
         definition["items"] = _inner_definition(fulltype[len("list of ") :], unit)
+    if optimade_type == "timestamp":
+        definition["format"] = "date-time"
     return definition
 
 
@@ -100,6 +102,13 @@ def property_definition(entry: str, name: str, info: PropertyInfo) -> dict[str, 
     }
     if optimade_type == "list":
         definition["items"] = _inner_definition(fulltype[len("list of ") :], unit)
+    if optimade_type == "timestamp":
+        definition["format"] = "date-time"
+    if optimade_type == "dictionary":
+        dict_properties = info.get("dict_properties", {})
+        definition["properties"] = {
+            key: _inner_definition(inner_fulltype, "dimensionless") for key, inner_fulltype in dict_properties.items()
+        }
     if unit == "angstrom":
         definition["x-optimade-unit-definitions"] = [_ANGSTROM_UNIT_DEFINITION]
     return definition

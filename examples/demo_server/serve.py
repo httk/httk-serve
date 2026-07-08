@@ -55,8 +55,35 @@ STRUCTURES = [
 ]
 
 CALCULATIONS = [
-    {'__id': 'calc-1', 'total_energy': -12.5, 'structure': 'demo-1'},
-    {'__id': 'calc-2', 'total_energy': -5.4, 'structure': 'demo-2'},
+    {
+        '__id': 'calc-1',
+        'total_energy': -12.5,
+        'structure': 'demo-1',
+        'files': [('file-1', 'input'), ('file-2', 'output')],
+        'file_ids': ['file-1', 'file-2'],
+    },
+    {'__id': 'calc-2', 'total_energy': -5.4, 'structure': 'demo-2', 'files': [], 'file_ids': []},
+]
+
+FILES = [
+    {
+        '__id': 'file-1',
+        'url': 'https://example.org/files/calc-1/INCAR',
+        'name': 'INCAR',
+        'size': 512,
+        'media_type': 'text/plain',
+        'description': 'Input settings file',
+        'checksums': {'sha256': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'},
+    },
+    {
+        '__id': 'file-2',
+        'url': 'https://example.org/files/calc-1/OUTCAR',
+        'name': 'OUTCAR',
+        'size': 204800,
+        'media_type': 'text/plain',
+        'description': 'Output log file',
+        'checksums': {'sha256': '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'},
+    },
 ]
 
 REFERENCES = [
@@ -102,6 +129,32 @@ CALCULATION_FIELDS = {
     'id': lambda x: x['__id'],
     '_httk_total_energy': lambda x: x['total_energy'],
     '_httk_structure_id': lambda x: x['structure'],
+}
+
+
+def calculation_relationships(row: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    files = row.get('files') or []
+    if not files:
+        return {}
+    return {'files': [{'id': fid, 'role': role} for fid, role in files]}
+
+
+FILE_FIELDS = {
+    'type': lambda x: "files",
+    'id': lambda x: x['__id'],
+    'url': lambda x: x['url'],
+    'name': lambda x: x['name'],
+    'size': lambda x: x['size'],
+    'media_type': lambda x: x['media_type'],
+    'description': lambda x: x['description'],
+    'checksums': lambda x: x['checksums'],
+}
+
+# OPTIMADE property -> backend column, for the queryable file properties.
+FILE_COLUMNS = {
+    'url': 'url',
+    'name': 'name',
+    'media_type': 'media_type',
 }
 
 
@@ -171,6 +224,18 @@ REFERENCE_PROPERTIES = [
     'bib_type',
 ]
 
+FILE_PROPERTIES = [
+    'id',
+    'type',
+    'url',
+    'name',
+    'size',
+    'media_type',
+    'version',
+    'description',
+    'checksums',
+]
+
 DEFAULT_RESPONSE_OVERRIDES = {
     'structures': [
         'structure_features',
@@ -197,6 +262,13 @@ DEFAULT_RESPONSE_OVERRIDES = {
         'doi',
         'authors',
     ],
+    'files': [
+        'url',
+        'name',
+        'size',
+        'media_type',
+        'description',
+    ],
 }
 
 # OPTIMADE property -> backend column name, for the sortable structure properties.
@@ -208,12 +280,20 @@ STRUCTURE_SORT_COLUMNS = {
 
 
 def make_adapter() -> BackendAdapter:
-    store = InMemoryStore({'structures': STRUCTURES, 'calculations': CALCULATIONS, 'references': REFERENCES})
+    store = InMemoryStore(
+        {
+            'structures': STRUCTURES,
+            'calculations': CALCULATIONS,
+            'references': REFERENCES,
+            'files': FILES,
+        }
+    )
     schema = build_served_schema(
         {
             'structures': STRUCTURE_PROPERTIES,
             'calculations': CALCULATION_PROPERTIES,
             'references': REFERENCE_PROPERTIES,
+            'files': FILE_PROPERTIES,
         },
         default_response_overrides=DEFAULT_RESPONSE_OVERRIDES,
         sortable={'structures': list(STRUCTURE_SORT_COLUMNS)},
@@ -222,6 +302,7 @@ def make_adapter() -> BackendAdapter:
     field_handlers['references'] = simple_property_handlers(
         'references', REFERENCE_COLUMNS, schema.entry_info['references']
     )
+    field_handlers['files'] = simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files'])
     # A relationship filter handler: `references.id HAS "ref-1"` matches over the
     # structure row's 'references' column (a list of related reference ids).
     structures_handlers = dict(field_handlers['structures'])
@@ -229,6 +310,12 @@ def make_adapter() -> BackendAdapter:
         'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
     }
     field_handlers['structures'] = structures_handlers
+    # `files.id HAS "file-1"` matches over the calculation row's 'file_ids' column.
+    calculations_handlers = dict(field_handlers['calculations'])
+    calculations_handlers['files.id'] = {
+        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('file_ids', ops, values, inv, has_type, sv),
+    }
+    field_handlers['calculations'] = calculations_handlers
     return BackendAdapter(
         store=store,
         sources={
@@ -240,8 +327,15 @@ def make_adapter() -> BackendAdapter:
                     relationships=structure_relationships,
                 ),
             ),
-            'calculations': (EntrySource(target='calculations', fields=CALCULATION_FIELDS),),
+            'calculations': (
+                EntrySource(
+                    target='calculations',
+                    fields=CALCULATION_FIELDS,
+                    relationships=calculation_relationships,
+                ),
+            ),
             'references': (EntrySource(target='references', fields=REFERENCE_FIELDS),),
+            'files': (EntrySource(target='files', fields=FILE_FIELDS),),
         },
         field_handlers=field_handlers,
         schema=schema,

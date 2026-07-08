@@ -49,6 +49,11 @@ def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) 
     elif fulltype == 'string':
         if val[0] in ['String']:
             return val[1]
+    elif fulltype == 'timestamp':
+        if val[0] in ['String']:
+            return val[1]
+    elif fulltype == 'dict':
+        raise TranslatorError("Filtering on dictionary properties not implemented.", 501, "Not implemented.")
     elif fulltype == 'unknown':
         return val[1]
     raise TranslatorError("Type mismatch in filter, expected:" + fulltype + ", query has:" + val[0], 400, "Bad request")
