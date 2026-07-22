@@ -13,7 +13,7 @@ class MarkdownRenderer:
 
         html = markdown.markdown(
             body,
-            output_format="html5",
+            output_format="html",
             extensions=["fenced_code", "codehilite", "tables"],
         )
 

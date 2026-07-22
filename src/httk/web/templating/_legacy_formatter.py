@@ -16,8 +16,8 @@ class HttkTemplateFormatter(string.Formatter):
         self._current_args: Sequence[Any] = ()
         self._current_kwargs: Mapping[str, Any] = {}
 
-    def format_field(self, value: Any, spec: str) -> str:
-        return self._format_field(value, spec, quote=None)
+    def format_field(self, value: Any, format_spec: str) -> str:
+        return self._format_field(value, format_spec, quote=None)
 
     def _format_field(self, value: Any, spec: str, quote: bool | None) -> str:
         if spec == "unquoted" or spec.startswith("unquoted:"):
@@ -173,7 +173,9 @@ class HttkTemplateFormatter(string.Formatter):
         except (KeyError, AttributeError):
             return None, field_name
 
-    def vformat(self, format_string: str, args: Sequence[Any], kwargs: Mapping[str, Any]) -> str:
+    def vformat(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, format_string: str, args: Sequence[Any], kwargs: Mapping[str, Any]
+    ) -> str:
         previous_args = self._current_args
         previous_kwargs = self._current_kwargs
         self._current_args = args
