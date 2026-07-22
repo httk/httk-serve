@@ -52,6 +52,30 @@ publish("src", "public", "http://127.0.0.1/", use_urls_without_ext=False)  # -> 
 publish("src", "public", "http://127.0.0.1/", use_urls_without_ext=True)   # -> about
 ```
 
+To split static and dynamic hosting in publish mode:
+
+```python
+publish(
+    "src",
+    "public",
+    "https://dynamic.example",          # dynamic host
+    host_static="https://static.example",  # static host
+)
+```
+
+Default classification:
+
+- pages with at least one `*-function` metadata key are treated as `dynamic`
+- pages without function metadata are treated as `static`
+
+You can override per page in frontmatter:
+
+```yaml
+---
+hosting: static   # or: dynamic
+---
+```
+
 ### Examples
 
 Modern examples live under `examples/modern`:
