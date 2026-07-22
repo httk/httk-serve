@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "httk-web"
 version = "0.1.0"
-description = "Web and static-site tooling for httk v2"
+description = "Web and static-site tooling for httk₂"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
@@ -94,7 +94,7 @@ skip-string-normalization = true
 pythonVersion = "3.12"
 include = ["src", "examples"]
 # The legacy search-app demo is example *site content* that targets the httk v1
-# full stack (httk.db, httk.atomistic.Compound), APIs with no httk v2 equivalent.
+# full stack (httk.db, httk.atomistic.Compound), APIs with no httk₂ equivalent.
 # It is not part of the distribution and cannot resolve against httk-web's deps.
 exclude = ["examples/legacy/search_app/src/functions"]
 extraPaths = ["src"]

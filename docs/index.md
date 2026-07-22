@@ -1,6 +1,9 @@
 # *httk-web*
 
-*httk-web* is a [*httk v2*](https://github.com/httk/httk2) module providing web serving and static publishing functionality under the namespace `httk.web`.
+This site documents specifically the *httk-web* module. For the full
+documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org).
+
+*httk-web* is a [*httk₂*](https://github.com/httk/httk2) module providing web serving and static publishing functionality under the namespace `httk.web`.
 
 ```{admonition} Quick links
 :class: tip
