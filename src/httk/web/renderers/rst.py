@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from docutils import io, nodes
 from docutils.core import publish_programmatically
@@ -16,27 +17,35 @@ class RstRenderer:
     def render(self, source_path: Path) -> RenderResult:
         source = source_path.read_text(encoding="utf-8")
 
-        _, pub = publish_programmatically(
-            source_class=io.StringInput,
-            source=source,
-            source_path=str(source_path),
-            destination_class=io.StringOutput,
-            destination=None,
-            destination_path=None,
-            reader=None,
-            reader_name="standalone",
-            parser=None,
-            parser_name="restructuredtext",
-            writer=Writer(),
-            writer_name=None,
-            settings=None,
-            settings_spec=None,
-            settings_overrides=_RST_SETTINGS_OVERRIDES,
-            config_section=None,
-            enable_exit_status=False,
-        )
+        # docutils' own type hints for publish_programmatically are narrower than
+        # its documented runtime contract (e.g. writer_name/config_section accept
+        # None when a writer instance is supplied, and source_class accepts any
+        # Input subclass). Pass the arguments through an Any-typed mapping so the
+        # call reflects the real API without per-argument casts.
+        publish_kwargs: dict[str, Any] = {
+            "source_class": io.StringInput,
+            "source": source,
+            "source_path": str(source_path),
+            "destination_class": io.StringOutput,
+            "destination": None,
+            "destination_path": None,
+            "reader": None,
+            "reader_name": "standalone",
+            "parser": None,
+            "parser_name": "restructuredtext",
+            "writer": Writer(),
+            "writer_name": None,
+            "settings": None,
+            "settings_spec": None,
+            "settings_overrides": _RST_SETTINGS_OVERRIDES,
+            "config_section": None,
+            "enable_exit_status": False,
+        }
+        _, pub = publish_programmatically(**publish_kwargs)
         html = pub.writer.parts.get("html_body", "")
-        metadata = self._extract_metadata(pub.document)
+        document = pub.document
+        assert document is not None
+        metadata = self._extract_metadata(document)
         return RenderResult(html=html, metadata=metadata)
 
     def _extract_metadata(self, doctree: nodes.document) -> dict[str, object]:

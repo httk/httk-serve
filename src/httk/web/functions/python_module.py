@@ -82,13 +82,13 @@ class PythonFunctionHandler:
                 continue
             paths.append(path_str)
 
-        for path in paths:
-            self._acquire_sys_path(path)
+        for acquired_path in paths:
+            self._acquire_sys_path(acquired_path)
         try:
             yield
         finally:
-            for path in reversed(paths):
-                self._release_sys_path(path)
+            for acquired_path in reversed(paths):
+                self._release_sys_path(acquired_path)
 
     def _acquire_sys_path(self, path: str) -> None:
         with self._sys_path_lock:
