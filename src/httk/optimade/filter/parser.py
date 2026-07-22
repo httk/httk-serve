@@ -18,7 +18,7 @@ from ._miniparser import ParserError, ParserSyntaxError
 
 __all__ = ["parse_optimade_filter", "parse_optimade_filter_raw", "ParserError", "ParserSyntaxError", "FilterAst"]
 
-FilterAst = tuple[Any, ...]
+type FilterAst = tuple[Any, ...]
 
 
 class ParserInternalError(Exception):

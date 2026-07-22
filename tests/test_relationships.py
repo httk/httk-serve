@@ -9,7 +9,7 @@ from httk.optimade.backend import default_field_handlers, simple_property_handle
 from httk.optimade.backend.handlers import set_handler
 from httk.optimade.endpoints.entries import generate_entry_endpoint_reply
 from httk.optimade.engine import process
-from httk.optimade.engine.process import _make_related_resolver
+from httk.optimade.engine.processing import _make_related_resolver
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import (

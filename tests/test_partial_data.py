@@ -7,7 +7,8 @@ from starlette.testclient import TestClient
 from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, OptimadeError, RawRequest, create_asgi_app
 from httk.optimade.backend.partial import PartialDimension, PartialValue
 from httk.optimade.engine.validate import validate_optimade_request
-from httk.optimade.model import RequestedSlice, ValidatedParameters
+from httk.optimade.model import ValidatedParameters
+from httk.optimade.model.request import RequestedSlice
 from httk.optimade.schema.served import build_served_schema
 
 from fake_backend import FakeStore

@@ -16,7 +16,7 @@ class ResultRow:
 class QueryResults(Protocol):
     """The results of a query against a backend, as consumed by the entry endpoints.
 
-    Iteration yields one :class:`ResultRow` per entry; its ``values`` map
+    Iteration yields one :class:`~httk.optimade.model.results.ResultRow` per entry; its ``values`` map
     OPTIMADE response-field names to values, and the ``id`` and ``type`` keys
     are always present.
     """

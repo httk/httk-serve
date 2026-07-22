@@ -6,16 +6,16 @@ serving an [OPTIMADE](https://www.optimade.org/) API on top of httk data stores.
 ```{admonition} Quick links
 :class: tip
 
-- {doc}`how_it_works`
-- {doc}`reference`
+- **How it works**: {doc}`how_it_works`
+- **API reference**: {doc}`reference/index`
 ```
 
 ```{toctree}
 :maxdepth: 2
 :caption: Documentation
 
+reference/index
 how_it_works
-reference
 ```
 
 ## Quick start

@@ -1,7 +1,7 @@
 from .api import create_asgi_app, serve
 from .backend import BackendAdapter, EntrySource
-from .engine.process import process, process_init
-from .filter import ParserSyntaxError, parse_optimade_filter
+from .engine.processing import process, process_init
+from .filter import ParserError, ParserSyntaxError, parse_optimade_filter
 from .model import (
     EndpointResponse,
     OptimadeConfig,
@@ -19,6 +19,7 @@ __all__ = [
     "EntrySource",
     "process",
     "process_init",
+    "ParserError",
     "ParserSyntaxError",
     "parse_optimade_filter",
     "EndpointResponse",

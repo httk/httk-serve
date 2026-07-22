@@ -1,5 +1,4 @@
 from .parser import (
-    FilterAst,
     ParserError,
     ParserSyntaxError,
     parse_optimade_filter,
@@ -7,7 +6,6 @@ from .parser import (
 )
 
 __all__ = [
-    "FilterAst",
     "ParserError",
     "ParserSyntaxError",
     "parse_optimade_filter",

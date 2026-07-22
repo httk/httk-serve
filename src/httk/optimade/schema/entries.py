@@ -11,6 +11,8 @@ from typing import Any, TypedDict
 
 
 class PropertyInfo(TypedDict, total=False):
+    """Description of a single OPTIMADE property within an entry type."""
+
     description: str
     filter_type: str
     type: str
@@ -37,6 +39,8 @@ class PropertyInfo(TypedDict, total=False):
 
 
 class EntryInfo(TypedDict):
+    """Description of an OPTIMADE entry type and its properties."""
+
     description: str
     properties: dict[str, PropertyInfo]
 

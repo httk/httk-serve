@@ -3,7 +3,6 @@ from .errors import OptimadeError, TranslatorError
 from .request import (
     EndpointResponse,
     RawRequest,
-    RequestedSlice,
     ValidatedParameters,
     ValidatedRequest,
 )
@@ -16,7 +15,6 @@ __all__ = [
     "TranslatorError",
     "EndpointResponse",
     "RawRequest",
-    "RequestedSlice",
     "ValidatedParameters",
     "ValidatedRequest",
     "QueryFunction",

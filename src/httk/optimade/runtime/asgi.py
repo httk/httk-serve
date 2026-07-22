@@ -7,7 +7,7 @@ from starlette.responses import Response
 from starlette.routing import Route
 
 from ..endpoints.error import format_optimade_error
-from ..engine.process import process, process_init
+from ..engine.processing import process, process_init
 from ..engine.validate import determine_optimade_version
 from ..model.config import OptimadeConfig
 from ..model.request import EndpointResponse, RawRequest

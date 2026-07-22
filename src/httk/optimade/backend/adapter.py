@@ -7,7 +7,7 @@ from ..schema.served import ServedSchema, default_served_schema
 from .handlers import HandlerTable, default_field_handlers
 from .protocols import Store
 
-FieldExtractor = Callable[[Any], Any]
+type FieldExtractor = Callable[[Any], Any]
 
 
 @dataclass(frozen=True)

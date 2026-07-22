@@ -1,4 +1,4 @@
-from .adapter import BackendAdapter, EntrySource, FieldExtractor
+from .adapter import BackendAdapter, EntrySource
 from .execution import StoreResults, execute_query
 from .handlers import (
     default_calculation_fields,
@@ -21,7 +21,6 @@ from .translation import translate_filter, translate_filter_node
 __all__ = [
     "BackendAdapter",
     "EntrySource",
-    "FieldExtractor",
     "PartialDimension",
     "PartialValue",
     "StoreResults",

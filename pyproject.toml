@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,27 +7,46 @@ name = "httk-optimade"
 version = "0.1.0"
 description = "OPTIMADE API server tooling for httk v2"
 readme = "README.md"
-license = "AGPL-3.0+"
-requires-python = ">=3.11"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
 authors = [{ name = "Rickard Armiento", email = "rickard-gpg@armiento.net" }]
 dependencies = [
   "starlette>=0.37",
-  "uvicorn>=0.30"
+  "uvicorn>=0.30",
 ]
 keywords = [
   "Materials Discovery",
   "Materials Informatics",
   "Materials Science",
-  "Machine Learning",
 ]
 classifiers = [
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
-  "Programming Language :: Python",
-  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Chemistry",
   "Topic :: Scientific/Engineering :: Physics",
 ]
+
+[project.urls]
+Homepage = "https://httk.org"
+Documentation = "https://docs.httk.org/httk-optimade/"
+Repository = "https://github.com/httk/httk-optimade"
+Issues = "https://github.com/httk/httk-optimade/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"httk.optimade" = ["py.typed"]
+"httk.optimade.filter" = ["*.ebnf"]
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
@@ -47,16 +66,10 @@ docs = [
   "sphinx-copybutton",
   "sphinx-autoapi"
 ]
-
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-"httk.optimade.filter" = ["*.ebnf"]
+release = [
+  "build>=1.2",
+  "twine>=6.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -65,7 +78,7 @@ testpaths = ["tests"]
 profile = "black"
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 src = ["src", "examples"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -73,20 +86,24 @@ src = ["src", "examples"]
 "src/httk/optimade/filter/_miniparser.py" = ["E741", "E712"]
 
 [tool.black]
-target-version = ["py311"]
+target-version = ["py312"]
 line-length = 120
 skip-string-normalization = true
 
 [tool.pyright]
-pythonVersion = "3.11"
+pythonVersion = "3.12"
 include = ["src", "examples"]
 # Vendored LR(1) parser from httk v1; kept close to its upstream form.
 exclude = ["src/httk/optimade/filter/_miniparser.py"]
+# Resolve third-party runtime dependencies (starlette, uvicorn) against the
+# shared workspace venv; pyright falls back to default resolution where that
+# venv does not exist (e.g. CI, where the deps are installed into the job env).
+venvPath = ".."
+venv = ".venv"
 reportMissingImports = true
-extraPaths = []
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 files = ["src", "examples"]
 mypy_path = ["src", "examples/demo_server"]
 namespace_packages = true

@@ -10,7 +10,7 @@ web-framework seam and a storage-backend seam.
 ```
 ASGI request
   └─ runtime/asgi.py     — adapts the HTTP request to a RawRequest
-       └─ engine/process.py    — process(): dispatches to an endpoint
+       └─ engine/processing.py — process(): dispatches to an endpoint
             ├─ engine/validate.py    — validates URL, version, and query parameters
             ├─ filter/               — parses the OPTIMADE filter language to an AST
             ├─ query_function        — the backend seam (executes entry queries)
