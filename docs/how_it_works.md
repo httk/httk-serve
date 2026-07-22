@@ -55,7 +55,7 @@ callback. The standard implementation is provided by `BackendAdapter`:
   default tables encode the httk database schema; adapters for other schemas
   can supply their own.
 
-A future httk v2 database module can plug in by implementing the protocols
+A future *httk₂* database module can plug in by implementing the protocols
 and shipping a `make_..._adapter(store) -> BackendAdapter` factory — no
 changes in httk-optimade are needed. Until then, the repository's
 `examples/demo_server/` shows a complete in-memory implementation.

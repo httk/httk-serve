@@ -1,7 +1,10 @@
 # *httk-optimade*
 
-*httk-optimade* is a [*httk v2*](https://github.com/httk/httk2) module providing tooling for
-serving an [OPTIMADE](https://www.optimade.org/) API on top of httk data stores.
+This site documents specifically the *httk-optimade* module. For the full
+documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org).
+
+*httk-optimade* is a [*httk₂*](https://github.com/httk/httk2) module providing tooling for
+serving an [OPTIMADE](https://www.optimade.org/) API on top of *httk₂* data stores.
 
 ```{admonition} Quick links
 :class: tip

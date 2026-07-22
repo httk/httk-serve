@@ -46,7 +46,10 @@ candidate version when repeating an upload, for example `0.1.0rc1` followed by
 ## TestPyPI
 
 Run the **Publish package** workflow manually in GitHub Actions. A manual run
-publishes to TestPyPI only. When the workflow run has completed (approving the
+publishes to TestPyPI only. To retry a TestPyPI upload without committing a version bump, pass the
+optional `version_suffix` workflow input (e.g. `.post1` or `rc2`); it is
+appended to `project.version` for that build only.
+When the workflow run has completed (approving the
 `testpypi` environment first, if it has a required reviewer), test the artifact
 in a fresh environment:
 

@@ -1,6 +1,6 @@
 # httk-optimade
 
-*httk-optimade* is a [*httk v2*](https://github.com/httk/httk2) module providing tooling for serving an [OPTIMADE](https://www.optimade.org/) API on top of httk data stores.
+*httk-optimade* is a [*httk₂*](https://github.com/httk/httk2) module providing tooling for serving an [OPTIMADE](https://www.optimade.org/) API on top of *httk₂* data stores.
 
 The served API version is **OPTIMADE v1.3.0**. Implemented optional parts of the
 specification include sorting, the `references`, `files`, and `trajectories` entry types,
