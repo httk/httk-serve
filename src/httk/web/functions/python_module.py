@@ -1,6 +1,8 @@
 import hashlib
 import importlib.util
+import sys
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -11,6 +13,8 @@ class PythonFunctionHandler:
         self.functions_dir = functions_dir
         self._module_cache: dict[Path, ModuleType] = {}
         self._cache_lock = threading.Lock()
+        self._sys_path_lock = threading.Lock()
+        self._sys_path_refcount: dict[str, int] = {}
 
     def execute(self, *, function_name: str, params: dict[str, str], global_data: dict[str, object]) -> Any:
         module_path = self._resolve_function_path(function_name)
@@ -22,7 +26,8 @@ class PythonFunctionHandler:
 
         callargs: dict[str, object] = dict(params)
         callargs["global_data"] = global_data
-        return execute_fn(**callargs)
+        with self._function_import_paths(module_path):
+            return execute_fn(**callargs)
 
     def _resolve_function_path(self, function_name: str) -> Path:
         candidate = function_name.strip()
@@ -63,6 +68,43 @@ class PythonFunctionHandler:
                 raise ImportError(f"Cannot load module spec for {module_path}")
 
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            with self._function_import_paths(module_path):
+                spec.loader.exec_module(module)
             self._module_cache[module_path] = module
             return module
+
+    @contextmanager
+    def _function_import_paths(self, module_path: Path):
+        paths: list[str] = []
+        for path in (self.functions_dir.resolve(strict=False), module_path.parent.resolve(strict=False)):
+            path_str = str(path)
+            if path_str in paths:
+                continue
+            paths.append(path_str)
+
+        for acquired_path in paths:
+            self._acquire_sys_path(acquired_path)
+        try:
+            yield
+        finally:
+            for acquired_path in reversed(paths):
+                self._release_sys_path(acquired_path)
+
+    def _acquire_sys_path(self, path: str) -> None:
+        with self._sys_path_lock:
+            current = self._sys_path_refcount.get(path, 0)
+            if current == 0:
+                sys.path.insert(0, path)
+            self._sys_path_refcount[path] = current + 1
+
+    def _release_sys_path(self, path: str) -> None:
+        with self._sys_path_lock:
+            current = self._sys_path_refcount.get(path, 0)
+            if current <= 1:
+                self._sys_path_refcount.pop(path, None)
+                try:
+                    sys.path.remove(path)
+                except ValueError:
+                    pass
+                return
+            self._sys_path_refcount[path] = current - 1

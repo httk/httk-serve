@@ -30,6 +30,7 @@ class SiteEngine:
             self.template_engine = JinjaTemplateEngine(template_dir=config.template_dir)
         self.function_handler = PythonFunctionHandler(functions_dir=config.functions_dir)
         self.global_data: dict[str, object] = self._load_global_config_metadata()
+        self._publish_route_mode_cache: dict[str, str] = {}
         self._run_init_function()
 
     def resolve(self, route: str) -> ResolvedRoute:
@@ -68,6 +69,7 @@ class SiteEngine:
         request_params.update(postvars)
         rendered_html, metadata = self._render_content_without_templates(resolved)
         route_key = normalize_route(route)
+        self._publish_route_mode_cache[route_key] = self._publish_route_mode_from_metadata(metadata)
         warnings: list[str] = []
 
         render_mode = "serve" if request is not None else "publish"
@@ -195,7 +197,12 @@ class SiteEngine:
             if field in {"content", "html"}:
                 return page_html
             if field == "relurl":
-                return self._route_url_path(normalized, render_mode=render_mode)
+                return self._route_link_url(
+                    source_route_key=route_key,
+                    target_route_key=normalized,
+                    render_mode=render_mode,
+                    relative_start=False,
+                )
             return None
 
         context["first_value"] = first_value
@@ -211,10 +218,15 @@ class SiteEngine:
         }
         page_data.update(
             {
-                "relurl": self._route_url_path(route_key, render_mode=render_mode),
+                "relurl": self._route_link_url(
+                    source_route_key=route_key,
+                    target_route_key=route_key,
+                    render_mode=render_mode,
+                    relative_start=False,
+                ),
                 "absurl": self._absolute_url(route_key, render_mode=render_mode),
                 "relbaseurl": self._relative_base(route_key),
-                "functionurl": self._absolute_url(route_key, render_mode=render_mode),
+                "functionurl": self._function_url(route_key, render_mode=render_mode),
             }
         )
         context["page"] = page_data
@@ -296,12 +308,64 @@ class SiteEngine:
 
     def _absolute_url(self, route_key: str, *, render_mode: str) -> str:
         route_path = self._route_url_path(route_key, render_mode=render_mode)
+        route_host = self._route_host(route_key, render_mode=render_mode)
+        if route_host is None:
+            return route_path
+        return self._join_host_path(route_host, route_path)
+
+    def _function_url(self, route_key: str, *, render_mode: str) -> str:
+        route_path = self._route_url_path(route_key, render_mode=render_mode)
+        if render_mode != "publish" or self.config.host_static is None:
+            return self._absolute_url(route_key, render_mode=render_mode)
         if self.config.baseurl is None:
             return route_path
-        base = self.config.baseurl
-        if not base.endswith("/"):
-            base += "/"
-        return f"{base}{route_path}"
+        return self._join_host_path(self.config.baseurl, route_path)
+
+    def _route_link_url(
+        self,
+        *,
+        source_route_key: str,
+        target_route_key: str,
+        render_mode: str,
+        relative_start: bool,
+    ) -> str:
+        target_path = self._route_url_path(target_route_key, render_mode=render_mode)
+        if render_mode != "publish" or self.config.host_static is None:
+            if relative_start:
+                return self._format_rewritten_path(target_path, route_key=source_route_key, target_path=target_path)
+            return target_path
+
+        source_host = self._route_host(source_route_key, render_mode=render_mode)
+        target_host = self._route_host(target_route_key, render_mode=render_mode)
+        if (
+            source_host is not None
+            and target_host is not None
+            and self._host_key(source_host) != self._host_key(target_host)
+        ):
+            return self._join_host_path(target_host, target_path)
+
+        if relative_start:
+            return self._format_rewritten_path(target_path, route_key=source_route_key, target_path=target_path)
+        return target_path
+
+    def _route_host(self, route_key: str, *, render_mode: str) -> str | None:
+        if render_mode != "publish":
+            return self.config.baseurl
+        if self.config.baseurl is None:
+            return None
+        if self.config.host_static is None:
+            return self.config.baseurl
+        route_mode = self._publish_route_mode(route_key)
+        if route_mode == "static":
+            return self.config.host_static
+        return self.config.baseurl
+
+    def _host_key(self, host: str) -> str:
+        return host.rstrip("/")
+
+    def _join_host_path(self, host: str, path: str) -> str:
+        base = host if host.endswith("/") else f"{host}/"
+        return f"{base}{path}"
 
     def _relative_base(self, route_key: str) -> str:
         depth = max(0, route_key.count("/"))
@@ -375,7 +439,13 @@ class SiteEngine:
         if field in {"content", "html"}:
             return page_html
         if field == "relurl":
-            return self._route_url_path(normalize_route(path), render_mode="publish")
+            route_key = normalize_route(path)
+            return self._route_link_url(
+                source_route_key=route_key,
+                target_route_key=route_key,
+                render_mode="publish",
+                relative_start=False,
+            )
         return None
 
     def _metadata_field_value(self, metadata: dict[str, object], field: str) -> object:
@@ -385,6 +455,39 @@ class SiteEngine:
             if isinstance(key, str) and key.lower() == field.lower():
                 return value
         return None
+
+    def _publish_route_mode_from_metadata(self, metadata: dict[str, object]) -> str:
+        override = self._publish_route_mode_override(metadata)
+        if override is not None:
+            return override
+        has_functions = any(isinstance(key, str) and key.lower().endswith("-function") for key in metadata)
+        return "dynamic" if has_functions else "static"
+
+    def _publish_route_mode_override(self, metadata: dict[str, object]) -> str | None:
+        override_keys = {"publish_mode", "publish-mode", "hosting", "host"}
+        for key, value in metadata.items():
+            if not isinstance(key, str) or key.lower() not in override_keys:
+                continue
+            if not isinstance(value, str):
+                continue
+            normalized = value.strip().lower()
+            if normalized in {"static", "dynamic"}:
+                return normalized
+        return None
+
+    def _publish_route_mode(self, route_key: str) -> str:
+        cached = self._publish_route_mode_cache.get(route_key)
+        if cached is not None:
+            return cached
+
+        resolved = self.resolve(route_key)
+        if resolved.kind != "content" or resolved.source_path is None:
+            self._publish_route_mode_cache[route_key] = "static"
+            return "static"
+        _, metadata = self._render_content_without_templates(resolved)
+        mode = self._publish_route_mode_from_metadata(metadata)
+        self._publish_route_mode_cache[route_key] = mode
+        return mode
 
     def _route_url_path(self, route_key: str, *, render_mode: str) -> str:
         if render_mode == "publish" and not self.config.publish_use_urls_without_ext:
@@ -548,8 +651,12 @@ class SiteEngine:
         if not is_content_route:
             return None
 
-        target_path = self._route_url_path(candidate_route, render_mode="publish")
-        rewritten_path = self._format_rewritten_path(parts.path, route_key=route_key, target_path=target_path)
+        rewritten_path = self._route_link_url(
+            source_route_key=route_key,
+            target_route_key=candidate_route,
+            render_mode="publish",
+            relative_start=not parts.path.startswith("/"),
+        )
         rewritten = SplitResult(parts.scheme, parts.netloc, rewritten_path, parts.query, parts.fragment)
         return urlunsplit(rewritten)
 

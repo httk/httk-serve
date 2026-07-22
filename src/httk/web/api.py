@@ -53,6 +53,7 @@ def publish(
     outdir: str | Path,
     baseurl: str,
     *,
+    host_static: str | None = None,
     compatibility_mode: bool = False,
     config_name: str = "config",
     use_urls_without_ext: bool | None = None,
@@ -61,6 +62,7 @@ def publish(
     config = SiteConfig.from_srcdir(
         srcdir=srcdir,
         baseurl=baseurl,
+        host_static=host_static,
         compatibility_mode=compatibility_mode,
         config_name=config_name,
         publish_use_urls_without_ext=publish_use_urls_without_ext,
