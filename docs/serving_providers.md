@@ -120,9 +120,12 @@ print([r.values["id"] for r in results])  # ['w-1']
 ## Discover registered providers
 
 Provider packages can self-register a factory under `httk.handlers.*` via
-`httk.core.register_entry_provider`. `providers_from_registry` resolves
-everything registered in the current environment; since providers need data,
-you instantiate them:
+`httk.core.register_entry_provider`. For example, *httk-data* registers
+in-memory providers for the standard `references`/`files`/`calculations` entry
+types (as `data-references`/`data-files`/`data-calculations`), and
+*httk-atomistic* registers `atomistic-structures`. `providers_from_registry`
+resolves everything registered in the current environment; since providers need
+data, you instantiate them:
 
 ```python
 from httk.optimade import adapter_from_providers, providers_from_registry
