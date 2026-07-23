@@ -1,14 +1,14 @@
 from typing import Any
 
+from fake_backend import FakeStore
+from materials_fixtures import materials_schema
 from starlette.testclient import TestClient
 
 from httk.optimade import BackendAdapter, EntrySource, create_asgi_app
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import RawRequest
 from httk.optimade.schema.property_definitions import property_definition
-from httk.optimade.schema.served import build_served_schema, default_served_schema
-
-from fake_backend import FakeStore
+from httk.optimade.schema.served import build_served_schema
 
 
 def make_request(representation: str) -> RawRequest:
@@ -19,7 +19,7 @@ def make_request(representation: str) -> RawRequest:
 
 
 def test_lattice_vectors_definition_has_dimensions() -> None:
-    schema = default_served_schema()
+    schema = materials_schema()
     definition = schema.property_definitions["structures"]["lattice_vectors"]
     assert definition["x-optimade-dimensions"] == {
         "names": ["dim_lattice", "dim_spatial"],
@@ -28,7 +28,7 @@ def test_lattice_vectors_definition_has_dimensions() -> None:
 
 
 def test_cartesian_site_positions_dimensions_open_ended() -> None:
-    schema = default_served_schema()
+    schema = materials_schema()
     definition = schema.property_definitions["structures"]["cartesian_site_positions"]
     assert definition["x-optimade-dimensions"] == {
         "names": ["dim_sites", "dim_spatial"],
@@ -37,7 +37,7 @@ def test_cartesian_site_positions_dimensions_open_ended() -> None:
 
 
 def test_generated_metadata_definition_has_list_axes() -> None:
-    schema = default_served_schema()
+    schema = materials_schema()
     definition = schema.property_definitions["structures"]["lattice_vectors"]
     metadata_definition = definition["x-optimade-metadata-definition"]
     assert metadata_definition["type"] == ["object", "null"]
@@ -50,7 +50,7 @@ def test_generated_metadata_definition_has_list_axes() -> None:
 
 
 def test_property_without_dimensions_has_no_metadata_definition() -> None:
-    schema = default_served_schema()
+    schema = materials_schema()
     definition = schema.property_definitions["structures"]["nelements"]
     assert "x-optimade-dimensions" not in definition
     assert "x-optimade-metadata-definition" not in definition
@@ -117,9 +117,7 @@ def make_client() -> TestClient:
     adapter = BackendAdapter(
         store=store,
         sources={
-            "structures": (
-                EntrySource(target="structure-table", fields=fields, property_metadata=property_metadata),
-            ),
+            "structures": (EntrySource(target="structure-table", fields=fields, property_metadata=property_metadata),),
         },
         schema=schema,
     )

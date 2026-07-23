@@ -9,7 +9,7 @@ from ..model.request import (
     ValidatedRequest,
 )
 from ..model.versions import optimade_default_version, optimade_supported_versions
-from ..schema.served import ServedSchema, default_served_schema
+from ..schema.served import ServedSchema
 
 PAGE_LIMIT_MAX = 50
 
@@ -113,11 +113,7 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
     return validated_parameters
 
 
-def validate_optimade_request(
-    request: RawRequest, version: str, schema: ServedSchema | None = None
-) -> ValidatedRequest:
-    if schema is None:
-        schema = default_served_schema()
+def validate_optimade_request(request: RawRequest, version: str, schema: ServedSchema) -> ValidatedRequest:
     endpoint = request.endpoint
     request_id = request.request_id
     validated_version = request.version if request.version is not None else optimade_default_version

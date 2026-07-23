@@ -22,7 +22,7 @@ from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError, TranslatorError
 from ..model.request import EndpointResponse, RawRequest
 from ..model.results import QueryFunction
-from ..schema.served import ServedSchema, default_served_schema
+from ..schema.served import ServedSchema
 from .validate import validate_optimade_request
 
 logger = logging.getLogger("httk.optimade")
@@ -87,7 +87,7 @@ def process(
     query_function: QueryFunction,
     version: str,
     config: OptimadeConfig,
-    schema: ServedSchema | None = None,
+    schema: ServedSchema,
     *,
     debug: bool = False,
 ) -> EndpointResponse:
@@ -97,11 +97,8 @@ def process(
     ``representation`` must be set, missing information is derived from
     ``representation``. ``query_function`` is the callback used to execute
     entry queries against the backend. ``schema`` describes the served entry
-    types and properties; when omitted, the default httk schema is used.
+    types and properties.
     """
-
-    if schema is None:
-        schema = default_served_schema()
 
     if debug:
         logger.debug("==== OPTIMADE REQUEST FOR: %s", request.representation)
@@ -224,11 +221,9 @@ def process(
 
 
 def process_init(
-    config: OptimadeConfig, query_function: QueryFunction, schema: ServedSchema | None = None, *, debug: bool = False
+    config: OptimadeConfig, query_function: QueryFunction, schema: ServedSchema, *, debug: bool = False
 ) -> None:
     """Precompute the number of available entries per entry endpoint."""
-    if schema is None:
-        schema = default_served_schema()
     config.data_available = {}
     for endpoint in schema.all_entries:
         results = query_function([endpoint], [], [], 0, 0, debug=debug)

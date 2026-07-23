@@ -2,16 +2,21 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from fake_backend import FakeStore
 from starlette.testclient import TestClient
+from test_asgi import STRUCTURE_FIELDS, Row
 
-from httk.optimade import BackendAdapter, EntrySource, OptimadeError, RawRequest, create_asgi_app
+from httk.optimade import (
+    BackendAdapter,
+    EntrySource,
+    OptimadeError,
+    RawRequest,
+    create_asgi_app,
+)
 from httk.optimade.backend import execute_query, translate_filter
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import TranslatorError
 from httk.optimade.schema.served import build_served_schema
-
-from fake_backend import FakeStore
-from test_asgi import STRUCTURE_FIELDS, Row
 
 
 def sortable_structures_schema() -> Any:
@@ -116,7 +121,7 @@ def test_add_sort_recorded_in_declared_order() -> None:
     store = FakeStore(rows_by_target={"structure-table": []})
     adapter = _structures_adapter(store)
     pairs = translate_filter(None, ["structures"], adapter, [("nelements", False), ("id", True)])
-    (_, searcher) = pairs[0]
+    _, searcher = pairs[0]
     assert searcher.sorts == [("number_of_elements", False), ("__id", True)]  # type: ignore[attr-defined]
 
 

@@ -13,7 +13,7 @@ from ..model.config import OptimadeConfig
 from ..model.request import EndpointResponse, RawRequest
 from ..model.results import QueryFunction
 from ..model.versions import optimade_default_version
-from ..schema.served import ServedSchema, default_served_schema
+from ..schema.served import ServedSchema
 
 
 def _json_format(response: Any) -> str:
@@ -70,12 +70,10 @@ def create_app(
     *,
     query_function: QueryFunction,
     config: OptimadeConfig,
-    schema: ServedSchema | None = None,
+    schema: ServedSchema,
     baseurl: str | None = None,
     debug: bool = False,
 ) -> Starlette:
-    if schema is None:
-        schema = default_served_schema()
     if baseurl is not None and not baseurl.endswith("/"):
         baseurl += "/"
 

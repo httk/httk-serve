@@ -2,10 +2,17 @@ from dataclasses import dataclass, field
 from typing import Any, Iterator
 
 import pytest
+from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
-from httk.optimade import BackendAdapter, EntrySource, OptimadeError, RawRequest, create_asgi_app
-from httk.optimade.backend import default_field_handlers, simple_property_handlers, translate_filter
+from httk.optimade import (
+    BackendAdapter,
+    EntrySource,
+    OptimadeError,
+    RawRequest,
+    create_asgi_app,
+)
+from httk.optimade.backend import simple_property_handlers, translate_filter
 from httk.optimade.backend.handlers import set_handler
 from httk.optimade.endpoints.entries import generate_entry_endpoint_reply
 from httk.optimade.engine import process
@@ -20,8 +27,6 @@ from httk.optimade.model import (
     ValidatedRequest,
 )
 from httk.optimade.schema.served import ServedSchema, build_served_schema
-
-from fake_backend import FakeStore
 
 REFERENCE_COLUMNS = {'doi': 'doi', 'title': 'title'}
 
@@ -236,10 +241,10 @@ def test_process_compound_document_includes_references() -> None:
 
 def _structures_rel_adapter(store: FakeStore) -> BackendAdapter:
     schema = relationships_schema()
-    field_handlers = default_field_handlers()
-    field_handlers['references'] = simple_property_handlers(
-        'references', REFERENCE_COLUMNS, schema.entry_info['references']
-    )
+    field_handlers = {
+        'references': simple_property_handlers('references', REFERENCE_COLUMNS, schema.entry_info['references']),
+        'structures': simple_property_handlers('structures', {}, schema.entry_info['structures']),
+    }
     structures_handlers = dict(field_handlers['structures'])
     structures_handlers['references.id'] = {
         'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
@@ -259,7 +264,7 @@ def _structures_rel_adapter(store: FakeStore) -> BackendAdapter:
 def test_relationship_id_has_produces_set_handler_tree() -> None:
     adapter = _structures_rel_adapter(FakeStore(rows_by_target={"structure-table": []}))
     pairs = translate_filter(parse_optimade_filter('references.id HAS "ref-1"'), ["structures"], adapter)
-    (_source, searcher) = pairs[0]
+    _source, searcher = pairs[0]
     assert searcher.expressions[0].tree == ("has_any", ("column", "references"), ("ref-1",))  # type: ignore[attr-defined]
 
 
@@ -313,10 +318,10 @@ def make_relationships_client() -> TestClient:
         }
     )
     schema = relationships_schema()
-    field_handlers = default_field_handlers()
-    field_handlers['references'] = simple_property_handlers(
-        'references', REFERENCE_COLUMNS, schema.entry_info['references']
-    )
+    field_handlers = {
+        'references': simple_property_handlers('references', REFERENCE_COLUMNS, schema.entry_info['references']),
+        'structures': simple_property_handlers('structures', {}, schema.entry_info['structures']),
+    }
     structures_handlers = dict(field_handlers['structures'])
     structures_handlers['references.id'] = {
         'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
@@ -375,7 +380,11 @@ def test_resolver_handles_many_related_ids() -> None:
     # translator's recursion for large id sets; the tree must be balanced.
     from fake_backend import FakeStore
 
-    from httk.optimade.backend import BackendAdapter, EntrySource, simple_property_handlers
+    from httk.optimade.backend import (
+        BackendAdapter,
+        EntrySource,
+        simple_property_handlers,
+    )
 
     schema = relationships_schema()
     entry_info = schema.entry_info["references"]

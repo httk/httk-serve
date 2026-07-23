@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from typing import Any
 
-from httk.optimade.backend import BackendAdapter, EntrySource, execute_query
-
 from fake_backend import FakeStore
+from materials_fixtures import materials_schema
+
+from httk.optimade.backend import BackendAdapter, EntrySource, execute_query
 
 
 @dataclass
@@ -42,6 +43,7 @@ def make_adapter(structures: list[Row], aimd: list[Row] = [], elastic: list[Row]
                 EntrySource(target="elastic-table", fields=CALC_FIELDS),
             ),
         },
+        schema=materials_schema(),
     )
 
 

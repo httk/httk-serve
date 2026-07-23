@@ -1,11 +1,7 @@
 from .adapter import BackendAdapter, EntrySource
 from .execution import StoreResults, execute_query
-from .handlers import (
-    default_calculation_fields,
-    default_field_handlers,
-    default_structure_fields,
-    simple_property_handlers,
-)
+from .handlers import simple_property_handlers
+from .memory_store import InMemoryStore
 from .partial import PartialDimension, PartialValue
 from .protocols import (
     QueryFunction,
@@ -16,19 +12,20 @@ from .protocols import (
     SearchVariable,
     Store,
 )
+from .providers import adapter_from_providers, providers_from_registry
 from .translation import translate_filter, translate_filter_node
 
 __all__ = [
     "BackendAdapter",
     "EntrySource",
+    "InMemoryStore",
     "PartialDimension",
     "PartialValue",
     "StoreResults",
     "execute_query",
-    "default_calculation_fields",
-    "default_field_handlers",
-    "default_structure_fields",
     "simple_property_handlers",
+    "adapter_from_providers",
+    "providers_from_registry",
     "QueryFunction",
     "QueryResults",
     "SearchColumn",

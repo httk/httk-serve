@@ -1,6 +1,6 @@
 # httk-optimade
 
-*httk-optimade* is a [*httk₂*](https://github.com/httk/httk2) module providing tooling for serving an [OPTIMADE](https://www.optimade.org/) API on top of *httk₂* data stores.
+*httk-optimade* is a [*httk₂*](https://github.com/httk/httk2) module providing a generic implementation of the [OPTIMADE](https://www.optimade.org/) protocol; the entry schemas it serves are supplied by providers (such as *httk-atomistic*'s structure provider) through the neutral `httk.core.EntryProvider` contract.
 
 The served API version is **OPTIMADE v1.3.0**. Implemented optional parts of the
 specification include sorting, the `references`, `files`, and `trajectories` entry types,

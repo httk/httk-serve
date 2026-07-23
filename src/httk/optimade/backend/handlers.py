@@ -2,11 +2,12 @@
 
 The handler tables map OPTIMADE property names to callables that build
 :class:`~httk.optimade.backend.protocols.SearchExpression` objects from a
-:class:`~httk.optimade.backend.protocols.SearchVariable`. The default tables
-returned by :func:`default_field_handlers` encode the column names of the
-httk database schema (e.g. ``formula_symbols``, ``number_of_elements``); a
-backend with a different schema can supply its own tables on its
-:class:`~httk.optimade.backend.adapter.BackendAdapter`.
+:class:`~httk.optimade.backend.protocols.SearchVariable`. A backend supplies a
+handler table per entry type on its
+:class:`~httk.optimade.backend.adapter.BackendAdapter`;
+:func:`simple_property_handlers` derives such a table generically from a column
+map and the entry's property ``fulltype`` metadata (this is what
+:func:`~httk.optimade.backend.providers.adapter_from_providers` uses).
 
 Comparison dunders on columns are invoked via ``getattr(column, '__eq__')(value)``
 since they cannot be typed as expression-returning.
@@ -170,23 +171,6 @@ def constant_set_handler(
     raise TranslatorError("Unexpected set operator type: " + str(has_type), 500, "Internal server error.")
 
 
-def structure_features_set_handler(
-    values: Any, ops: Any, inv: bool, has_type: str, search_variable: SearchVariable
-) -> tuple[SearchExpression, bool]:
-    # Any HAS ANY, HAS ALL, HAS ONLY operation will check for presence of an identifier in
-    # structure_features. For now we don't support any structure features, hence, all such
-    # comparisons return False.
-    return false_handler(search_variable), False
-
-
-def structure_features_length_handler(op: str, value: Any, search_variable: SearchVariable) -> SearchExpression:
-    # structure_features is assumed to always be empty
-    if value == 0:
-        return true_handler(search_variable)
-    else:
-        return false_handler(search_variable)
-
-
 def simple_property_handlers(
     entry_type: str, columns: Mapping[str, str], entry_info: EntryInfo
 ) -> dict[str, Mapping[str, Callable[..., Any]]]:
@@ -241,146 +225,3 @@ def simple_property_handlers(
             )
         handlers[name] = table
     return handlers
-
-
-def default_field_handlers() -> dict[str, HandlerTable]:
-    """The handler tables for the httk database schema."""
-    return {
-        'structures': {
-            'id': {
-                'comparison': lambda entry, op, value, sv: string_handler('__id', op, value, sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('__id', value, smtype, sv),
-            },
-            'type': {
-                'comparison': lambda entry, op, value, sv: constant_comparison_handler(value, op, 'structures', sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: constant_stringmatching_handler(
-                    value, 'structures', smtype, sv
-                ),
-            },
-            'elements': {
-                'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler(
-                    'formula_symbols', ops, values, inv, has_type, sv
-                ),
-                'length': lambda entry, op, value, sv: number_handler('number_of_elements', op, value, sv),
-                'unknown': known_unknown_handler,
-            },
-            'nelements': {
-                'comparison': lambda entry, op, value, sv: number_handler('number_of_elements', op, value, sv),
-                'unknown': known_unknown_handler,
-            },
-            'nperiodic_dimensions': {
-                'comparison': lambda entry, op, value, sv: constant_comparison_handler(value, op, 3, sv),
-                'unknown': known_unknown_handler,
-            },
-            'dimension_types': {
-                'HAS': lambda entry, ops, values, sv, has_type, inv: constant_set_handler(
-                    values, ops, [1, 1, 1], has_type, inv, sv
-                ),
-                'length': lambda entry, op, value, sv: constant_comparison_handler(value, op, 3, sv),
-                'unknown': known_unknown_handler,
-            },
-            'chemical_formula_descriptive': {
-                'comparison': lambda entry, op, value, sv: string_handler('formula', op, value, sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('formula', value, smtype, sv),
-            },
-            'structure_features': {
-                'HAS': lambda entry, ops, values, sv, has_type, inv: structure_features_set_handler(
-                    values, ops, inv, has_type, sv
-                ),
-                'length': lambda entry, op, value, sv: structure_features_length_handler(op, value, sv),
-                'unknown': known_unknown_handler,
-            },
-            # TODO: nsites, species_at_sites, and cartesian_site_positions have
-            # no backend column in this schema yet. Only 'unknown' (IS KNOWN /
-            # IS UNKNOWN) handlers are provided; a missing 'comparison' handler
-            # makes the translation layer return a clean 501 ("not implemented")
-            # rather than silently querying number_of_elements (a copy-paste bug
-            # carried over from httk v1). A future httk-db backend must map these
-            # to their real columns. (The comparison handlers were in any case
-            # unreachable for the two list-typed properties, which format_value
-            # rejects as a scalar-vs-list type mismatch (400) first.)
-            'nsites': {
-                'unknown': known_unknown_handler,
-            },
-            'species_at_sites': {
-                'unknown': known_unknown_handler,
-            },
-            'cartesian_site_positions': {
-                'unknown': known_unknown_handler,
-            },
-            'chemical_formula_anonymous': {
-                'comparison': lambda entry, op, value, sv: string_handler('anonymous_formula', op, value, sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler(
-                    'anonymous_formula', value, smtype, sv
-                ),
-            },
-            'chemical_formula_reduced': {
-                'comparison': lambda entry, op, value, sv: string_handler('formula', op, value, sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('formula', value, smtype, sv),
-            },
-        },
-        'calculations': {
-            'id': {
-                'comparison': lambda entry, op, value, sv: string_handler('__id', op, value, sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('__id', value, smtype, sv),
-            },
-            'type': {
-                'comparison': lambda entry, op, value, sv: constant_comparison_handler(value, op, 'calculations', sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: constant_stringmatching_handler(
-                    value, 'calculations', smtype, sv
-                ),
-            },
-            '_httk_total_energy': {
-                'comparison': lambda entry, op, value, sv: number_handler('total_energy', op, value, sv),
-                'unknown': known_unknown_handler,
-            },
-            '_httk_structure_id': {
-                'comparison': lambda entry, op, value, sv: string_handler('structure', op, value, sv),
-                'unknown': known_unknown_handler,
-                'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler(
-                    'structure', value, smtype, sv
-                ),
-            },
-        },
-    }
-
-
-def default_structure_fields() -> dict[str, Callable[[Any], Any]]:
-    """Row extractors for httk Structure objects (the future httk-db wiring)."""
-    return {
-        'type': lambda x: "structures",
-        'id': lambda x: x.db.sid,
-        'structure_features': lambda x: [],
-        'lattice_vectors': lambda x: x.uc_basis.to_floats(),
-        'elements': lambda x: sorted(set(x.formula_symbols)),
-        'nelements': lambda x: x.number_of_elements,
-        'chemical_formula_descriptive': lambda x: x.formula,
-        'dimension_types': lambda x: [1, 1, 1],
-        'nperiodic_dimensions': lambda x: 3,
-        'nsites': lambda x: len(x.uc.uc_cartesian_coords),
-        'species_at_sites': lambda x: [
-            item
-            for sublist in [[a.symbols[0]] * count for a, count in zip(x.assignments, x.uc_counts)]
-            for item in sublist
-        ],
-        'cartesian_site_positions': lambda x: x.uc.uc_cartesian_coords.to_floats(),
-        'chemical_formula_reduced': lambda x: x.formula,
-        'chemical_formula_anonymous': lambda x: x.anonymous_formula,
-    }
-
-
-def default_calculation_fields() -> dict[str, Callable[[Any], Any]]:
-    """Row extractors for httk calculation Result objects (the future httk-db wiring)."""
-    return {
-        'type': lambda x: "calculations",
-        'id': lambda x: x.db.sid,
-        '_httk_total_energy': lambda x: x.total_energy,
-        '_httk_structure_id': lambda x: x.structure.db.sid,
-    }

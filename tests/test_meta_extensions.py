@@ -1,5 +1,6 @@
 from typing import Any
 
+from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
 from httk.optimade import BackendAdapter, EntrySource, create_asgi_app
@@ -8,8 +9,6 @@ from httk.optimade.endpoints.meta import generate_meta
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import OptimadeConfig, RawRequest
 from httk.optimade.schema.served import build_served_schema
-
-from fake_backend import FakeStore
 
 
 def make_request(representation: str) -> RawRequest:
@@ -111,9 +110,7 @@ def test_generate_meta_warnings_and_last_id_omitted_when_empty() -> None:
     meta = generate_meta(representation="/structures", api_version="1.3.0", config=OptimadeConfig())
     assert "warnings" not in meta
     assert "last_id" not in meta
-    meta_empty = generate_meta(
-        representation="/structures", api_version="1.3.0", config=OptimadeConfig(), warnings=[]
-    )
+    meta_empty = generate_meta(representation="/structures", api_version="1.3.0", config=OptimadeConfig(), warnings=[])
     assert "warnings" not in meta_empty
 
 

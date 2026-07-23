@@ -1,3 +1,4 @@
+import os
 import warnings
 from datetime import date
 
@@ -71,9 +72,18 @@ html_theme_options = {
 # External references resolve against inventories vendored in docs/_inventories/
 # so docs builds need no network access; link targets still point at the live
 # sites. Refresh the committed inventories with `make docs-inventories`.
+#
+# httk-optimade builds on public httk-core objects (it consumes the
+# httk.core.EntryProvider contract), so cross-project references resolve against
+# the published httk documentation site. The base URL comes from the
+# DOCS_BASE_URL Makefile variable (exported as HTTK_DOCS_BASE_URL); the default
+# below keeps bare sphinx invocations working.
+_docs_base_url = os.environ.get("HTTK_DOCS_BASE_URL", "https://docs.httk.org")
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", "_inventories/python.inv"),
     "starlette": ("https://www.starlette.io/", "_inventories/starlette.inv"),
+    "httk-core": (f"{_docs_base_url}/httk-core/", "_inventories/httk-core.inv"),
 }
 
 autoapi_options = [
@@ -105,7 +115,15 @@ nitpick_ignore = [
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True
 
-suppress_warnings = ["myst.xref_missing"]
+# The real cross-project references to httk-core objects (e.g. httk.core.EntryProvider
+# used in annotations and base lists) are resolved structurally via the httk-core
+# intersphinx inventory above. The remaining "autoapi.python_import_resolution"
+# notice is only AutoAPI's static parser being unable to follow the httk.core
+# import: httk.core lives in a separate distribution that shares the PEP 420 "httk"
+# namespace, so it is not among the source trees AutoAPI parses here. There is no
+# source-level remedy (consuming the httk-core contract is the intended design),
+# so this specific subtype is suppressed while all reference checking stays strict.
+suppress_warnings = ["myst.xref_missing", "autoapi.python_import_resolution"]
 
 def skip_member(app, what, name, obj, skip, options):
     # Skip private members (those starting with _)

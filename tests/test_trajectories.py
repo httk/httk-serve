@@ -1,16 +1,15 @@
 import json
 from typing import Any
 
+from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
 from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, create_asgi_app
-from httk.optimade.backend import default_field_handlers, simple_property_handlers, translate_filter
+from httk.optimade.backend import simple_property_handlers, translate_filter
 from httk.optimade.backend.partial import PartialDimension, PartialValue
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.schema.served import build_served_schema
 from httk.optimade.schema.trajectories import trajectories_entry_info
-
-from fake_backend import FakeStore
 
 # The structures properties reused (frame-wrapped) for the trajectory.
 STRUCTURE_PROPERTIES = [
@@ -128,10 +127,11 @@ def test_info_trajectories_definition_has_dim_frames() -> None:
 
 def trajectories_adapter(store: FakeStore) -> BackendAdapter:
     schema = trajectories_schema()
-    field_handlers = default_field_handlers()
-    field_handlers['trajectories'] = simple_property_handlers(
-        'trajectories', {'nframes': 'nframes'}, schema.entry_info['trajectories']
-    )
+    field_handlers = {
+        'trajectories': simple_property_handlers(
+            'trajectories', {'nframes': 'nframes'}, schema.entry_info['trajectories']
+        )
+    }
     return BackendAdapter(
         store=store,
         sources={'trajectories': (EntrySource(target='trajectories', fields=TRAJECTORY_FIELDS),)},
@@ -144,7 +144,7 @@ def test_nframes_filter_translates_to_number_comparison() -> None:
     store = FakeStore(rows_by_target={'trajectories': []})
     adapter = trajectories_adapter(store)
     pairs = translate_filter(parse_optimade_filter('nframes>=5'), ['trajectories'], adapter)
-    (_source, searcher) = pairs[0]
+    _source, searcher = pairs[0]
     assert searcher.expressions[0].tree == ("ge", ("column", "nframes"), 5)  # type: ignore[attr-defined]
 
 

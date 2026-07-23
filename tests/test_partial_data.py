@@ -2,16 +2,22 @@ import json
 from typing import Any
 
 import pytest
+from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
-from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, OptimadeError, RawRequest, create_asgi_app
+from httk.optimade import (
+    BackendAdapter,
+    EntrySource,
+    OptimadeConfig,
+    OptimadeError,
+    RawRequest,
+    create_asgi_app,
+)
 from httk.optimade.backend.partial import PartialDimension, PartialValue
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import ValidatedParameters
 from httk.optimade.model.request import RequestedSlice
 from httk.optimade.schema.served import build_served_schema
-
-from fake_backend import FakeStore
 
 
 def make_request(representation: str) -> RawRequest:
@@ -84,18 +90,14 @@ def test_dimension_slices_malformed_400(value: str) -> None:
 def test_dimension_slices_step_zero_400() -> None:
     schema = _schema()
     with pytest.raises(OptimadeError) as excinfo:
-        validate_optimade_request(
-            make_request("/structures/demo-1?dimension_slices=dim_sites[::0]"), "1.3.0", schema
-        )
+        validate_optimade_request(make_request("/structures/demo-1?dimension_slices=dim_sites[::0]"), "1.3.0", schema)
     assert excinfo.value.response_code == 400
 
 
 def test_dimension_slices_on_listing_400() -> None:
     schema = _schema()
     with pytest.raises(OptimadeError) as excinfo:
-        validate_optimade_request(
-            make_request("/structures?dimension_slices=dim_sites[1:3:]"), "1.3.0", schema
-        )
+        validate_optimade_request(make_request("/structures?dimension_slices=dim_sites[1:3:]"), "1.3.0", schema)
     assert excinfo.value.response_code == 400
 
 
@@ -219,9 +221,7 @@ def test_listing_omits_partial_value_with_links() -> None:
 
 def test_single_entry_dimension_slices_inline() -> None:
     client = make_client()
-    response = client.get(
-        "/structures/demo-1", params={"dimension_slices": "dim_sites[1:3:]"}
-    )
+    response = client.get("/structures/demo-1", params={"dimension_slices": "dim_sites[1:3:]"})
     assert response.status_code == 200
     resource = response.json()["data"]
     # Inclusive stop: indices 1, 2, 3.
@@ -277,9 +277,7 @@ def test_partial_data_endpoint_chunking_next_marker() -> None:
 
 def test_partial_data_endpoint_last_chunk_end_marker() -> None:
     client = make_client(chunk_size=2)
-    response = client.get(
-        "/partial_data/structures/demo-1/cartesian_site_positions", params={"offset": 4}
-    )
+    response = client.get("/partial_data/structures/demo-1/cartesian_site_positions", params={"offset": 4})
     lines = _parse_jsonlines(response.text)
     # Only one item remains (index 4) and then the end marker.
     assert lines[0]["returned_ranges"] == [{"start": 4, "stop": 4, "step": 1}]

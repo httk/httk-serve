@@ -1,6 +1,7 @@
 from typing import Any, Iterator
 
 import pytest
+from materials_fixtures import materials_schema
 
 from httk.optimade.endpoints import (
     generate_base_endpoint_reply,
@@ -49,7 +50,7 @@ def make_config() -> OptimadeConfig:
 
 
 def test_info_endpoint_reply() -> None:
-    reply = generate_info_endpoint_reply(make_validated("info"), make_config())
+    reply = generate_info_endpoint_reply(make_validated("info"), make_config(), materials_schema())
     attributes = reply["data"]["attributes"]
     assert reply["data"]["type"] == "info"
     assert attributes["api_version"] == "1.3.0"
@@ -60,7 +61,9 @@ def test_info_endpoint_reply() -> None:
 
 
 def test_entry_info_endpoint_reply() -> None:
-    reply = generate_entry_info_endpoint_reply(make_validated("info/structures"), make_config(), "structures")
+    reply = generate_entry_info_endpoint_reply(
+        make_validated("info/structures"), make_config(), "structures", materials_schema()
+    )
     assert "elements" in reply["data"]["properties"]
     assert "description" in reply["data"]["properties"]["elements"]
     assert "elements" in reply["data"]["output_fields_by_format"]["json"]
@@ -148,7 +151,9 @@ def test_single_entry_endpoint_reply_multiple_is_error() -> None:
 def test_entry_info_endpoint_reply_v12_format() -> None:
     # OPTIMADE v1.2 requires top-level id/type in the entry listing info data,
     # and properties presented as OPTIMADE Property Definitions.
-    reply = generate_entry_info_endpoint_reply(make_validated("info/structures"), make_config(), "structures")
+    reply = generate_entry_info_endpoint_reply(
+        make_validated("info/structures"), make_config(), "structures", materials_schema()
+    )
     assert reply["data"]["id"] == "structures"
     assert reply["data"]["type"] == "info"
     nelements = reply["data"]["properties"]["nelements"]
@@ -169,7 +174,9 @@ def test_entry_info_endpoint_reply_v12_format() -> None:
 
 
 def test_entry_info_endpoint_reply_custom_property_definitions() -> None:
-    reply = generate_entry_info_endpoint_reply(make_validated("info/calculations"), make_config(), "calculations")
+    reply = generate_entry_info_endpoint_reply(
+        make_validated("info/calculations"), make_config(), "calculations", materials_schema()
+    )
     energy = reply["data"]["properties"]["_httk_total_energy"]
     assert energy["$id"].startswith("https://httk.org/")
     assert energy["x-optimade-type"] == "float"

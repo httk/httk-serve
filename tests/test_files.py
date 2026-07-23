@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
 from httk.optimade import BackendAdapter, EntrySource, RawRequest, create_asgi_app
 from httk.optimade.backend import (
-    default_field_handlers,
     simple_property_handlers,
     translate_filter,
 )
@@ -14,8 +14,6 @@ from httk.optimade.endpoints import generate_info_endpoint_reply
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import OptimadeConfig, ValidatedParameters, ValidatedRequest
 from httk.optimade.schema.served import ServedSchema, build_served_schema
-
-from fake_backend import FakeStore
 
 # The full set of files properties, used for the schema/definition tests.
 FILE_PROPERTIES = [
@@ -109,8 +107,7 @@ def files_e2e_schema() -> ServedSchema:
 
 def files_adapter(store: FakeStore) -> BackendAdapter:
     schema = files_e2e_schema()
-    field_handlers = default_field_handlers()
-    field_handlers['files'] = simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files'])
+    field_handlers = {'files': simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files'])}
     return BackendAdapter(
         store=store,
         sources={'files': (EntrySource(target='files', fields=FILE_FIELDS),)},
@@ -220,7 +217,7 @@ def test_url_filter_translates_to_string_comparison() -> None:
     pairs = translate_filter(
         parse_optimade_filter('url = "https://example.org/files/calc-1/INCAR"'), ["files"], adapter
     )
-    (_source, searcher) = pairs[0]
+    _source, searcher = pairs[0]
     assert searcher.expressions[0].tree == (  # type: ignore[attr-defined]
         "eq",
         ("column", "url"),
@@ -314,13 +311,20 @@ def calc_files_schema() -> ServedSchema:
 def make_calc_files_client() -> TestClient:
     store = FakeStore(
         rows_by_target={
-            "calc-table": [CalcRow(sid="calc-1", files=[("file-1", "input"), ("file-2", "output")], file_ids=["file-1", "file-2"])],
-            "file-table": [FileRow(sid="file-1", url="https://x/INCAR", name="INCAR"), FileRow(sid="file-2", url="https://x/OUTCAR", name="OUTCAR")],
+            "calc-table": [
+                CalcRow(sid="calc-1", files=[("file-1", "input"), ("file-2", "output")], file_ids=["file-1", "file-2"])
+            ],
+            "file-table": [
+                FileRow(sid="file-1", url="https://x/INCAR", name="INCAR"),
+                FileRow(sid="file-2", url="https://x/OUTCAR", name="OUTCAR"),
+            ],
         }
     )
     schema = calc_files_schema()
-    field_handlers = default_field_handlers()
-    field_handlers['files'] = simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files'])
+    field_handlers = {
+        'files': simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files']),
+        'calculations': simple_property_handlers('calculations', {}, schema.entry_info['calculations']),
+    }
     calc_handlers = dict(field_handlers['calculations'])
     calc_handlers['files.id'] = {
         'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('file_ids', ops, values, inv, has_type, sv),
@@ -371,7 +375,7 @@ def test_asgi_calculations_filter_files_id_has_200() -> None:
 def test_files_id_has_translates_to_set_handler_tree() -> None:
     store = FakeStore(rows_by_target={"calc-table": []})
     schema = calc_files_schema()
-    field_handlers = default_field_handlers()
+    field_handlers = {'calculations': simple_property_handlers('calculations', {}, schema.entry_info['calculations'])}
     calc_handlers = dict(field_handlers['calculations'])
     calc_handlers['files.id'] = {
         'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('file_ids', ops, values, inv, has_type, sv),
@@ -387,5 +391,5 @@ def test_files_id_has_translates_to_set_handler_tree() -> None:
         schema=schema,
     )
     pairs = translate_filter(parse_optimade_filter('files.id HAS "file-1"'), ["calculations"], adapter)
-    (_source, searcher) = pairs[0]
+    _source, searcher = pairs[0]
     assert searcher.expressions[0].tree == ("has_any", ("column", "file_ids"), ("file-1",))  # type: ignore[attr-defined]

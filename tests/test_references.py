@@ -1,10 +1,10 @@
 from typing import Any
 
+from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
 from httk.optimade import BackendAdapter, EntrySource, RawRequest, create_asgi_app
 from httk.optimade.backend import (
-    default_field_handlers,
     simple_property_handlers,
     translate_filter,
 )
@@ -13,8 +13,6 @@ from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import OptimadeConfig, ValidatedParameters, ValidatedRequest
 from httk.optimade.schema.served import ServedSchema, build_served_schema
-
-from fake_backend import FakeStore
 
 REFERENCE_PROPERTIES = [
     'id',
@@ -78,10 +76,9 @@ def references_schema() -> ServedSchema:
 
 def references_adapter(store: FakeStore) -> BackendAdapter:
     schema = references_schema()
-    field_handlers = default_field_handlers()
-    field_handlers['references'] = simple_property_handlers(
-        'references', REFERENCE_COLUMNS, schema.entry_info['references']
-    )
+    field_handlers = {
+        'references': simple_property_handlers('references', REFERENCE_COLUMNS, schema.entry_info['references'])
+    }
     return BackendAdapter(
         store=store,
         sources={'references': (EntrySource(target='references', fields=REFERENCE_FIELDS),)},
@@ -140,10 +137,8 @@ def test_entry_info_references_property_definitions() -> None:
 def test_doi_filter_translates_to_string_comparison() -> None:
     store = FakeStore(rows_by_target={'references': list(REFERENCES)})
     adapter = references_adapter(store)
-    pairs = translate_filter(
-        parse_optimade_filter('doi = "10.1234/demo.2021.1"'), ["references"], adapter
-    )
-    (_source, searcher) = pairs[0]
+    pairs = translate_filter(parse_optimade_filter('doi = "10.1234/demo.2021.1"'), ["references"], adapter)
+    _source, searcher = pairs[0]
     assert searcher.expressions[0].tree == ("eq", ("column", "doi"), "10.1234/demo.2021.1")  # type: ignore[attr-defined]
 
 
@@ -173,9 +168,7 @@ def test_unserved_spec_property_null_filled() -> None:
     # 'publisher' is a spec references property that is not served here; it must
     # be accepted as a response field and null-filled in the response.
     schema = references_schema()
-    validated = validate_optimade_request(
-        make_request("/references?response_fields=publisher"), "1.3.0", schema
-    )
+    validated = validate_optimade_request(make_request("/references?response_fields=publisher"), "1.3.0", schema)
     assert "publisher" in validated.unrecognized_response_fields
 
     client = make_client()

@@ -3,12 +3,15 @@
 This site documents specifically the *httk-optimade* module. For the full
 documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org).
 
-*httk-optimade* is a [*httk₂*](https://github.com/httk/httk2) module providing tooling for
-serving an [OPTIMADE](https://www.optimade.org/) API on top of *httk₂* data stores.
+*httk-optimade* is a [*httk₂*](https://github.com/httk/httk2) module providing a generic
+implementation of the [OPTIMADE](https://www.optimade.org/) protocol; the entry schemas it
+serves are supplied by providers (such as *httk-atomistic*'s structure provider) through
+the neutral `httk.core.EntryProvider` contract.
 
 ```{admonition} Quick links
 :class: tip
 
+- **Serving entry providers (usage guide)**: {doc}`serving_providers`
 - **How it works**: {doc}`how_it_works`
 - **API reference**: {doc}`reference/index`
 ```
@@ -17,6 +20,7 @@ serving an [OPTIMADE](https://www.optimade.org/) API on top of *httk₂* data st
 :maxdepth: 2
 :caption: Documentation
 
+serving_providers
 reference/index
 how_it_works
 ```

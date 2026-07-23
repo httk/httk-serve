@@ -3,8 +3,8 @@ from typing import Any, Callable, Mapping, Sequence
 
 from ..filter.parser import FilterAst
 from ..model.results import QueryFunction, QueryResults
-from ..schema.served import ServedSchema, default_served_schema
-from .handlers import HandlerTable, default_field_handlers
+from ..schema.served import ServedSchema
+from .handlers import HandlerTable
 from .protocols import Store
 
 type FieldExtractor = Callable[[Any], Any]
@@ -38,14 +38,32 @@ class BackendAdapter:
     ``sources`` maps entry endpoint names (e.g. ``'structures'``) to the
     sources queried for that endpoint; an endpoint with several sources (e.g.
     several calculation result types) is queried across all of them.
+
+    ``schema`` is required: it declares the served entry types and properties.
+    ``field_handlers`` maps each entry type to its filter-handler table. When
+    omitted (left empty) it is derived from ``schema`` via
+    :func:`~httk.optimade.backend.handlers.simple_property_handlers`, using an
+    identity column map (each property is filtered against a backend column of
+    the same name); a backend whose columns differ, or that wants finer control,
+    supplies its own tables instead.
     """
 
     store: Store
     sources: Mapping[str, Sequence[EntrySource]]
-    field_handlers: Mapping[str, HandlerTable] = field(default_factory=default_field_handlers)
-    schema: ServedSchema = field(default_factory=default_served_schema)
+    schema: ServedSchema
+    field_handlers: Mapping[str, HandlerTable] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if not self.field_handlers:
+            from .handlers import simple_property_handlers
+
+            derived: dict[str, HandlerTable] = {}
+            for entry in self.schema.all_entries:
+                entry_info = self.schema.entry_info[entry]
+                columns = {name: name for name in entry_info['properties'] if name not in ('id', 'type')}
+                derived[entry] = simple_property_handlers(entry, columns, entry_info)
+            object.__setattr__(self, 'field_handlers', derived)
+
         # Every property declared sortable for an entry type must have a
         # backend column mapping in every source of that entry type.
         for entry, sortable in self.schema.sortable_response_fields.items():

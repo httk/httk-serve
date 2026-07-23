@@ -1,24 +1,11 @@
-from httk.optimade.schema import httk_entries
+from materials_fixtures import materials_schema
+
 from httk.optimade.schema.entries import EntryInfo
-from httk.optimade.schema.served import build_served_schema, default_served_schema
+from httk.optimade.schema.served import build_served_schema
 
 
-def test_default_served_schema_matches_httk_entries_tables() -> None:
-    schema = default_served_schema()
-    assert list(schema.all_entries) == httk_entries.httk_all_entries
-    assert list(schema.valid_endpoints) == httk_entries.httk_valid_endpoints
-    assert schema.recognized_prefixes == httk_entries.httk_recognized_prefixes
-    assert schema.entry_info == httk_entries.httk_entry_info
-    for entry in schema.all_entries:
-        assert list(schema.properties_by_entry[entry]) == httk_entries.httk_properties_by_entry[entry]
-        assert list(schema.default_response_fields[entry]) == httk_entries.default_response_fields[entry]
-        assert list(schema.required_response_fields[entry]) == httk_entries.required_response_fields[entry]
-        assert list(schema.unknown_response_fields[entry]) == httk_entries.httk_unknown_response_fields[entry]
-        assert schema.sortable_response_fields[entry] == ()
-
-
-def test_default_served_schema_property_definitions() -> None:
-    schema = default_served_schema()
+def test_built_schema_property_definitions() -> None:
+    schema = materials_schema()
     nelements = schema.property_definitions["structures"]["nelements"]
     assert nelements["x-optimade-type"] == "integer"
     assert nelements["x-optimade-implementation"]["sortable"] is False

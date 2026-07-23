@@ -2,11 +2,11 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from fake_backend import FakeStore
+from materials_fixtures import materials_field_handlers, materials_schema
 from starlette.testclient import TestClient
 
 from httk.optimade import BackendAdapter, EntrySource, create_asgi_app
-
-from fake_backend import FakeStore
 
 
 @dataclass
@@ -42,6 +42,8 @@ def make_client(nstructures: int = 3) -> TestClient:
             "structures": (EntrySource(target="structure-table", fields=STRUCTURE_FIELDS),),
             "calculations": (EntrySource(target="calc-table", fields={}),),
         },
+        schema=materials_schema(),
+        field_handlers=materials_field_handlers(),
     )
     app = create_asgi_app(adapter, baseurl="http://testserver/")
     return TestClient(app, base_url="http://testserver")

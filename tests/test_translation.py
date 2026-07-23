@@ -1,10 +1,10 @@
 import pytest
+from fake_backend import FakeStore, FakeVariable
+from materials_fixtures import materials_field_handlers, materials_schema
 
 from httk.optimade.backend import BackendAdapter, EntrySource, translate_filter
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import TranslatorError
-
-from fake_backend import FakeStore, FakeVariable
 
 
 def make_adapter(store: FakeStore | None = None) -> BackendAdapter:
@@ -17,6 +17,8 @@ def make_adapter(store: FakeStore | None = None) -> BackendAdapter:
                 EntrySource(target="elastic-table", fields={}),
             ),
         },
+        schema=materials_schema(),
+        field_handlers=materials_field_handlers(),
     )
 
 

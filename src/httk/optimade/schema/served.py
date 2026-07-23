@@ -7,7 +7,6 @@ during request validation and response generation.
 """
 
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any, Mapping, Sequence
 
 from . import entries as entry_spec
@@ -100,64 +99,4 @@ def build_served_schema(
             for entry in all_entries
         },
         property_definitions={entry: entry_property_definitions(entry, entry_info) for entry in all_entries},
-    )
-
-
-_STRUCTURE_PROPERTIES = [
-    'id',
-    'type',
-    'elements',
-    'nelements',
-    'chemical_formula_descriptive',
-    'dimension_types',
-    'nperiodic_dimensions',
-    'lattice_vectors',
-    'structure_features',
-    'nsites',
-    'species_at_sites',
-    'cartesian_site_positions',
-    'chemical_formula_anonymous',
-    'chemical_formula_reduced',
-]
-
-_CALCULATION_PROPERTIES = [
-    'id',
-    'type',
-    '_httk_total_energy',
-    '_httk_structure_id',
-]
-
-# Properties served in responses by default, beyond what the specification
-# data already marks as default_response.
-_DEFAULT_RESPONSE_OVERRIDES = {
-    'structures': [
-        'structure_features',
-        'lattice_vectors',
-        'elements',
-        'nelements',
-        'chemical_formula_descriptive',
-        'dimension_types',
-        'nperiodic_dimensions',
-        'nsites',
-        'species_at_sites',
-        'cartesian_site_positions',
-        'chemical_formula_anonymous',
-        'chemical_formula_reduced',
-    ],
-    'calculations': [
-        '_httk_total_energy',
-        '_httk_structure_id',
-    ],
-}
-
-
-@lru_cache(maxsize=None)
-def default_served_schema() -> ServedSchema:
-    """The schema served by the httk backend: structures and calculations."""
-    return build_served_schema(
-        {
-            'structures': _STRUCTURE_PROPERTIES,
-            'calculations': _CALCULATION_PROPERTIES,
-        },
-        default_response_overrides=_DEFAULT_RESPONSE_OVERRIDES,
     )

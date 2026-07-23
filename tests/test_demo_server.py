@@ -8,11 +8,8 @@ they assert actual row inclusion/exclusion rather than just translation trees.
 import os
 import sys
 
-import pytest
-
 from httk.optimade.backend import execute_query
 from httk.optimade.filter import parse_optimade_filter
-from httk.optimade.model import TranslatorError
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "examples", "demo_server"))
 
@@ -71,16 +68,3 @@ def test_last_modified_filter_available_on_all_entry_types() -> None:
     for entry in ("structures", "calculations", "references", "files", "trajectories"):
         results = execute_query(adapter, [entry], ["id", "last_modified"], [], 100, 0, ast)
         assert len(list(results)) >= 1
-
-
-def test_removed_nsites_default_still_reachable_via_demo_override() -> None:
-    # Sanity: the demo override restores nsites filtering the src default drops.
-    with pytest.raises(TranslatorError):
-        from httk.optimade.backend import BackendAdapter, EntrySource
-        from fake_backend import FakeStore
-
-        default_adapter = BackendAdapter(
-            store=FakeStore(),
-            sources={"structures": (EntrySource(target="structures", fields={}),)},
-        )
-        execute_query(default_adapter, ["structures"], ["id"], [], 100, 0, parse_optimade_filter('nsites = 3'))

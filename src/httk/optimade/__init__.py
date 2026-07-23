@@ -1,5 +1,11 @@
 from .api import create_asgi_app, serve
-from .backend import BackendAdapter, EntrySource
+from .backend import (
+    BackendAdapter,
+    EntrySource,
+    InMemoryStore,
+    adapter_from_providers,
+    providers_from_registry,
+)
 from .engine.processing import process, process_init
 from .filter import ParserError, ParserSyntaxError, parse_optimade_filter
 from .model import (
@@ -17,6 +23,9 @@ __all__ = [
     "serve",
     "BackendAdapter",
     "EntrySource",
+    "InMemoryStore",
+    "adapter_from_providers",
+    "providers_from_registry",
     "process",
     "process_init",
     "ParserError",

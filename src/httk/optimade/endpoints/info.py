@@ -3,15 +3,13 @@ from typing import Any
 from ..model.config import OptimadeConfig
 from ..model.request import ValidatedRequest
 from ..model.versions import optimade_supported_versions
-from ..schema.served import ServedSchema, default_served_schema
+from ..schema.served import ServedSchema
 from .meta import generate_meta
 
 
 def generate_info_endpoint_reply(
-    request: ValidatedRequest, config: OptimadeConfig, schema: ServedSchema | None = None
+    request: ValidatedRequest, config: OptimadeConfig, schema: ServedSchema
 ) -> dict[str, Any]:
-    if schema is None:
-        schema = default_served_schema()
     available_api_versions = []
     for ver in optimade_supported_versions:
         available_api_versions += [{'version': optimade_supported_versions[ver], 'url': request.baseurl + ver}]
@@ -52,10 +50,8 @@ def generate_info_endpoint_reply(
 
 
 def generate_entry_info_endpoint_reply(
-    request: ValidatedRequest, config: OptimadeConfig, entry: str, schema: ServedSchema | None = None
+    request: ValidatedRequest, config: OptimadeConfig, entry: str, schema: ServedSchema
 ) -> dict[str, Any]:
-    if schema is None:
-        schema = default_served_schema()
     return {
         "data": {
             "id": entry,

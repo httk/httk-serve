@@ -131,7 +131,7 @@ class FakeSearcher:
         return rows
 
     def __iter__(self) -> Iterator[Any]:
-        rows = self._sorted_rows()[self.offset:]
+        rows = self._sorted_rows()[self.offset :]
         if self.limit is not None and self.limit >= 0:
             rows = rows[: self.limit]
         return iter([((row,),) for row in rows])
