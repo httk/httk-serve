@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from definition_fixtures import served_schema
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 from test_asgi import STRUCTURE_FIELDS, Row
@@ -16,11 +17,10 @@ from httk.optimade import (
 from httk.optimade.backend import execute_query, translate_filter
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import TranslatorError
-from httk.optimade.schema.served import build_served_schema
 
 
 def sortable_structures_schema() -> Any:
-    return build_served_schema(
+    return served_schema(
         {
             "structures": [
                 "id",
@@ -98,7 +98,7 @@ def test_sort_ignored_on_non_entry_endpoint() -> None:
 
 
 def _structures_adapter(store: FakeStore) -> BackendAdapter:
-    schema = build_served_schema(
+    schema = served_schema(
         {"structures": ["id", "type", "nelements"]},
         sortable={"structures": ["id", "nelements"]},
     )
@@ -126,7 +126,7 @@ def test_add_sort_recorded_in_declared_order() -> None:
 
 
 def test_sort_across_multiple_sources_501() -> None:
-    schema = build_served_schema(
+    schema = served_schema(
         {"calculations": ["id", "type"]},
         sortable={"calculations": ["id"]},
     )
@@ -147,7 +147,7 @@ def test_sort_across_multiple_sources_501() -> None:
 
 
 def test_missing_sort_column_raises_on_construction() -> None:
-    schema = build_served_schema(
+    schema = served_schema(
         {"structures": ["id", "type", "nelements"]},
         sortable={"structures": ["nelements"]},
     )

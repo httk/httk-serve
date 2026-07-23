@@ -8,12 +8,26 @@ materials-science specifics.
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from httk.core import EntryProvider
+import pytest
+from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition
 from starlette.testclient import TestClient
 
 from httk.optimade import adapter_from_providers, create_asgi_app
 from httk.optimade.backend import execute_query
 from httk.optimade.filter import parse_optimade_filter
+
+
+def _widget_definition() -> EntryTypeDefinition:
+    return EntryTypeDefinition(
+        "widgets",
+        "A widgets entry.",
+        {
+            "id": PropertyDefinition.from_simple("id", description="The widget id.", required_response=True),
+            "type": PropertyDefinition.from_simple("type", description="The entry type.", required_response=True),
+            "cogs": PropertyDefinition.from_simple("cogs", description="Number of cogs.", fulltype="integer"),
+            "tags": PropertyDefinition.from_simple("tags", description="Tag labels.", fulltype="list of string"),
+        },
+    )
 
 
 class WidgetProvider(EntryProvider):
@@ -22,18 +36,8 @@ class WidgetProvider(EntryProvider):
     def __init__(self, widgets: list[dict[str, Any]]) -> None:
         self._widgets = widgets
 
-    def entry_types(self) -> Mapping[str, dict[str, Any]]:
-        return {
-            "widgets": {
-                "description": "A widgets entry.",
-                "properties": {
-                    "id": {"description": "The widget id.", "fulltype": "string"},
-                    "type": {"description": "The entry type.", "fulltype": "string"},
-                    "cogs": {"description": "Number of cogs.", "fulltype": "integer"},
-                    "tags": {"description": "Tag labels.", "fulltype": "list of string"},
-                },
-            }
-        }
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        return {"widgets": _widget_definition()}
 
     def columns(self, entry_type: str) -> Mapping[str, str]:
         return {"id": "__id", "type": "type", "cogs": "cogs", "tags": "tags"}
@@ -83,8 +87,14 @@ def test_adapter_id_filter_matches_normalized_id() -> None:
 
 def test_missing_id_or_type_column_rejected() -> None:
     class BadProvider(EntryProvider):
-        def entry_types(self) -> Mapping[str, dict[str, Any]]:
-            return {"widgets": {"description": "x", "properties": {"id": {"fulltype": "string"}}}}
+        def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+            return {
+                "widgets": EntryTypeDefinition(
+                    "widgets",
+                    "x",
+                    {"id": PropertyDefinition.from_simple("id", description="id", required_response=True)},
+                )
+            }
 
         def columns(self, entry_type: str) -> Mapping[str, str]:
             return {"id": "__id"}
@@ -92,12 +102,89 @@ def test_missing_id_or_type_column_rejected() -> None:
         def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
             return []
 
-    try:
+    with pytest.raises(ValueError) as excinfo:
         adapter_from_providers([BadProvider()])
-    except ValueError as exc:
-        assert "id" in str(exc) and "type" in str(exc)
-    else:  # pragma: no cover
-        raise AssertionError("expected ValueError for missing 'type' column")
+    assert "id" in str(excinfo.value) and "type" in str(excinfo.value)
+
+
+def test_column_not_in_definition_rejected() -> None:
+    class MismatchProvider(EntryProvider):
+        def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+            return {
+                "widgets": EntryTypeDefinition(
+                    "widgets",
+                    "x",
+                    {
+                        "id": PropertyDefinition.from_simple("id", description="id", required_response=True),
+                        "type": PropertyDefinition.from_simple("type", description="type", required_response=True),
+                    },
+                )
+            }
+
+        def columns(self, entry_type: str) -> Mapping[str, str]:
+            # 'sprockets' is not described by the definition:
+            return {"id": "__id", "type": "type", "sprockets": "sprockets"}
+
+        def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+            return []
+
+    with pytest.raises(ValueError) as excinfo:
+        adapter_from_providers([MismatchProvider()])
+    assert "sprockets" in str(excinfo.value) and "widgets" in str(excinfo.value)
+
+
+def test_unprefixed_custom_property_rejected_by_extended() -> None:
+    from httk.core import standard_entry_type
+
+    energy = PropertyDefinition.from_simple("cogwheels", description="w", fulltype="integer")
+    with pytest.raises(ValueError):
+        standard_entry_type("calculations").extended({"cogwheels": energy})
+
+
+class HttkCalcProvider(EntryProvider):
+    """A calculations provider serving a custom ``_httk_`` property end to end."""
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self._rows = rows
+
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        from httk.core import standard_entry_type
+
+        energy = PropertyDefinition.from_simple("_httk_total_energy", description="Total energy", fulltype="float")
+        return {"calculations": standard_entry_type("calculations").extended({"_httk_total_energy": energy})}
+
+    def columns(self, entry_type: str) -> Mapping[str, str]:
+        return {"id": "__id", "type": "type", "_httk_total_energy": "_httk_total_energy"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        return self._rows
+
+
+def test_custom_httk_property_served_and_defined() -> None:
+    provider = HttkCalcProvider(
+        [
+            {"__id": "c-1", "type": "calculations", "_httk_total_energy": -1.5},
+            {"__id": "c-2", "type": "calculations", "_httk_total_energy": -2.5},
+        ]
+    )
+    adapter = adapter_from_providers([provider])
+    # Served in responses (default-response) and filterable:
+    results = list(
+        execute_query(
+            adapter,
+            ["calculations"],
+            ["id", "_httk_total_energy"],
+            [],
+            100,
+            0,
+            parse_optimade_filter("_httk_total_energy < -2"),
+        )
+    )
+    assert [r.values["id"] for r in results] == ["c-2"]
+    # Defined on the /info endpoint with its httk.org $id:
+    definition = adapter.schema.property_definitions["calculations"]["_httk_total_energy"]
+    assert definition["$id"].startswith("https://httk.org/")
+    assert definition["x-optimade-type"] == "float"
 
 
 def test_asgi_end_to_end_over_provider() -> None:

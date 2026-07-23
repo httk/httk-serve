@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from definition_fixtures import served_schema
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
@@ -13,7 +14,7 @@ from httk.optimade.backend.handlers import set_handler
 from httk.optimade.endpoints import generate_info_endpoint_reply
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import OptimadeConfig, ValidatedParameters, ValidatedRequest
-from httk.optimade.schema.served import ServedSchema, build_served_schema
+from httk.optimade.schema.served import ServedSchema
 
 # The full set of files properties, used for the schema/definition tests.
 FILE_PROPERTIES = [
@@ -92,14 +93,14 @@ FILES = [
 
 
 def files_schema() -> ServedSchema:
-    return build_served_schema(
+    return served_schema(
         {'files': FILE_PROPERTIES},
         default_response_overrides=FILE_DEFAULT_OVERRIDES,
     )
 
 
 def files_e2e_schema() -> ServedSchema:
-    return build_served_schema(
+    return served_schema(
         {'files': E2E_FILE_PROPERTIES},
         default_response_overrides=FILE_DEFAULT_OVERRIDES,
     )
@@ -159,7 +160,7 @@ def test_files_schema_properties_present() -> None:
 
 
 def test_only_url_required_in_response_besides_id_and_type() -> None:
-    properties = build_served_schema({'files': FILE_PROPERTIES}).entry_info['files']['properties']
+    properties = served_schema({'files': FILE_PROPERTIES}).entry_info['files']['properties']
     required = {name for name, info in properties.items() if info.get('required_response')}
     assert required == {'id', 'type', 'url'}
 
@@ -203,7 +204,8 @@ def test_checksums_definition_is_object_with_inner_string_properties() -> None:
     assert checksums["x-optimade-type"] == "dictionary"
     assert checksums["type"] == ["object", "null"]
     properties = checksums["properties"]
-    assert set(properties) == {"md5", "sha1", "sha224", "sha256", "sha384", "sha512"}
+    # The vendored OPTIMADE files standard defines these checksum algorithms:
+    assert set(properties) == {"md5", "sha1", "sha224", "sha384", "sha512"}
     for inner in properties.values():
         assert inner["x-optimade-type"] == "string"
 
@@ -296,7 +298,7 @@ def _calc_relationships(row: CalcRow) -> dict[str, list[dict[str, Any]]]:
 
 
 def calc_files_schema() -> ServedSchema:
-    return build_served_schema(
+    return served_schema(
         {
             'calculations': CALC_PROPERTIES,
             'files': ['id', 'type', 'url', 'name'],

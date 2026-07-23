@@ -12,6 +12,8 @@ live here, as a test fixture. Backend column names (``formula_symbols``,
 
 from typing import Any
 
+from definition_fixtures import served_schema
+
 from httk.optimade.backend.handlers import (
     HandlerTable,
     constant_comparison_handler,
@@ -26,7 +28,7 @@ from httk.optimade.backend.handlers import (
     true_handler,
 )
 from httk.optimade.backend.protocols import SearchExpression, SearchVariable
-from httk.optimade.schema.served import ServedSchema, build_served_schema
+from httk.optimade.schema.served import ServedSchema
 
 STRUCTURE_PROPERTIES = [
     'id',
@@ -76,7 +78,7 @@ DEFAULT_RESPONSE_OVERRIDES = {
 
 def materials_schema() -> ServedSchema:
     """A schema serving ``structures`` and ``calculations`` (the former default)."""
-    return build_served_schema(
+    return served_schema(
         {'structures': STRUCTURE_PROPERTIES, 'calculations': CALCULATION_PROPERTIES},
         default_response_overrides=DEFAULT_RESPONSE_OVERRIDES,
     )

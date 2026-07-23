@@ -1,34 +1,34 @@
+from definition_fixtures import structures_definition
 from materials_fixtures import materials_schema
 
-from httk.optimade.schema import entries
 
-
-def test_entry_info_integrity() -> None:
-    assert set(entries.entry_info.keys()) == {"structures", "calculations", "references", "files"}
-    for entry_info in entries.entry_info.values():
-        assert "descripion" not in entry_info
-        assert isinstance(entry_info["description"], str)
-        for prop in entry_info["properties"].values():
+def test_served_entry_info_shape() -> None:
+    schema = materials_schema()
+    assert set(schema.entry_info) == {"structures", "calculations"}
+    for info in schema.entry_info.values():
+        assert "descripion" not in info
+        assert isinstance(info["description"], str)
+        for prop in info["properties"].values():
             assert isinstance(prop["description"], str)
             assert isinstance(prop["fulltype"], str)
             assert isinstance(prop["required_response"], bool)
             assert isinstance(prop["default_response"], bool)
+            assert isinstance(prop["sortable"], bool)
 
 
-def test_properties_by_entry_are_lists() -> None:
-    for props in entries.properties_by_entry.values():
-        assert isinstance(props, list)
+def test_properties_by_entry_are_tuples_with_id_and_type() -> None:
+    schema = materials_schema()
+    for props in schema.properties_by_entry.values():
+        assert isinstance(props, tuple)
         assert "id" in props
         assert "type" in props
 
 
-def test_served_entry_info_is_independent_copy() -> None:
+def test_served_properties_not_sortable_by_default() -> None:
     schema = materials_schema()
     for entry in schema.all_entries:
-        for name, prop in schema.entry_info[entry]["properties"].items():
+        for prop in schema.entry_info[entry]["properties"].values():
             assert prop["sortable"] is False
-            spec_prop = entries.entry_info[entry]["properties"][name]
-            assert "sortable" not in spec_prop
 
 
 def test_default_response_fields() -> None:
@@ -65,7 +65,7 @@ def test_valid_endpoints() -> None:
 
 def test_optimade_v12_v13_properties_present() -> None:
     schema = materials_schema()
-    properties = entries.entry_info["structures"]["properties"]
+    properties = structures_definition().properties
     for name in (
         "space_group_symmetry_operations_xyz",
         "space_group_symbol_hall",

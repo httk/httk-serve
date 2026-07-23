@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterator
 
 import pytest
+from definition_fixtures import served_schema
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
@@ -26,13 +27,13 @@ from httk.optimade.model import (
     ValidatedParameters,
     ValidatedRequest,
 )
-from httk.optimade.schema.served import ServedSchema, build_served_schema
+from httk.optimade.schema.served import ServedSchema
 
 REFERENCE_COLUMNS = {'doi': 'doi', 'title': 'title'}
 
 
 def relationships_schema() -> ServedSchema:
-    return build_served_schema(
+    return served_schema(
         {
             'structures': ['id', 'type', 'nelements'],
             'references': ['id', 'type', 'title', 'doi'],
@@ -75,7 +76,7 @@ def test_include_explicit_paths() -> None:
 
 
 def test_include_default_filtered_when_references_unserved() -> None:
-    schema = build_served_schema({"structures": ["id", "type"]})
+    schema = served_schema({"structures": ["id", "type"]})
     validated = validate_optimade_request(make_request("/structures"), "1.3.0", schema)
     assert validated.include_paths == []
 

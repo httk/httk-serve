@@ -14,6 +14,8 @@ from functools import reduce
 from math import gcd
 from typing import Any
 
+from httk.core import EntryTypeDefinition, PropertyDefinition, standard_entry_type
+
 from httk.optimade import (
     BackendAdapter,
     EntrySource,
@@ -24,7 +26,10 @@ from httk.optimade import (
 from httk.optimade.backend import simple_property_handlers
 from httk.optimade.backend.handlers import set_handler
 from httk.optimade.backend.partial import PartialDimension, PartialValue
-from httk.optimade.schema.served import build_served_schema
+from httk.optimade.schema.served import (
+    build_served_schema,
+    entry_type_definition_from_simple,
+)
 from httk.optimade.schema.trajectories import trajectories_entry_info
 
 
@@ -446,6 +451,66 @@ CALCULATION_COLUMNS = {
 }
 
 
+# (name, fulltype, unit, dimensions) for the structures properties this demo
+# serves. The real ``structures`` standard is vendored by httk-atomistic; this
+# example synthesizes just the served subset with PropertyDefinition.from_simple.
+_STRUCTURE_PROP_SPECS: list[tuple[str, str, str | None, dict[str, Any] | None]] = [
+    ('id', 'string', None, None),
+    ('type', 'string', None, None),
+    ('last_modified', 'string', None, None),
+    ('elements', 'list of string', None, None),
+    ('nelements', 'integer', None, None),
+    ('chemical_formula_descriptive', 'string', None, None),
+    ('chemical_formula_reduced', 'string', None, None),
+    ('chemical_formula_anonymous', 'string', None, None),
+    ('dimension_types', 'list of integer', None, None),
+    ('nperiodic_dimensions', 'integer', None, None),
+    (
+        'lattice_vectors',
+        'list of list of float',
+        'angstrom',
+        {'names': ['dim_lattice', 'dim_spatial'], 'sizes': [3, 3]},
+    ),
+    ('structure_features', 'list of string', None, None),
+    ('nsites', 'integer', None, None),
+    ('species_at_sites', 'list of string', None, None),
+    (
+        'cartesian_site_positions',
+        'list of list of float',
+        'angstrom',
+        {'names': ['dim_sites', 'dim_spatial'], 'sizes': [None, 3]},
+    ),
+]
+
+
+def _structures_definition() -> EntryTypeDefinition:
+    properties = {
+        name: PropertyDefinition.from_simple(
+            name,
+            description='The ' + name.replace('_', ' ') + ' of the structure.',
+            fulltype=fulltype,
+            unit=unit,
+            dimensions=dimensions,
+            required_response=name in ('id', 'type'),
+        )
+        for name, fulltype, unit, dimensions in _STRUCTURE_PROP_SPECS
+    }
+    return EntryTypeDefinition('structures', 'A structures entry.', properties)
+
+
+def _calculations_definition() -> EntryTypeDefinition:
+    return standard_entry_type('calculations').extended(
+        {
+            '_httk_total_energy': PropertyDefinition.from_simple(
+                '_httk_total_energy', description='Total energy', fulltype='float'
+            ),
+            '_httk_structure_id': PropertyDefinition.from_simple(
+                '_httk_structure_id', description='Index of the structure in structures entry type', fulltype='integer'
+            ),
+        }
+    )
+
+
 def make_adapter() -> BackendAdapter:
     store = InMemoryStore(
         {
@@ -456,7 +521,18 @@ def make_adapter() -> BackendAdapter:
             'trajectories': TRAJECTORIES,
         }
     )
+    structures_definition = _structures_definition()
+    definitions = {
+        'structures': structures_definition,
+        'calculations': _calculations_definition(),
+        'references': standard_entry_type('references'),
+        'files': standard_entry_type('files'),
+        'trajectories': entry_type_definition_from_simple(
+            'trajectories', trajectories_entry_info(structures_definition, TRAJECTORY_STRUCTURE_PROPERTIES)
+        ),
+    }
     schema = build_served_schema(
+        definitions,
         {
             'structures': STRUCTURE_PROPERTIES,
             'calculations': CALCULATION_PROPERTIES,
@@ -464,7 +540,6 @@ def make_adapter() -> BackendAdapter:
             'files': FILE_PROPERTIES,
             'trajectories': TRAJECTORY_PROPERTIES,
         },
-        extra_entry_info={'trajectories': trajectories_entry_info(TRAJECTORY_STRUCTURE_PROPERTIES)},
         default_response_overrides=DEFAULT_RESPONSE_OVERRIDES,
         sortable={'structures': list(STRUCTURE_SORT_COLUMNS)},
     )

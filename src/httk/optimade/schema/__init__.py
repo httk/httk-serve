@@ -1,3 +1,3 @@
-from . import entries, served
+from . import served
 
-__all__ = ["entries", "served"]
+__all__ = ["served"]

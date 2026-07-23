@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from definition_fixtures import served_schema, structures_definition
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
@@ -8,7 +9,6 @@ from httk.optimade import BackendAdapter, EntrySource, OptimadeConfig, create_as
 from httk.optimade.backend import simple_property_handlers, translate_filter
 from httk.optimade.backend.partial import PartialDimension, PartialValue
 from httk.optimade.filter import parse_optimade_filter
-from httk.optimade.schema.served import build_served_schema
 from httk.optimade.schema.trajectories import trajectories_entry_info
 
 # The structures properties reused (frame-wrapped) for the trajectory.
@@ -44,9 +44,9 @@ _CELL = [[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]]
 
 
 def trajectories_schema() -> Any:
-    return build_served_schema(
+    return served_schema(
         {'trajectories': TRAJECTORY_PROPERTIES},
-        extra_entry_info={'trajectories': trajectories_entry_info(STRUCTURE_PROPERTIES)},
+        extra_entry_info={'trajectories': trajectories_entry_info(structures_definition(), STRUCTURE_PROPERTIES)},
         default_response_overrides=DEFAULT_OVERRIDES,
     )
 
@@ -55,7 +55,7 @@ def trajectories_schema() -> Any:
 
 
 def test_id_and_type_stay_unwrapped() -> None:
-    info = trajectories_entry_info(STRUCTURE_PROPERTIES)
+    info = trajectories_entry_info(structures_definition(), STRUCTURE_PROPERTIES)
     properties = info['properties']
     assert properties['id']['fulltype'] == 'string'
     assert properties['type']['fulltype'] == 'string'
@@ -65,7 +65,7 @@ def test_id_and_type_stay_unwrapped() -> None:
 
 
 def test_elements_is_frame_wrapped() -> None:
-    properties = trajectories_entry_info(STRUCTURE_PROPERTIES)['properties']
+    properties = trajectories_entry_info(structures_definition(), STRUCTURE_PROPERTIES)['properties']
     elements = properties['elements']
     assert elements['fulltype'] == 'list of list of string'
     dimensions = elements['dimensions']
@@ -77,7 +77,7 @@ def test_elements_is_frame_wrapped() -> None:
 
 
 def test_lattice_vectors_wraps_declared_dimensions() -> None:
-    properties = trajectories_entry_info(STRUCTURE_PROPERTIES)['properties']
+    properties = trajectories_entry_info(structures_definition(), STRUCTURE_PROPERTIES)['properties']
     lattice = properties['lattice_vectors']
     assert lattice['fulltype'] == 'list of list of list of float'
     assert lattice['dimensions'] == {
@@ -88,7 +88,7 @@ def test_lattice_vectors_wraps_declared_dimensions() -> None:
 
 
 def test_cartesian_site_positions_wraps_open_ended_dimensions() -> None:
-    properties = trajectories_entry_info(STRUCTURE_PROPERTIES)['properties']
+    properties = trajectories_entry_info(structures_definition(), STRUCTURE_PROPERTIES)['properties']
     positions = properties['cartesian_site_positions']
     assert positions['dimensions'] == {
         'names': ['dim_frames', 'dim_sites', 'dim_spatial'],
@@ -98,7 +98,7 @@ def test_cartesian_site_positions_wraps_open_ended_dimensions() -> None:
 
 
 def test_nframes_and_reference_frames_present() -> None:
-    properties = trajectories_entry_info(STRUCTURE_PROPERTIES)['properties']
+    properties = trajectories_entry_info(structures_definition(), STRUCTURE_PROPERTIES)['properties']
     nframes = properties['nframes']
     assert nframes['fulltype'] == 'integer'
     assert nframes['required_support'] is True

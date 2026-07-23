@@ -9,17 +9,19 @@ serve it, and query it. For the internals, see
 
 ## Write a provider
 
-A provider answers three questions: *what entry types do you serve* (with their
-properties, described as plain dicts in the OPTIMADE property-definition
-dialect), *which record column holds each property* (the column map must cover
-at least `id` and `type`), and *what are the records* (plain JSON-able
-mappings). A minimal provider serving a custom `widgets` entry type:
+A provider answers three questions: *what entry types do you serve* (each
+described by a first-class `httk.core.EntryTypeDefinition`), *which record column
+holds each property* (the column map must cover at least `id` and `type`, and
+every served name must be described by the definition), and *what are the
+records* (plain JSON-able mappings). Property definitions are generated from a
+compact description with `PropertyDefinition.from_simple` (or loaded from the
+vendored standards). A minimal provider serving a custom `widgets` entry type:
 
 ```python
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from httk.core import EntryProvider
+from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition
 
 
 class WidgetProvider(EntryProvider):
@@ -28,17 +30,18 @@ class WidgetProvider(EntryProvider):
     def __init__(self, widgets: list[dict[str, Any]]) -> None:
         self._widgets = widgets
 
-    def entry_types(self) -> Mapping[str, dict[str, Any]]:
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
         return {
-            "widgets": {
-                "description": "A widgets entry.",
-                "properties": {
-                    "id": {"description": "The widget id.", "fulltype": "string"},
-                    "type": {"description": "The entry type.", "fulltype": "string"},
-                    "cogs": {"description": "Number of cogs.", "fulltype": "integer"},
-                    "tags": {"description": "Tag labels.", "fulltype": "list of string"},
+            "widgets": EntryTypeDefinition(
+                "widgets",
+                "A widgets entry.",
+                {
+                    "id": PropertyDefinition.from_simple("id", description="The widget id.", required_response=True),
+                    "type": PropertyDefinition.from_simple("type", description="The entry type.", required_response=True),
+                    "cogs": PropertyDefinition.from_simple("cogs", description="Number of cogs.", fulltype="integer"),
+                    "tags": PropertyDefinition.from_simple("tags", description="Tag labels.", fulltype="list of string"),
                 },
-            }
+            )
         }
 
     def columns(self, entry_type: str) -> Mapping[str, str]:
@@ -56,9 +59,11 @@ provider = WidgetProvider(
 )
 ```
 
-The `fulltype` of each property drives which filter operations the engine
-offers for it (comparisons for numbers, string matching for strings, `HAS`
-membership for lists) — no handler code is needed.
+Each property's type drives which filter operations the engine offers for it
+(comparisons for numbers, string matching for strings, `HAS` membership for
+lists) — no handler code is needed. Custom (database-specific) properties must
+carry a recognized prefix (`_httk_`/`_omdb_`) and be merged into a standard
+definition with `EntryTypeDefinition.extended({...})`.
 
 ## Serve it
 

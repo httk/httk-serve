@@ -1,5 +1,6 @@
 from typing import Any
 
+from definition_fixtures import served_schema
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
@@ -12,7 +13,7 @@ from httk.optimade.endpoints import generate_info_endpoint_reply
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import OptimadeConfig, ValidatedParameters, ValidatedRequest
-from httk.optimade.schema.served import ServedSchema, build_served_schema
+from httk.optimade.schema.served import ServedSchema
 
 REFERENCE_PROPERTIES = [
     'id',
@@ -68,7 +69,7 @@ REFERENCES = [
 
 
 def references_schema() -> ServedSchema:
-    return build_served_schema(
+    return served_schema(
         {'references': REFERENCE_PROPERTIES},
         default_response_overrides=REFERENCE_DEFAULT_OVERRIDES,
     )

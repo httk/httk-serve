@@ -1,12 +1,3 @@
-# This specific file is a mere re-formatting of information in
-# the OPTIMADE specification [https://www.optimade.org/].
-#
-# Formally, the author makes a Public Domain Dedication
-# according to CC0 1.0 Universal (CC0 1.0)
-#   https://creativecommons.org/publicdomain/zero/1.0/
-#
-# (Note, this only applies to this one specific file.)
-
 """The ``trajectories`` entry type, derived from the ``structures`` properties.
 
 A ``trajectories`` entry describes an ordered sequence of structures
@@ -16,15 +7,23 @@ leading dimension is declared compactable (``constant``) so a server MAY send a
 single value when the property is constant across frames (see the specification
 sections "Trajectories Entries" and "Compact list representation"). Two
 trajectory-specific properties, ``nframes`` and ``reference_frames``, are added.
+
+The source structures properties are taken from a supplied
+:class:`~httk.core.EntryTypeDefinition` (its :class:`~httk.core.PropertyDefinition`
+objects, reduced to the simplified dialect); this module produces the simplified
+``{"description", "properties"}`` dialect, which a caller turns into a full
+``trajectories`` :class:`~httk.core.EntryTypeDefinition` via
+:func:`~httk.optimade.schema.served.entry_type_definition_from_simple`.
 """
 
-from typing import Sequence
+from typing import Any, Sequence
 
-from . import entries as entry_spec
-from .entries import EntryInfo, PropertyInfo
+from httk.core import EntryTypeDefinition
+
+from .served import simplified_property
 
 
-def _inner_dimensions(name: str, info: PropertyInfo) -> tuple[list[str], list[int | None]]:
+def _inner_dimensions(name: str, info: dict[str, Any]) -> tuple[list[str], list[int | None]]:
     """The list axes of a structures property, excluding the frame axis.
 
     Uses the property's declared ``dimensions`` when present; otherwise derives
@@ -44,11 +43,10 @@ def _inner_dimensions(name: str, info: PropertyInfo) -> tuple[list[str], list[in
     return names, sizes
 
 
-def _frame_wrapped(name: str, info: PropertyInfo) -> PropertyInfo:
+def _frame_wrapped(name: str, info: dict[str, Any]) -> dict[str, Any]:
     """Wrap a structures property with a leading (compactable) ``dim_frames`` axis."""
     inner_names, inner_sizes = _inner_dimensions(name, info)
-    wrapped: PropertyInfo = info.copy()
-    wrapped['type'] = 'list'
+    wrapped: dict[str, Any] = dict(info)
     wrapped['fulltype'] = 'list of ' + info.get('fulltype', 'string')
     wrapped['dimensions'] = {
         'names': ['dim_frames'] + inner_names,
@@ -59,30 +57,38 @@ def _frame_wrapped(name: str, info: PropertyInfo) -> PropertyInfo:
     return wrapped
 
 
-def trajectories_entry_info(structure_properties: Sequence[str]) -> EntryInfo:
+def trajectories_entry_info(
+    structure_definition: EntryTypeDefinition, structure_properties: Sequence[str]
+) -> dict[str, Any]:
     """Build the ``trajectories`` entry info from named ``structures`` properties.
 
-    ``id`` and ``type`` are copied unwrapped (with ``type``'s description
-    adjusted); every other named structures property is frame-wrapped. The
-    shared ``last_modified`` property and the trajectory-specific ``nframes``
-    and ``reference_frames`` properties are added.
+    ``structure_definition`` is the ``structures``
+    :class:`~httk.core.EntryTypeDefinition`; ``id`` and ``type`` are copied
+    unwrapped (with ``type``'s description adjusted), every other named
+    structures property is frame-wrapped, and the shared ``last_modified``
+    property plus the trajectory-specific ``nframes`` and ``reference_frames``
+    are added. The result is the simplified ``{"description", "properties"}``
+    dialect.
     """
-    structure_props = entry_spec.entry_info['structures']['properties']
-    properties: dict[str, PropertyInfo] = {}
+    described = structure_definition.properties
+
+    def simple(name: str) -> dict[str, Any]:
+        return simplified_property(described[name])
+
+    properties: dict[str, dict[str, Any]] = {}
 
     for name in structure_properties:
-        info = structure_props[name]
+        info = simple(name)
         if name == 'id':
-            properties['id'] = info.copy()
+            properties['id'] = info
         elif name == 'type':
-            type_info = info.copy()
-            type_info['description'] = "The name of the type of this entry, always 'trajectories'"
-            properties['type'] = type_info
+            info['description'] = "The name of the type of this entry, always 'trajectories'"
+            properties['type'] = info
         else:
             properties[name] = _frame_wrapped(name, info)
 
     # A shared property (see "Properties Used by Multiple Entry Types").
-    properties['last_modified'] = structure_props['last_modified'].copy()
+    properties['last_modified'] = simple('last_modified')
 
     properties['nframes'] = {
         'description': (
@@ -92,7 +98,6 @@ def trajectories_entry_info(structure_properties: Sequence[str]) -> EntryInfo:
             "will be 200. The integer value MUST be equal to the number of frames in the trajectory (i.e., the "
             "length of the dim_frames dimension) and MUST be a positive non-zero value."
         ),
-        'type': 'integer',
         'fulltype': 'integer',
         'required_support': True,
         'should_support': True,
@@ -108,7 +113,6 @@ def trajectories_entry_info(structure_properties: Sequence[str]) -> EntryInfo:
             "state and the third the final state. The values MUST be larger than or equal to 0 and less than "
             "nframes."
         ),
-        'type': 'list',
         'fulltype': 'list of integer',
         'required_support': False,
         'should_support': False,

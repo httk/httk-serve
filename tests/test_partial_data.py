@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 import pytest
+from definition_fixtures import served_schema
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
@@ -17,7 +18,6 @@ from httk.optimade.backend.partial import PartialDimension, PartialValue
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import ValidatedParameters
 from httk.optimade.model.request import RequestedSlice
-from httk.optimade.schema.served import build_served_schema
 
 
 def make_request(representation: str) -> RawRequest:
@@ -25,7 +25,7 @@ def make_request(representation: str) -> RawRequest:
 
 
 def _schema() -> Any:
-    return build_served_schema(
+    return served_schema(
         {"structures": ["id", "type", "nelements", "cartesian_site_positions"]},
         default_response_overrides={"structures": ["nelements", "cartesian_site_positions"]},
     )

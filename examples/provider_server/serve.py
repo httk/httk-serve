@@ -10,7 +10,7 @@ wiring this automates.
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from httk.core import EntryProvider
+from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition
 
 from httk.optimade import adapter_from_providers, serve
 
@@ -21,17 +21,22 @@ class WidgetProvider(EntryProvider):
     def __init__(self, widgets: list[dict[str, Any]]) -> None:
         self._widgets = widgets
 
-    def entry_types(self) -> Mapping[str, dict[str, Any]]:
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
         return {
-            "widgets": {
-                "description": "A widgets entry.",
-                "properties": {
-                    "id": {"description": "The widget id.", "fulltype": "string"},
-                    "type": {"description": "The entry type.", "fulltype": "string"},
-                    "cogs": {"description": "Number of cogs.", "fulltype": "integer"},
-                    "tags": {"description": "Tag labels.", "fulltype": "list of string"},
+            "widgets": EntryTypeDefinition(
+                "widgets",
+                "A widgets entry.",
+                {
+                    "id": PropertyDefinition.from_simple("id", description="The widget id.", required_response=True),
+                    "type": PropertyDefinition.from_simple(
+                        "type", description="The entry type.", required_response=True
+                    ),
+                    "cogs": PropertyDefinition.from_simple("cogs", description="Number of cogs.", fulltype="integer"),
+                    "tags": PropertyDefinition.from_simple(
+                        "tags", description="Tag labels.", fulltype="list of string"
+                    ),
                 },
-            }
+            )
         }
 
     def columns(self, entry_type: str) -> Mapping[str, str]:

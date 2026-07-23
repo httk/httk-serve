@@ -4,7 +4,6 @@ from typing import Any, Callable, Sequence
 
 from ..filter.parser import FilterAst
 from ..model.errors import TranslatorError
-from ..schema.entries import PropertyInfo
 from .adapter import BackendAdapter, EntrySource
 from .handlers import (
     HandlerTable,
@@ -102,7 +101,7 @@ def translate_filter_node(
     node: FilterAst,
     search_variable: SearchVariable,
     entry: str,
-    entry_info: dict[str, PropertyInfo],
+    entry_info: dict[str, Any],
     handlers: HandlerTable,
     recognized_prefixes: tuple[str, ...],
     inv_toggle: bool,

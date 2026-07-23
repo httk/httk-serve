@@ -1,14 +1,14 @@
 from typing import Any
 
+from definition_fixtures import served_schema
 from fake_backend import FakeStore
+from httk.core import PropertyDefinition
 from materials_fixtures import materials_schema
 from starlette.testclient import TestClient
 
 from httk.optimade import BackendAdapter, EntrySource, create_asgi_app
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import RawRequest
-from httk.optimade.schema.property_definitions import property_definition
-from httk.optimade.schema.served import build_served_schema
 
 
 def make_request(representation: str) -> RawRequest:
@@ -58,12 +58,13 @@ def test_property_without_dimensions_has_no_metadata_definition() -> None:
 
 def test_explicit_metadata_definition_is_used() -> None:
     explicit = {"title": "explicit", "type": ["object", "null"]}
-    info: dict[str, Any] = {
-        "fulltype": "list of float",
-        "dimensions": {"names": ["dim_x"], "sizes": [None]},
-        "metadata_definition": explicit,
-    }
-    definition = property_definition("structures", "_httk_thing", info)  # type: ignore[arg-type]
+    definition = PropertyDefinition.from_simple(
+        "_httk_thing",
+        description="A thing.",
+        fulltype="list of float",
+        dimensions={"names": ["dim_x"], "sizes": [None]},
+        metadata_definition=explicit,
+    ).as_optimade()
     assert definition["x-optimade-metadata-definition"] == explicit
 
 
@@ -71,7 +72,7 @@ def test_explicit_metadata_definition_is_used() -> None:
 
 
 def _metadata_schema() -> Any:
-    return build_served_schema(
+    return served_schema(
         {"structures": ["id", "type", "elements", "nelements"]},
         default_response_overrides={"structures": ["elements", "nelements"]},
     )

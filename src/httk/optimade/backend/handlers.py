@@ -17,7 +17,6 @@ import operator
 from typing import Any, Callable, Mapping
 
 from ..model.errors import TranslatorError
-from ..schema.entries import EntryInfo
 from .protocols import SearchExpression, SearchVariable
 
 HandlerTable = Mapping[str, Mapping[str, Callable[..., Any]]]
@@ -172,7 +171,7 @@ def constant_set_handler(
 
 
 def simple_property_handlers(
-    entry_type: str, columns: Mapping[str, str], entry_info: EntryInfo
+    entry_type: str, columns: Mapping[str, str], entry_info: Mapping[str, Any]
 ) -> dict[str, Mapping[str, Callable[..., Any]]]:
     """Build a filter handler table for an entry type from a column map.
 

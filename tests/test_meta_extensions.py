@@ -1,5 +1,6 @@
 from typing import Any
 
+from definition_fixtures import served_schema
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
@@ -8,7 +9,6 @@ from httk.optimade.endpoints.info import generate_info_endpoint_reply
 from httk.optimade.endpoints.meta import generate_meta
 from httk.optimade.engine.validate import validate_optimade_request
 from httk.optimade.model import OptimadeConfig, RawRequest
-from httk.optimade.schema.served import build_served_schema
 
 
 def make_request(representation: str) -> RawRequest:
@@ -16,7 +16,7 @@ def make_request(representation: str) -> RawRequest:
 
 
 def _schema() -> Any:
-    return build_served_schema(
+    return served_schema(
         {"structures": ["id", "type", "elements", "nelements"]},
         default_response_overrides={"structures": ["elements", "nelements"]},
     )
