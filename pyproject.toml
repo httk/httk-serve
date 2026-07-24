@@ -13,7 +13,7 @@ requires-python = ">=3.12"
 authors = [{ name = "Rickard Armiento", email = "rickard-gpg@armiento.net" }]
 dependencies = [
   "httk-core>=2.0.0,<3",
-  "httk-data>=0.1.0,<1",
+  "httk-data>=0.2.0,<1",
   "starlette>=0.37",
   "uvicorn>=0.30",
 ]
@@ -102,15 +102,27 @@ exclude = ["src/httk/optimade/filter/_miniparser.py"]
 # venv does not exist (e.g. CI, where the deps are installed into the job env).
 venvPath = ".."
 venv = ".venv"
+# Resolve the httk-data runtime dependency (httk.data.query) against its
+# workspace checkout; harmless where that path does not exist (e.g. CI, where
+# httk-data is installed into the job env). Listing extraPaths explicitly
+# disables pyright's implicit use of ./src, so it is listed too.
+extraPaths = ["src", "../httk-data/src"]
 reportMissingImports = true
 
 [tool.mypy]
 python_version = "3.12"
 files = ["src", "examples"]
-mypy_path = ["src", "examples/demo_server"]
+mypy_path = ["src", "examples/demo_server", "../httk-data/src"]
 namespace_packages = true
 explicit_package_bases = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# Use httk-data's types (resolved via mypy_path against its workspace
+# checkout) without re-checking its files here; httk-data runs its own mypy
+# with its own overrides (e.g. for untyped jsonschema).
+module = ["httk.data", "httk.data.*", "httk.handlers.data"]
+follow_imports = "silent"
 
 [[tool.mypy.overrides]]
 # Vendored LR(1) parser from httk v1; kept close to its upstream form.

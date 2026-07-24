@@ -1,8 +1,8 @@
-"""A generic in-memory store implementing the httk-optimade backend protocols.
+"""A generic in-memory store implementing the httk store/searcher protocols.
 
 Rows are plain dicts keyed by backend column names, and search expressions
 evaluate as predicates over those rows. It is the reference
-:class:`~httk.optimade.backend.protocols.Store` implementation: it backs the
+:class:`~httk.data.query.Store` implementation: it backs the
 example demo server and is what
 :func:`~httk.optimade.backend.providers.adapter_from_providers` loads an
 :class:`~httk.core.EntryProvider`'s records into.

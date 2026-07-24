@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Sequence
 
+from httk.data.query import Store
+
 from ..filter.parser import FilterAst
 from ..model.results import QueryFunction, QueryResults
 from ..schema.served import ServedSchema
 from .handlers import HandlerTable
-from .protocols import Store
 
 type FieldExtractor = Callable[[Any], Any]
 

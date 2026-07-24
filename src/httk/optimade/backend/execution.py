@@ -2,11 +2,12 @@
 
 from typing import Any, Iterator, Sequence
 
+from httk.data.query import Searcher
+
 from ..filter.parser import FilterAst
 from ..model.errors import TranslatorError
 from ..model.results import ResultRow
 from .adapter import BackendAdapter, EntrySource
-from .protocols import Searcher
 from .translation import translate_filter
 
 

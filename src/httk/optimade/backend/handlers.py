@@ -1,8 +1,8 @@
 """Field handlers translating OPTIMADE filter operations into search expressions.
 
 The handler tables map OPTIMADE property names to callables that build
-:class:`~httk.optimade.backend.protocols.SearchExpression` objects from a
-:class:`~httk.optimade.backend.protocols.SearchVariable`. A backend supplies a
+:class:`~httk.data.query.SearchExpression` objects from a
+:class:`~httk.data.query.SearchVariable`. A backend supplies a
 handler table per entry type on its
 :class:`~httk.optimade.backend.adapter.BackendAdapter`;
 :func:`simple_property_handlers` derives such a table generically from a column
@@ -16,8 +16,9 @@ since they cannot be typed as expression-returning.
 import operator
 from typing import Any, Callable, Mapping
 
+from httk.data.query import SearchExpression, SearchVariable
+
 from ..model.errors import TranslatorError
-from .protocols import SearchExpression, SearchVariable
 
 HandlerTable = Mapping[str, Mapping[str, Callable[..., Any]]]
 

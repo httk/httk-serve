@@ -2,6 +2,8 @@
 
 from typing import Any, Callable, Sequence
 
+from httk.data.query import Searcher, SearchExpression, SearchVariable
+
 from ..filter.parser import FilterAst
 from ..model.errors import TranslatorError
 from .adapter import BackendAdapter, EntrySource
@@ -16,7 +18,6 @@ from .handlers import (
     unknown_stringmatching_handler,
     unknown_unknown_handler,
 )
-from .protocols import Searcher, SearchExpression, SearchVariable
 
 constant_types = ['String', 'Number', 'Boolean']
 

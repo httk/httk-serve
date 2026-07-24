@@ -84,6 +84,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", "_inventories/python.inv"),
     "starlette": ("https://www.starlette.io/", "_inventories/starlette.inv"),
     "httk-core": (f"{_docs_base_url}/httk-core/", "_inventories/httk-core.inv"),
+    "httk-data": (f"{_docs_base_url}/httk-data/", "_inventories/httk-data.inv"),
 }
 
 autoapi_options = [

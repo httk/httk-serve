@@ -22,6 +22,7 @@ docs-inventories:
 	curl -fsSL https://docs.python.org/3/objects.inv -o docs/_inventories/python.inv
 	curl -fsSL https://www.starlette.io/objects.inv -o docs/_inventories/starlette.inv
 	curl -fsSL $(DOCS_BASE_URL)/httk-core/objects.inv -o docs/_inventories/httk-core.inv
+	curl -fsSL $(DOCS_BASE_URL)/httk-data/objects.inv -o docs/_inventories/httk-data.inv
 
 dist-clean:
 	rm -rf build $(DIST_DIR) src/httk_optimade.egg-info
