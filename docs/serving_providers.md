@@ -10,8 +10,8 @@ serve it, and query it. For the internals, see
 ## Write a provider
 
 A provider answers three questions: *what entry types do you serve* (each
-described by a first-class `httk.core.EntryTypeDefinition`), *which record column
-holds each property* (the column map must cover at least `id` and `type`, and
+described by a first-class `httk.core.EntryTypeDefinition`), *which record key
+holds each property* (the property-key map must cover at least `id` and `type`, and
 every served name must be described by the definition), and *what are the
 records* (plain JSON-able mappings). Property definitions are generated from a
 compact description with `PropertyDefinition.from_simple` (or loaded from the
@@ -44,7 +44,7 @@ class WidgetProvider(EntryProvider):
             )
         }
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         return {"id": "__id", "type": "type", "cogs": "cogs", "tags": "tags"}
 
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
@@ -156,7 +156,7 @@ class LinkedProvider(EntryProvider):
         )
         return {"structures": structures, "references": standard_entry_type("references")}
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         if entry_type == "structures":
             return {"id": "__id", "type": "type"}
         return {"id": "__id", "type": "type", "title": "title"}

@@ -85,10 +85,10 @@ def materials_schema() -> ServedSchema:
 
 
 def _structure_features_set_handler(
-    values: Any, ops: Any, inv: bool, has_type: str, search_variable: SearchVariable
-) -> tuple[SearchExpression, bool]:
+    values: Any, ops: Any, has_type: str, search_variable: SearchVariable
+) -> SearchExpression:
     # These fixtures carry no structure features, so all set comparisons are False.
-    return false_handler(search_variable), False
+    return false_handler(search_variable)
 
 
 def _structure_features_length_handler(op: str, value: Any, search_variable: SearchVariable) -> SearchExpression:
@@ -107,15 +107,18 @@ def materials_field_handlers() -> dict[str, HandlerTable]:
                 'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('__id', value, smtype, sv),
             },
             'type': {
-                'comparison': lambda entry, op, value, sv: constant_comparison_handler(value, op, 'structures', sv),
+                # The property's own value is the LEFT operand (the
+                # constant_set_handler convention), so `type STARTS "struct"`
+                # asks whether "structures".startswith("struct").
+                'comparison': lambda entry, op, value, sv: constant_comparison_handler('structures', op, value, sv),
                 'unknown': known_unknown_handler,
                 'stringmatching': lambda entry, value, smtype, sv: constant_stringmatching_handler(
-                    value, 'structures', smtype, sv
+                    'structures', value, smtype, sv
                 ),
             },
             'elements': {
-                'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler(
-                    'formula_symbols', ops, values, inv, has_type, sv
+                'HAS': lambda entry, ops, values, sv, has_type: set_handler(
+                    'formula_symbols', ops, values, has_type, sv
                 ),
                 'length': lambda entry, op, value, sv: number_handler('number_of_elements', op, value, sv),
                 'unknown': known_unknown_handler,
@@ -125,14 +128,14 @@ def materials_field_handlers() -> dict[str, HandlerTable]:
                 'unknown': known_unknown_handler,
             },
             'nperiodic_dimensions': {
-                'comparison': lambda entry, op, value, sv: constant_comparison_handler(value, op, 3, sv),
+                'comparison': lambda entry, op, value, sv: constant_comparison_handler(3, op, value, sv),
                 'unknown': known_unknown_handler,
             },
             'dimension_types': {
-                'HAS': lambda entry, ops, values, sv, has_type, inv: constant_set_handler(
-                    values, ops, [1, 1, 1], has_type, inv, sv
+                'HAS': lambda entry, ops, values, sv, has_type: constant_set_handler(
+                    [1, 1, 1], ops, values, has_type, sv
                 ),
-                'length': lambda entry, op, value, sv: constant_comparison_handler(value, op, 3, sv),
+                'length': lambda entry, op, value, sv: constant_comparison_handler(3, op, value, sv),
                 'unknown': known_unknown_handler,
             },
             'chemical_formula_descriptive': {
@@ -141,8 +144,8 @@ def materials_field_handlers() -> dict[str, HandlerTable]:
                 'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('formula', value, smtype, sv),
             },
             'structure_features': {
-                'HAS': lambda entry, ops, values, sv, has_type, inv: _structure_features_set_handler(
-                    values, ops, inv, has_type, sv
+                'HAS': lambda entry, ops, values, sv, has_type: _structure_features_set_handler(
+                    values, ops, has_type, sv
                 ),
                 'length': lambda entry, op, value, sv: _structure_features_length_handler(op, value, sv),
                 'unknown': known_unknown_handler,
@@ -176,10 +179,10 @@ def materials_field_handlers() -> dict[str, HandlerTable]:
                 'stringmatching': lambda entry, value, smtype, sv: stringmatching_handler('__id', value, smtype, sv),
             },
             'type': {
-                'comparison': lambda entry, op, value, sv: constant_comparison_handler(value, op, 'calculations', sv),
+                'comparison': lambda entry, op, value, sv: constant_comparison_handler('calculations', op, value, sv),
                 'unknown': known_unknown_handler,
                 'stringmatching': lambda entry, value, smtype, sv: constant_stringmatching_handler(
-                    value, 'calculations', smtype, sv
+                    'calculations', value, smtype, sv
                 ),
             },
             '_httk_total_energy': {

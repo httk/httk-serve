@@ -8,9 +8,10 @@ model.
 """
 
 from httk.data.query import (
-    SearchColumn,
     Searcher,
     SearchExpression,
+    SearchField,
+    SearchResult,
     SearchVariable,
     Store,
 )
@@ -19,8 +20,9 @@ from ..model.results import QueryFunction, QueryResults
 
 __all__ = [
     "SearchExpression",
-    "SearchColumn",
+    "SearchField",
     "SearchVariable",
+    "SearchResult",
     "Searcher",
     "Store",
     "QueryFunction",

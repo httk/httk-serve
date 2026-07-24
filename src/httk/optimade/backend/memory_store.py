@@ -1,23 +1,30 @@
 """A generic in-memory store implementing the httk store/searcher protocols.
 
-Rows are plain dicts keyed by backend column names, and search expressions
+Rows are plain dicts keyed by backend record keys, and search expressions
 evaluate as predicates over those rows. It is the reference
 :class:`~httk.data.query.Store` implementation: it backs the
 example demo server and is what
 :func:`~httk.optimade.backend.providers.adapter_from_providers` loads an
 :class:`~httk.core.EntryProvider`'s records into.
 
-Set-operation caveat: the httk database layer expresses NOT-inverted and
-"for all" set semantics through inverse relations plus a post filter
-(``searcher.add_all``). This in-memory store instead evaluates set predicates
-exactly and ignores ``add_all``; for that to compose correctly with the
-translation layer, ``has_inv_any``/``has_inv_only`` behave like their
-non-inverse counterparts (the surrounding NOT then produces the correct
-result).
+Set operations evaluate exactly here — ``has_any``/``has_only`` are plain set
+predicates over the row's list value, and ``~`` negates them directly. The SQL
+backend needs an aggregate rendering and a second (HAVING) evaluation position
+to say the same thing, but that is entirely its own business: the neutral
+protocol only ever hands a store one expression per ``searcher.add`` call.
+
+String matching is literal here too (``contains``/``startswith``/``endswith``
+are plain :class:`str` operations), which is exactly what the neutral protocol
+promises — no pattern language is involved at any point.
+
+Iteration yields :class:`~httk.data.query.SearchResult` values, one entry in
+``values`` per :meth:`MemorySearcher.output` call: a variable output yields the
+whole row dict, a field output the row's value for that field.
 """
 
-import re
 from typing import Any, Callable, Iterator
+
+from httk.data.query import SearchResult
 
 Row = dict[str, Any]
 Predicate = Callable[[Row], bool]
@@ -37,26 +44,7 @@ class MemoryExpression:
         return MemoryExpression(lambda row: not self.predicate(row))
 
 
-def _like_to_regex(pattern: str) -> "re.Pattern[str]":
-    out = []
-    i = 0
-    while i < len(pattern):
-        c = pattern[i]
-        if c == "\\" and i + 1 < len(pattern):
-            out.append(re.escape(pattern[i + 1]))
-            i += 2
-            continue
-        if c == "%":
-            out.append(".*")
-        elif c == "_":
-            out.append(".")
-        else:
-            out.append(re.escape(c))
-        i += 1
-    return re.compile("^" + "".join(out) + "$", re.DOTALL)
-
-
-class MemoryColumn:
+class MemoryField:
     def __init__(self, name: str) -> None:
         self.name = name
 
@@ -64,7 +52,7 @@ class MemoryColumn:
         return row.get(self.name)
 
     def _compare(self, other: Any, compare: Callable[[Any, Any], bool]) -> MemoryExpression:
-        if isinstance(other, MemoryColumn):
+        if isinstance(other, MemoryField):
             return MemoryExpression(lambda row: compare(self._value(row), other._value(row)))
         return MemoryExpression(lambda row: compare(self._value(row), other))
 
@@ -95,29 +83,35 @@ class MemoryColumn:
     def endswith(self, other: str) -> MemoryExpression:
         return self._compare(other, lambda a, b: isinstance(a, str) and a.endswith(b))
 
-    def like(self, pattern: str) -> MemoryExpression:
-        regex = _like_to_regex(pattern)
-        return MemoryExpression(lambda row: isinstance(self._value(row), str) and bool(regex.match(self._value(row))))
+    def contains(self, other: str) -> MemoryExpression:
+        return self._compare(other, lambda a, b: isinstance(a, str) and b in a)
 
     def has_any(self, *values: Any) -> MemoryExpression:
         return MemoryExpression(lambda row: bool(set(self._value(row) or ()) & set(values)))
 
-    def has_inv_any(self, *values: Any) -> MemoryExpression:
-        return self.has_any(*values)
-
     def has_only(self, *values: Any) -> MemoryExpression:
         return MemoryExpression(lambda row: set(self._value(row) or ()) <= set(values))
 
-    def has_inv_only(self, *values: Any) -> MemoryExpression:
-        return self.has_only(*values)
-
 
 class MemoryVariable:
+    """A query variable over one table of rows; attribute access yields fields.
+
+    ``always_true``/``always_false`` are real methods, declared before the
+    catch-all ``__getattr__`` so they win over it — they are reserved names
+    that never resolve to a row key.
+    """
+
     def __init__(self, target: str) -> None:
         self.target = target
 
-    def __getattr__(self, name: str) -> MemoryColumn:
-        return MemoryColumn(name)
+    def always_true(self) -> MemoryExpression:
+        return MemoryExpression(lambda row: True)
+
+    def always_false(self) -> MemoryExpression:
+        return MemoryExpression(lambda row: False)
+
+    def __getattr__(self, name: str) -> MemoryField:
+        return MemoryField(name)
 
 
 class MemorySearcher:
@@ -125,7 +119,8 @@ class MemorySearcher:
         self._tables = tables
         self._rows: list[Row] = []
         self._expressions: list[MemoryExpression] = []
-        self._sorts: list[tuple[MemoryColumn, bool]] = []
+        self._sorts: list[tuple[MemoryField, bool]] = []
+        self._outputs: list[tuple[str, Callable[[Row], Any]]] = []
         self.offset = 0
         self._limit: int | None = None
 
@@ -133,26 +128,29 @@ class MemorySearcher:
         self._rows = self._tables.get(target, [])
         return MemoryVariable(target)
 
-    def output(self, variable: MemoryVariable, name: str) -> None:
-        pass
+    def output(self, variable: "MemoryVariable | MemoryField", name: str) -> None:
+        """Append an output: a variable (yields the whole row) or a field (its value)."""
+        if isinstance(variable, MemoryField):
+            memory_field = variable
+            self._outputs.append((name, lambda row: row.get(memory_field.name)))
+        elif isinstance(variable, MemoryVariable):
+            self._outputs.append((name, lambda row: row))
+        else:
+            raise TypeError(f"output() takes a search variable or a search field, got {type(variable).__name__}")
 
     def add(self, expression: MemoryExpression) -> None:
         self._expressions.append(expression)
 
-    def add_all(self, expression: MemoryExpression) -> None:
-        # Post filtering is not needed: set predicates evaluate exactly here.
-        pass
-
-    def add_sort(self, column: MemoryColumn, descending: bool) -> None:
-        self._sorts.append((column, descending))
+    def add_sort(self, field: MemoryField, descending: bool) -> None:
+        self._sorts.append((field, descending))
 
     def _matches(self) -> list[Row]:
         rows = [row for row in self._rows if all(e.predicate(row) for e in self._expressions)]
         # Stable multi-key sort: apply keys in reverse declaration order so the
         # first-declared sort key is the most significant. None sorts first.
-        for column, descending in reversed(self._sorts):
+        for sort_field, descending in reversed(self._sorts):
 
-            def key(row: Row, c: MemoryColumn = column) -> tuple[bool, Any]:
+            def key(row: Row, c: MemoryField = sort_field) -> tuple[bool, Any]:
                 value = c._value(row)
                 return (value is None, value)
 
@@ -168,11 +166,15 @@ class MemorySearcher:
     def add_offset(self, offset: int) -> None:
         self.offset += offset
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[SearchResult]:
+        """Yield one :class:`~httk.data.query.SearchResult` per match, in output order."""
+        if not self._outputs:
+            raise ValueError("this searcher has no outputs; call output() before iterating")
         rows = self._matches()[self.offset :]
         if self._limit is not None and self._limit >= 0:
             rows = rows[: self._limit]
-        return iter([((row,),) for row in rows])
+        names = tuple(name for name, _extractor in self._outputs)
+        return iter([SearchResult(tuple(extractor(row) for _name, extractor in self._outputs), names) for row in rows])
 
 
 class InMemoryStore:

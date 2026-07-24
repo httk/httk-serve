@@ -53,7 +53,7 @@ FILE_DEFAULT_OVERRIDES = {
     'files': ['url', 'name', 'size', 'media_type', 'description'],
 }
 
-FILE_COLUMNS = {
+FILE_KEYS = {
     'url': 'url',
     'name': 'name',
     'media_type': 'media_type',
@@ -108,7 +108,7 @@ def files_e2e_schema() -> ServedSchema:
 
 def files_adapter(store: FakeStore) -> BackendAdapter:
     schema = files_e2e_schema()
-    field_handlers = {'files': simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files'])}
+    field_handlers = {'files': simple_property_handlers('files', FILE_KEYS, schema.entry_info['files'])}
     return BackendAdapter(
         store=store,
         sources={'files': (EntrySource(target='files', fields=FILE_FIELDS),)},
@@ -324,12 +324,12 @@ def make_calc_files_client() -> TestClient:
     )
     schema = calc_files_schema()
     field_handlers = {
-        'files': simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files']),
+        'files': simple_property_handlers('files', FILE_KEYS, schema.entry_info['files']),
         'calculations': simple_property_handlers('calculations', {}, schema.entry_info['calculations']),
     }
     calc_handlers = dict(field_handlers['calculations'])
     calc_handlers['files.id'] = {
-        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('file_ids', ops, values, inv, has_type, sv),
+        'HAS': lambda entry, ops, values, sv, has_type: set_handler('file_ids', ops, values, has_type, sv),
     }
     field_handlers['calculations'] = calc_handlers
     adapter = BackendAdapter(
@@ -380,7 +380,7 @@ def test_files_id_has_translates_to_set_handler_tree() -> None:
     field_handlers = {'calculations': simple_property_handlers('calculations', {}, schema.entry_info['calculations'])}
     calc_handlers = dict(field_handlers['calculations'])
     calc_handlers['files.id'] = {
-        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('file_ids', ops, values, inv, has_type, sv),
+        'HAS': lambda entry, ops, values, sv, has_type: set_handler('file_ids', ops, values, has_type, sv),
     }
     field_handlers['calculations'] = calc_handlers
     adapter = BackendAdapter(

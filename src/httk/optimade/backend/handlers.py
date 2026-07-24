@@ -12,7 +12,13 @@ neutral failure category instead of HTTP semantics);
 :class:`~httk.optimade.model.errors.TranslatorError` with the appropriate
 HTTP status. Also note that :func:`~httk.data.optimade_query.simple_property_handlers`
 now takes a plain property-name -> ``fulltype`` mapping as its third argument
-instead of an entry-info dictionary.
+instead of an entry-info dictionary, and that ``'HAS'`` handlers changed shape:
+they no longer take a trailing ``inv`` argument and no longer return a
+``needs_post`` flag alongside the expression. A ``'HAS'`` handler is now called
+as ``handler(property, ops, values, search_variable, has_type)`` and returns a
+plain :class:`~httk.data.query.SearchExpression`; ``NOT`` is applied by the
+caller as ``~``, and the backend decides for itself whether the resulting
+expression also needs post-filter evaluation.
 """
 
 from httk.data.optimade_query import (

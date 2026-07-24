@@ -75,6 +75,21 @@ def test_elements_has_filter_matches() -> None:
     assert structure_ids('elements HAS "Ga"') == ["demo-1", "demo-4"]
 
 
+def test_not_has_family_is_the_exact_complement() -> None:
+    # The demo's element lists: demo-1 [Ga,Ti], demo-2 [Si], demo-3 [O,Si],
+    # demo-4 [As,Ga], demo-5 [Cl,Na]. NOT now goes through the plain set
+    # expression (the has_inv_* forms are gone), and must still return exactly
+    # the complement of the un-negated filter for every member of the family.
+    for filter_string, matching in [
+        ('elements HAS ANY "Ga","Ti"', ["demo-1", "demo-4"]),
+        ('elements HAS ALL "Ga","Ti"', ["demo-1"]),
+        ('elements HAS ONLY "Ga","Ti"', ["demo-1"]),
+    ]:
+        assert structure_ids(filter_string) == matching, filter_string
+        negated = structure_ids("NOT " + filter_string)
+        assert negated == [i for i in ["demo-1", "demo-2", "demo-3", "demo-4", "demo-5"] if i not in matching]
+
+
 def test_last_modified_filter_available_on_all_entry_types() -> None:
     # A last_modified handler must exist for every entry type (no 501).
     adapter = serve.make_adapter()

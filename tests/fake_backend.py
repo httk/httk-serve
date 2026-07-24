@@ -7,6 +7,8 @@ execution tests). Expressions are plain nested tuples built by ``FakeColumn``.
 
 from typing import Any, Iterator
 
+from httk.data.query import SearchResult
+
 
 class FakeExpression:
     def __init__(self, tree: tuple[Any, ...]) -> None:
@@ -61,25 +63,27 @@ class FakeColumn:
     def endswith(self, other: Any) -> FakeExpression:
         return self._binary("endswith", other)
 
-    def like(self, pattern: str) -> FakeExpression:
-        return self._binary("like", pattern)
+    def contains(self, text: str) -> FakeExpression:
+        return self._binary("contains", text)
 
     def has_any(self, *values: Any) -> FakeExpression:
         return FakeExpression(("has_any", ("column", self.name), values))
 
-    def has_inv_any(self, *values: Any) -> FakeExpression:
-        return FakeExpression(("has_inv_any", ("column", self.name), values))
-
     def has_only(self, *values: Any) -> FakeExpression:
         return FakeExpression(("has_only", ("column", self.name), values))
-
-    def has_inv_only(self, *values: Any) -> FakeExpression:
-        return FakeExpression(("has_inv_only", ("column", self.name), values))
 
 
 class FakeVariable:
     def __init__(self, target: Any) -> None:
         self.target = target
+
+    # Real methods, declared before the catch-all __getattr__ so they win: these
+    # are reserved names, never row keys.
+    def always_true(self) -> FakeExpression:
+        return FakeExpression(("always_true",))
+
+    def always_false(self) -> FakeExpression:
+        return FakeExpression(("always_false",))
 
     def __getattr__(self, name: str) -> FakeColumn:
         return FakeColumn(name)
@@ -93,7 +97,6 @@ class FakeSearcher:
         self.variables: list[FakeVariable] = []
         self.outputs: list[tuple[FakeVariable, str]] = []
         self.expressions: list[FakeExpression] = []
-        self.all_expressions: list[FakeExpression] = []
         self.sorts: list[tuple[str, bool]] = []
 
     def variable(self, target: Any) -> FakeVariable:
@@ -101,14 +104,11 @@ class FakeSearcher:
         self.variables.append(variable)
         return variable
 
-    def output(self, variable: FakeVariable, name: str) -> None:
+    def output(self, variable: "FakeVariable | FakeColumn", name: str) -> None:
         self.outputs.append((variable, name))
 
     def add(self, expression: FakeExpression) -> None:
         self.expressions.append(expression)
-
-    def add_all(self, expression: FakeExpression) -> None:
-        self.all_expressions.append(expression)
 
     def count(self) -> int:
         return len(self.rows)
@@ -130,11 +130,18 @@ class FakeSearcher:
             rows.sort(key=lambda row, n=name: (getattr(row, n) is None, getattr(row, n)), reverse=descending)
         return rows
 
-    def __iter__(self) -> Iterator[Any]:
+    def _value(self, output: "FakeVariable | FakeColumn", row: Any) -> Any:
+        return getattr(row, output.name) if isinstance(output, FakeColumn) else row
+
+    def __iter__(self) -> Iterator[SearchResult]:
         rows = self._sorted_rows()[self.offset :]
         if self.limit is not None and self.limit >= 0:
             rows = rows[: self.limit]
-        return iter([((row,),) for row in rows])
+        outputs = self.outputs if self.outputs else [(FakeVariable(None), "row")]
+        names = tuple(name for _output, name in outputs)
+        return iter(
+            [SearchResult(tuple(self._value(output, row) for output, _name in outputs), names) for row in rows]
+        )
 
 
 class FakeStore:

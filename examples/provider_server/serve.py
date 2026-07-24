@@ -47,7 +47,7 @@ class WidgetProvider(EntryProvider):
         )
         return {"widgets": widgets, "references": standard_entry_type("references")}
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         if entry_type == "widgets":
             return {"id": "__id", "type": "type", "cogs": "cogs", "tags": "tags"}
         return {"id": "__id", "type": "type", "title": "title", "doi": "doi"}

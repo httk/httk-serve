@@ -20,14 +20,15 @@ class EntrySource:
     ``relationships``, when set, is an extractor mapping a matched row to a
     dictionary keyed by related entry type, each value a list of
     ``{'id': str, 'description': str?, 'role': str?}`` dictionaries.
-    ``property_metadata`` maps response-field names to extractors returning the
-    per-property metadata dictionary for a matched row (or ``None`` when there
-    is no metadata for that row).
+    ``sort_keys`` maps response-field names to the backend field names to sort
+    on. ``property_metadata`` maps response-field names to extractors returning
+    the per-property metadata dictionary for a matched row (or ``None`` when
+    there is no metadata for that row).
     """
 
     target: Any
     fields: Mapping[str, FieldExtractor]
-    sort_columns: Mapping[str, str] = field(default_factory=dict)
+    sort_keys: Mapping[str, str] = field(default_factory=dict)
     relationships: FieldExtractor | None = None
     property_metadata: Mapping[str, FieldExtractor] = field(default_factory=dict)
 
@@ -44,9 +45,9 @@ class BackendAdapter:
     ``field_handlers`` maps each entry type to its filter-handler table. When
     omitted (left empty) it is derived from ``schema`` via
     :func:`~httk.data.optimade_query.simple_property_handlers`, using an
-    identity column map (each property is filtered against a backend column of
-    the same name); a backend whose columns differ, or that wants finer control,
-    supplies its own tables instead.
+    identity property-key map (each property is filtered against a backend field
+    of the same name); a backend whose field names differ, or that wants finer
+    control, supplies its own tables instead.
     """
 
     store: Store
@@ -61,25 +62,25 @@ class BackendAdapter:
             derived: dict[str, HandlerTable] = {}
             for entry in self.schema.all_entries:
                 properties = self.schema.entry_info[entry]['properties']
-                columns = {name: name for name in properties if name not in ('id', 'type')}
+                property_keys = {name: name for name in properties if name not in ('id', 'type')}
                 property_fulltypes = {name: prop.get('fulltype', 'string') for name, prop in properties.items()}
-                derived[entry] = simple_property_handlers(entry, columns, property_fulltypes)
+                derived[entry] = simple_property_handlers(entry, property_keys, property_fulltypes)
             object.__setattr__(self, 'field_handlers', derived)
 
         # Every property declared sortable for an entry type must have a
-        # backend column mapping in every source of that entry type.
+        # backend field mapping in every source of that entry type.
         for entry, sortable in self.schema.sortable_response_fields.items():
             if not sortable:
                 continue
             for source in self.sources.get(entry, ()):
                 for name in sortable:
-                    if name not in source.sort_columns:
+                    if name not in source.sort_keys:
                         raise ValueError(
                             "Property '"
                             + name
                             + "' is marked sortable for entry type '"
                             + entry
-                            + "' but has no sort_columns mapping in one of its sources."
+                            + "' but has no sort_keys mapping in one of its sources."
                         )
 
     def query_function(self) -> QueryFunction:

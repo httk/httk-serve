@@ -4,7 +4,7 @@ This is the bridge from the neutral httk-core entry-provider contract to an
 OPTIMADE-serving backend: it turns one or more providers into a fully wired
 :class:`~httk.optimade.backend.adapter.BackendAdapter` over an in-memory store, deriving the served schema,
 the filter handlers, and the response-field extractors from each provider's
-descriptions, columns, and records. It is httk-optimade's only dependency on
+descriptions, property keys, and records. It is httk-optimade's only dependency on
 ``httk.core`` beyond the shared runtime.
 """
 
@@ -22,9 +22,9 @@ from .adapter import BackendAdapter, EntrySource
 from .memory_store import InMemoryStore
 
 
-def _column_extractor(column: str) -> Callable[[Any], Any]:
-    """A field extractor reading ``column`` from a record mapping."""
-    return lambda row: row.get(column)
+def _key_extractor(key: str) -> Callable[[Any], Any]:
+    """A field extractor reading ``key`` from a record mapping."""
+    return lambda row: row.get(key)
 
 
 def _relationships_extractor(
@@ -32,7 +32,7 @@ def _relationships_extractor(
 ) -> Callable[[Any], dict[str, list[dict[str, Any]]]]:
     """Build a per-row relationships extractor from a provider's id -> related-entries mapping.
 
-    The returned callable maps a record (looked up by its ``__id`` column) to the
+    The returned callable maps a record (looked up by its ``__id`` key) to the
     :class:`~httk.optimade.backend.adapter.EntrySource` relationships-block shape:
     the flat :class:`~httk.core.RelatedEntry` tuple is grouped by related entry
     type into ``{related_type: [{'id': ..., 'description'?: ..., 'role'?: ...},
@@ -62,7 +62,7 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
 
     Every provider's :meth:`~httk.core.EntryProvider.entry_types` become served
     entry types (described by their :class:`~httk.core.EntryTypeDefinition`), its
-    :meth:`~httk.core.EntryProvider.columns` name the served subset and drive
+    :meth:`~httk.core.EntryProvider.property_keys` name the served subset and drive
     both the filter handlers (via
     :func:`~httk.data.optimade_query.simple_property_handlers`) and the
     response-field extractors, and its
@@ -74,11 +74,14 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     :class:`ValueError` names any offender. All served properties beyond
     ``id``/``type`` are marked default-response. Extra keyword ``options`` (e.g.
     ``sortable``, ``recognized_prefixes``) are forwarded to
-    :func:`~httk.optimade.schema.served.build_served_schema`.
+    :func:`~httk.optimade.schema.served.build_served_schema`; every served
+    property is sortable-capable, since the provider's property-key map is
+    passed through as the source's
+    :attr:`~httk.optimade.backend.adapter.EntrySource.sort_keys`.
 
     Declared relationships (:meth:`~httk.core.EntryProvider.relationships`) are
     fully auto-wired for serving *and* filtering: for each entry type with
-    declared relationships, a synthetic ``__rel_<related_type>`` id-list column
+    declared relationships, a synthetic ``__rel_<related_type>`` id-list field
     is materialized on EVERY row of that entry type (an empty list when the row
     has no related entries of that type, so inverse set semantics are
     well-defined), and a ``'<related_type>.id'`` entry built with
@@ -94,7 +97,7 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     served_map: dict[str, list[str]] = {}
     definitions: dict[str, EntryTypeDefinition] = {}
     default_overrides: dict[str, list[str]] = {}
-    columns_by_entry: dict[str, dict[str, str]] = {}
+    keys_by_entry: dict[str, dict[str, str]] = {}
     records_by_entry: dict[str, list[dict[str, Any]]] = {}
     relationships_by_entry: dict[str, dict[str, tuple[RelatedEntry, ...]]] = {}
 
@@ -108,13 +111,13 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
                 relationships_by_entry.setdefault(entry_type, {}).update(
                     {entry_id: tuple(entries) for entry_id, entries in provider_relationships.items()}
                 )
-            columns = dict(provider.columns(entry_type))
-            if 'id' not in columns or 'type' not in columns:
+            property_keys = dict(provider.property_keys(entry_type))
+            if 'id' not in property_keys or 'type' not in property_keys:
                 raise ValueError(
-                    "Provider columns for entry type '" + entry_type + "' must cover at least 'id' and 'type'."
+                    "Provider property keys for entry type '" + entry_type + "' must cover at least 'id' and 'type'."
                 )
             described = definition.properties
-            for name in columns:
+            for name in property_keys:
                 if name not in described:
                     raise ValueError(
                         "Provider serves property '"
@@ -124,27 +127,27 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
                         + "' that is not described by its definition; custom properties must be added via "
                         + "EntryTypeDefinition.extended()."
                     )
-            id_column = columns['id']
+            id_key = property_keys['id']
             rows: list[dict[str, Any]] = []
             for record in provider.records(entry_type):
                 row = dict(record)
-                # Normalize the id under the '__id' column simple_property_handlers
-                # matches against, regardless of which column the provider uses.
-                row['__id'] = row[id_column]
+                # Normalize the id under the '__id' key simple_property_handlers
+                # matches against, regardless of which key the provider uses.
+                row['__id'] = row[id_key]
                 rows.append(row)
-            if entry_type in columns_by_entry:
-                columns_by_entry[entry_type].update(columns)
+            if entry_type in keys_by_entry:
+                keys_by_entry[entry_type].update(property_keys)
                 records_by_entry[entry_type].extend(rows)
-                for name in columns:
+                for name in property_keys:
                     if name not in served_map[entry_type]:
                         served_map[entry_type].append(name)
                         if name not in ('id', 'type'):
                             default_overrides[entry_type].append(name)
                 continue
-            columns_by_entry[entry_type] = columns
+            keys_by_entry[entry_type] = property_keys
             records_by_entry[entry_type] = rows
             definitions[entry_type] = definition
-            served = list(columns.keys())
+            served = list(property_keys.keys())
             served_map[entry_type] = served
             default_overrides[entry_type] = [name for name in served if name not in ('id', 'type')]
 
@@ -158,20 +161,20 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     field_handlers: dict[str, HandlerTable] = {}
     sources: dict[str, tuple[EntrySource, ...]] = {}
     tables: dict[str, list[dict[str, Any]]] = {}
-    for entry_type, columns in columns_by_entry.items():
-        filter_columns = {name: column for name, column in columns.items() if name not in ('id', 'type')}
+    for entry_type, property_keys in keys_by_entry.items():
+        filter_keys = {name: key for name, key in property_keys.items() if name not in ('id', 'type')}
         property_fulltypes = {
             name: prop.get('fulltype', 'string') for name, prop in schema.entry_info[entry_type]['properties'].items()
         }
-        handlers = simple_property_handlers(entry_type, filter_columns, property_fulltypes)
-        fields: dict[str, Callable[[Any], Any]] = {name: _column_extractor(column) for name, column in columns.items()}
+        handlers = simple_property_handlers(entry_type, filter_keys, property_fulltypes)
+        fields: dict[str, Callable[[Any], Any]] = {name: _key_extractor(key) for name, key in property_keys.items()}
         entry_relationships = relationships_by_entry.get(entry_type)
         relationships = _relationships_extractor(entry_relationships) if entry_relationships else None
         if entry_relationships:
             # Auto-wire relationship filtering: materialize a synthetic
-            # '__rel_<related_type>' id-list column on every row (empty when the
+            # '__rel_<related_type>' id-list field on every row (empty when the
             # row has no related entries of that type — the '__' namespace,
-            # like '__id', cannot collide with served columns) and register the
+            # like '__id', cannot collide with served record keys) and register the
             # matching '<related_type>.id' filter handler. setdefault keeps any
             # same-named handler that the derivation already produced.
             related_types = sorted(
@@ -184,7 +187,17 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
             for related_type in related_types:
                 handlers.setdefault(related_type + '.id', relationship_id_handler('__rel_' + related_type))
         field_handlers[entry_type] = handlers
-        sources[entry_type] = (EntrySource(target=entry_type, fields=fields, relationships=relationships),)
+        # The in-memory store sorts on record keys, so the provider's
+        # property-key map IS the sort mapping; without it any property the
+        # served schema declares sortable would trip BackendAdapter.__post_init__.
+        sources[entry_type] = (
+            EntrySource(
+                target=entry_type,
+                fields=fields,
+                sort_keys=dict(property_keys),
+                relationships=relationships,
+            ),
+        )
         tables[entry_type] = records_by_entry[entry_type]
 
     return BackendAdapter(

@@ -68,7 +68,6 @@ def test_has_all_becomes_conjunction_of_has_any() -> None:
         ("has_any", ("column", "formula_symbols"), ("Ga",)),
         ("has_any", ("column", "formula_symbols"), ("Ti",)),
     )
-    assert searcher.all_expressions == []
 
 
 def test_has_any() -> None:
@@ -76,16 +75,27 @@ def test_has_any() -> None:
     assert searcher.expressions[0].tree == ("has_any", ("column", "formula_symbols"), ("Ga", "Ti"))
 
 
-def test_has_only_needs_post_filter() -> None:
+def test_has_only() -> None:
     (searcher,) = translate_one('elements HAS ONLY "Ga","Ti"')
     assert searcher.expressions[0].tree == ("has_only", ("column", "formula_symbols"), ("Ga", "Ti"))
-    assert len(searcher.all_expressions) == 1
 
 
-def test_not_has_all_uses_inverted_set_ops() -> None:
+def test_not_has_family_negates_the_plain_set_expressions() -> None:
+    # There is no inverse set operation any more: NOT is `~` over exactly the
+    # expression the un-negated filter produces, and the backend decides
+    # whether that also needs post-filter evaluation.
     (searcher,) = translate_one('NOT elements HAS ALL "Ga"')
-    assert searcher.expressions[0].tree == ("NOT", ("has_inv_any", ("column", "formula_symbols"), ("Ga",)))
-    assert len(searcher.all_expressions) == 1
+    assert searcher.expressions[0].tree == ("NOT", ("has_any", ("column", "formula_symbols"), ("Ga",)))
+    (searcher,) = translate_one('NOT elements HAS ANY "Ga","Ti"')
+    assert searcher.expressions[0].tree == (
+        "NOT",
+        ("has_any", ("column", "formula_symbols"), ("Ga", "Ti")),
+    )
+    (searcher,) = translate_one('NOT elements HAS ONLY "Ga","Ti"')
+    assert searcher.expressions[0].tree == (
+        "NOT",
+        ("has_only", ("column", "formula_symbols"), ("Ga", "Ti")),
+    )
 
 
 def test_and_or_nesting() -> None:
@@ -101,16 +111,41 @@ def test_and_or_nesting() -> None:
     )
 
 
-def test_stringmatching_contains_uses_like_with_escapes() -> None:
+def test_stringmatching_contains_passes_the_literal_text() -> None:
+    # The filter constant reaches the column verbatim: no pattern syntax crosses
+    # the neutral protocol, so a LIKE metacharacter is matched literally.
     (searcher,) = translate_one('chemical_formula_descriptive CONTAINS "Ga_x"')
-    assert searcher.expressions[0].tree == ("like", ("column", "formula"), r"%Ga\_x%")
+    assert searcher.expressions[0].tree == ("contains", ("column", "formula"), "Ga_x")
 
 
 def test_stringmatching_starts_and_ends() -> None:
     (starts,) = translate_one('chemical_formula_descriptive STARTS WITH "Ga"')
-    assert starts.expressions[0].tree == ("like", ("column", "formula"), "Ga%")
+    assert starts.expressions[0].tree == ("startswith", ("column", "formula"), "Ga")
     (ends,) = translate_one('chemical_formula_descriptive ENDS WITH "Ga"')
-    assert ends.expressions[0].tree == ("like", ("column", "formula"), "%Ga")
+    assert ends.expressions[0].tree == ("endswith", ("column", "formula"), "Ga")
+
+
+def test_stringmatching_percent_is_not_a_wildcard() -> None:
+    (searcher,) = translate_one('chemical_formula_descriptive CONTAINS "50%"')
+    assert searcher.expressions[0].tree == ("contains", ("column", "formula"), "50%")
+
+
+def test_type_stringmatching_compares_the_property_value_left() -> None:
+    # `type STARTS "struct"` asks whether "structures".startswith("struct"); the
+    # operands used to be reversed. CONTAINS used to raise KeyError outright.
+    for filter_string in ['type STARTS WITH "struct"', 'type ENDS WITH "ures"', 'type CONTAINS "struct"']:
+        (searcher,) = translate_one(filter_string)
+        assert searcher.expressions[0].tree == ("always_true",), filter_string
+    for filter_string in ['type STARTS WITH "structuresX"', 'type CONTAINS "zzz"', 'type ENDS WITH "Xures"']:
+        (searcher,) = translate_one(filter_string)
+        assert searcher.expressions[0].tree == ("always_false",), filter_string
+
+
+def test_type_comparison_compares_the_property_value_left() -> None:
+    (searcher,) = translate_one('type = "structures"')
+    assert searcher.expressions[0].tree == ("always_true",)
+    (searcher,) = translate_one('type = "references"')
+    assert searcher.expressions[0].tree == ("always_false",)
 
 
 def test_length_maps_to_count_column() -> None:
@@ -120,17 +155,17 @@ def test_length_maps_to_count_column() -> None:
 
 def test_is_known_on_always_known_property_is_true() -> None:
     (searcher,) = translate_one('nelements IS KNOWN')
-    assert searcher.expressions[0].tree == ("eq", ("column", "hexhash"), ("column", "hexhash"))
+    assert searcher.expressions[0].tree == ("always_true",)
 
 
 def test_is_unknown_on_always_known_property_is_false() -> None:
     (searcher,) = translate_one('nelements IS UNKNOWN')
-    assert searcher.expressions[0].tree == ("ne", ("column", "hexhash"), ("column", "hexhash"))
+    assert searcher.expressions[0].tree == ("always_false",)
 
 
 def test_unknown_nonprefixed_property_matches_nothing() -> None:
     (searcher,) = translate_one('bananas = 3')
-    assert searcher.expressions[0].tree == ("ne", ("column", "hexhash"), ("column", "hexhash"))
+    assert searcher.expressions[0].tree == ("always_false",)
 
 
 def test_unknown_prefixed_property_raises() -> None:
@@ -172,7 +207,7 @@ def test_calculation_total_energy_comparison() -> None:
 
 def test_boolean_comparison_on_unknown_property_matches_nothing() -> None:
     (searcher,) = translate_one('bananas = TRUE')
-    assert searcher.expressions[0].tree == ("ne", ("column", "hexhash"), ("column", "hexhash"))
+    assert searcher.expressions[0].tree == ("always_false",)
 
 
 def test_boolean_with_ordering_operator_not_implemented() -> None:

@@ -1,7 +1,8 @@
 from httk.data.query import (
-    SearchColumn,
     Searcher,
     SearchExpression,
+    SearchField,
+    SearchResult,
     SearchVariable,
     Store,
 )
@@ -28,9 +29,10 @@ __all__ = [
     "providers_from_registry",
     "QueryFunction",
     "QueryResults",
-    "SearchColumn",
+    "SearchField",
     "Searcher",
     "SearchExpression",
+    "SearchResult",
     "SearchVariable",
     "Store",
     "translate_filter",

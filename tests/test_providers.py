@@ -39,7 +39,7 @@ class WidgetProvider(EntryProvider):
     def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
         return {"widgets": _widget_definition()}
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         return {"id": "__id", "type": "type", "cogs": "cogs", "tags": "tags"}
 
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
@@ -85,7 +85,23 @@ def test_adapter_id_filter_matches_normalized_id() -> None:
     assert [r.values["id"] for r in results] == ["w-1"]
 
 
-def test_missing_id_or_type_column_rejected() -> None:
+def test_provider_declared_sortable_property_sorts_end_to_end() -> None:
+    """A provider-declared sortable property must build AND actually sort.
+
+    ``adapter_from_providers`` used to build its ``EntrySource`` with no sort
+    mapping at all, so declaring any property sortable raised ValueError from
+    ``BackendAdapter.__post_init__``; the provider's property-key map is now
+    passed through as ``sort_keys``.
+    """
+    adapter = adapter_from_providers([make_provider()], sortable={"widgets": ["id", "cogs"]})
+    assert adapter.sources["widgets"][0].sort_keys["cogs"] == "cogs"
+    ascending = list(execute_query(adapter, ["widgets"], ["id"], [], 100, 0, sort=[("cogs", False)]))
+    assert [r.values["id"] for r in ascending] == ["w-1", "w-2"]
+    descending = list(execute_query(adapter, ["widgets"], ["id"], [], 100, 0, sort=[("cogs", True)]))
+    assert [r.values["id"] for r in descending] == ["w-2", "w-1"]
+
+
+def test_missing_id_or_type_property_key_rejected() -> None:
     class BadProvider(EntryProvider):
         def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
             return {
@@ -96,7 +112,7 @@ def test_missing_id_or_type_column_rejected() -> None:
                 )
             }
 
-        def columns(self, entry_type: str) -> Mapping[str, str]:
+        def property_keys(self, entry_type: str) -> Mapping[str, str]:
             return {"id": "__id"}
 
         def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
@@ -107,7 +123,7 @@ def test_missing_id_or_type_column_rejected() -> None:
     assert "id" in str(excinfo.value) and "type" in str(excinfo.value)
 
 
-def test_column_not_in_definition_rejected() -> None:
+def test_property_key_not_in_definition_rejected() -> None:
     class MismatchProvider(EntryProvider):
         def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
             return {
@@ -121,7 +137,7 @@ def test_column_not_in_definition_rejected() -> None:
                 )
             }
 
-        def columns(self, entry_type: str) -> Mapping[str, str]:
+        def property_keys(self, entry_type: str) -> Mapping[str, str]:
             # 'sprockets' is not described by the definition:
             return {"id": "__id", "type": "type", "sprockets": "sprockets"}
 
@@ -153,7 +169,7 @@ class HttkCalcProvider(EntryProvider):
         energy = PropertyDefinition.from_simple("_httk_total_energy", description="Total energy", fulltype="float")
         return {"calculations": standard_entry_type("calculations").extended({"_httk_total_energy": energy})}
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         return {"id": "__id", "type": "type", "_httk_total_energy": "_httk_total_energy"}
 
     def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
@@ -215,7 +231,7 @@ class LinkedProvider(EntryProvider):
         )
         return {"structures": structures, "references": standard_entry_type("references")}
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         if entry_type == "structures":
             return {"id": "__id", "type": "type", "nelements": "nelements"}
         return {"id": "__id", "type": "type", "title": "title"}
@@ -263,7 +279,7 @@ def test_provider_relationships_served_and_included() -> None:
 
 def test_provider_relationship_filter_auto_registered() -> None:
     # Declared relationships auto-register '<type>.id' filter handlers over the
-    # synthetic __rel_<type> columns: no manual handler wiring, no 501.
+    # synthetic __rel_<type> fields: no manual handler wiring, no 501.
     adapter = adapter_from_providers([LinkedProvider()])
     assert "references.id" in adapter.field_handlers["structures"]
     app = create_asgi_app(adapter, baseurl="http://testserver/")

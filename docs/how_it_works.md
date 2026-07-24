@@ -43,7 +43,8 @@ callback. The standard implementation is provided by `BackendAdapter`:
 - **`Store`/`Searcher` protocols** (`backend/protocols.py`) describe the query
   interface a storage backend must implement (mirroring the httk v1
   `httk.db` searcher API: `variable()`, `add()`, `count()`, set operations
-  like `has_any`, SQL-`like` string matching, and the comparison operators).
+  like `has_any`, literal string matching (`contains`/`startswith`/`endswith`,
+  which carry no pattern syntax), and the comparison operators).
 
 - **`EntrySource`** pairs a queryable target (e.g. a table or type) with a
   mapping from OPTIMADE response fields to row extractors. An entry endpoint
@@ -51,9 +52,9 @@ callback. The standard implementation is provided by `BackendAdapter`:
   offset/limit are redistributed across them.
 
 - **Field handlers** (`backend/handlers.py`) translate filter operations on
-  OPTIMADE properties into search expressions over backend columns. A backend
+  OPTIMADE properties into search expressions over backend fields. A backend
   supplies a handler table per entry type; `simple_property_handlers()` derives
-  one generically from a column map and the entry's property types. When a
+  one generically from a property-key map and the entry's property types. When a
   `BackendAdapter` is given no handlers, it derives them from its schema.
 
 *httk-optimade* is a generic implementation of the OPTIMADE *protocol*: it
@@ -75,18 +76,18 @@ The materials-science mapping lives *outside* *httk-optimade*, behind the neutra
 depends on the other). A provider describes its entry types (as first-class
 `httk.core.EntryTypeDefinition` objects — vendored standards or definitions built
 with `from_optimade`/`from_simple`), states how each served property maps to a
-record column, and yields the records:
+record key, and yields the records:
 
 - `entry_types()` → entry-type name to an `EntryTypeDefinition`;
-- `columns(entry_type)` → served-property to record-column map (at least `id`/`type`;
+- `property_keys(entry_type)` → served-property to record-key map (at least `id`/`type`;
   every served name must be described by the definition);
 - `records(entry_type)` → an iterable of plain JSON-able record dicts.
 
 `adapter_from_providers([...])` (`backend/providers.py`) turns one or more
 providers into a fully wired `BackendAdapter` over an in-memory store: it builds
-the `ServedSchema` from the definitions (validating each column against the
-definition), the filter handlers from the columns, and the response-field
-extractors from the columns, then loads the records.
+the `ServedSchema` from the definitions (validating each served property
+against the definition), the filter handlers from the property keys, and the
+response-field extractors from the property keys, then loads the records.
 
 The materials provider itself lives in *httk-atomistic*
 (`httk.atomistic.structure_entries.StructureEntryProvider`), which serves

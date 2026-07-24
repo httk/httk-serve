@@ -31,7 +31,7 @@ REFERENCE_DEFAULT_OVERRIDES = {
     'references': ['title', 'journal', 'year', 'doi', 'authors'],
 }
 
-REFERENCE_COLUMNS = {
+REFERENCE_KEYS = {
     'doi': 'doi',
     'year': 'year',
     'title': 'title',
@@ -78,7 +78,7 @@ def references_schema() -> ServedSchema:
 def references_adapter(store: FakeStore) -> BackendAdapter:
     schema = references_schema()
     field_handlers = {
-        'references': simple_property_handlers('references', REFERENCE_COLUMNS, schema.entry_info['references'])
+        'references': simple_property_handlers('references', REFERENCE_KEYS, schema.entry_info['references'])
     }
     return BackendAdapter(
         store=store,

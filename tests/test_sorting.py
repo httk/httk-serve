@@ -109,7 +109,7 @@ def _structures_adapter(store: FakeStore) -> BackendAdapter:
                 EntrySource(
                     target="structure-table",
                     fields=STRUCTURE_FIELDS,
-                    sort_columns={"id": "__id", "nelements": "number_of_elements"},
+                    sort_keys={"id": "__id", "nelements": "number_of_elements"},
                 ),
             ),
         },
@@ -135,8 +135,8 @@ def test_sort_across_multiple_sources_501() -> None:
         store=store,
         sources={
             "calculations": (
-                EntrySource(target="aimd-table", fields={}, sort_columns={"id": "__id"}),
-                EntrySource(target="elastic-table", fields={}, sort_columns={"id": "__id"}),
+                EntrySource(target="aimd-table", fields={}, sort_keys={"id": "__id"}),
+                EntrySource(target="elastic-table", fields={}, sort_keys={"id": "__id"}),
             ),
         },
         schema=schema,
@@ -146,7 +146,7 @@ def test_sort_across_multiple_sources_501() -> None:
     assert excinfo.value.response_code == 501
 
 
-def test_missing_sort_column_raises_on_construction() -> None:
+def test_missing_sort_key_raises_on_construction() -> None:
     schema = served_schema(
         {"structures": ["id", "type", "nelements"]},
         sortable={"structures": ["nelements"]},
@@ -183,10 +183,10 @@ def make_sorting_client(n: int = 5) -> TestClient:
                 EntrySource(
                     target="structure-table",
                     fields=STRUCTURE_FIELDS,
-                    sort_columns={"id": "sid", "nelements": "nelements"},
+                    sort_keys={"id": "sid", "nelements": "nelements"},
                 ),
             ),
-            "calculations": (EntrySource(target="calc-table", fields={}, sort_columns={"id": "sid"}),),
+            "calculations": (EntrySource(target="calc-table", fields={}, sort_keys={"id": "sid"}),),
         },
         schema=schema,
     )

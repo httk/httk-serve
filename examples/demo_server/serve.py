@@ -68,9 +68,9 @@ def structure(
     return {
         '__id': sid,
         'formula': formula,
-        # Spec-compliant reduced/anonymous formulas, stored as real backend
-        # columns so filters compare against exactly what the attribute
-        # extractors serve (see STRUCTURE_FIELDS, which read these columns).
+        # Spec-compliant reduced/anonymous formulas, stored under real backend
+        # record keys so filters compare against exactly what the attribute
+        # extractors serve (see STRUCTURE_FIELDS, which read these keys).
         'formula_reduced': _reduced_formula(species_at_sites),
         'formula_anonymous': _anonymous_formula(species_at_sites),
         'formula_symbols': sorted(set(species_at_sites)),
@@ -211,8 +211,8 @@ FILE_FIELDS = {
     'checksums': lambda x: x['checksums'],
 }
 
-# OPTIMADE property -> backend column, for the queryable file properties.
-FILE_COLUMNS = {
+# OPTIMADE property -> backend record key, for the queryable file properties.
+FILE_KEYS = {
     'last_modified': 'last_modified',
     'url': 'url',
     'name': 'name',
@@ -240,8 +240,8 @@ REFERENCE_FIELDS = {
     'authors': lambda x: x['authors'],
 }
 
-# OPTIMADE property -> backend column, for the queryable reference properties.
-REFERENCE_COLUMNS = {
+# OPTIMADE property -> backend record key, for the queryable reference properties.
+REFERENCE_KEYS = {
     'last_modified': 'last_modified',
     'doi': 'doi',
     'year': 'year',
@@ -300,8 +300,8 @@ TRAJECTORY_FIELDS = {
     'cartesian_site_positions': trajectory_positions,
 }
 
-# OPTIMADE property -> backend column, for the queryable trajectory properties.
-TRAJECTORY_COLUMNS = {
+# OPTIMADE property -> backend record key, for the queryable trajectory properties.
+TRAJECTORY_KEYS = {
     'last_modified': 'last_modified',
     'nframes': 'nframes',
 }
@@ -423,18 +423,18 @@ DEFAULT_RESPONSE_OVERRIDES = {
     ],
 }
 
-# OPTIMADE property -> backend column name, for the sortable structure properties.
-STRUCTURE_SORT_COLUMNS = {
+# OPTIMADE property -> backend record key, for the sortable structure properties.
+STRUCTURE_SORT_KEYS = {
     'id': '__id',
     'nelements': 'number_of_elements',
     'chemical_formula_descriptive': 'formula',
 }
 
-# OPTIMADE property -> backend column, for the queryable structure properties.
-# Each column holds exactly the value the corresponding attribute extractor
+# OPTIMADE property -> backend record key, for the queryable structure properties.
+# Each key holds exactly the value the corresponding attribute extractor
 # serves (e.g. the spec-compliant computed reduced/anonymous formulas, the real
 # site count, the modification timestamp), so filters agree with responses.
-STRUCTURE_COLUMNS = {
+STRUCTURE_KEYS = {
     'elements': 'formula_symbols',
     'nelements': 'number_of_elements',
     'chemical_formula_descriptive': 'formula',
@@ -444,8 +444,8 @@ STRUCTURE_COLUMNS = {
     'last_modified': 'last_modified',
 }
 
-# OPTIMADE property -> backend column, for the queryable calculation properties.
-CALCULATION_COLUMNS = {
+# OPTIMADE property -> backend record key, for the queryable calculation properties.
+CALCULATION_KEYS = {
     '_httk_total_energy': 'total_energy',
     '_httk_structure_id': 'structure',
     'last_modified': 'last_modified',
@@ -547,31 +547,27 @@ def make_adapter() -> BackendAdapter:
             'trajectories': TRAJECTORY_PROPERTIES,
         },
         default_response_overrides=DEFAULT_RESPONSE_OVERRIDES,
-        sortable={'structures': list(STRUCTURE_SORT_COLUMNS)},
+        sortable={'structures': list(STRUCTURE_SORT_KEYS)},
     )
-    # Every entry type's filter handlers are derived generically from a column
-    # map with simple_property_handlers (the same path adapter_from_providers
-    # uses); relationship filters are added on top.
+    # Every entry type's filter handlers are derived generically from a
+    # property-key map with simple_property_handlers (the same path
+    # adapter_from_providers uses); relationship filters are added on top.
     field_handlers = {
-        'structures': simple_property_handlers('structures', STRUCTURE_COLUMNS, _fulltypes(schema, 'structures')),
-        'calculations': simple_property_handlers(
-            'calculations', CALCULATION_COLUMNS, _fulltypes(schema, 'calculations')
-        ),
-        'references': simple_property_handlers('references', REFERENCE_COLUMNS, _fulltypes(schema, 'references')),
-        'files': simple_property_handlers('files', FILE_COLUMNS, _fulltypes(schema, 'files')),
-        'trajectories': simple_property_handlers(
-            'trajectories', TRAJECTORY_COLUMNS, _fulltypes(schema, 'trajectories')
-        ),
+        'structures': simple_property_handlers('structures', STRUCTURE_KEYS, _fulltypes(schema, 'structures')),
+        'calculations': simple_property_handlers('calculations', CALCULATION_KEYS, _fulltypes(schema, 'calculations')),
+        'references': simple_property_handlers('references', REFERENCE_KEYS, _fulltypes(schema, 'references')),
+        'files': simple_property_handlers('files', FILE_KEYS, _fulltypes(schema, 'files')),
+        'trajectories': simple_property_handlers('trajectories', TRAJECTORY_KEYS, _fulltypes(schema, 'trajectories')),
     }
     # A relationship filter handler: `references.id HAS "ref-1"` matches over the
-    # structure row's 'references' column (a list of related reference ids).
+    # structure row's 'references' key (a list of related reference ids).
     # Depth-1 relationship-property filters (e.g. `references.doi CONTAINS
     # "10.1234"`) then work automatically through the translation layer's
     # related-property resolver.
     structures_handlers = dict(field_handlers['structures'])
     structures_handlers['references.id'] = relationship_id_handler('references')
     field_handlers['structures'] = structures_handlers
-    # `files.id HAS "file-1"` matches over the calculation row's 'file_ids' column.
+    # `files.id HAS "file-1"` matches over the calculation row's 'file_ids' key.
     calculations_handlers = dict(field_handlers['calculations'])
     calculations_handlers['files.id'] = relationship_id_handler('file_ids')
     field_handlers['calculations'] = calculations_handlers
@@ -582,7 +578,7 @@ def make_adapter() -> BackendAdapter:
                 EntrySource(
                     target='structures',
                     fields=STRUCTURE_FIELDS,
-                    sort_columns=STRUCTURE_SORT_COLUMNS,
+                    sort_keys=STRUCTURE_SORT_KEYS,
                     relationships=structure_relationships,
                 ),
             ),

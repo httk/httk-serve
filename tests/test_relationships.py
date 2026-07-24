@@ -35,7 +35,7 @@ from httk.optimade.model import (
 )
 from httk.optimade.schema.served import ServedSchema
 
-REFERENCE_COLUMNS = {'doi': 'doi', 'title': 'title'}
+REFERENCE_KEYS = {'doi': 'doi', 'title': 'title'}
 
 
 def relationships_schema() -> ServedSchema:
@@ -249,12 +249,12 @@ def test_process_compound_document_includes_references() -> None:
 def _structures_rel_adapter(store: FakeStore) -> BackendAdapter:
     schema = relationships_schema()
     field_handlers = {
-        'references': simple_property_handlers('references', REFERENCE_COLUMNS, schema.entry_info['references']),
+        'references': simple_property_handlers('references', REFERENCE_KEYS, schema.entry_info['references']),
         'structures': simple_property_handlers('structures', {}, schema.entry_info['structures']),
     }
     structures_handlers = dict(field_handlers['structures'])
     structures_handlers['references.id'] = {
-        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
+        'HAS': lambda entry, ops, values, sv, has_type: set_handler('references', ops, values, has_type, sv),
     }
     field_handlers['structures'] = structures_handlers
     return BackendAdapter(
@@ -309,13 +309,13 @@ class AutoLinkedProvider(EntryProvider):
     """Structures related to references purely via declared RelatedEntry tuples.
 
     demo-1 relates to ref-1; demo-2 relates to ref-2 and ref-3; demo-3 has no
-    relationships (exercising the empty synthetic ``__rel_references`` column).
+    relationships (exercising the empty synthetic ``__rel_references`` field).
     """
 
     def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
         return {"structures": _rel_structures_definition(), "references": _rel_references_definition()}
 
-    def columns(self, entry_type: str) -> Mapping[str, str]:
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
         if entry_type == "structures":
             return {"id": "__id", "type": "type", "nelements": "nelements"}
         return {"id": "__id", "type": "type", "title": "title", "doi": "doi", "year": "year", "keywords": "keywords"}
@@ -460,7 +460,7 @@ def test_related_property_per_node_independence() -> None:
 
 
 def test_not_relationship_id_has_matches_relationship_less_entry() -> None:
-    # demo-3 has an empty synthetic __rel_references column on its row, so the
+    # demo-3 has an empty synthetic __rel_references field on its row, so the
     # inverted set membership is well-defined and matches it.
     client = make_auto_client()
     assert _filtered_ids(client, 'NOT (references.id HAS "ref-1")') == ["demo-2", "demo-3"]
