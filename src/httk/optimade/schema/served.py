@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from httk.core import EntryTypeDefinition, PropertyDefinition
-from httk.core.property_definitions import RECOGNIZED_PREFIXES
+from httk.core.property_definitions import known_definition_prefixes
 
 
 def fulltype_of(definition: PropertyDefinition) -> str:
@@ -130,7 +130,7 @@ def build_served_schema(
     *,
     default_response_overrides: Mapping[str, Sequence[str]] | None = None,
     sortable: Mapping[str, Sequence[str]] | None = None,
-    recognized_prefixes: tuple[str, ...] = RECOGNIZED_PREFIXES,
+    recognized_prefixes: tuple[str, ...] | None = None,
 ) -> ServedSchema:
     """Build a :class:`ServedSchema` from entry-type definitions.
 
@@ -141,8 +141,12 @@ def build_served_schema(
     definition (a :class:`ValueError` names any offender). ``id`` and ``type``
     are always default- and required-response; ``default_response_overrides``
     marks additional served properties as default-response, and ``sortable``
-    marks served properties as sortable.
+    marks served properties as sortable. ``recognized_prefixes`` defaults to the
+    prefixes currently registered via :func:`~httk.core.register_definition_prefix`
+    (resolved at call time so newly registered prefixes are honored).
     """
+    if recognized_prefixes is None:
+        recognized_prefixes = known_definition_prefixes()
     entry_info: dict[str, dict[str, Any]] = {}
     property_definitions: dict[str, dict[str, dict[str, Any]]] = {}
     properties_by_entry: dict[str, tuple[str, ...]] = {}

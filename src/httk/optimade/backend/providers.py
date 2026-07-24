@@ -8,7 +8,7 @@ descriptions, columns, and records. It is httk-optimade's only dependency on
 ``httk.core`` beyond the shared runtime.
 """
 
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 from httk.core import EntryProvider, EntryTypeDefinition
 
@@ -21,6 +21,30 @@ from .memory_store import InMemoryStore
 def _column_extractor(column: str) -> Callable[[Any], Any]:
     """A field extractor reading ``column`` from a record mapping."""
     return lambda row: row.get(column)
+
+
+def _relationships_extractor(
+    relationships_by_id: Mapping[str, Mapping[str, tuple[str, ...]]],
+) -> Callable[[Any], dict[str, list[dict[str, Any]]]]:
+    """Build a per-row relationships extractor from a provider's id -> related-ids mapping.
+
+    The returned callable maps a record (looked up by its ``__id`` column) to the
+    :class:`~httk.optimade.backend.adapter.EntrySource` relationships-block shape:
+    ``{related_type: [{'id': related_id}, ...]}`` (empty when the record has no
+    related entries).
+    """
+
+    def extract(row: Any) -> dict[str, list[dict[str, Any]]]:
+        related = relationships_by_id.get(row.get('__id'))
+        if not related:
+            return {}
+        return {
+            related_type: [{'id': related_id} for related_id in related_ids]
+            for related_type, related_ids in related.items()
+            if related_ids
+        }
+
+    return extract
 
 
 def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -> BackendAdapter:
@@ -47,9 +71,13 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     default_overrides: dict[str, list[str]] = {}
     columns_by_entry: dict[str, dict[str, str]] = {}
     records_by_entry: dict[str, list[dict[str, Any]]] = {}
+    relationships_by_entry: dict[str, dict[str, Mapping[str, tuple[str, ...]]]] = {}
 
     for provider in providers:
         for entry_type, definition in provider.entry_types().items():
+            provider_relationships = provider.relationships(entry_type)
+            if provider_relationships:
+                relationships_by_entry.setdefault(entry_type, {}).update(provider_relationships)
             columns = dict(provider.columns(entry_type))
             if 'id' not in columns or 'type' not in columns:
                 raise ValueError(
@@ -104,7 +132,9 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
         filter_columns = {name: column for name, column in columns.items() if name not in ('id', 'type')}
         field_handlers[entry_type] = simple_property_handlers(entry_type, filter_columns, schema.entry_info[entry_type])
         fields: dict[str, Callable[[Any], Any]] = {name: _column_extractor(column) for name, column in columns.items()}
-        sources[entry_type] = (EntrySource(target=entry_type, fields=fields),)
+        entry_relationships = relationships_by_entry.get(entry_type)
+        relationships = _relationships_extractor(entry_relationships) if entry_relationships else None
+        sources[entry_type] = (EntrySource(target=entry_type, fields=fields, relationships=relationships),)
         tables[entry_type] = records_by_entry[entry_type]
 
     return BackendAdapter(

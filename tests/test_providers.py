@@ -196,3 +196,67 @@ def test_asgi_end_to_end_over_provider() -> None:
     payload = response.json()
     assert {d["id"] for d in payload["data"]} == {"w-2"}
     assert payload["data"][0]["attributes"]["tags"] == ["blue"]
+
+
+class LinkedProvider(EntryProvider):
+    """A provider serving ``structures`` linked to ``references`` via the relationships hook."""
+
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        from httk.core import standard_entry_type
+
+        structures = EntryTypeDefinition(
+            "structures",
+            "Structures.",
+            {
+                "id": PropertyDefinition.from_simple("id", description="id", required_response=True),
+                "type": PropertyDefinition.from_simple("type", description="type", required_response=True),
+                "nelements": PropertyDefinition.from_simple("nelements", description="n", fulltype="integer"),
+            },
+        )
+        return {"structures": structures, "references": standard_entry_type("references")}
+
+    def columns(self, entry_type: str) -> Mapping[str, str]:
+        if entry_type == "structures":
+            return {"id": "__id", "type": "type", "nelements": "nelements"}
+        return {"id": "__id", "type": "type", "title": "title"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        if entry_type == "structures":
+            return [{"__id": "s-1", "type": "structures", "nelements": 2}]
+        return [
+            {"__id": "ref-1", "type": "references", "title": "A study"},
+            {"__id": "ref-2", "type": "references", "title": "Another study"},
+        ]
+
+    def relationships(self, entry_type: str) -> Mapping[str, Mapping[str, tuple[str, ...]]]:
+        if entry_type == "structures":
+            return {"s-1": {"references": ("ref-1",)}}
+        return {}
+
+
+def test_provider_relationships_served_and_included() -> None:
+    adapter = adapter_from_providers([LinkedProvider()])
+    # The structures source carries a relationships extractor; references does not.
+    assert adapter.sources["structures"][0].relationships is not None
+    assert adapter.sources["references"][0].relationships is None
+
+    app = create_asgi_app(adapter, baseurl="http://testserver/")
+    client = TestClient(app, base_url="http://testserver")
+    response = client.get("/structures/s-1", params={"include": "references"})
+    assert response.status_code == 200
+    payload = response.json()
+    rels = payload["data"]["relationships"]["references"]["data"]
+    assert rels[0] == {"type": "references", "id": "ref-1"}
+    included = payload["included"]
+    assert [obj["id"] for obj in included] == ["ref-1"]
+    assert included[0]["type"] == "references"
+
+
+def test_absent_relationships_hook_unchanged() -> None:
+    # A provider that does not override relationships yields no relationships block.
+    adapter = adapter_from_providers([make_provider()])
+    assert adapter.sources["widgets"][0].relationships is None
+    app = create_asgi_app(adapter, baseurl="http://testserver/")
+    client = TestClient(app, base_url="http://testserver")
+    payload = client.get("/widgets/w-1").json()
+    assert not payload["data"].get("relationships")

@@ -117,6 +117,58 @@ results = execute_query(
 print([r.values["id"] for r in results])  # ['w-1']
 ```
 
+## Relationships and `include`
+
+A provider can declare related entries by overriding the optional
+`EntryProvider.relationships(entry_type)` hook, which maps each entry id to the
+related entry types and their ids. `adapter_from_providers` wires that into the
+served OPTIMADE **relationships** block automatically, so an
+`include=<type>` request embeds the related resources (resolved from whichever
+provider serves that related type). A provider that does not override the hook is
+unaffected — no relationships block is emitted.
+
+```python
+from collections.abc import Iterable, Mapping
+from typing import Any
+
+from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition, standard_entry_type
+from httk.optimade import adapter_from_providers
+from httk.optimade.backend import execute_query
+
+
+class LinkedProvider(EntryProvider):
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        structures = EntryTypeDefinition(
+            "structures",
+            "Structures.",
+            {
+                "id": PropertyDefinition.from_simple("id", description="id", required_response=True),
+                "type": PropertyDefinition.from_simple("type", description="type", required_response=True),
+            },
+        )
+        return {"structures": structures, "references": standard_entry_type("references")}
+
+    def columns(self, entry_type: str) -> Mapping[str, str]:
+        if entry_type == "structures":
+            return {"id": "__id", "type": "type"}
+        return {"id": "__id", "type": "type", "title": "title"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        if entry_type == "structures":
+            return [{"__id": "s-1", "type": "structures"}]
+        return [{"__id": "ref-1", "type": "references", "title": "A study"}]
+
+    def relationships(self, entry_type: str) -> Mapping[str, Mapping[str, tuple[str, ...]]]:
+        if entry_type == "structures":
+            return {"s-1": {"references": ("ref-1",)}}
+        return {}
+
+
+adapter = adapter_from_providers([LinkedProvider()])
+(row,) = list(execute_query(adapter, ["structures"], ["id", "type"], [], 100, 0))
+assert row.relationships == {"references": [{"id": "ref-1"}]}
+```
+
 ## Discover registered providers
 
 Provider packages can self-register a factory under `httk.handlers.*` via
