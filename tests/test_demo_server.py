@@ -61,6 +61,20 @@ def test_last_modified_comparison_filters_without_501() -> None:
     assert {"demo-1", "demo-2", "demo-4"} <= set(ids)
 
 
+def test_relationship_property_filter_on_references() -> None:
+    # Depth-1 relationship-property filtering over the demo's declared
+    # structure -> reference relationships, via the auto related-property
+    # resolver (no hand-wired handler beyond 'references.id').
+    assert structure_ids('references.doi ENDS WITH "2019.7"') == ["demo-3"]
+    assert structure_ids('references.doi CONTAINS "10.1234"') == ["demo-1", "demo-3"]
+
+
+def test_elements_has_filter_matches() -> None:
+    # The demo's own advertised example filter; regression for the handler
+    # tables being built from real property fulltypes (list -> HAS handler).
+    assert structure_ids('elements HAS "Ga"') == ["demo-1", "demo-4"]
+
+
 def test_last_modified_filter_available_on_all_entry_types() -> None:
     # A last_modified handler must exist for every entry type (no 501).
     adapter = serve.make_adapter()

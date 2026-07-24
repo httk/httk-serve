@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Protocol, Sequence
 
-from ..filter.parser import FilterAst
+from httk.core import FilterAst
 
 
 @dataclass(slots=True)

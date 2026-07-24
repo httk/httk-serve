@@ -15,6 +15,7 @@ from math import gcd
 from typing import Any
 
 from httk.core import EntryTypeDefinition, PropertyDefinition, standard_entry_type
+from httk.data.optimade_query import relationship_id_handler
 
 from httk.optimade import (
     BackendAdapter,
@@ -24,9 +25,9 @@ from httk.optimade import (
     serve,
 )
 from httk.optimade.backend import simple_property_handlers
-from httk.optimade.backend.handlers import set_handler
 from httk.optimade.backend.partial import PartialDimension, PartialValue
 from httk.optimade.schema.served import (
+    ServedSchema,
     build_served_schema,
     entry_type_definition_from_simple,
 )
@@ -511,6 +512,11 @@ def _calculations_definition() -> EntryTypeDefinition:
     )
 
 
+def _fulltypes(schema: ServedSchema, entry_type: str) -> dict[str, str]:
+    """The property-name -> fulltype mapping simple_property_handlers consumes."""
+    return {name: prop['fulltype'] for name, prop in schema.entry_info[entry_type]['properties'].items()}
+
+
 def make_adapter() -> BackendAdapter:
     store = InMemoryStore(
         {
@@ -547,26 +553,27 @@ def make_adapter() -> BackendAdapter:
     # map with simple_property_handlers (the same path adapter_from_providers
     # uses); relationship filters are added on top.
     field_handlers = {
-        'structures': simple_property_handlers('structures', STRUCTURE_COLUMNS, schema.entry_info['structures']),
+        'structures': simple_property_handlers('structures', STRUCTURE_COLUMNS, _fulltypes(schema, 'structures')),
         'calculations': simple_property_handlers(
-            'calculations', CALCULATION_COLUMNS, schema.entry_info['calculations']
+            'calculations', CALCULATION_COLUMNS, _fulltypes(schema, 'calculations')
         ),
-        'references': simple_property_handlers('references', REFERENCE_COLUMNS, schema.entry_info['references']),
-        'files': simple_property_handlers('files', FILE_COLUMNS, schema.entry_info['files']),
-        'trajectories': simple_property_handlers('trajectories', TRAJECTORY_COLUMNS, schema.entry_info['trajectories']),
+        'references': simple_property_handlers('references', REFERENCE_COLUMNS, _fulltypes(schema, 'references')),
+        'files': simple_property_handlers('files', FILE_COLUMNS, _fulltypes(schema, 'files')),
+        'trajectories': simple_property_handlers(
+            'trajectories', TRAJECTORY_COLUMNS, _fulltypes(schema, 'trajectories')
+        ),
     }
     # A relationship filter handler: `references.id HAS "ref-1"` matches over the
     # structure row's 'references' column (a list of related reference ids).
+    # Depth-1 relationship-property filters (e.g. `references.doi CONTAINS
+    # "10.1234"`) then work automatically through the translation layer's
+    # related-property resolver.
     structures_handlers = dict(field_handlers['structures'])
-    structures_handlers['references.id'] = {
-        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
-    }
+    structures_handlers['references.id'] = relationship_id_handler('references')
     field_handlers['structures'] = structures_handlers
     # `files.id HAS "file-1"` matches over the calculation row's 'file_ids' column.
     calculations_handlers = dict(field_handlers['calculations'])
-    calculations_handlers['files.id'] = {
-        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('file_ids', ops, values, inv, has_type, sv),
-    }
+    calculations_handlers['files.id'] = relationship_id_handler('file_ids')
     field_handlers['calculations'] = calculations_handlers
     return BackendAdapter(
         store=store,

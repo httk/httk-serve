@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Sequence
 
+from httk.core import FilterAst
+from httk.data.optimade_query import HandlerTable
 from httk.data.query import Store
 
-from ..filter.parser import FilterAst
 from ..model.results import QueryFunction, QueryResults
 from ..schema.served import ServedSchema
-from .handlers import HandlerTable
 
 type FieldExtractor = Callable[[Any], Any]
 
@@ -43,7 +43,7 @@ class BackendAdapter:
     ``schema`` is required: it declares the served entry types and properties.
     ``field_handlers`` maps each entry type to its filter-handler table. When
     omitted (left empty) it is derived from ``schema`` via
-    :func:`~httk.optimade.backend.handlers.simple_property_handlers`, using an
+    :func:`~httk.data.optimade_query.simple_property_handlers`, using an
     identity column map (each property is filtered against a backend column of
     the same name); a backend whose columns differ, or that wants finer control,
     supplies its own tables instead.
@@ -56,13 +56,14 @@ class BackendAdapter:
 
     def __post_init__(self) -> None:
         if not self.field_handlers:
-            from .handlers import simple_property_handlers
+            from httk.data.optimade_query import simple_property_handlers
 
             derived: dict[str, HandlerTable] = {}
             for entry in self.schema.all_entries:
-                entry_info = self.schema.entry_info[entry]
-                columns = {name: name for name in entry_info['properties'] if name not in ('id', 'type')}
-                derived[entry] = simple_property_handlers(entry, columns, entry_info)
+                properties = self.schema.entry_info[entry]['properties']
+                columns = {name: name for name in properties if name not in ('id', 'type')}
+                property_fulltypes = {name: prop.get('fulltype', 'string') for name, prop in properties.items()}
+                derived[entry] = simple_property_handlers(entry, columns, property_fulltypes)
             object.__setattr__(self, 'field_handlers', derived)
 
         # Every property declared sortable for an entry type must have a

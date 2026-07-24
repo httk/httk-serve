@@ -9,7 +9,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 import pytest
-from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition
+from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition, RelatedEntry
 from starlette.testclient import TestClient
 
 from httk.optimade import adapter_from_providers, create_asgi_app
@@ -228,9 +228,13 @@ class LinkedProvider(EntryProvider):
             {"__id": "ref-2", "type": "references", "title": "Another study"},
         ]
 
-    def relationships(self, entry_type: str) -> Mapping[str, Mapping[str, tuple[str, ...]]]:
+    def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
         if entry_type == "structures":
-            return {"s-1": {"references": ("ref-1",)}}
+            return {
+                "s-1": (
+                    RelatedEntry("references", "ref-1", description="Cited for this structure", role="citation"),
+                )
+            }
         return {}
 
 
@@ -246,10 +250,44 @@ def test_provider_relationships_served_and_included() -> None:
     assert response.status_code == 200
     payload = response.json()
     rels = payload["data"]["relationships"]["references"]["data"]
-    assert rels[0] == {"type": "references", "id": "ref-1"}
+    # The RelatedEntry metadata flows end to end into the JSON:API meta object:
+    assert rels[0] == {
+        "type": "references",
+        "id": "ref-1",
+        "meta": {"description": "Cited for this structure", "role": "citation"},
+    }
     included = payload["included"]
     assert [obj["id"] for obj in included] == ["ref-1"]
     assert included[0]["type"] == "references"
+
+
+def test_provider_relationship_filter_auto_registered() -> None:
+    # Declared relationships auto-register '<type>.id' filter handlers over the
+    # synthetic __rel_<type> columns: no manual handler wiring, no 501.
+    adapter = adapter_from_providers([LinkedProvider()])
+    assert "references.id" in adapter.field_handlers["structures"]
+    app = create_asgi_app(adapter, baseurl="http://testserver/")
+    client = TestClient(app, base_url="http://testserver")
+    response = client.get("/structures", params={"filter": 'references.id HAS "ref-1"'})
+    assert response.status_code == 200
+    assert [entry["id"] for entry in response.json()["data"]] == ["s-1"]
+    response = client.get("/structures", params={"filter": 'references.id HAS "ref-2"'})
+    assert response.status_code == 200
+    assert response.json()["data"] == []
+
+
+def test_provider_relationships_without_meta_have_no_meta_object() -> None:
+    class BareLinkedProvider(LinkedProvider):
+        def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
+            if entry_type == "structures":
+                return {"s-1": (RelatedEntry("references", "ref-1"),)}
+            return {}
+
+    adapter = adapter_from_providers([BareLinkedProvider()])
+    app = create_asgi_app(adapter, baseurl="http://testserver/")
+    client = TestClient(app, base_url="http://testserver")
+    payload = client.get("/structures/s-1").json()
+    assert payload["data"]["relationships"]["references"]["data"] == [{"type": "references", "id": "ref-1"}]
 
 
 def test_absent_relationships_hook_unchanged() -> None:

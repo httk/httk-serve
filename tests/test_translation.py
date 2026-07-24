@@ -214,11 +214,35 @@ def test_list_typed_property_scalar_comparison_is_rejected() -> None:
     assert excinfo.value.response_code == 400
 
 
+@pytest.mark.parametrize(
+    "filter_string,response_code,response_msg",
+    [
+        # One filter per httk.data.optimade_query FilterTranslationError
+        # category, locking the category -> HTTP status mapping:
+        # unrecognized-property (a recognized-prefix property that does not exist)
+        ('_httk_bananas = 3', 400, "Bad request"),
+        # type-mismatch (string constant against an integer property)
+        ('nelements = "three"', 400, "Bad request"),
+        # not-implemented (identifier vs. identifier comparison)
+        ('nelements = nsites', 501, "Not implemented"),
+        # internal (bare HAS with a non-equal operator is not a translatable node)
+        ('elements HAS < 3', 500, "Internal server error."),
+    ],
+)
+def test_translation_error_categories_map_to_http_statuses(
+    filter_string: str, response_code: int, response_msg: str
+) -> None:
+    with pytest.raises(TranslatorError) as excinfo:
+        translate_one(filter_string)
+    assert excinfo.value.response_code == response_code
+    assert excinfo.value.response_msg == response_msg
+
+
 def test_simple_property_handlers_timestamp_generates_comparison() -> None:
     from httk.optimade.backend.handlers import simple_property_handlers
 
-    entry_info = {'properties': {'last_modified': {'fulltype': 'timestamp'}}}
-    handlers = simple_property_handlers('files', {'last_modified': 'last_modified'}, entry_info)  # type: ignore[arg-type]
+    property_fulltypes = {'last_modified': 'timestamp'}
+    handlers = simple_property_handlers('files', {'last_modified': 'last_modified'}, property_fulltypes)
     table = handlers['last_modified']
     assert 'comparison' in table
     assert 'unknown' in table

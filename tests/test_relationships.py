@@ -1,9 +1,15 @@
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Mapping
 from typing import Any, Iterator
 
 import pytest
 from definition_fixtures import served_schema
 from fake_backend import FakeStore
+from httk.core import (
+    EntryProvider,
+    EntryTypeDefinition,
+    PropertyDefinition,
+    RelatedEntry,
+)
 from starlette.testclient import TestClient
 
 from httk.optimade import (
@@ -11,6 +17,7 @@ from httk.optimade import (
     EntrySource,
     OptimadeError,
     RawRequest,
+    adapter_from_providers,
     create_asgi_app,
 )
 from httk.optimade.backend import simple_property_handlers, translate_filter
@@ -23,7 +30,6 @@ from httk.optimade.filter import parse_optimade_filter
 from httk.optimade.model import (
     OptimadeConfig,
     ResultRow,
-    TranslatorError,
     ValidatedParameters,
     ValidatedRequest,
 )
@@ -237,7 +243,7 @@ def test_process_compound_document_includes_references() -> None:
     assert payload["included"][0]["id"] == "ref-1"
 
 
-# --- relationship filtering ---------------------------------------------------
+# --- relationship filtering (hand-wired mechanism regression) -----------------
 
 
 def _structures_rel_adapter(store: FakeStore) -> BackendAdapter:
@@ -269,97 +275,217 @@ def test_relationship_id_has_produces_set_handler_tree() -> None:
     assert searcher.expressions[0].tree == ("has_any", ("column", "references"), ("ref-1",))  # type: ignore[attr-defined]
 
 
-def test_relationship_target_filter_501() -> None:
-    adapter = _structures_rel_adapter(FakeStore(rows_by_target={"structure-table": []}))
-    with pytest.raises(TranslatorError) as excinfo:
-        translate_filter(parse_optimade_filter('references.target.doi = "10.1/x"'), ["structures"], adapter)
-    assert excinfo.value.response_code == 501
+# --- ASGI end to end (auto path: adapter_from_providers + RelatedEntry) -------
 
 
-# --- ASGI end to end ----------------------------------------------------------
-
-
-@dataclass
-class StructRow:
-    sid: str
-    references: list[str] = field(default_factory=list)
-
-
-@dataclass
-class RefRow:
-    sid: str
-    title: str
-
-
-STRUCT_FIELDS: dict[str, Any] = {
-    "type": lambda x: "structures",
-    "id": lambda x: x.sid,
-    "nelements": lambda x: 2,
-}
-
-REF_FIELDS: dict[str, Any] = {
-    "type": lambda x: "references",
-    "id": lambda x: x.sid,
-    "title": lambda x: x.title,
-    "doi": lambda x: "10.1/" + x.sid,
-}
-
-
-def _structure_relationships(row: StructRow) -> dict[str, list[dict[str, Any]]]:
-    if not row.references:
-        return {}
-    return {"references": [{"id": r, "description": "Reference for this structure"} for r in row.references]}
-
-
-def make_relationships_client() -> TestClient:
-    store = FakeStore(
-        rows_by_target={
-            "structure-table": [StructRow(sid="demo-1", references=["ref-1"])],
-            "reference-table": [RefRow(sid="ref-1", title="T"), RefRow(sid="ref-2", title="U")],
-        }
-    )
-    schema = relationships_schema()
-    field_handlers = {
-        'references': simple_property_handlers('references', REFERENCE_COLUMNS, schema.entry_info['references']),
-        'structures': simple_property_handlers('structures', {}, schema.entry_info['structures']),
-    }
-    structures_handlers = dict(field_handlers['structures'])
-    structures_handlers['references.id'] = {
-        'HAS': lambda entry, ops, values, sv, has_type, inv: set_handler('references', ops, values, inv, has_type, sv),
-    }
-    field_handlers['structures'] = structures_handlers
-    adapter = BackendAdapter(
-        store=store,
-        sources={
-            "structures": (
-                EntrySource(target="structure-table", fields=STRUCT_FIELDS, relationships=_structure_relationships),
-            ),
-            "references": (EntrySource(target="reference-table", fields=REF_FIELDS),),
+def _rel_structures_definition() -> EntryTypeDefinition:
+    return EntryTypeDefinition(
+        "structures",
+        "A structures entry.",
+        {
+            "id": PropertyDefinition.from_simple("id", description="id", required_response=True),
+            "type": PropertyDefinition.from_simple("type", description="type", required_response=True),
+            "nelements": PropertyDefinition.from_simple("nelements", description="n", fulltype="integer"),
         },
-        field_handlers=field_handlers,
-        schema=schema,
     )
+
+
+def _rel_references_definition() -> EntryTypeDefinition:
+    return EntryTypeDefinition(
+        "references",
+        "A references entry.",
+        {
+            "id": PropertyDefinition.from_simple("id", description="id", required_response=True),
+            "type": PropertyDefinition.from_simple("type", description="type", required_response=True),
+            "title": PropertyDefinition.from_simple("title", description="Title."),
+            "doi": PropertyDefinition.from_simple("doi", description="DOI."),
+            "year": PropertyDefinition.from_simple("year", description="Year.", fulltype="integer"),
+            "keywords": PropertyDefinition.from_simple("keywords", description="Keywords.", fulltype="list of string"),
+        },
+    )
+
+
+class AutoLinkedProvider(EntryProvider):
+    """Structures related to references purely via declared RelatedEntry tuples.
+
+    demo-1 relates to ref-1; demo-2 relates to ref-2 and ref-3; demo-3 has no
+    relationships (exercising the empty synthetic ``__rel_references`` column).
+    """
+
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        return {"structures": _rel_structures_definition(), "references": _rel_references_definition()}
+
+    def columns(self, entry_type: str) -> Mapping[str, str]:
+        if entry_type == "structures":
+            return {"id": "__id", "type": "type", "nelements": "nelements"}
+        return {"id": "__id", "type": "type", "title": "title", "doi": "doi", "year": "year", "keywords": "keywords"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        if entry_type == "structures":
+            return [
+                {"__id": "demo-1", "type": "structures", "nelements": 2},
+                {"__id": "demo-2", "type": "structures", "nelements": 3},
+                {"__id": "demo-3", "type": "structures", "nelements": 1},
+            ]
+        return [
+            {
+                "__id": "ref-1",
+                "type": "references",
+                "title": "T",
+                "doi": "10.1/a",
+                "year": 2021,
+                "keywords": ["alpha", "shared"],
+            },
+            {"__id": "ref-2", "type": "references", "title": "U", "doi": "10.9/b", "year": 1999, "keywords": ["beta"]},
+            {"__id": "ref-3", "type": "references", "title": "V", "doi": "10.1/c", "year": 2005, "keywords": []},
+        ]
+
+    def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
+        if entry_type == "structures":
+            return {
+                "demo-1": (RelatedEntry("references", "ref-1", description="Reference for this structure"),),
+                "demo-2": (RelatedEntry("references", "ref-2"), RelatedEntry("references", "ref-3")),
+            }
+        return {}
+
+
+def make_auto_client() -> TestClient:
+    adapter = adapter_from_providers([AutoLinkedProvider()])
     app = create_asgi_app(adapter, baseurl="http://testserver/")
     return TestClient(app, base_url="http://testserver")
 
 
-def test_asgi_single_structure_include_references() -> None:
-    client = make_relationships_client()
+def _filtered_ids(client: TestClient, filter_string: str) -> list[str]:
+    response = client.get("/structures", params={"filter": filter_string})
+    assert response.status_code == 200
+    return [entry["id"] for entry in response.json()["data"]]
+
+
+def test_asgi_auto_relationships_block_with_meta() -> None:
+    client = make_auto_client()
+    response = client.get("/structures/demo-1")
+    assert response.status_code == 200
+    rels = response.json()["data"]["relationships"]["references"]["data"]
+    assert rels == [
+        {"type": "references", "id": "ref-1", "meta": {"description": "Reference for this structure"}},
+    ]
+
+
+def test_asgi_auto_include_references_compound_document() -> None:
+    client = make_auto_client()
     response = client.get("/structures/demo-1", params={"include": "references"})
     assert response.status_code == 200
     payload = response.json()
     rels = payload["data"]["relationships"]["references"]["data"]
     assert rels[0]["id"] == "ref-1"
     assert rels[0]["meta"]["description"] == "Reference for this structure"
+    assert [obj["id"] for obj in payload["included"]] == ["ref-1"]
     assert payload["included"][0]["type"] == "references"
-    assert payload["included"][0]["id"] == "ref-1"
+    assert payload["included"][0]["attributes"]["title"] == "T"
 
 
 def test_asgi_include_bogus_400() -> None:
-    client = make_relationships_client()
+    client = make_auto_client()
     response = client.get("/structures/demo-1", params={"include": "bogus"})
     assert response.status_code == 400
     assert response.json()["errors"][0]["status"] == 400
+
+
+def test_asgi_auto_relationship_id_has_filters_without_hand_wiring() -> None:
+    client = make_auto_client()
+    assert _filtered_ids(client, 'references.id HAS "ref-1"') == ["demo-1"]
+    assert _filtered_ids(client, 'references.id HAS "ref-3"') == ["demo-2"]
+
+
+# --- relationship-property filtering (two-phase semi-join) ---------------------
+
+
+def test_related_property_stringmatching_matches() -> None:
+    client = make_auto_client()
+    assert _filtered_ids(client, 'references.doi CONTAINS "10.1"') == ["demo-1", "demo-2"]
+    assert _filtered_ids(client, 'references.doi STARTS WITH "10.9"') == ["demo-2"]
+
+
+def test_related_property_numeric_comparison_matches() -> None:
+    client = make_auto_client()
+    assert _filtered_ids(client, "references.year >= 2000") == ["demo-1", "demo-2"]
+    assert _filtered_ids(client, "references.year < 2000") == ["demo-2"]
+
+
+def test_related_property_is_known_matches() -> None:
+    client = make_auto_client()
+    # Every reference has a doi; entries WITH some related reference match,
+    # the relationship-less demo-3 does not.
+    assert _filtered_ids(client, "references.doi IS KNOWN") == ["demo-1", "demo-2"]
+
+
+def test_related_property_has_on_list_matches() -> None:
+    client = make_auto_client()
+    assert _filtered_ids(client, 'references.keywords HAS "alpha"') == ["demo-1"]
+    assert _filtered_ids(client, 'references.keywords HAS "beta"') == ["demo-2"]
+
+
+def test_related_id_non_has_comparison_matches() -> None:
+    # Non-HAS filtering on <type>.id routes through the semi-join uniformly.
+    client = make_auto_client()
+    assert _filtered_ids(client, 'references.id != "ref-1"') == ["demo-2"]
+    assert _filtered_ids(client, 'references.id = "ref-1"') == ["demo-1"]
+
+
+def test_related_property_not_composition() -> None:
+    # NOT over the semi-join: entries where NO related reference's doi contains
+    # "10.1" — including the relationship-less demo-3.
+    client = make_auto_client()
+    assert _filtered_ids(client, 'NOT (references.doi CONTAINS "10.1")') == ["demo-3"]
+
+
+def test_related_property_empty_match_and_complement() -> None:
+    client = make_auto_client()
+    # No reference matches: the semi-join yields a constant-false expression.
+    assert _filtered_ids(client, 'references.doi CONTAINS "nomatch"') == []
+    # Its complement is ALL entries, including the relationship-less demo-3.
+    assert _filtered_ids(client, 'NOT (references.doi CONTAINS "nomatch")') == ["demo-1", "demo-2", "demo-3"]
+
+
+def test_related_property_per_node_independence() -> None:
+    # Documented semantics: each dotted node is resolved independently. demo-2's
+    # ref-2 matches only the doi conjunct and its ref-3 matches only the year
+    # conjunct, yet demo-2 matches the conjunction (some related reference per
+    # conjunct, not one reference matching both).
+    client = make_auto_client()
+    assert _filtered_ids(client, 'references.doi CONTAINS "10.9" AND references.year >= 2000') == ["demo-2"]
+    # Sanity: no single reference matches both conjuncts.
+    assert _filtered_ids(client, 'references.doi CONTAINS "10.9"') == ["demo-2"]
+    assert _filtered_ids(client, "references.year >= 2000") == ["demo-1", "demo-2"]
+
+
+def test_not_relationship_id_has_matches_relationship_less_entry() -> None:
+    # demo-3 has an empty synthetic __rel_references column on its row, so the
+    # inverted set membership is well-defined and matches it.
+    client = make_auto_client()
+    assert _filtered_ids(client, 'NOT (references.id HAS "ref-1")') == ["demo-2", "demo-3"]
+
+
+# --- remaining 501 floor -------------------------------------------------------
+
+
+def _assert_filter_501(filter_string: str) -> None:
+    client = make_auto_client()
+    response = client.get("/structures", params={"filter": filter_string})
+    assert response.status_code == 501
+    assert response.json()["errors"][0]["status"] == 501
+
+
+def test_nested_relationship_path_501() -> None:
+    _assert_filter_501("references.structures.x = 1")
+
+
+def test_dotted_length_501() -> None:
+    _assert_filter_501("references.keywords LENGTH 2")
+
+
+def test_relationship_id_has_non_equal_op_501() -> None:
+    _assert_filter_501('references.id HAS ALL > "ref-1", > "ref-2"')
 
 
 def test_resolver_passes_baseurl_for_partial_values() -> None:

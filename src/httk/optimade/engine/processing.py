@@ -4,6 +4,8 @@ import logging
 from pprint import pformat
 from typing import Any, Callable
 
+from httk.core import FilterAst, ParserSyntaxError, parse_optimade_filter
+
 from ..endpoints.entries import (
     _resource_object,
     generate_entry_endpoint_reply,
@@ -17,7 +19,6 @@ from ..endpoints.info import (
     generate_versions_endpoint_reply,
 )
 from ..endpoints.partial_data import generate_partial_data_reply
-from ..filter.parser import FilterAst, ParserSyntaxError, parse_optimade_filter
 from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError, TranslatorError
 from ..model.request import EndpointResponse, RawRequest

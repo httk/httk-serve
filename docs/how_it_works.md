@@ -115,7 +115,13 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
   them,
 - sorting of entry listings (the `sort` query parameter),
 - relationships between entries and the `include` query parameter (compound
-  documents with a top-level `included` field),
+  documents with a top-level `included` field), with per-identifier
+  relationship `meta` (`description` and the v1.3 `role`),
+- filtering on relationships: `<type>.id HAS ...` and depth-1
+  relationship-property filters such as `references.doi CONTAINS "10.1"`
+  (resolved by a two-phase semi-join over the related entry type; each dotted
+  filter node is resolved independently, matching the reference
+  implementation's semantics),
 - the `references`, `files`, and `trajectories` entry types,
 - per-property metadata (`meta.property_metadata` and the
   `x-optimade-metadata-definition` in property definitions),
@@ -126,9 +132,11 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
   response fields via `OptimadeConfig`.
 
 Optional parts of the specification that are not implemented: cross-source sort
-merging, filtering on relationship `.target.*`/`.description`/`.role`
-properties, the sparse JSON Lines layout, index meta-databases, transaction
-mechanisms, and rejection of unrecognized query parameters.
+merging, filtering on relationship paths nested deeper than one level
+(`references.structures.x`), on relationship `meta`
+(`.description`/`.role`), and dotted `LENGTH` filters, the sparse JSON Lines
+layout, index meta-databases, transaction mechanisms, and rejection of
+unrecognized query parameters.
 
 ## Serving additional entry types
 

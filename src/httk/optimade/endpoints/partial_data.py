@@ -11,8 +11,9 @@ import json
 from typing import Any
 from urllib.parse import quote
 
+from httk.core import FilterAst
+
 from ..backend.partial import PartialValue
-from ..filter.parser import FilterAst
 from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError
 from ..model.request import EndpointResponse, ValidatedRequest

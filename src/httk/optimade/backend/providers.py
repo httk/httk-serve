@@ -10,11 +10,15 @@ descriptions, columns, and records. It is httk-optimade's only dependency on
 
 from typing import Any, Callable, Iterable, Mapping
 
-from httk.core import EntryProvider, EntryTypeDefinition
+from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry
+from httk.data.optimade_query import (
+    HandlerTable,
+    relationship_id_handler,
+    simple_property_handlers,
+)
 
 from ..schema.served import build_served_schema
 from .adapter import BackendAdapter, EntrySource
-from .handlers import HandlerTable, simple_property_handlers
 from .memory_store import InMemoryStore
 
 
@@ -24,25 +28,31 @@ def _column_extractor(column: str) -> Callable[[Any], Any]:
 
 
 def _relationships_extractor(
-    relationships_by_id: Mapping[str, Mapping[str, tuple[str, ...]]],
+    relationships_by_id: Mapping[str, tuple[RelatedEntry, ...]],
 ) -> Callable[[Any], dict[str, list[dict[str, Any]]]]:
-    """Build a per-row relationships extractor from a provider's id -> related-ids mapping.
+    """Build a per-row relationships extractor from a provider's id -> related-entries mapping.
 
     The returned callable maps a record (looked up by its ``__id`` column) to the
     :class:`~httk.optimade.backend.adapter.EntrySource` relationships-block shape:
-    ``{related_type: [{'id': related_id}, ...]}`` (empty when the record has no
-    related entries).
+    the flat :class:`~httk.core.RelatedEntry` tuple is grouped by related entry
+    type into ``{related_type: [{'id': ..., 'description'?: ..., 'role'?: ...},
+    ...]}`` (empty when the record has no related entries), passing the
+    per-identifier metadata through to the rendered ``meta`` object.
     """
 
     def extract(row: Any) -> dict[str, list[dict[str, Any]]]:
         related = relationships_by_id.get(row.get('__id'))
         if not related:
             return {}
-        return {
-            related_type: [{'id': related_id} for related_id in related_ids]
-            for related_type, related_ids in related.items()
-            if related_ids
-        }
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for entry in related:
+            identifier: dict[str, Any] = {'id': entry.id}
+            if entry.description:
+                identifier['description'] = entry.description
+            if entry.role:
+                identifier['role'] = entry.role
+            grouped.setdefault(entry.entry_type, []).append(identifier)
+        return grouped
 
     return extract
 
@@ -54,7 +64,7 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     entry types (described by their :class:`~httk.core.EntryTypeDefinition`), its
     :meth:`~httk.core.EntryProvider.columns` name the served subset and drive
     both the filter handlers (via
-    :func:`~httk.optimade.backend.handlers.simple_property_handlers`) and the
+    :func:`~httk.data.optimade_query.simple_property_handlers`) and the
     response-field extractors, and its
     :meth:`~httk.core.EntryProvider.records` are loaded into an
     :class:`~httk.optimade.backend.memory_store.InMemoryStore`. Every served
@@ -65,19 +75,39 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     ``id``/``type`` are marked default-response. Extra keyword ``options`` (e.g.
     ``sortable``, ``recognized_prefixes``) are forwarded to
     :func:`~httk.optimade.schema.served.build_served_schema`.
+
+    Declared relationships (:meth:`~httk.core.EntryProvider.relationships`) are
+    fully auto-wired for serving *and* filtering: for each entry type with
+    declared relationships, a synthetic ``__rel_<related_type>`` id-list column
+    is materialized on EVERY row of that entry type (an empty list when the row
+    has no related entries of that type, so inverse set semantics are
+    well-defined), and a ``'<related_type>.id'`` entry built with
+    :func:`~httk.data.optimade_query.relationship_id_handler` is merged into the
+    entry type's derived filter-handler table (never overwriting an entry
+    already present, mirroring how :class:`~httk.optimade.backend.adapter.BackendAdapter`
+    respects explicitly supplied handler tables). ``<related_type>.id HAS ...``
+    filters — and, through the related-property resolver of
+    :func:`~httk.optimade.backend.translation.translate_filter`, depth-1
+    relationship-property filters such as ``references.doi CONTAINS "10.1"`` —
+    therefore work without any hand-wiring.
     """
     served_map: dict[str, list[str]] = {}
     definitions: dict[str, EntryTypeDefinition] = {}
     default_overrides: dict[str, list[str]] = {}
     columns_by_entry: dict[str, dict[str, str]] = {}
     records_by_entry: dict[str, list[dict[str, Any]]] = {}
-    relationships_by_entry: dict[str, dict[str, Mapping[str, tuple[str, ...]]]] = {}
+    relationships_by_entry: dict[str, dict[str, tuple[RelatedEntry, ...]]] = {}
 
     for provider in providers:
         for entry_type, definition in provider.entry_types().items():
             provider_relationships = provider.relationships(entry_type)
             if provider_relationships:
-                relationships_by_entry.setdefault(entry_type, {}).update(provider_relationships)
+                # Merge semantics across providers: per-id replace — when a later
+                # provider declares relationships for an id an earlier provider
+                # already covered, the later provider's tuple wins wholesale.
+                relationships_by_entry.setdefault(entry_type, {}).update(
+                    {entry_id: tuple(entries) for entry_id, entries in provider_relationships.items()}
+                )
             columns = dict(provider.columns(entry_type))
             if 'id' not in columns or 'type' not in columns:
                 raise ValueError(
@@ -130,10 +160,30 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     tables: dict[str, list[dict[str, Any]]] = {}
     for entry_type, columns in columns_by_entry.items():
         filter_columns = {name: column for name, column in columns.items() if name not in ('id', 'type')}
-        field_handlers[entry_type] = simple_property_handlers(entry_type, filter_columns, schema.entry_info[entry_type])
+        property_fulltypes = {
+            name: prop.get('fulltype', 'string') for name, prop in schema.entry_info[entry_type]['properties'].items()
+        }
+        handlers = simple_property_handlers(entry_type, filter_columns, property_fulltypes)
         fields: dict[str, Callable[[Any], Any]] = {name: _column_extractor(column) for name, column in columns.items()}
         entry_relationships = relationships_by_entry.get(entry_type)
         relationships = _relationships_extractor(entry_relationships) if entry_relationships else None
+        if entry_relationships:
+            # Auto-wire relationship filtering: materialize a synthetic
+            # '__rel_<related_type>' id-list column on every row (empty when the
+            # row has no related entries of that type — the '__' namespace,
+            # like '__id', cannot collide with served columns) and register the
+            # matching '<related_type>.id' filter handler. setdefault keeps any
+            # same-named handler that the derivation already produced.
+            related_types = sorted(
+                {related.entry_type for entries in entry_relationships.values() for related in entries}
+            )
+            for row in records_by_entry[entry_type]:
+                row_related = entry_relationships.get(row['__id'], ())
+                for related_type in related_types:
+                    row['__rel_' + related_type] = [r.id for r in row_related if r.entry_type == related_type]
+            for related_type in related_types:
+                handlers.setdefault(related_type + '.id', relationship_id_handler('__rel_' + related_type))
+        field_handlers[entry_type] = handlers
         sources[entry_type] = (EntrySource(target=entry_type, fields=fields, relationships=relationships),)
         tables[entry_type] = records_by_entry[entry_type]
 

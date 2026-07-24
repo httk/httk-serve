@@ -117,23 +117,31 @@ results = execute_query(
 print([r.values["id"] for r in results])  # ['w-1']
 ```
 
-## Relationships and `include`
+## Relationships, `include`, and relationship filtering
 
 A provider can declare related entries by overriding the optional
-`EntryProvider.relationships(entry_type)` hook, which maps each entry id to the
-related entry types and their ids. `adapter_from_providers` wires that into the
-served OPTIMADE **relationships** block automatically, so an
-`include=<type>` request embeds the related resources (resolved from whichever
-provider serves that related type). A provider that does not override the hook is
-unaffected — no relationships block is emitted.
+`EntryProvider.relationships(entry_type)` hook, which maps each entry id to a
+flat tuple of `httk.core.RelatedEntry` objects (each naming the related entry
+type and id, optionally with a per-identifier `description` and v1.3 `role`).
+`adapter_from_providers` wires that into the served OPTIMADE **relationships**
+block automatically (grouped by related type, metadata rendered as the
+JSON:API `meta` object), so an `include=<type>` request embeds the related
+resources (resolved from whichever provider serves that related type).
+Filtering is auto-wired too: `references.id HAS "ref-1"` matches over the
+declared ids, and depth-1 relationship-property filters such as
+`references.title CONTAINS "study"` are resolved by filtering the related
+entry type's own properties (each dotted filter node independently). A
+provider that does not override the hook is unaffected — no relationships
+block is emitted.
 
 ```python
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition, standard_entry_type
+from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition, RelatedEntry, standard_entry_type
 from httk.optimade import adapter_from_providers
 from httk.optimade.backend import execute_query
+from httk.optimade.filter import parse_optimade_filter
 
 
 class LinkedProvider(EntryProvider):
@@ -158,16 +166,28 @@ class LinkedProvider(EntryProvider):
             return [{"__id": "s-1", "type": "structures"}]
         return [{"__id": "ref-1", "type": "references", "title": "A study"}]
 
-    def relationships(self, entry_type: str) -> Mapping[str, Mapping[str, tuple[str, ...]]]:
+    def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
         if entry_type == "structures":
-            return {"s-1": {"references": ("ref-1",)}}
+            return {"s-1": (RelatedEntry("references", "ref-1", description="Cited for this structure"),)}
         return {}
 
 
 adapter = adapter_from_providers([LinkedProvider()])
 (row,) = list(execute_query(adapter, ["structures"], ["id", "type"], [], 100, 0))
-assert row.relationships == {"references": [{"id": "ref-1"}]}
+assert row.relationships == {"references": [{"id": "ref-1", "description": "Cited for this structure"}]}
+
+# Relationship filtering works without any handler wiring:
+(row,) = list(
+    execute_query(
+        adapter, ["structures"], ["id"], [], 100, 0,
+        parse_optimade_filter('references.title CONTAINS "study"'),
+    )
+)
+assert row.values["id"] == "s-1"
 ```
+
+A runnable server showcasing declared relationships (serving, `include`, and
+both kinds of relationship filtering) is in `examples/provider_server/`.
 
 ## Discover registered providers
 
