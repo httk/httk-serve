@@ -12,6 +12,8 @@ the neutral `httk.core.EntryProvider` contract.
 :class: tip
 
 - **Serving entry providers (usage guide)**: {doc}`serving_providers`
+- **Worked examples (runnable scripts)**: {doc}`examples/index`
+- **Notebook: walking an OPTIMADE API in-process**: {doc}`notebooks/examples`
 - **How it works**: {doc}`how_it_works`
 - **API reference**: {doc}`reference/index`
 ```
@@ -21,6 +23,8 @@ the neutral `httk.core.EntryProvider` contract.
 :caption: Documentation
 
 serving_providers
+examples/index
+notebooks/examples
 reference/index
 how_it_works
 ```

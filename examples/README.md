@@ -1,5 +1,35 @@
 # httk-optimade examples
 
+Every script here is also a page in the documentation (generated from its module
+docstring; see `docs/conf.py`) and is run by the smoke test in
+`tests/test_examples.py`. The two servers below are the exception: they bind a
+port and serve until interrupted, so they declare `HTTK_EXAMPLE_NO_AUTORUN =
+True` and are run by hand.
+
+- `query_in_process.py` — walk a live OPTIMADE API over real HTTP without
+  binding a port, using starlette's `TestClient` against `create_asgi_app`:
+  `/v1/info`, entry listings, filters, sorting, pagination via `links.next`,
+  and `include=` compound documents. Run it with:
+
+  ```
+  python examples/query_in_process.py
+  ```
+
+- `in_memory_backend.py` — stand up a backend without writing a provider:
+  `InMemoryStore` over plain dict rows plus `EntrySource`, `build_served_schema`
+  and `BackendAdapter`. Run it with:
+
+  ```
+  python examples/in_memory_backend.py
+  ```
+
+- `provider_server/` — a minimal server fed by an `httk.core.EntryProvider`,
+  with declared relationships, wired up by `adapter_from_providers`. Run it with:
+
+  ```
+  python examples/provider_server/serve.py
+  ```
+
 - `demo_server/` — a complete OPTIMADE server over a small in-memory dataset.
   It demonstrates how to implement the backend protocols (`Store`, `Searcher`,
   search expressions) and how to wire a `BackendAdapter` with `EntrySource`

@@ -33,6 +33,11 @@ from httk.optimade.schema.served import (
 )
 from httk.optimade.schema.trajectories import trajectories_entry_info
 
+# Run this example by hand (``python examples/demo_server/serve.py``): it binds
+# port 8080 and serves until interrupted, so the examples smoke test in
+# tests/test_examples.py must not launch it unattended.
+HTTK_EXAMPLE_NO_AUTORUN = True
+
 
 def _reduced_formula(species_at_sites: list[str]) -> str:
     """The OPTIMADE ``chemical_formula_reduced``: elements in alphabetical order

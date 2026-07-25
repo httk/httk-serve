@@ -26,6 +26,11 @@ from httk.core import (
 
 from httk.optimade import adapter_from_providers, serve
 
+# Run this example by hand (``python examples/provider_server/serve.py``): it
+# binds port 8080 and serves until interrupted, so the examples smoke test in
+# tests/test_examples.py must not launch it unattended.
+HTTK_EXAMPLE_NO_AUTORUN = True
+
 
 class WidgetProvider(EntryProvider):
     """A provider serving ``widgets`` linked to the standard ``references``."""

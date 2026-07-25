@@ -212,3 +212,6 @@ __marimo__/
 
 # Sphinx AutoAPI generated output
 docs/reference/autoapi/
+
+# Generated example pages (one per script in examples/, see docs/conf.py)
+docs/examples/
