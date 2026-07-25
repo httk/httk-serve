@@ -199,7 +199,7 @@ def test_custom_httk_property_served_and_defined() -> None:
     assert [r.values["id"] for r in results] == ["c-2"]
     # Defined on the /info endpoint with its httk.org $id:
     definition = adapter.schema.property_definitions["calculations"]["_httk_total_energy"]
-    assert definition["$id"].startswith("https://httk.org/")
+    assert definition["$id"].startswith("https://schemas.httk.org/ad-hoc/defs/properties/")
     assert definition["x-optimade-type"] == "float"
 
 

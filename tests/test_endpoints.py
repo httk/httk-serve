@@ -182,7 +182,7 @@ def test_entry_info_endpoint_reply_custom_property_definitions() -> None:
         make_validated("info/calculations"), make_config(), "calculations", materials_schema()
     )
     energy = reply["data"]["properties"]["_httk_total_energy"]
-    assert energy["$id"].startswith("https://httk.org/")
+    assert energy["$id"].startswith("https://schemas.httk.org/ad-hoc/defs/properties/")
     assert energy["x-optimade-type"] == "float"
     assert energy["type"] == ["number", "null"]
 
