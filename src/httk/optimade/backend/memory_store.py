@@ -22,7 +22,7 @@ Iteration yields :class:`~httk.data.query.SearchResult` values, one entry in
 whole row dict, a field output the row's value for that field.
 """
 
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, NoReturn
 
 from httk.data.query import SearchResult
 
@@ -91,6 +91,21 @@ class MemoryField:
 
     def has_only(self, *values: Any) -> MemoryExpression:
         return MemoryExpression(lambda row: set(self._value(row) or ()) <= set(values))
+
+    def __getattr__(self, name: str) -> NoReturn:
+        """Refuse to chain: rows here are flat, so no field refers to a record.
+
+        The :class:`~httk.data.query.SearchField` contract allows attribute
+        access because a field may be a reference in a store that has them;
+        this one keeps plain dict rows, so it says so explicitly instead of
+        failing as though the name were a mistyped method.
+        """
+        if name.startswith("_"):
+            raise AttributeError(name)
+        raise AttributeError(
+            f"{self.name!r} is a value in a flat row, not a reference to another record, "
+            f"so {name!r} cannot be looked up through it"
+        )
 
 
 class MemoryVariable:
