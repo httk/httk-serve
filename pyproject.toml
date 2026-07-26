@@ -75,6 +75,7 @@ release = [
   "build>=1.2",
   "twine>=6.0",
 ]
+default = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
