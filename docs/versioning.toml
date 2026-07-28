@@ -1,0 +1,11 @@
+[site]
+slug = "httk-web"
+repository-url = "https://github.com/httk/httk-web"
+main-branch = "main"
+import-roots = ["httk/web"]
+
+[[internal-dependency]]
+distribution = "httk-core"
+slug = "httk-core"
+repository-url = "https://github.com/httk/httk-core"
+main-branch = "main"
