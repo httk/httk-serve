@@ -138,7 +138,6 @@ def process(
         return generate_partial_data_reply(validated_request, config, query_function, schema)
 
     elif endpoint in schema.all_entries:
-
         response_fields = validated_request.recognized_response_fields
         unknown_response_fields = validated_request.unrecognized_response_fields
         entries = [endpoint]
