@@ -43,7 +43,8 @@ from httk.data.optimade_query import (
     unknown_unknown_handler,
 )
 
-__all__ = [
+# Historical export order is a compatibility contract.
+__all__ = [  # noqa: RUF022
     "HandlerTable",
     "invert_op",
     "true_handler",

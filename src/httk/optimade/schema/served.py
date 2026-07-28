@@ -13,8 +13,9 @@ alongside the full property definitions served on the entry listing info
 endpoint.
 """
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from httk.core import EntryTypeDefinition, PropertyDefinition
 from httk.core.property_definitions import known_definition_prefixes

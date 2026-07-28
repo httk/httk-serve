@@ -1,8 +1,9 @@
 """Endpoint dispatch: routes a validated OPTIMADE request to its reply generator."""
 
 import logging
+from collections.abc import Callable
 from pprint import pformat
-from typing import Any, Callable
+from typing import Any
 
 from httk.core import FilterAst, ParserSyntaxError, parse_optimade_filter
 

@@ -8,7 +8,8 @@ descriptions, property keys, and records. It is httk-optimade's only dependency 
 ``httk.core`` beyond the shared runtime.
 """
 
-from typing import Any, Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any
 
 from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry
 from httk.data.optimade_query import (

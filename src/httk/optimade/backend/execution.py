@@ -1,6 +1,7 @@
 """Query execution: runs translated searchers and adapts results for the endpoints."""
 
-from typing import Any, Iterator, Sequence
+from collections.abc import Iterator, Sequence
+from typing import Any
 
 from httk.core import FilterAst
 from httk.data.query import Searcher

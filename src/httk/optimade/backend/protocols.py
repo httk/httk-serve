@@ -19,12 +19,12 @@ from httk.data.query import (
 from ..model.results import QueryFunction, QueryResults
 
 __all__ = [
-    "SearchExpression",
-    "SearchField",
-    "SearchVariable",
-    "SearchResult",
-    "Searcher",
-    "Store",
     "QueryFunction",
     "QueryResults",
+    "SearchExpression",
+    "SearchField",
+    "SearchResult",
+    "SearchVariable",
+    "Searcher",
+    "Store",
 ]

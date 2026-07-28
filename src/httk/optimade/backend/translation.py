@@ -9,18 +9,17 @@ into :class:`~httk.optimade.model.errors.TranslatorError` HTTP errors.
 OPTIMADE-side wrappers over the upstream functions.
 """
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from httk.core import FilterAst
 from httk.data.optimade_query import (
     FilterTranslationError,
     HandlerTable,
     RelatedPropertyResolver,
-)
-from httk.data.optimade_query import format_value as _format_value
-from httk.data.optimade_query import (
     translate_filter_ast,
 )
+from httk.data.optimade_query import format_value as _format_value
 from httk.data.query import Searcher, SearchExpression, SearchVariable
 
 from ..model.errors import translator_error_from

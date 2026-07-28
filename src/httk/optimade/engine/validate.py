@@ -54,16 +54,14 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
             # A negative limit must not reach the backend: the execution layer
             # interprets negative limits as "no bound", which would bypass the cap.
             raise OptimadeError("page_limit must be a non-negative integer.", 400, "Bad request")
-        if validated_parameters.page_limit > PAGE_LIMIT_MAX:
-            validated_parameters.page_limit = PAGE_LIMIT_MAX
+        validated_parameters.page_limit = min(validated_parameters.page_limit, PAGE_LIMIT_MAX)
 
     if 'page_offset' in query and query['page_offset'] is not None:
         try:
             validated_parameters.page_offset = int(query['page_offset'])
         except ValueError:
             raise OptimadeError("Cannot interprete page_offset.", 400, "Bad request")
-        if validated_parameters.page_offset < 0:
-            validated_parameters.page_offset = 0
+        validated_parameters.page_offset = max(validated_parameters.page_offset, 0)
 
     if 'response_fields' in query and query['response_fields'] is not None:
         validated_response_fields = []
@@ -142,7 +140,7 @@ def validate_optimade_request(request: RawRequest, version: str, schema: ServedS
             else:
                 raise OptimadeError(
                     "Unsupported version requested. Supported versioned base URLs are: "
-                    + (", ".join(["/" + str(x) for x in optimade_supported_versions.keys()])),
+                    + (", ".join(["/" + str(x) for x in optimade_supported_versions])),
                     553,
                     "Bad request",
                 )
@@ -328,11 +326,11 @@ def validate_optimade_request(request: RawRequest, version: str, schema: ServedS
         'dimension_slices' in query
         and query['dimension_slices'] is not None
         and query['dimension_slices'].strip() != ""
+        and endpoint in schema.all_entries
     ):
-        if endpoint in schema.all_entries:
-            if validated_request.request_id is None:
-                raise OptimadeError("dimension_slices is only supported on single-entry endpoints.", 400, "Bad request")
-            validated_request.query.dimension_slices = _parse_dimension_slices(query['dimension_slices'])
+        if validated_request.request_id is None:
+            raise OptimadeError("dimension_slices is only supported on single-entry endpoints.", 400, "Bad request")
+        validated_request.query.dimension_slices = _parse_dimension_slices(query['dimension_slices'])
 
     if validated_request.version != version:
         raise OptimadeError("validate_optimade_request: unexpected version", 500, "Internal server error")
@@ -360,7 +358,7 @@ def determine_optimade_version(request: RawRequest) -> str:
         else:
             raise OptimadeError(
                 "Unsupported version requested. Supported versioned base URLs are: "
-                + (", ".join(["/" + str(x) for x in optimade_supported_versions.keys()])),
+                + (", ".join(["/" + str(x) for x in optimade_supported_versions])),
                 553,
                 "Version Not Supported",
             )

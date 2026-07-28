@@ -22,7 +22,8 @@ Iteration yields :class:`~httk.data.query.SearchResult` values, one entry in
 whole row dict, a field output the row's value for that field.
 """
 
-from typing import Any, Callable, Iterator, NoReturn
+from collections.abc import Callable, Iterator
+from typing import Any, NoReturn
 
 from httk.data.query import SearchResult
 

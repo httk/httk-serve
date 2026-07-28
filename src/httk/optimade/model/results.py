@@ -1,5 +1,6 @@
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Protocol, Sequence
+from typing import Any, Protocol
 
 from httk.core import FilterAst
 

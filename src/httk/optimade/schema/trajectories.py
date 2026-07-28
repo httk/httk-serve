@@ -16,7 +16,8 @@ objects, reduced to the simplified dialect); this module produces the simplified
 :func:`~httk.optimade.schema.served.entry_type_definition_from_simple`.
 """
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from httk.core import EntryTypeDefinition
 

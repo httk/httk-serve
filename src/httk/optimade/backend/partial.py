@@ -8,8 +8,9 @@ inline when a ``dimension_slices`` query parameter is supplied, or streams it
 via the JSON Lines partial data endpoint.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass(frozen=True)

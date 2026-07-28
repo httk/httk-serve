@@ -1,4 +1,5 @@
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from urllib.parse import quote, urlencode
 
 from ..backend.partial import PartialDimension, PartialValue
