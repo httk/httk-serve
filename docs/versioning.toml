@@ -1,0 +1,17 @@
+[site]
+slug = "httk-optimade"
+repository-url = "https://github.com/httk/httk-optimade"
+main-branch = "main"
+import-roots = ["httk/optimade"]
+
+[[internal-dependency]]
+distribution = "httk-core"
+slug = "httk-core"
+repository-url = "https://github.com/httk/httk-core"
+main-branch = "main"
+
+[[internal-dependency]]
+distribution = "httk-data"
+slug = "httk-data"
+repository-url = "https://github.com/httk/httk-data"
+main-branch = "main"

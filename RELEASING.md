@@ -27,7 +27,34 @@ reserve the project name before then.
 
 ## Prepare and check a release
 
-Update `project.version` in `pyproject.toml`. From a Python 3.12 environment,
+Update `project.version` in `pyproject.toml`. After making dependency changes,
+regenerate and commit the documentation lock:
+
+```console
+make docs-lock
+```
+
+`make docs-lock` requires every internal `httk-*` dependency to be published
+and resolvable on PyPI at a version satisfying this project's dependency floors.
+`make release-check` only verifies an existing lock offline, so it remains
+hard-gated until that lock has been generated and committed. Until the
+dependencies are published, the development docs workflow uses its explicit
+bootstrap-fallback mode: it clones internal dependencies first, emits a warning,
+installs those checkouts, and then performs fresh external docs dependency
+resolution. Releases remain impossible by design until the lock can be
+generated and committed.
+
+Before tagging, refresh and commit the dependency inventories from the exact
+versions pinned by that lock:
+
+```console
+make docs-inventories
+```
+
+The dependency release documentation must already be published at those
+versions. `make release-check` validates lock freshness; the workflow's
+`check-release` validates the inventory headers against the lock pins. From a
+Python 3.12 environment,
 install the development tools and run the complete local check:
 
 ```console
@@ -35,9 +62,12 @@ python -m pip install -e ".[dev,docs,release]"
 make release-check
 ```
 
-This runs formatting, static analysis, tests, strict documentation, an isolated
-sdist/wheel build, and strict package-metadata checks. The resulting files are
-written to `dist/`.
+`make release-check` includes the offline documentation lock-freshness check,
+in addition to formatting, static analysis, tests, strict documentation, an
+isolated sdist/wheel build, and strict package-metadata checks. Before tagging,
+run `make docs-lock-check` for the required full clean-environment locked
+installation and strict docs build; this is a network check. The resulting
+package files are written to `dist/`.
 
 Versions on package indexes are immutable. Use a new development or release
 candidate version when repeating an upload, for example `0.1.0rc1` followed by
@@ -57,14 +87,15 @@ in a fresh environment:
 python -m venv /tmp/httk-optimade-test
 /tmp/httk-optimade-test/bin/python -m pip install \
   --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple/ \
-  httk-optimade==0.1.0
-/tmp/httk-optimade-test/bin/python -c "import httk.optimade"
+  --extra-index-url https://pypi.org/simple/ httk-optimade==0.1.0
+/tmp/httk-optimade-test/bin/python -c "import httk.atomistic"
 ```
 
-Replace `0.1.0` with the version being tested. The `--extra-index-url` is needed
-because `httk-optimade`'s runtime dependencies (`starlette`, `uvicorn`) are
-published on PyPI rather than TestPyPI.
+Replace `0.1.0` with the version being tested. Unlike `httk-core`, `httk-optimade`
+has a runtime dependency (`httk-core`), so `--no-deps` is not appropriate here:
+`import httk.atomistic` pulls in `httk.core` at import time. The
+`--extra-index-url` lets pip resolve that dependency (once it is published to the
+real PyPI) while the package under test comes from TestPyPI.
 
 ## PyPI
 
