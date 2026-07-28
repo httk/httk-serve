@@ -12,11 +12,11 @@ RENDERERS_BY_SUFFIX: dict[str, Renderer] = {
 }
 
 __all__ = [
-    "Renderer",
-    "RenderResult",
-    "MarkdownRenderer",
-    "RstRenderer",
+    "RENDERERS_BY_SUFFIX",
     "HtmlRenderer",
     "HttkwebCompatRenderer",
-    "RENDERERS_BY_SUFFIX",
+    "MarkdownRenderer",
+    "RenderResult",
+    "Renderer",
+    "RstRenderer",
 ]

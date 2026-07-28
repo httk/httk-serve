@@ -29,12 +29,10 @@ def execute(q, global_data, **kargs):
         search.add(criterion)
     search.output(search_compound, 'compound')
 
-    i = 0
-    for match, header in list(search):
+    for i, (match, header) in enumerate(list(search), start=1):
         compound = match[0]
         names = ", ".join([x.name for x in compound.get_names()])
 
-        i += 1
         output += [
             {
                 'index': i,

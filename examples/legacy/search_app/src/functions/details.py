@@ -11,7 +11,7 @@ def execute(compound, global_data, **kargs):
 
     search.output(search_compound, 'compound')
 
-    compound = list(search)[0][0][0]
+    compound = list(search)[0][0][0]  # noqa: RUF015 - exhausts the legacy cursor and preserves iteration errors
     tags = compound.get_tags()
     tags = [{'tag': tags[tag].tag, 'value': tags[tag].value} for tag in tags]
 

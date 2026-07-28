@@ -19,7 +19,8 @@ def execute(global_data, **kargs):
                 [
                     (
                         fn,
-                        datetime.datetime.strptime(
+                        # Legacy blog dates are date-only local values used only for sorting.
+                        datetime.datetime.strptime(  # noqa: DTZ007
                             str(global_data['pages'](os.path.join(path, fn), 'date')), "%Y-%m-%d"
                         ),
                     )
@@ -33,7 +34,7 @@ def execute(global_data, **kargs):
     global_data['blogposts'] = [
         os.path.join(path, f)
         for f in listdirsorted(path)
-        if os.path.isfile(prefix / path / f) and any([f.endswith(t) for t in filterlist])
+        if os.path.isfile(prefix / path / f) and any(f.endswith(t) for t in filterlist)
     ]
 
     global_data['blogposts_latest'] = global_data['blogposts'][:5]

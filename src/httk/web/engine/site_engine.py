@@ -1,6 +1,7 @@
 import posixpath
 import re
 from mimetypes import guess_type
+from typing import ClassVar
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from markupsafe import Markup
@@ -497,7 +498,7 @@ class SiteEngine:
         return route_key
 
     _HTML_TAG_PATTERN = re.compile(r"""<(?:[^<>"']+|"[^"]*"|'[^']*')+>""")
-    _ASSET_EXTENSIONS = {
+    _ASSET_EXTENSIONS: ClassVar[set[str]] = {
         ".css",
         ".js",
         ".json",
@@ -530,7 +531,7 @@ class SiteEngine:
         def replace_tag(match: re.Match[str]) -> str:
             tag = match.group(0)
             # Keep declarations/comments/closing tags untouched.
-            if tag.startswith("</") or tag.startswith("<!--") or tag.startswith("<!"):
+            if tag.startswith(("</", "<!--", "<!")):
                 return tag
             return self._rewrite_tag_urls(tag, route_key=route_key, route_exists_cache=route_exists_cache)
 
@@ -621,7 +622,7 @@ class SiteEngine:
         route_key: str,
         route_exists_cache: dict[str, bool],
     ) -> str | None:
-        if not url or url.startswith("#") or url.startswith("//"):
+        if not url or url.startswith(("#", "//")):
             return None
 
         parts = urlsplit(url)

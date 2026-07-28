@@ -1,7 +1,8 @@
 import ast
 import string
+from collections.abc import Mapping, Sequence
 from html import escape
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from markupsafe import Markup
 
@@ -100,7 +101,7 @@ class HttkTemplateFormatter(string.Formatter):
             result = value(*parsed_callargs[1:])
             return self._format_field(result, newspec, quote=quote)
 
-        if spec.startswith("getitem:") or spec.startswith("getattr:"):
+        if spec.startswith(("getitem:", "getattr:")):
             x, _dummy, newspec = spec.partition(":")[2].partition("::")
             call_func: str | None = None
             if ":call" in x:
@@ -128,12 +129,7 @@ class HttkTemplateFormatter(string.Formatter):
                 newspec = "call" + spec.partition(":call")[-1]
             return self._format_field(val, newspec, quote=quote)
 
-        if (
-            spec.startswith("if:")
-            or spec.startswith("if-not:")
-            or spec.startswith("if-set:")
-            or spec.startswith("if-unset:")
-        ):
+        if spec.startswith(("if:", "if-not:", "if-set:", "if-unset:")):
             outcome = (
                 (spec.startswith("if:") and bool(value))
                 or (spec.startswith("if-not:") and not bool(value))
