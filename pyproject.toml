@@ -56,7 +56,6 @@ where = ["src"]
 dev = [
   "pytest>=8.0",
   "httpx>=0.27",
-  "black",
   "ruff>=0.16,<0.17",
   "pyright",
   "mypy"
@@ -89,10 +88,9 @@ line-length = 120
 # BLE001: broad excepts deliberately isolate plugin/loader/handler failures.
 ignore = ["TRY002", "TRY004", "BLE001"]
 
-[tool.black]
-target-version = ["py312"]
-line-length = 120
-skip-string-normalization = true
+[tool.ruff.format]
+# preserve replaces black's skip-string-normalization: existing quote styles are kept.
+quote-style = "preserve"
 
 [tool.pyright]
 pythonVersion = "3.12"
