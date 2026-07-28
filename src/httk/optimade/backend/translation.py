@@ -153,7 +153,7 @@ def translate_filter_node(
     """Translate one filter node against an OPTIMADE *entry-info* property mapping.
 
     An OPTIMADE-side adaptation of
-    :func:`httk.data.optimade_query.translate_filter_ast`: ``entry_info`` maps
+    :func:`~httk.data.optimade_query.translate_filter_ast`: ``entry_info`` maps
     property names to their property dictionaries (only their ``'fulltype'``
     keys are read) rather than straight to fulltypes, ``served_entries`` names
     the relationship targets, and failures surface as
