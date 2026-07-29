@@ -5,9 +5,10 @@ tests) and serves a preloaded list of rows honouring offset/limit (for
 execution tests). Expressions are plain nested tuples built by ``FakeColumn``.
 """
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
-from httk.data.query import SearchResult
+from httk.data.query import ResultRow, ResultRowLike, ResultSetLike, SearchResult
 
 
 class FakeExpression:
@@ -76,7 +77,7 @@ class FakeColumn:
         # A field may refer to another record; chaining yields a field again.
         if name.startswith("_"):
             raise AttributeError(name)
-        return FakeColumn()
+        return FakeColumn(name)
 
 
 class FakeVariable:
@@ -101,7 +102,7 @@ class FakeSearcher:
         self.offset = 0
         self.limit: int | None = None
         self.variables: list[FakeVariable] = []
-        self.outputs: list[tuple[FakeVariable, str]] = []
+        self.outputs: list[tuple[FakeVariable | FakeColumn, str]] = []
         self.expressions: list[FakeExpression] = []
         self.sorts: list[tuple[str, bool]] = []
 
@@ -128,12 +129,24 @@ class FakeSearcher:
     def add_sort(self, column: FakeColumn, descending: bool) -> None:
         self.sorts.append((column.name, descending))
 
+    def results(self, **outputs: Any) -> ResultSetLike:
+        selected = [(output, name) for name, output in outputs.items()] if outputs else list(self.outputs)
+        rows = self._sorted_rows()[self.offset :]
+        if self.limit is not None and self.limit >= 0:
+            rows = rows[: self.limit]
+        if not selected:
+            selected = [(FakeVariable(None), "row")]
+        return FakeResultSet(rows, selected)
+
     def _sorted_rows(self) -> list[Any]:
         rows = list(self.rows)
         # Stable multi-key sort: apply keys in reverse declaration order so the
         # first-declared sort key is the most significant. None sorts first.
         for name, descending in reversed(self.sorts):
-            rows.sort(key=lambda row, n=name: (getattr(row, n) is None, getattr(row, n)), reverse=descending)
+            def key(row: Any, n: str = name) -> tuple[bool, Any]:
+                return getattr(row, n) is None, getattr(row, n)
+
+            rows.sort(key=key, reverse=descending)
         return rows
 
     def _value(self, output: "FakeVariable | FakeColumn", row: Any) -> Any:
@@ -159,6 +172,45 @@ class FakeStore:
         searcher = _TargetAwareFakeSearcher(self.rows_by_target)
         self.searchers.append(searcher)
         return searcher
+
+
+class FakeResultSet:
+    def __init__(self, rows: list[Any], outputs: list[tuple[Any, str]]) -> None:
+        self._rows = rows
+        self._outputs = outputs
+        self._names = tuple(name for _output, name in outputs)
+
+    def __len__(self) -> int:
+        return len(self._rows)
+
+    def _value(self, output: Any, row: Any) -> Any:
+        return getattr(row, output.name) if isinstance(output, FakeColumn) else row
+
+    def __iter__(self) -> Iterator[ResultRowLike]:
+        return iter(
+            [
+                ResultRow(tuple(self._value(output, row) for output, _name in self._outputs), self._names)
+                for row in self._rows
+            ]
+        )
+
+    def first(self) -> ResultRowLike | None:
+        return next(iter(self), None)
+
+    def one(self) -> ResultRowLike:
+        if not self._rows:
+            raise LookupError("expected exactly one result, found none")
+        if len(self._rows) > 1:
+            raise LookupError("expected exactly one result, found more than one")
+        return next(iter(self))
+
+    def scalars(self, name: str | None = None) -> Iterator[Any]:
+        if name is None:
+            if len(self._names) != 1:
+                raise ValueError("scalars() without a name requires exactly one output")
+            name = self._names[0]
+        index = self._names.index(name)
+        return (row[index] for row in self)
 
 
 class _TargetAwareFakeSearcher(FakeSearcher):

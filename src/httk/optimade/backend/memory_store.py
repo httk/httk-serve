@@ -25,7 +25,7 @@ whole row dict, a field output the row's value for that field.
 from collections.abc import Callable, Iterator
 from typing import Any, NoReturn
 
-from httk.data.query import SearchResult
+from httk.data.query import ResultRow, ResultRowLike, ResultSetLike, SearchResult
 
 Row = dict[str, Any]
 Predicate = Callable[[Row], bool]
@@ -137,6 +137,7 @@ class MemorySearcher:
         self._expressions: list[MemoryExpression] = []
         self._sorts: list[tuple[MemoryField, bool]] = []
         self._outputs: list[tuple[str, Callable[[Row], Any]]] = []
+        self._output_values: list[tuple[str, MemoryVariable | MemoryField]] = []
         self.offset = 0
         self._limit: int | None = None
 
@@ -149,8 +150,10 @@ class MemorySearcher:
         if isinstance(variable, MemoryField):
             memory_field = variable
             self._outputs.append((name, lambda row: row.get(memory_field.name)))
+            self._output_values.append((name, variable))
         elif isinstance(variable, MemoryVariable):
             self._outputs.append((name, lambda row: row))
+            self._output_values.append((name, variable))
         else:
             raise TypeError(f"output() takes a search variable or a search field, got {type(variable).__name__}")
 
@@ -182,6 +185,22 @@ class MemorySearcher:
     def add_offset(self, offset: int) -> None:
         self.offset += offset
 
+    def results(self, **outputs: Any) -> ResultSetLike:
+        if outputs:
+            selected: list[tuple[str, MemoryVariable | MemoryField]] = []
+            for name, value in outputs.items():
+                if not isinstance(value, (MemoryVariable, MemoryField)):
+                    raise TypeError(f"results() output {name!r} is not a search variable or field")
+                selected.append((name, value))
+        else:
+            selected = list(self._output_values)
+        if not selected:
+            raise ValueError("this searcher has no outputs; declare outputs or pass them to results()")
+        rows = self._matches()[self.offset :]
+        if self._limit is not None and self._limit >= 0:
+            rows = rows[: self._limit]
+        return MemoryResultSet(rows, selected)
+
     def __iter__(self) -> Iterator[SearchResult]:
         """Yield one :class:`~httk.data.query.SearchResult` per match, in output order."""
         if not self._outputs:
@@ -201,3 +220,56 @@ class InMemoryStore:
 
     def searcher(self) -> MemorySearcher:
         return MemorySearcher(self.tables)
+
+
+class MemoryResultSet:
+    def __init__(self, rows: list[Row], outputs: list[tuple[str, MemoryVariable | MemoryField]]) -> None:
+        self._rows = rows
+        self._outputs = outputs
+        self._names = tuple(name for name, _output in outputs)
+
+    def __len__(self) -> int:
+        return len(self._rows)
+
+    def _value(self, output: MemoryVariable | MemoryField, row: Row) -> Any:
+        return row if isinstance(output, MemoryVariable) else row.get(output.name)
+
+    def __iter__(self) -> Iterator[ResultRowLike]:
+        return iter(
+            [
+                ResultRow(tuple(self._value(output, row) for _name, output in self._outputs), self._names)
+                for row in self._rows
+            ]
+        )
+
+    def __getitem__(self, item: int | slice) -> Any:
+        if isinstance(item, slice):
+            return MemoryResultSet(self._rows[item], self._outputs)
+        return list(self)[item]
+
+    def first(self) -> ResultRowLike | None:
+        return next(iter(self), None)
+
+    def one(self) -> ResultRowLike:
+        if not self._rows:
+            raise LookupError("expected exactly one result, found none")
+        if len(self._rows) > 1:
+            raise LookupError("expected exactly one result, found more than one")
+        return next(iter(self))
+
+    def scalars(self, name: str | None = None) -> Iterator[Any]:
+        if name is None:
+            if len(self._names) != 1:
+                raise ValueError(f"scalars() without a name requires exactly one output; declared: {self._names}")
+            name = self._names[0]
+        try:
+            index = self._names.index(name)
+        except ValueError:
+            raise KeyError(name) from None
+        return (row[index] for row in self)
+
+    def column(self, name: str) -> NoReturn:
+        raise NotImplementedError("the in-memory result store does not provide SQL ResultColumn objects")
+
+    def cursor(self) -> NoReturn:
+        raise NotImplementedError("the in-memory result store does not provide cursor proxies")
