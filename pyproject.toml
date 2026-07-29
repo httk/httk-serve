@@ -77,6 +77,10 @@ default = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not extended'"
+markers = [
+  "extended: full-depth test case; selected only by the extended test profile",
+]
 
 [tool.ruff]
 target-version = "py312"
