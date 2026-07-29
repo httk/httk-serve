@@ -1,6 +1,6 @@
 """Translation of OPTIMADE filter syntax trees into backend search expressions.
 
-The generic translation now lives in :mod:`httk.data.optimade_query`;
+The generic translation is implemented in :mod:`httk.data.optimade_query`;
 :func:`translate_filter` delegates to
 :func:`~httk.data.optimade_query.translate_filter_ast` and wraps its neutral
 :class:`~httk.data.optimade_query.FilterTranslationError` failure categories
@@ -27,10 +27,11 @@ from .adapter import BackendAdapter, EntrySource
 
 
 def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) -> Any:
-    """Backwards-compatible wrapper over :func:`httk.data.optimade_query.format_value`.
+    """Convert a filter value and translate neutral failures to HTTP errors.
 
-    Raises :class:`~httk.optimade.model.errors.TranslatorError` instead of the
-    upstream neutral :class:`~httk.data.optimade_query.FilterTranslationError`.
+    Delegates to :func:`httk.data.optimade_query.format_value` and raises
+    :class:`~httk.optimade.model.errors.TranslatorError` for its neutral
+    :class:`~httk.data.optimade_query.FilterTranslationError` failures.
     """
     try:
         return _format_value(fulltype, val, allow_null=allow_null)

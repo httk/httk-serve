@@ -1,24 +1,21 @@
-"""Compatibility shim for the generic OPTIMADE filter handlers.
+"""Re-exports of the generic OPTIMADE filter handlers.
 
-The handler tables and generic handlers now live in
-:mod:`httk.data.optimade_query`; this module re-exports their historical
-public names for backwards compatibility. Import from
-:mod:`httk.data.optimade_query` in new code.
+The handler tables and generic handlers are implemented in
+:mod:`httk.data.optimade_query` and exposed here under the
+``httk.optimade.backend.handlers`` namespace.
 
-Note that the handlers now raise
+The handlers raise
 :class:`~httk.data.optimade_query.FilterTranslationError` (which carries a
 neutral failure category instead of HTTP semantics);
 :func:`~httk.optimade.backend.translation.translate_filter` wraps it into
 :class:`~httk.optimade.model.errors.TranslatorError` with the appropriate
-HTTP status. Also note that :func:`~httk.data.optimade_query.simple_property_handlers`
-now takes a plain property-name -> ``fulltype`` mapping as its third argument
-instead of an entry-info dictionary, and that ``'HAS'`` handlers changed shape:
-they no longer take a trailing ``inv`` argument and no longer return a
-``needs_post`` flag alongside the expression. A ``'HAS'`` handler is now called
-as ``handler(property, ops, values, search_variable, has_type)`` and returns a
-plain :class:`~httk.data.query.SearchExpression`; ``NOT`` is applied by the
-caller as ``~``, and the backend decides for itself whether the resulting
-expression also needs post-filter evaluation.
+HTTP status. :func:`~httk.data.optimade_query.simple_property_handlers` takes a
+plain property-name -> ``fulltype`` mapping as its third argument. A ``'HAS'``
+handler is called as
+``handler(property, ops, values, search_variable, has_type)`` and returns a
+plain :class:`~httk.data.query.SearchExpression`; the caller applies ``NOT`` as
+``~``, and the backend determines whether the resulting expression also needs
+post-filter evaluation.
 """
 
 from httk.data.optimade_query import (

@@ -1,10 +1,8 @@
-"""Compatibility shim for the OPTIMADE filter-language parser.
+"""Re-exports of the OPTIMADE filter-language parser.
 
-The OPTIMADE filter language now lives in :mod:`httk.core.optimade_filter`
-(beside the vendored OPTIMADE property definitions in
-``httk.core.optimade_defs``); this package re-exports its historical public
-names for backwards compatibility. Import from :mod:`httk.core` (or
-:mod:`httk.core.optimade_filter`) in new code.
+The parser is implemented in :mod:`httk.core.optimade_filter`, beside the
+vendored OPTIMADE property definitions in ``httk.core.optimade_defs``, and is
+also exposed through this package.
 """
 
 from httk.core.optimade_filter import (
