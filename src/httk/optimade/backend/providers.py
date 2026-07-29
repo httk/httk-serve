@@ -213,7 +213,7 @@ def providers_from_registry() -> dict[str, Callable[..., EntryProvider]]:
     """Return the registered entry-provider factories keyed by their registered name.
 
     Resolves each factory registered via
-    :func:`httk.core.register_entry_provider` (through ``httk.handlers.*``
+    :func:`httk.core.register_entry_provider` (through ``httk.registry.*``
     self-registration) into a callable. Providers need data, so applications
     instantiate them: ``providers_from_registry()["atomistic-structures"](data)``.
     """

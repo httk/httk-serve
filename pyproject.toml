@@ -124,5 +124,5 @@ warn_unused_ignores = true
 # Use httk-data's types (resolved via mypy_path against its workspace
 # checkout) without re-checking its files here; httk-data runs its own mypy
 # with its own overrides (e.g. for untyped jsonschema).
-module = ["httk.data", "httk.data.*", "httk.handlers.data"]
+module = ["httk.data", "httk.data.*", "httk.registry.data"]
 follow_imports = "silent"

@@ -191,7 +191,7 @@ both kinds of relationship filtering) is in `examples/provider_server/`.
 
 ## Discover registered providers
 
-Provider packages can self-register a factory under `httk.handlers.*` via
+Provider packages can self-register a factory under `httk.registry.*` via
 `httk.core.register_entry_provider`. For example, *httk-data* registers
 in-memory providers for the standard `references`/`files`/`calculations` entry
 types (as `data-references`/`data-files`/`data-calculations`), and
