@@ -42,7 +42,7 @@ WantedBy=multi-user.target
 
 ## Nginx reverse-proxy config (HTTP -> HTTPS + ASGI upstream)
 
-This mirrors your previous FastAPI setup and is suitable for `httk-web` as well.
+This configuration redirects HTTP to HTTPS and proxies requests to the `httk-web` ASGI upstream.
 
 ```nginx
 server {
