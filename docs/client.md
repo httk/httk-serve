@@ -114,6 +114,43 @@ both bounds are nonnegative integers and the step is omitted or `1`; integer
 indexing, negative bounds, and non-unit steps are unsupported. Cursor rows are
 not implemented.
 
+## Federating endpoints
+
+`FederatedStore` (from *httk-data*) combines already-open stores into one
+read-only, source-major union. Manage the remote connections yourself: the
+federation borrows them and never closes either endpoint.
+
+```python
+from contextlib import ExitStack
+
+from httk.atomistic import OptimadeStructure
+from httk.data import FederatedStore
+from httk.optimade import OptimadeStore
+
+with ExitStack() as stack:
+    first = stack.enter_context(OptimadeStore("https://first.example/optimade"))
+    second = stack.enter_context(OptimadeStore("https://second.example/optimade"))
+    combined = FederatedStore({"first": first, "second": second})
+
+    search = combined.searcher()
+    structure = search.variable(OptimadeStructure)
+    search.add(structure.elements.has("Li"))
+    rows = search.results(record=structure, origin=search.origin)
+    for row in rows:
+        print(row.origin, row.record.id)
+```
+
+Only the strict intersection of source query support is portable: a source
+failure or unsupported field raises rather than returning a partial result.
+The federation is a union, not a deduplicating merge, so equal resource IDs
+from different origins remain distinct. It pages sources sequentially in
+constructor (source-major) order; offsets and limits apply globally after that
+union. `count()` and `len(rows)` require exact child counts and can raise
+`CountUnavailableError`; federation does not crawl pages to approximate them.
+Global sorting is unsupported. When endpoint descriptors differ or a typed
+backend is ambiguous at one endpoint, create an explicit per-source target with
+`combined.target(...)` and each store's `entry_type(...)` descriptor.
+
 ### Response fields and exact literals
 
 By default a whole-record query sends no `response_fields` parameter, so the
