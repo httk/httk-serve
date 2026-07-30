@@ -303,7 +303,16 @@ class TableRuntime:
             "total": table_page.total,
             "summary": self._summary(table_page),
         }
-        if len(_canonical_json(response)) > MAX_TABLE_RESPONSE_BYTES:
+        try:
+            response_bytes = json.dumps(
+                response,
+                separators=(",", ":"),
+                ensure_ascii=True,
+                allow_nan=False,
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise TableProviderError("provider response is not JSON-compatible") from exc
+        if len(response_bytes) > MAX_TABLE_RESPONSE_BYTES:
             raise TableProviderError("provider page is too large to render")
         return response
 

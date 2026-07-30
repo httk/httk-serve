@@ -345,6 +345,35 @@ def provide(context, request, **provider_args):
     assert response.status_code == 200
 
 
+def test_continuation_accepts_rendered_pages_larger_than_token_string_fields(tmp_path: Path) -> None:
+    provider = """from httk.web import TablePage
+
+def provide(context, request, **provider_args):
+    rows = [{"name": f"{index}-" + ("x" * 400)} for index in range(request.page_size)]
+    return TablePage.from_rows(
+        rows,
+        columns=["name"],
+        next_cursor="second" if request.cursor is None else None,
+    )
+"""
+    content = '{{ widget("table", provider="materials", page_size=50) }}'
+    app = create_asgi_app(_src(tmp_path, content=content, provider=provider), table_token_secret="s" * 32)
+
+    with TestClient(app) as client:
+        initial = client.get("/")
+        response = client.post(
+            "/_httk/table/page",
+            json={
+                "token": _token(initial.text),
+                "route": "index",
+                "widget_id": re.search(r'data-widget-id="([^"]+)"', initial.text).group(1),
+            },
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["tbody"].encode("utf-8")) > 16_384
+
+
 def test_provider_url_builder_rejects_query_fragment_and_backslash_routes(tmp_path: Path) -> None:
     provider = """from httk.web import TablePage
 
