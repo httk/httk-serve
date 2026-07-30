@@ -1,4 +1,4 @@
-# Releasing `httk-web`
+# Releasing `httk-serve`
 
 Releases are built and published by GitHub Actions. PyPI authentication uses
 Trusted Publishing, so the repository does not need a stored PyPI API token.
@@ -13,9 +13,9 @@ Trusted Publishing, so the repository does not need a stored PyPI API token.
    also recommended.
 3. On PyPI, add a pending GitHub Trusted Publisher with these values:
 
-   - PyPI project name: `httk-web`
+   - PyPI project name: `httk-serve`
    - Owner: `httk`
-   - Repository: `httk-web`
+   - Repository: `httk-serve`
    - Workflow: `release.yml`
    - Environment: `pypi`
 
@@ -84,18 +84,18 @@ When the workflow run has completed (approving the
 in a fresh environment:
 
 ```console
-python -m venv /tmp/httk-web-test
-/tmp/httk-web-test/bin/python -m pip install \
+python -m venv /tmp/httk-serve-test
+/tmp/httk-serve-test/bin/python -m pip install \
   --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple/ httk-web==0.1.0
-/tmp/httk-web-test/bin/python -c "import httk.atomistic"
+  --extra-index-url https://pypi.org/simple/ httk-serve==0.2.0
+/tmp/httk-serve-test/bin/python -c "import httk.serve.web, httk.serve.optimade"
 ```
 
-Replace `0.1.0` with the version being tested. Unlike `httk-core`, `httk-web`
-has a runtime dependency (`httk-core`), so `--no-deps` is not appropriate here:
-`import httk.atomistic` pulls in `httk.core` at import time. The
-`--extra-index-url` lets pip resolve that dependency (once it is published to the
-real PyPI) while the package under test comes from TestPyPI.
+Replace `0.2.0` with the version being tested. `httk-serve` has runtime
+dependencies, so `--no-deps` is not appropriate here. The
+`--extra-index-url` lets pip resolve those dependencies (once they are published
+to the real PyPI) while the package under test comes from TestPyPI. Import both
+public package roots to verify the merged wheel.
 
 ## PyPI
 
@@ -103,8 +103,9 @@ real PyPI) while the package under test comes from TestPyPI.
 2. Push the commit and create a GitHub release whose tag is `v` followed by the
    package version, for example `v0.1.0`.
 3. Publish the GitHub release and approve the protected `pypi` environment.
-4. Verify the release from a fresh environment with `pip install httk-web`.
+4. Verify the release from a fresh environment with `pip install httk-serve`.
 
 The workflow rejects a Git tag that does not match `project.version`, rebuilds
 the distributions from the tagged source, checks them, and publishes them via
-PyPI Trusted Publishing.
+PyPI Trusted Publishing. Its isolated-wheel validation imports both
+`httk.serve.web` and `httk.serve.optimade`.

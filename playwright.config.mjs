@@ -10,7 +10,7 @@ export default defineConfig({
     launchOptions: executablePath ? {
       executablePath,
       args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-v8-sandbox"],
-      env: { ...process.env, XDG_CACHE_HOME: "/tmp/httk-web-playwright/cache", XDG_CONFIG_HOME: "/tmp/httk-web-playwright/config" },
+      env: { ...process.env, XDG_CACHE_HOME: "/tmp/httk-serve-playwright/cache", XDG_CONFIG_HOME: "/tmp/httk-serve-playwright/config" },
     } : {},
   },
 });

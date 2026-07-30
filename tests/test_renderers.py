@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from httk.web.engine.site_engine import SiteEngine
-from httk.web.model.config import SiteConfig
+from httk.serve.web.engine.site_engine import SiteEngine
+from httk.serve.web.model.config import SiteConfig
 
 
 def _make_src(tmp_path: Path) -> Path:

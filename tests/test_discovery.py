@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from httk.web.engine.discovery import normalize_route
-from httk.web.engine.site_engine import SiteEngine
-from httk.web.model.config import SiteConfig
+from httk.serve.web.engine.discovery import normalize_route
+from httk.serve.web.engine.site_engine import SiteEngine
+from httk.serve.web.model.config import SiteConfig
 
 
 def test_normalize_route_defaults_to_index() -> None:

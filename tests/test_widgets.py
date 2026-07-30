@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from httk.web.engine.site_engine import SiteEngine
-from httk.web.model.config import SiteConfig
-from httk.web.model.errors import WidgetError
+from httk.serve.web.engine.site_engine import SiteEngine
+from httk.serve.web.model.config import SiteConfig
+from httk.serve.web.model.errors import WidgetError
 
 
 def _src(tmp_path: Path) -> Path:
@@ -19,7 +19,7 @@ def _src(tmp_path: Path) -> Path:
 def test_local_widget_escapes_plain_text_and_allows_explicit_markup(tmp_path: Path) -> None:
     src = _src(tmp_path)
     (src / "widgets" / "hello.py").write_text(
-        "from httk.web.widgets import trusted_html\n"
+        "from httk.serve.web.widgets import trusted_html\n"
         "def render(context, name, trusted=False):\n"
         "    return trusted_html(f'<b>{name}</b>') if trusted else f'<b>{name}</b>'\n",
         encoding="utf-8",

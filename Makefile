@@ -16,7 +16,7 @@ docs-live:
 	HTTK_DOCS_BASE_URL=$(DOCS_BASE_URL) sphinx-autobuild docs docs/_build/html
 
 docs-clean:
-	rm -rf docs/_build docs/reference/autoapi
+	rm -rf docs/_build docs/reference/autoapi docs/examples
 
 # Refresh the committed intersphinx inventories (the one docs task that uses the
 # network); docs builds themselves resolve against these vendored files offline.
@@ -34,7 +34,7 @@ docs-lock:
 # (network target; the lock installation and build are intentionally transparent).
 docs-lock-check: docs-clean
 	@set -eu; \
-	check_dir=$$(mktemp -d "${TMPDIR:-/tmp}/httk-web-docs-lock-check.XXXXXX"); \
+	check_dir=$$(mktemp -d "${TMPDIR:-/tmp}/httk-serve-docs-lock-check.XXXXXX"); \
 	trap 'rm -rf "$$check_dir"' EXIT; \
 	env -u PYTHONPATH -u PYTHONHOME $(PYTHON) -m venv "$$check_dir/venv"; \
 	env -u PYTHONPATH -u PYTHONHOME "$$check_dir/venv/bin/python" -m pip install -r docs/requirements.lock; \
@@ -44,7 +44,7 @@ docs-lock-check: docs-clean
 		"$$check_dir/venv/bin/python" -m sphinx -E -a -b html -W --keep-going docs "$$check_dir/html"
 
 dist-clean:
-	rm -rf build $(DIST_DIR) src/httk_web.egg-info
+	rm -rf build $(DIST_DIR) src/httk_serve.egg-info
 
 clean: docs-clean dist-clean
 	find . -name "*.pyc" -print0 | xargs -0 rm -f
@@ -71,7 +71,7 @@ test:
 	$(PYTHON) -m pytest
 
 test-js:
-	$(NODE) --test tests/optimade-table-protocol.test.mjs tests/optimade-table-controller.test.mjs
+	$(NODE) --test tests/serve-optimade-table-protocol.test.mjs tests/serve-optimade-table-controller.test.mjs
 
 test-browser:
 	$(NPM) run test-browser

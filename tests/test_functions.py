@@ -2,7 +2,7 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
-from httk.web.api import create_asgi_app
+from httk.serve.web.api import create_asgi_app
 
 
 def _make_src(tmp_path: Path) -> Path:

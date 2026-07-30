@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Resolve the site staging directory
-        run: echo "SITE_DIR=$RUNNER_TEMP/httk-web-docs-site" >> "$GITHUB_ENV"
+        run: echo "SITE_DIR=$RUNNER_TEMP/httk-serve-docs-site" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
         with:
@@ -88,7 +88,7 @@ jobs:
             fi
             python -m httk.core.docs compose \
               --site "$SITE_DIR" --build docs/_build/html --release "${GITHUB_REF_NAME}" \
-              --slug httk-web --url https://docs.httk.org/httk-web \
+              --slug httk-serve --url https://docs.httk.org/httk-serve \
               --source-commit "$SOURCE_COMMIT"
             python -m httk.core.docs commit-site \
               --site "$SITE_DIR" --repo "$GITHUB_WORKSPACE" \

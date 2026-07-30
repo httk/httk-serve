@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Resolve the site staging directory
-        run: echo "SITE_DIR=$RUNNER_TEMP/httk-web-docs-site" >> "$GITHUB_ENV"
+        run: echo "SITE_DIR=$RUNNER_TEMP/httk-serve-docs-site" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
         with:
@@ -33,14 +33,14 @@ jobs:
         run: |
           # Clone first so the shared stdlib-only docs CLI is available before
           # any pip command, and so bootstrap resolution can see local internals.
-          for dependency in httk-core; do
+          for dependency in httk-core httk-data; do
             git clone --depth 1 --branch main "https://github.com/httk/$dependency" "$RUNNER_TEMP/dep-$dependency"
           done
           if [ -f docs/requirements.lock ]; then
             PYTHONPATH="$RUNNER_TEMP/dep-httk-core/src" python -m httk.core.docs filter-lock \
               --lock docs/requirements.lock \
               --out "$RUNNER_TEMP/dev-requirements.txt" \
-              --self-distribution httk-web
+              --self-distribution httk-serve
             pip install -r "$RUNNER_TEMP/dev-requirements.txt"
           else
             # Bootstrap is intentionally dev-only: releases remain hard-gated
@@ -49,7 +49,7 @@ jobs:
           fi
           # Install local internal checkouts before the project so bootstrap
           # resolution sees the checkouts satisfying their dependency floors.
-          for dependency in httk-core; do
+          for dependency in httk-core httk-data; do
             pip install -e "$RUNNER_TEMP/dep-$dependency" --no-deps
           done
           if [ -f docs/requirements.lock ]; then
@@ -63,7 +63,7 @@ jobs:
           import os
           from pathlib import Path
 
-          checks = {"httk.core":"httk-core"}
+          checks = {"httk.core":"httk-core","httk.data":"httk-data"}
           for module_name, dependency in checks.items():
               module = importlib.import_module(module_name)
               module_path = Path(module.__file__).resolve()
@@ -104,7 +104,7 @@ jobs:
             fi
             python -m httk.core.docs compose \
               --site "$SITE_DIR" --build docs/_build/html --dev \
-              --slug httk-web --url https://docs.httk.org/httk-web \
+              --slug httk-serve --url https://docs.httk.org/httk-serve \
               --source-commit "$SOURCE_COMMIT"
             python -m httk.core.docs commit-site \
               --site "$SITE_DIR" --repo "$GITHUB_WORKSPACE" \

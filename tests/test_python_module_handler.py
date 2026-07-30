@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from httk.web.functions.python_module import PythonFunctionHandler
+from httk.serve.web.functions.python_module import PythonFunctionHandler
 
 
 def test_handler_imports_helper_at_module_load(tmp_path: Path) -> None:

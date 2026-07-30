@@ -4,12 +4,12 @@ import pytest
 from httk.core.cli_context import CLIContext
 from starlette.testclient import TestClient
 
-from httk.web import api
-from httk.web.api import create_asgi_app, publish
-from httk.web.cli import command
-from httk.web.engine import SiteEngine
-from httk.web.model.config import SiteConfig
-from httk.web.resources import SITE_RESOURCES_KEY, SiteResources
+from httk.serve.web import api
+from httk.serve.web.api import create_asgi_app, publish
+from httk.serve.web.cli import command
+from httk.serve.web.engine import SiteEngine
+from httk.serve.web.model.config import SiteConfig
+from httk.serve.web.resources import SITE_RESOURCES_KEY, SiteResources
 
 
 def _site(tmp_path: Path) -> Path:

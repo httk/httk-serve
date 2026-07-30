@@ -6,10 +6,10 @@ import pytest
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
-from httk.web.api import create_asgi_app, publish
-from httk.web.providers import ProviderContext, TablePage
-from httk.web.runtime.asgi import _read_limited_body
-from httk.web.widgets.table import TableContinuationError, TableTokenSigner
+from httk.serve.web.api import create_asgi_app, publish
+from httk.serve.web.providers import ProviderContext, TablePage
+from httk.serve.web.runtime.asgi import _read_limited_body
+from httk.serve.web.widgets.table import TableContinuationError, TableTokenSigner
 
 
 def _src(tmp_path: Path, *, content: str | None = None, provider: str | None = None) -> Path:
@@ -26,7 +26,7 @@ def _src(tmp_path: Path, *, content: str | None = None, provider: str | None = N
 
 
 def _provider_source() -> str:
-    return '''from httk.web import TablePage
+    return '''from httk.serve.web import TablePage
 
 calls = []
 
@@ -45,7 +45,7 @@ def provide(context, request, **provider_args):
 
 
 def _token(html: str, direction: str = "next") -> str:
-    match = re.search(rf'data-httk-table-{direction} data-token="([^"]+)"', html)
+    match = re.search(rf'data-httk-serve-table-{direction} data-token="([^"]+)"', html)
     assert match is not None
     return match.group(1)
 
@@ -58,7 +58,7 @@ def _provider_module(app, name: str = "materials"):
 
 
 def test_table_default_renderer_escapes_values_and_simple_sequences(tmp_path: Path) -> None:
-    provider = '''from httk.web import TablePage
+    provider = '''from httk.serve.web import TablePage
 
 def provide(context, request, **provider_args):
     return TablePage.from_rows([{"name": "<script>alert(1)</script>", "value": ["<b>x</b>", 2]}], columns=["name", "value"])
@@ -89,7 +89,7 @@ def test_table_row_template_has_the_same_context_after_pagination(tmp_path: Path
         assert widget_id is not None
         token = _token(initial.text)
         paged = client.post(
-            "/_httk/table/page", json={"token": token, "route": "index", "widget_id": widget_id.group(1)}
+            "/_httk/serve/table/page", json={"token": token, "route": "index", "widget_id": widget_id.group(1)}
         )
 
     assert initial.status_code == 200
@@ -106,11 +106,11 @@ def test_table_paginates_only_requested_bounded_pages_and_preserves_query(tmp_pa
         widget_id = re.search(r'data-widget-id="([^"]+)"', first.text)
         assert widget_id is not None
         next_page = client.post(
-            "/_httk/table/page",
+            "/_httk/serve/table/page",
             json={"token": _token(first.text), "route": "index", "widget_id": widget_id.group(1)},
         )
         previous_page = client.post(
-            "/_httk/table/page",
+            "/_httk/serve/table/page",
             json={"token": next_page.json()["previous"], "route": "index", "widget_id": widget_id.group(1)},
         )
 
@@ -142,26 +142,26 @@ def test_table_rejects_tampered_expired_and_cross_widget_tokens_before_provider_
         tampered = f"{first_token[:-1]}{'A' if first_token[-1] != 'A' else 'B'}"
         assert (
             client.post(
-                "/_httk/table/page", json={"token": tampered, "route": "index", "widget_id": "first"}
+                "/_httk/serve/table/page", json={"token": tampered, "route": "index", "widget_id": "first"}
             ).status_code
             == 400
         )
         assert (
             client.post(
-                "/_httk/table/page", json={"token": first_token, "route": "other", "widget_id": "first"}
+                "/_httk/serve/table/page", json={"token": first_token, "route": "other", "widget_id": "first"}
             ).status_code
             == 400
         )
         assert (
             client.post(
-                "/_httk/table/page", json={"token": first_token, "route": "index", "widget_id": "second"}
+                "/_httk/serve/table/page", json={"token": first_token, "route": "index", "widget_id": "second"}
             ).status_code
             == 400
         )
         runtime._clock = lambda: 2_000
         assert (
             client.post(
-                "/_httk/table/page", json={"token": first_token, "route": "index", "widget_id": "first"}
+                "/_httk/serve/table/page", json={"token": first_token, "route": "index", "widget_id": "first"}
             ).status_code
             == 410
         )
@@ -170,7 +170,7 @@ def test_table_rejects_tampered_expired_and_cross_widget_tokens_before_provider_
 
 
 def test_table_endpoint_limits_methods_content_and_provider_errors(tmp_path: Path) -> None:
-    provider = '''from httk.web import TablePage
+    provider = '''from httk.serve.web import TablePage
 
 def provide(context, request, **provider_args):
     if request.cursor is not None:
@@ -188,29 +188,31 @@ def provide(context, request, **provider_args):
     with TestClient(app) as client:
         initial = client.get("/")
         token = _token(initial.text)
-        assert client.get("/_httk/table/page").status_code == 405
-        assert client.get("/_httk/unrecognised").status_code == 404
-        assert client.post("/_httk/table/page", content="{}").status_code == 415
+        assert client.get("/_httk/serve/table/page").status_code == 405
+        assert client.get("/_httk/serve/unrecognised").status_code == 404
+        assert client.post("/_httk/serve/table/page", content="{}").status_code == 415
         assert (
-            client.post("/_httk/table/page", content="{bad", headers={"content-type": "application/json"}).status_code
+            client.post(
+                "/_httk/serve/table/page", content="{bad", headers={"content-type": "application/json"}
+            ).status_code
             == 400
         )
         assert (
             client.post(
-                "/_httk/table/page", content="x" * 70_000, headers={"content-type": "application/json"}
+                "/_httk/serve/table/page", content="x" * 70_000, headers={"content-type": "application/json"}
             ).status_code
             == 413
         )
         assert (
             client.post(
-                "/_httk/table/page",
+                "/_httk/serve/table/page",
                 content=oversized_chunked_body(),
                 headers={"content-type": "application/json", "transfer-encoding": "chunked"},
             ).status_code
             == 413
         )
         failed = client.post(
-            "/_httk/table/page",
+            "/_httk/serve/table/page",
             json={
                 "token": token,
                 "route": "index",
@@ -238,7 +240,7 @@ def test_table_body_reader_stops_consuming_chunked_input_at_limit() -> None:
         {
             "type": "http",
             "method": "POST",
-            "path": "/_httk/table/page",
+            "path": "/_httk/serve/table/page",
             "headers": (),
         },
         receive,
@@ -264,7 +266,7 @@ def test_initial_table_provider_error_does_not_leak_author_diagnostics(tmp_path:
 
 
 def test_table_revision_mismatch_resets_without_dispatching_a_new_page(tmp_path: Path) -> None:
-    provider = '''from httk.web import TablePage
+    provider = '''from httk.serve.web import TablePage
 
 def provide(context, request, **provider_args):
     return TablePage.from_rows(
@@ -276,7 +278,7 @@ def provide(context, request, **provider_args):
     with TestClient(app) as client:
         initial = client.get("/")
         response = client.post(
-            "/_httk/table/page",
+            "/_httk/serve/table/page",
             json={
                 "token": _token(initial.text),
                 "route": "index",
@@ -318,19 +320,21 @@ def test_table_multiple_widgets_assets_and_nested_deployment_relative_urls(tmp_p
     with TestClient(app) as client:
         response = client.get("/")
         nested = client.get("/guide/index")
-        js = client.get("/_httk/assets/table.js")
-        css = client.get("/_httk/assets/table.css")
+        js = client.get("/_httk/serve/assets/serve-table.js")
+        css = client.get("/_httk/serve/assets/serve-table.css")
 
     assert response.status_code == 200
-    assert response.text.count("data-httk-table=\"1\"") == 2
+    assert response.text.count("data-httk-serve-table=\"1\"") == 2
     assert 'data-widget-id="one"' in response.text and 'data-widget-id="two"' in response.text
     assert nested.status_code == 200
-    assert 'data-endpoint="../_httk/table/page"' in nested.text
-    assert 'src="../_httk/assets/table.js"' in nested.text
-    assert js.status_code == 200 and "httk:table-updated" in js.text
+    assert 'data-endpoint="../_httk/serve/table/page"' in nested.text
+    assert 'src="../_httk/serve/assets/serve-table.js"' in nested.text
+    assert js.status_code == 200 and "httk-serve:table-updated" in js.text
+    assert "dataset.httkServeTableReady" in js.text
+    assert "dataset.httkTableReady" not in js.text
     assert "response.status === 409 || response.status === 410" in js.text
     assert "Reload the page to continue." in js.text
-    assert css.status_code == 200 and ".httk-table" in css.text
+    assert css.status_code == 200 and ".httk-serve-table" in css.text
     assert '"assets/*.js"' in (Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8")
 
 
@@ -342,8 +346,8 @@ def test_static_publish_renders_first_page_and_disables_live_pagination(tmp_path
     assert report.written_files
     assert "all-0" in rendered
     assert "Pagination is available on the live site." in rendered
-    assert "data-httk-table-next data-token=\"\" disabled" in rendered
-    assert "table.js" not in rendered
+    assert "data-httk-serve-table-next data-token=\"\" disabled" in rendered
+    assert "serve-table.js" not in rendered
 
 
 def test_provider_contracts_reject_hidden_key_coercion_and_canonical_aliases() -> None:
@@ -364,7 +368,7 @@ def test_provider_contracts_reject_hidden_key_coercion_and_canonical_aliases() -
 
 def test_provider_url_builder_and_large_opaque_cursor(tmp_path: Path) -> None:
     cursor = "c" * 12_000
-    provider = f'''from httk.web import TablePage
+    provider = f'''from httk.serve.web import TablePage
 
 def provide(context, request, **provider_args):
     row = {{"name": context.url_for("details", query={{"id": "mp/1"}})}}
@@ -376,7 +380,7 @@ def provide(context, request, **provider_args):
         initial = client.get("/")
         token = _token(initial.text)
         response = client.post(
-            "/_httk/table/page",
+            "/_httk/serve/table/page",
             json={
                 "token": token,
                 "route": "index",
@@ -422,7 +426,7 @@ def test_provider_context_url_for_accepts_nested_routes_and_encodes_query() -> N
 
 
 def test_continuation_accepts_rendered_pages_larger_than_token_string_fields(tmp_path: Path) -> None:
-    provider = """from httk.web import TablePage
+    provider = """from httk.serve.web import TablePage
 
 def provide(context, request, **provider_args):
     rows = [{"name": f"{index}-" + ("x" * 400)} for index in range(request.page_size)]
@@ -438,7 +442,7 @@ def provide(context, request, **provider_args):
     with TestClient(app) as client:
         initial = client.get("/")
         response = client.post(
-            "/_httk/table/page",
+            "/_httk/serve/table/page",
             json={
                 "token": _token(initial.text),
                 "route": "index",
@@ -451,7 +455,7 @@ def provide(context, request, **provider_args):
 
 
 def test_provider_url_builder_rejects_query_fragment_and_backslash_routes(tmp_path: Path) -> None:
-    provider = """from httk.web import TablePage
+    provider = """from httk.serve.web import TablePage
 
 def provide(context, request, **provider_args):
     for route in (

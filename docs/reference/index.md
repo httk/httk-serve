@@ -1,6 +1,8 @@
-:orphan:
 # Reference
 
-This section documents the supported public API.
+```{toctree}
+:maxdepth: 2
 
-The generated API reference is available at {doc}`autoapi/httk/web/index`.
+autoapi/httk/serve/web/index
+autoapi/httk/serve/optimade/index
+```

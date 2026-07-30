@@ -81,12 +81,9 @@ jobs:
 
       - name: Test the built wheel in isolation
         run: |
-          python -m venv /tmp/httk-web-wheel-test
-          /tmp/httk-web-wheel-test/bin/python -m pip install --no-deps dist/*.whl
-          # httk.web imports starlette (and httk-core) at import time, so a
-          # --no-deps environment cannot import the package. Verify the wheel
-          # installs and exposes correct metadata instead of importing it.
-          /tmp/httk-web-wheel-test/bin/python -c "import importlib.metadata as m; print(m.version('httk-web'))"
+          python -m venv /tmp/httk-serve-wheel-test
+          /tmp/httk-serve-wheel-test/bin/python -m pip install dist/*.whl
+          /tmp/httk-serve-wheel-test/bin/python -c "import httk.serve.web, httk.serve.optimade"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -101,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/httk-web
+      url: https://test.pypi.org/p/httk-serve
     permissions:
       id-token: write
 
@@ -123,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/httk-web
+      url: https://pypi.org/p/httk-serve
     permissions:
       id-token: write
 

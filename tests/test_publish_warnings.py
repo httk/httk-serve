@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from httk.web.api import publish
+from httk.serve.web.api import publish
 
 
 def _make_src(tmp_path: Path) -> tuple[Path, Path]:

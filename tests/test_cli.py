@@ -2,7 +2,7 @@ from pathlib import Path
 
 from httk.core.cli_context import CLIContext
 
-from httk.web.cli import command
+from httk.serve.web.cli import command
 
 
 def _src(tmp_path: Path) -> Path:
@@ -22,7 +22,7 @@ def test_check_and_list_commands(tmp_path: Path, capsys) -> None:
     assert command(["list", str(src)], context) == 0
     output = capsys.readouterr().out
     assert "httk.text" in output
-    assert "httk.table" in output
+    assert "httk.serve.table" in output
     assert "site.hello" in output
 
 
@@ -32,21 +32,21 @@ def test_check_rejects_reserved_runtime_route_collisions(tmp_path: Path, capsys)
     context = CLIContext("httk", tmp_path)
 
     assert command(["check", str(src)], context) == 1
-    assert "Reserved httk-web route collision" in capsys.readouterr().err
+    assert "Reserved httk-serve route collision" in capsys.readouterr().err
 
 
 def test_web_registry_registers_lazy_umbrella_command() -> None:
     from httk.core.register import cli_command
 
-    import httk.registry.cli.web  # noqa: F401
+    import httk.registry.cli.serve  # noqa: F401
 
-    registered = cli_command("web")
+    registered = cli_command("serve")
     assert registered is not None
-    assert registered.handler == "httk.web.cli:command"
+    assert registered.handler == "httk.serve.web.cli:command"
 
 
 def test_umbrella_cli_dispatches_web_list(tmp_path: Path, capsys) -> None:
     from httk.core.cli import main
 
-    assert main(["web", "list", str(_src(tmp_path))]) == 0
+    assert main(["serve", "web", "list", str(_src(tmp_path))]) == 0
     assert "site.hello" in capsys.readouterr().out

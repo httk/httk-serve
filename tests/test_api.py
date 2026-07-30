@@ -2,7 +2,7 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
-from httk.web.api import create_asgi_app, publish
+from httk.serve.web.api import create_asgi_app, publish
 
 
 def test_create_asgi_app_serves_content(tmp_path: Path) -> None:

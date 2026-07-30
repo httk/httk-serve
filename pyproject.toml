@@ -3,9 +3,9 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "httk-web"
+name = "httk-serve"
 version = "0.2.0"
-description = "Web and static-site tooling for httk₂"
+description = "Web and OPTIMADE serving tooling for httk₂"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
@@ -13,6 +13,8 @@ requires-python = ">=3.12"
 authors = [{ name = "Rickard Armiento", email = "rickard-gpg@armiento.net" }]
 dependencies = [
   "httk-core>=2.0.2,<3",
+  "httk-data>=0.2.0,<1",
+  "httpx>=0.27",
   "jinja2>=3.1",
   "markdown>=3.5",
   "PyYAML>=6.0",
@@ -39,9 +41,9 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://httk.org"
-Documentation = "https://docs.httk.org/httk-web/"
-Repository = "https://github.com/httk/httk-web"
-Issues = "https://github.com/httk/httk-web/issues"
+Documentation = "https://docs.httk.org/httk-serve/"
+Repository = "https://github.com/httk/httk-serve"
+Issues = "https://github.com/httk/httk-serve/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -50,8 +52,9 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"httk.web" = ["py.typed", "assets/*.css", "assets/*.js", "assets/*.mjs"]
-"httk.registry.cli.web" = ["py.typed"]
+"httk.serve.web" = ["py.typed", "assets/*.css", "assets/*.js", "assets/*.mjs"]
+"httk.serve.optimade" = ["py.typed"]
+"httk.registry.cli.serve" = ["py.typed"]
 
 [project.optional-dependencies]
 dev = [
@@ -102,9 +105,9 @@ pythonVersion = "3.12"
 include = ["src", "examples"]
 # The legacy search-app demo is example *site content* that targets the httk v1
 # full stack (httk.db, httk.atomistic.Compound), APIs with no httk₂ equivalent.
-# It is not part of the distribution and cannot resolve against httk-web's deps.
+# It is not part of the distribution and cannot resolve against httk-serve's deps.
 exclude = ["examples/legacy/search_app/src/functions"]
-extraPaths = ["src"]
+extraPaths = ["src", "../httk-data/src"]
 venvPath = ".."
 venv = ".venv"
 reportMissingImports = true
@@ -112,7 +115,7 @@ reportMissingImports = true
 [tool.mypy]
 python_version = "3.12"
 files = ["src", "examples"]
-mypy_path = ["src"]
+mypy_path = ["src", "examples/optimade/demo_server", "../httk-data/src"]
 namespace_packages = true
 explicit_package_bases = true
 warn_unused_ignores = true
@@ -120,3 +123,8 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = ["yaml", "markdown", "docutils", "docutils.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# httk-data is type-checked in its own repository.
+module = ["httk.data", "httk.data.*", "httk.registry.data"]
+follow_imports = "silent"

@@ -1,11 +1,17 @@
 [site]
-slug = "httk-web"
-repository-url = "https://github.com/httk/httk-web"
+slug = "httk-serve"
+repository-url = "https://github.com/httk/httk-serve"
 main-branch = "main"
-import-roots = ["httk/web"]
+import-roots = ["httk/serve/web", "httk/serve/optimade"]
 
 [[internal-dependency]]
 distribution = "httk-core"
 slug = "httk-core"
 repository-url = "https://github.com/httk/httk-core"
+main-branch = "main"
+
+[[internal-dependency]]
+distribution = "httk-data"
+slug = "httk-data"
+repository-url = "https://github.com/httk/httk-data"
 main-branch = "main"
