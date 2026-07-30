@@ -272,6 +272,20 @@ def test_cors_preflight_allows_only_configured_origin_and_safe_get_header() -> N
     assert "access-control-allow-credentials" not in rejected.headers
 
 
+def test_cors_origin_normalizes_internationalized_hosts_like_a_browser() -> None:
+    browser_origin = "https://xn--bcher-kva.example"
+    client = TestClient(
+        make_app(config=OptimadeConfig(cors_origins=("HTTPS://BÜCHER.EXAMPLE:443/",))),
+        base_url="http://testserver",
+    )
+
+    response = client.get("/structures", headers={"Origin": browser_origin})
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == browser_origin
+    assert response.headers["vary"] == "Origin"
+
+
 @pytest.mark.parametrize(
     "origin",
     [

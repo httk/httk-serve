@@ -80,6 +80,11 @@ def _canonical_cors_origin(origin: object) -> str:
 
     scheme = parsed.scheme.lower()
     host = parsed.hostname.lower()
+    if ":" not in host:
+        try:
+            host = host.encode("idna").decode("ascii")
+        except UnicodeError as ex:
+            raise ValueError("CORS origin has an invalid host") from ex
     rendered_host = f"[{host}]" if ":" in host else host
     if port is None or (scheme == "http" and port == 80) or (scheme == "https" and port == 443):
         return f"{scheme}://{rendered_host}"
