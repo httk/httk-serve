@@ -192,9 +192,9 @@ Relevant failures are `OptimadeTransportError`, `OptimadeHTTPError`,
 credentials and sensitive query tokens.
 
 Before a result page yields any item, the client verifies its JSON:API/OPTIMADE
-envelope: object `meta`, matching integer `meta.data_returned`, endpoint-matched
-resource types, and object-valued `attributes`/`relationships` members when
-present. This
+envelope: object `meta`, an optional but (when present) matching integer
+`meta.data_returned`, endpoint-matched resource types, and object-valued
+`attributes`/`relationships` members when present. This
 prevents a partially yielded typed page from being followed by a malformed
 entry in the same response.
 

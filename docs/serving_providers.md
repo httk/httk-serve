@@ -100,6 +100,33 @@ from the provider's descriptions. A runnable version of this example is in
 wiring (custom `EntrySource`s, handler tables, and an `OptimadeConfig` with
 provider links) that `adapter_from_providers` automates.
 
+### Mounted deployments and browser access
+
+When `create_asgi_app()` has no explicit `baseurl`, generated resource and
+pagination links use the ASGI mount path. For example, mounting the app at
+`/optimade` makes a request to `/optimade/v1/structures` generate links below
+`/optimade/v1/`; an unversioned request remains below `/optimade/`. If the
+public URL differs from ASGI's incoming scheme or host, pass `baseurl` as the
+unversioned public API base instead. It remains authoritative, while a
+versioned request still adds its single `/v1/` segment to generated links.
+
+Cross-origin browser reads are disabled by default. To opt in, configure an
+exact HTTP(S) origin allowlist; wildcard origins and credentials are not
+supported:
+
+```python
+from httk.optimade import OptimadeConfig, create_asgi_app
+
+app = create_asgi_app(
+    adapter,
+    OptimadeConfig(cors_origins=("https://table.example",)),
+)
+```
+
+Allowed origins receive CORS responses for `GET`, `HEAD`, and preflight
+`OPTIONS` requests. Origins must not include paths (apart from a trailing
+slash), credentials, queries, or fragments.
+
 ## Query programmatically
 
 For tests or in-process use, skip HTTP and drive the engine directly:

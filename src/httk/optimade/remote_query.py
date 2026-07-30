@@ -716,9 +716,10 @@ class RemoteSearcher:
         """Validate a complete successful entry envelope before yielding it.
 
         OPTIMADE list responses use an array ``data`` member and an object
-        ``meta`` member.  ``data_returned`` is the server's explicit statement
-        of the array size, so accepting a different value would let a malformed
-        page look internally consistent to a caller.  Resource-level checks
+        ``meta`` member.  When present, ``data_returned`` is the server's
+        explicit statement of the array size, so accepting a different value
+        would let a malformed page look internally consistent to a caller.
+        OPTIMADE makes that member a SHOULD rather than a MUST. Resource-level checks
         intentionally stop at JSON:API envelope shapes: extension members and
         arbitrary link objects remain lossless raw data rather than being
         interpreted or rejected here.
@@ -731,7 +732,7 @@ class RemoteSearcher:
         if not isinstance(meta, dict):
             raise OptimadeResponseError(f"OPTIMADE response from {_safe_source(source_url)!r} has no object meta")
         data_returned = meta.get("data_returned")
-        if (
+        if "data_returned" in meta and (
             not isinstance(data_returned, int)
             or isinstance(data_returned, bool)
             or data_returned < 0

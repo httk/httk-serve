@@ -19,6 +19,13 @@ PAGE_LIMIT_MAX = 50
 _DIMENSION_SLICE_RE = re.compile(r'^([^\[\]:]+)\[(\d*):(\d*):(\d*)\]$')
 
 
+def _versioned_baseurl(baseurl: str, url_version: str | None) -> str:
+    """Return the URL base from which links for this request are generated."""
+    if url_version is None:
+        return baseurl
+    return baseurl.rstrip("/") + "/" + url_version + "/"
+
+
 def _parse_dimension_slices(value: str) -> dict[str, RequestedSlice]:
     """Parse the ``dimension_slices`` query parameter into requested slices."""
     result: dict[str, RequestedSlice] = {}
@@ -118,33 +125,33 @@ def validate_optimade_request(request: RawRequest, version: str, schema: ServedS
     url_version: str | None = None
     partial_data_parts: tuple[str, str, str] | None = None
 
-    if endpoint is None:
-        if request.relurl is not None:
-            relurl = request.relurl
+    if request.relurl is not None:
+        relurl = request.relurl
+    else:
+        relurl = request.representation.partition('?')[0]
+
+    endpoint_str = relurl.strip("/")
+
+    potential_optimade_version, _sep, rest = endpoint_str.partition('/')
+
+    if (
+        len(potential_optimade_version) >= 2
+        and potential_optimade_version[0] == 'v'
+        and potential_optimade_version[1] in "0123456789"
+    ):
+        if potential_optimade_version in optimade_supported_versions:
+            validated_version = optimade_supported_versions[potential_optimade_version]
+            url_version = potential_optimade_version
+            endpoint_str = rest
         else:
-            relurl = request.representation.partition('?')[0]
+            raise OptimadeError(
+                "Unsupported version requested. Supported versioned base URLs are: "
+                + (", ".join(["/" + str(x) for x in optimade_supported_versions])),
+                553,
+                "Bad request",
+            )
 
-        endpoint_str = relurl.strip("/")
-
-        potential_optimade_version, _sep, rest = endpoint_str.partition('/')
-
-        if (
-            len(potential_optimade_version) >= 2
-            and potential_optimade_version[0] == 'v'
-            and potential_optimade_version[1] in "0123456789"
-        ):
-            if potential_optimade_version in optimade_supported_versions:
-                validated_version = optimade_supported_versions[potential_optimade_version]
-                url_version = potential_optimade_version
-                endpoint_str = rest
-            else:
-                raise OptimadeError(
-                    "Unsupported version requested. Supported versioned base URLs are: "
-                    + (", ".join(["/" + str(x) for x in optimade_supported_versions])),
-                    553,
-                    "Bad request",
-                )
-
+    if endpoint is None:
         first_level_endpoint, _sep, path_request_id = endpoint_str.partition('/')
 
         # First check fixed endpoints
@@ -214,7 +221,7 @@ def validate_optimade_request(request: RawRequest, version: str, schema: ServedS
         query = dict(parse_qsl(querystr, keep_blank_values=True))
 
     validated_request = ValidatedRequest(
-        baseurl=request.baseurl,
+        baseurl=_versioned_baseurl(request.baseurl, url_version),
         representation=request.representation,
         endpoint=endpoint,
         version=validated_version,

@@ -38,3 +38,4 @@ class OptimadeConfig:
     available_licenses_for_entries: list[str] | None = None
     data_available: dict[str, int] = field(default_factory=dict)
     partial_data_chunk_size: int = 1000
+    cors_origins: tuple[str, ...] = ()

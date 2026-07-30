@@ -790,7 +790,6 @@ def test_frozen_result_survives_refresh_and_slicing_with_old_schema_snapshot() -
 @pytest.mark.parametrize(
     "bad_page",
     [
-        {"data": [], "meta": {}},
         {"data": [], "meta": {"data_returned": True}},
         {"data": [], "meta": {"data_returned": 1}},
         {"data": [resource("x", "other-endpoint")], "meta": {"data_returned": 1}},
@@ -819,6 +818,21 @@ def test_entry_envelope_validation_rejects_inconsistent_page_shapes(bad_page: di
 
     with pytest.raises(OptimadeResponseError):
         list(searcher.results(record=variable))
+
+
+@pytest.mark.parametrize(
+    "meta",
+    [
+        {"more_data_available": False},
+        {"more_data_available": False, "data_returned": 1},
+    ],
+)
+def test_entry_envelope_accepts_missing_or_valid_data_returned(meta: dict[str, object]) -> None:
+    store, _client = make_files([response({"data": [resource("f-1", "renamed-files")], "meta": meta})])
+    searcher = store.searcher()
+    variable = searcher.variable(store.entry_types[0])
+
+    assert [item.record.id for item in searcher.results(record=variable)] == ["f-1"]
 
 
 def test_entry_envelope_is_validated_before_any_page_item_is_yielded() -> None:

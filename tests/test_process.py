@@ -1,4 +1,5 @@
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from materials_fixtures import materials_schema
@@ -131,6 +132,31 @@ def test_versioned_request() -> None:
     output = process(make_request("/v1/info"), StubQueryFunction(), "1.3.0", make_config(), materials_schema())
     assert output.json_response is not None
     assert output.json_response["meta"]["api_version"] == "1.3.0"
+
+
+def test_versioned_request_with_caller_supplied_endpoint_preserves_next_link() -> None:
+    request = RawRequest(
+        baseurl="http://localhost/outer/v1/",
+        representation="/v1/structures?page_limit=1",
+        endpoint="structures",
+    )
+
+    class MoreResultsQuery(StubQueryFunction):
+        def __call__(self, *args: Any, **kwargs: Any) -> StubResults:
+            results = super().__call__(*args, **kwargs)
+            results.more_data_available = True
+            return results
+
+    output = process(
+        request,
+        MoreResultsQuery([{"id": "a", "type": "structures"}]),
+        "1.3.0",
+        make_config(),
+        materials_schema(),
+    )
+
+    assert output.json_response is not None
+    assert output.json_response["links"]["next"].startswith("http://localhost/outer/v1/v1/structures?")
 
 
 def test_process_init_fills_data_available() -> None:

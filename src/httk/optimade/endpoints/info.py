@@ -7,12 +7,20 @@ from ..schema.served import ServedSchema
 from .meta import generate_meta
 
 
+def _unversioned_baseurl(request: ValidatedRequest) -> str:
+    """Return the API base used by the ``available_api_versions`` links."""
+    if request.url_version is None:
+        return request.baseurl
+    return request.baseurl[: -len(request.url_version) - 1]
+
+
 def generate_info_endpoint_reply(
     request: ValidatedRequest, config: OptimadeConfig, schema: ServedSchema
 ) -> dict[str, Any]:
+    baseurl = _unversioned_baseurl(request)
     available_api_versions = []
     for ver in optimade_supported_versions:
-        available_api_versions += [{'version': optimade_supported_versions[ver], 'url': request.baseurl + ver}]
+        available_api_versions += [{'version': optimade_supported_versions[ver], 'url': baseurl + ver}]
 
     attributes: dict[str, Any] = {
         "api_version": request.version,

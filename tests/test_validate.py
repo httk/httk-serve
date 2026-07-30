@@ -160,6 +160,26 @@ def test_caller_supplied_endpoint() -> None:
     assert "elements" in validated.recognized_response_fields
 
 
+@pytest.mark.parametrize("url_alias", ("v1", "v1.3", "v1.3.0"))
+def test_caller_supplied_endpoint_preserves_url_version(url_alias: str) -> None:
+    request = RawRequest(
+        baseurl="http://localhost/outer/v1/",
+        representation=f"/{url_alias}/structures",
+        endpoint="structures",
+    )
+    validated = validate_optimade_request(request, "1.3.0", SCHEMA)
+
+    assert validated.url_version == url_alias
+    assert validated.baseurl == f"http://localhost/outer/v1/{url_alias}/"
+
+
+def test_caller_supplied_endpoint_still_rejects_unsupported_url_version() -> None:
+    request = make_request("/v9/structures", endpoint="structures")
+    with pytest.raises(OptimadeError) as excinfo:
+        validate_optimade_request(request, "1.3.0", SCHEMA)
+    assert excinfo.value.response_code == 553
+
+
 def test_determine_optimade_version() -> None:
     assert determine_optimade_version(make_request("/structures")) == "1.3.0"
     assert determine_optimade_version(make_request("/v1/structures")) == "1.3.0"
