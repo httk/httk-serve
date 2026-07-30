@@ -1,6 +1,5 @@
 import json
 from contextlib import asynccontextmanager
-from importlib.resources import files
 from urllib.parse import parse_qsl
 
 from starlette.applications import Starlette
@@ -24,7 +23,6 @@ from httk.web.widgets.table import (
 
 MAX_POST_BODY_BYTES = 1_000_000
 MAX_TABLE_POST_BODY_BYTES = 64_000
-_TABLE_ASSET_CACHE: dict[str, bytes] = {}
 
 
 async def _handle_request(request: Request) -> Response:
@@ -66,8 +64,7 @@ def create_app(*, engine: SiteEngine, debug: bool = False) -> Starlette:
         lifespan=_engine_lifespan,
         routes=[
             Route("/_httk/table/page", _handle_table_page, methods=["GET", "POST"]),
-            Route("/_httk/assets/table.js", _handle_table_javascript, methods=["GET"]),
-            Route("/_httk/assets/table.css", _handle_table_stylesheet, methods=["GET"]),
+            Route("/_httk/assets/{path:path}", _handle_widget_asset, methods=["GET"]),
             Route("/_httk/{path:path}", _handle_reserved_httk_route, methods=["GET", "POST"]),
             Route("/{path:path}", _handle_request, methods=["GET", "POST"]),
         ],
@@ -77,7 +74,8 @@ def create_app(*, engine: SiteEngine, debug: bool = False) -> Starlette:
 
 
 async def _handle_reserved_httk_route(request: Request) -> Response:
-    del request
+    if request.url.path.startswith("/_httk/assets/"):
+        return Response("Method Not Allowed", status_code=405, media_type="text/plain", headers={"Allow": "GET"})
     return Response("Not Found", status_code=404, media_type="text/plain")
 
 
@@ -124,30 +122,17 @@ async def _handle_table_page(request: Request) -> Response:
     return JSONResponse(result, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
-async def _handle_table_javascript(request: Request) -> Response:
-    del request
+async def _handle_widget_asset(request: Request) -> Response:
+    path = request.path_params.get("path", "")
+    engine: SiteEngine = request.app.state.engine
+    asset = engine.widget_assets.get(path)
+    if asset is None:
+        return Response("Not Found", status_code=404, media_type="text/plain")
     return Response(
-        _table_asset("table.js"),
-        media_type="text/javascript; charset=utf-8",
+        asset.content,
+        media_type=asset.content_type,
         headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"},
     )
-
-
-async def _handle_table_stylesheet(request: Request) -> Response:
-    del request
-    return Response(
-        _table_asset("table.css"),
-        media_type="text/css; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"},
-    )
-
-
-def _table_asset(name: str) -> bytes:
-    cached = _TABLE_ASSET_CACHE.get(name)
-    if cached is None:
-        cached = files("httk.web").joinpath("assets", name).read_bytes()
-        _TABLE_ASSET_CACHE[name] = cached
-    return cached
 
 
 def _table_error(message: str, *, status_code: int, headers: dict[str, str] | None = None) -> Response:

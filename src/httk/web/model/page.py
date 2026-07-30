@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from httk.web.widgets.core import WidgetAsset
+
 
 @dataclass(frozen=True)
 class ResolvedRoute:
@@ -17,6 +19,7 @@ class PageResult:
     body: bytes
     metadata: dict[str, object] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    assets: tuple[WidgetAsset, ...] = ()
 
 
 @dataclass(frozen=True)

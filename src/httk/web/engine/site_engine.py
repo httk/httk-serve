@@ -30,7 +30,8 @@ from httk.web.templating import (
     TemplateEngine,
     TemplateRenderInput,
 )
-from httk.web.widgets import SiteWidgetLoader, WidgetContext, WidgetRenderResult
+from httk.web.widgets import SiteWidgetLoader, WidgetAsset, WidgetContext, WidgetRenderResult
+from httk.web.widgets.assets import WidgetAssetConflictError, WidgetAssetRegistry
 from httk.web.widgets.core import BUILTIN_WIDGETS, Widget, _immutable_mapping
 from httk.web.widgets.table import TableRuntime
 
@@ -46,6 +47,7 @@ class SiteEngine:
             self.template_engine = JinjaTemplateEngine(template_dir=config.template_dir)
         self.function_handler = PythonFunctionHandler(functions_dir=config.functions_dir)
         self.widget_loader = SiteWidgetLoader(config.widgets_dir)
+        self.widget_assets = WidgetAssetRegistry()
         self.global_data: dict[str, object] = self._load_global_config_metadata()
         self.global_data[SITE_RESOURCES_KEY] = self.resources
         self._publish_route_mode_cache: dict[str, str] = {}
@@ -138,7 +140,7 @@ class SiteEngine:
             request=request_context,
             render_mode=render_mode,
         )
-        rendered_html = self._expand_widgets(
+        rendered_html, assets, asset_origins = self._expand_widgets(
             rendered_html,
             placements=rendered.widgets,
             route_key=route_key,
@@ -166,12 +168,28 @@ class SiteEngine:
         if render_mode == "publish":
             content_html = self._rewrite_publish_links(content_html, route_key=route_key)
 
+        try:
+            self.widget_assets.register_many(assets)
+        except WidgetAssetConflictError as exc:
+            placement, widget_id = asset_origins[exc.path]
+            raise WidgetRenderingError(
+                str(exc),
+                source_path=placement.source_path,
+                line=placement.line,
+                column=placement.column,
+                snippet=placement.snippet,
+                widget_name=placement.name,
+                widget_id=widget_id,
+                correction="declare one consistent asset for each internal asset path",
+            ) from exc
+
         return PageResult(
             status_code=200,
             content_type="text/html; charset=utf-8",
             body=content_html.encode("utf-8"),
             metadata=metadata,
             warnings=warnings,
+            assets=assets,
         )
 
     def _render_content_without_templates(self, resolved: ResolvedRoute) -> RenderResult:
@@ -196,14 +214,16 @@ class SiteEngine:
         query: dict[str, str],
         postvars: dict[str, str],
         page: object,
-    ) -> str:
+    ) -> tuple[str, tuple[WidgetAsset, ...], dict[str, tuple[WidgetPlacement, str]]]:
         if not placements:
-            return html
+            return html, (), {}
         if not isinstance(page, dict):
             raise WidgetRenderingError("page context is unavailable")
         self._validate_widget_placeholders(html, placements)
         ids: set[str] = set()
         rendered_by_placeholder: dict[str, str] = {}
+        assets: dict[str, WidgetAsset] = {}
+        asset_origins: dict[str, tuple[WidgetPlacement, str]] = {}
         for placement_index, placement in enumerate(placements):
             widget_id = placement.props.get("id")
             if widget_id is None:
@@ -234,14 +254,33 @@ class SiteEngine:
                     source_route_key=route_key,
                     target_route_key=normalize_route(target),
                     render_mode=render_mode,
-                    relative_start=False,
+                    relative_start=True,
                 ),
                 absolute_url_for=lambda target: self._absolute_url(normalize_route(target), render_mode=render_mode),
                 table_runtime=self.table_runtime,
             )
             rendered = self._render_widget(widget, context, placement, widget_id)
-            rendered_by_placeholder[placement.placeholder] = rendered
-        return self._replace_widget_placeholders_once(html, rendered_by_placeholder)
+            for asset in rendered.assets:
+                existing = assets.get(asset.path)
+                if existing is not None and existing != asset:
+                    raise WidgetRenderingError(
+                        f"conflicting widget asset declaration for {asset.path!r}",
+                        source_path=placement.source_path,
+                        line=placement.line,
+                        column=placement.column,
+                        snippet=placement.snippet,
+                        widget_name=placement.name,
+                        widget_id=widget_id,
+                        correction="declare one consistent asset for each internal asset path",
+                    )
+                assets[asset.path] = asset
+                asset_origins[asset.path] = (placement, widget_id)
+            rendered_by_placeholder[placement.placeholder] = str(rendered.html)
+        return (
+            self._replace_widget_placeholders_once(html, rendered_by_placeholder),
+            tuple(assets.values()),
+            asset_origins,
+        )
 
     @staticmethod
     def _default_widget_id(route_key: str, placement: WidgetPlacement, placement_index: int) -> str:
@@ -316,7 +355,9 @@ class SiteEngine:
     def _name_distance(left: str, right: str) -> int:
         return abs(len(left) - len(right)) + sum(a != b for a, b in zip(left, right, strict=False))
 
-    def _render_widget(self, widget: Widget, context: WidgetContext, placement: WidgetPlacement, widget_id: str) -> str:
+    def _render_widget(
+        self, widget: Widget, context: WidgetContext, placement: WidgetPlacement, widget_id: str
+    ) -> WidgetRenderResult:
         try:
             signature_target = getattr(widget, "render_function", widget.render)
             inspect.signature(signature_target).bind(context, **dict(placement.props))
@@ -345,11 +386,11 @@ class SiteEngine:
                 correction="inspect the widget render() implementation",
             ) from exc
         if isinstance(output, WidgetRenderResult):
-            return str(output.html)
+            return output
         if isinstance(output, Markup):
-            return str(output)
+            return WidgetRenderResult(str(output))
         if isinstance(output, str):
-            return str(Markup.escape(output))
+            return WidgetRenderResult(str(Markup.escape(output)))
         raise WidgetRenderingError(
             "render() must return str, Markup, or WidgetRenderResult",
             source_path=placement.source_path,

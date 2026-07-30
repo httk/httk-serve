@@ -22,6 +22,34 @@ escaped. Return `trusted_html("<strong>...</strong>")`, `Markup`, or
 `WidgetRenderResult` only for reviewed HTML. Widget arguments are parsed as
 literals; they are never evaluated as Python.
 
+## Declared widget assets
+
+Reviewed built-in and site-local widgets can declare small immutable assets with
+their trusted HTML. `WidgetAsset.path` is a safe POSIX path relative to the
+internal `/_httk/assets/` root; it is not a filesystem path. Its non-empty
+immutable `bytes` content is capped by `MAX_WIDGET_ASSET_BYTES`, and its content
+type must be one of the supported explicit values (`text/css` or
+`text/javascript`). A `WidgetRenderResult` takes an immutable tuple of assets:
+
+```python
+from httk.web.widgets import WidgetAsset, WidgetRenderResult
+
+
+def render(context):
+    internal_root = f"{context.page['relbaseurl'].rstrip('/')}/_httk"
+    return WidgetRenderResult(
+        f'<link rel="stylesheet" href="{internal_root}/assets/site-example.css">',
+        assets=(WidgetAsset("site-example.css", b".example{}", "text/css"),),
+    )
+```
+
+The engine owns an isolated registry for each site instance. Re-declaring the
+same path with identical bytes and content type is allowed; conflicting
+declarations fail the page render. During static publication, only assets used
+by rendered pages are written under `public/_httk/assets/`, once each. A site
+static file may not collide with that output path. Dynamic requests can retrieve
+only registered safe paths, never package or filesystem paths.
+
 `httk.text` (also available as `text`) is a small built-in useful for examples.
 Built-ins always use the `httk.` namespace; local widgets always use `site.` and
 therefore cannot shadow them.
@@ -135,6 +163,30 @@ the reserved `/_httk/assets/` route. The idempotent JS supports multiple tables,
 uses accessible busy/live/disabled states, shows recoverable inline errors, and
 dispatches a bubbling `httk:table-updated` event after replacing rows for
 site-local enhancers.
+
+## OPTIMADE tables
+
+`httk.optimade_table` (also available as `optimade_table`) is a separate,
+browser-driven OPTIMADE table. Its v1 Python declaration renders an accessible
+empty table shell, an inert JSON configuration script scoped to the widget id,
+and its three internal assets in both live and published output:
+
+```md
+{{ widget("optimade_table", base_url="https://optimade.example/v1", columns=["chemical_formula_reduced", "nsites"]) }}
+```
+
+The declaration accepts `base_url`, `entry_type="structures"`, `columns`,
+`page_size=50`, `caption="OPTIMADE results"`, `filter`, `filter_query`,
+`sort`, `allowed_origins=()`, `detail_route`, `detail_column`, and
+`detail_query="id"`. URLs, identifiers, columns, origins, and display text are
+strictly bounded and validated. `filter_query` names a browser URL parameter
+whose complete value overrides `filter`; neither is access control. Detail
+links require both a safe site-local `detail_route` and a selected
+`detail_column`.
+
+This phase establishes only the safe HTML/configuration and asset boundary. The
+packaged OPTIMADE modules are intentionally no-op placeholders; browser
+negotiation, fetches, and pagination follow in the next phase.
 
 There is no interactive header sorting in this phase. Put sort and filter
 controls in ordinary GET forms; the original query snapshot reaches the provider

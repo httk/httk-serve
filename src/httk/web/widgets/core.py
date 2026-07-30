@@ -8,6 +8,52 @@ from typing import Protocol, cast
 
 from markupsafe import Markup
 
+MAX_WIDGET_ASSET_BYTES = 1_000_000
+"""Largest individual trusted widget asset accepted by :class:`WidgetAsset`."""
+
+SUPPORTED_WIDGET_ASSET_CONTENT_TYPES = frozenset({"text/css", "text/javascript"})
+"""The deliberately small content-type vocabulary for internal widget assets."""
+
+
+@dataclass(frozen=True)
+class WidgetAsset:
+    """An immutable, deployment-relative asset declared by trusted widget code.
+
+    ``path`` is relative to ``/_httk/assets/`` and is never interpreted as a
+    filesystem path.  The engine serves only assets it has registered while
+    rendering this site instance.
+    """
+
+    path: str
+    content: bytes
+    content_type: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.path, str) or not self.path or len(self.path) > 256:
+            raise ValueError("widget asset path must be a non-empty string of at most 256 characters")
+        if (
+            self.path.startswith("/")
+            or "\\" in self.path
+            or any(ord(char) < 0x20 or ord(char) == 0x7F for char in self.path)
+        ):
+            raise ValueError("widget asset path must be a safe relative POSIX path")
+        segments = self.path.split("/")
+        if any(not segment or segment in {".", ".."} for segment in segments):
+            raise ValueError("widget asset path must not contain empty or dot segments")
+        if any(
+            not all(char.isascii() and (char.isalnum() or char in "._-") for char in segment) for segment in segments
+        ):
+            raise ValueError("widget asset path contains unsupported characters")
+        if not isinstance(self.content, bytes):
+            raise TypeError("widget asset content must be immutable bytes")
+        if not self.content:
+            raise ValueError("widget asset content must not be empty")
+        if len(self.content) > MAX_WIDGET_ASSET_BYTES:
+            raise ValueError(f"widget asset content exceeds {MAX_WIDGET_ASSET_BYTES} bytes")
+        if not isinstance(self.content_type, str) or self.content_type not in SUPPORTED_WIDGET_ASSET_CONTENT_TYPES:
+            allowed = ", ".join(sorted(SUPPORTED_WIDGET_ASSET_CONTENT_TYPES))
+            raise ValueError(f"widget asset content type must be one of: {allowed}")
+
 
 @dataclass(frozen=True)
 class WidgetContext:
@@ -30,6 +76,11 @@ class WidgetRenderResult:
     """An explicitly trusted HTML result returned by a widget."""
 
     html: str
+    assets: tuple[WidgetAsset, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.assets, tuple) or not all(isinstance(asset, WidgetAsset) for asset in self.assets):
+            raise TypeError("WidgetRenderResult.assets must be a tuple of WidgetAsset values")
 
 
 class Widget(Protocol):
@@ -130,6 +181,15 @@ BUILTIN_WIDGETS.register(
 
 # Imported after the public contracts above so the table implementation can use
 # the same WidgetContext and WidgetRenderResult types without an import cycle.
+from .optimade_table import render as _render_optimade_table
 from .table import TableWidget
 
 BUILTIN_WIDGETS.register(TableWidget(), alias="table")
+BUILTIN_WIDGETS.register(
+    FunctionWidget(
+        name="httk.optimade_table",
+        render_function=_render_optimade_table,
+        source="httk.web.widgets.optimade_table",
+    ),
+    alias="optimade_table",
+)

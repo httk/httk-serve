@@ -12,13 +12,14 @@ import time
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 from html import escape
+from importlib.resources import files
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict, cast
 from urllib.parse import urlencode
 
 from httk.web.providers import ProviderContext, TableColumn, TablePage, TableRequest, _validate_site_route
 
-from .core import WidgetContext, WidgetRenderResult
+from .core import WidgetAsset, WidgetContext, WidgetRenderResult
 
 if TYPE_CHECKING:
     from httk.web.engine.site_engine import SiteEngine
@@ -37,6 +38,7 @@ TOKEN_VERSION = 1
 DEFAULT_TOKEN_TTL_SECONDS = 900
 
 _LOGGER = logging.getLogger(__name__)
+_TABLE_ASSETS: tuple[WidgetAsset, ...] | None = None
 
 
 class TableProtocolError(ValueError):
@@ -224,7 +226,8 @@ class TableRuntime:
                 previous_token=previous_token,
                 live=live,
                 caption=caption,
-            )
+            ),
+            assets=_table_assets() if live else (),
         )
 
     def continuation(self, payload: object) -> dict[str, object]:
@@ -660,6 +663,17 @@ class TableWidget:
         if not isinstance(runtime, TableRuntime):
             raise TableProtocolError("httk.table needs an engine table runtime")
         return runtime.render(context, **props)
+
+
+def _table_assets() -> tuple[WidgetAsset, ...]:
+    global _TABLE_ASSETS
+    if _TABLE_ASSETS is None:
+        assets = files("httk.web").joinpath("assets")
+        _TABLE_ASSETS = (
+            WidgetAsset("table.css", assets.joinpath("table.css").read_bytes(), "text/css"),
+            WidgetAsset("table.js", assets.joinpath("table.js").read_bytes(), "text/javascript"),
+        )
+    return _TABLE_ASSETS
 
 
 def _column_modifier(column: TableColumn) -> str:
