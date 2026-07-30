@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from httk.atomistic import OptimadeStructure
 from httk.core import OptimadeFile, OptimadeResource, load_entry_type_schema, parse_optimade_filter
+from httk.data import CountUnavailableError as NeutralCountUnavailableError
 from httk.data import MultipleResultsError, NoResultError, UnsupportedQueryError
 
 from httk.optimade import (
@@ -554,6 +555,11 @@ def test_count_requires_valid_data_available(available: object | None) -> None:
     searcher.variable(store.entry_types[0])
     with pytest.raises(CountUnavailableError):
         searcher.count()
+
+
+def test_count_unavailable_error_preserves_optimade_and_neutral_categories() -> None:
+    assert issubclass(CountUnavailableError, OptimadeResponseError)
+    assert issubclass(CountUnavailableError, NeutralCountUnavailableError)
 
 
 def test_first_one_and_slice_use_small_frozen_probes() -> None:

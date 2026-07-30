@@ -17,6 +17,7 @@ from httk.core import (
     optimade_document_root,
     redact_optimade_url,
 )
+from httk.data import CountUnavailableError as NeutralCountUnavailableError
 from httk.data import (
     MultipleResultsError,
     NoResultError,
@@ -51,7 +52,7 @@ class OptimadePaginationError(OptimadeResponseError):
     """A remote continuation was unsafe, malformed, or non-terminating."""
 
 
-class CountUnavailableError(OptimadeResponseError):
+class CountUnavailableError(OptimadeResponseError, NeutralCountUnavailableError):
     """The service omitted a valid filtered ``meta.data_available`` count."""
 
 
