@@ -33,6 +33,14 @@
             widget_id: table.dataset.widgetId,
           }),
         });
+        if (response.status === 409 || response.status === 410) {
+          setButton(previous, "");
+          setButton(next, "");
+          status.textContent = response.status === 410
+            ? "Pagination expired. Reload the page to continue."
+            : "Table data changed. Reload the page to continue.";
+          return;
+        }
         if (!response.ok) throw new Error("table request failed");
         const payload = await response.json();
         if (typeof payload.tbody !== "string") throw new Error("invalid table response");

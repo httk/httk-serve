@@ -1,11 +1,14 @@
+import asyncio
 import re
 from pathlib import Path
 
 import pytest
+from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from httk.web.api import create_asgi_app, publish
 from httk.web.providers import ProviderContext, TablePage
+from httk.web.runtime.asgi import _read_limited_body
 from httk.web.widgets.table import TableContinuationError, TableTokenSigner
 
 
@@ -175,6 +178,12 @@ def provide(context, request, **provider_args):
     return TablePage.from_rows([{"name": "one"}], columns=["name"], next_cursor="later")
 '''
     app = create_asgi_app(_src(tmp_path, provider=provider), table_token_secret="s" * 32)
+    consumed_chunks: list[int] = []
+
+    def oversized_chunked_body():
+        for index in range(4):
+            consumed_chunks.append(index)
+            yield b"x" * 40_000
 
     with TestClient(app) as client:
         initial = client.get("/")
@@ -192,6 +201,14 @@ def provide(context, request, **provider_args):
             ).status_code
             == 413
         )
+        assert (
+            client.post(
+                "/_httk/table/page",
+                content=oversized_chunked_body(),
+                headers={"content-type": "application/json", "transfer-encoding": "chunked"},
+            ).status_code
+            == 413
+        )
         failed = client.post(
             "/_httk/table/page",
             json={
@@ -202,9 +219,33 @@ def provide(context, request, **provider_args):
         )
 
     assert failed.status_code == 500
+    assert consumed_chunks == [0, 1, 2, 3]
     assert "/secret/path" not in failed.text
     assert failed.headers["cache-control"] == "no-store"
     assert failed.headers["x-content-type-options"] == "nosniff"
+
+
+def test_table_body_reader_stops_consuming_chunked_input_at_limit() -> None:
+    chunks = iter((b"x" * 40_000, b"y" * 40_000, b"z" * 40_000))
+    receive_calls = 0
+
+    async def receive():
+        nonlocal receive_calls
+        receive_calls += 1
+        return {"type": "http.request", "body": next(chunks), "more_body": True}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/_httk/table/page",
+            "headers": (),
+        },
+        receive,
+    )
+
+    assert asyncio.run(_read_limited_body(request, limit=64_000)) is None
+    assert receive_calls == 2
 
 
 def test_initial_table_provider_error_does_not_leak_author_diagnostics(tmp_path: Path) -> None:
@@ -287,6 +328,8 @@ def test_table_multiple_widgets_assets_and_nested_deployment_relative_urls(tmp_p
     assert 'data-endpoint="../_httk/table/page"' in nested.text
     assert 'src="../_httk/assets/table.js"' in nested.text
     assert js.status_code == 200 and "httk:table-updated" in js.text
+    assert "response.status === 409 || response.status === 410" in js.text
+    assert "Reload the page to continue." in js.text
     assert css.status_code == 200 and ".httk-table" in css.text
     assert '"assets/*.js"' in (Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8")
 
@@ -345,6 +388,39 @@ def provide(context, request, **provider_args):
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize(
+    "route",
+    (
+        "javascript:alert(1)",
+        "data:text/html,unsafe",
+        "http://example.invalid/details",
+        "https://example.invalid/details",
+        "//example.invalid/details",
+        "\x00//example.invalid/details",
+        "details/\x7fhidden",
+        "/details",
+        "details?evil=1",
+        "details#fragment",
+        r"details\escape",
+        "details/../admin",
+        "details/./again",
+    ),
+)
+def test_provider_context_url_for_rejects_non_local_routes(route: str) -> None:
+    context = ProviderContext(route="index", widget_id="table", query={}, page={}, global_data={})
+
+    with pytest.raises(ValueError):
+        context.url_for(route, query={"target": "mp/1"})
+
+
+def test_provider_context_url_for_accepts_nested_routes_and_encodes_query() -> None:
+    context = ProviderContext(route="index", widget_id="table", query={}, page={}, global_data={})
+
+    assert context.url_for("materials/details", query={"id": "mp/1", "q": "Li Al"}) == (
+        "materials/details?id=mp%2F1&q=Li+Al"
+    )
+
+
 def test_continuation_accepts_rendered_pages_larger_than_token_string_fields(tmp_path: Path) -> None:
     provider = """from httk.web import TablePage
 
@@ -378,7 +454,11 @@ def test_provider_url_builder_rejects_query_fragment_and_backslash_routes(tmp_pa
     provider = """from httk.web import TablePage
 
 def provide(context, request, **provider_args):
-    for route in ("details?evil=1", "details#fragment", r"details\\escape"):
+    for route in (
+        "details?evil=1", "details#fragment", r"details\\escape",
+        "javascript:alert(1)", "data:text/html,unsafe", "http://example.invalid/details",
+        "https://example.invalid/details", "//example.invalid/details", "details/../admin",
+    ):
         try:
             context.url_for(route, query={"ok": "yes"})
         except ValueError:

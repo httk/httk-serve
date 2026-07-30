@@ -12,6 +12,30 @@ MAX_CURSOR_CHARS = 16_384
 MAX_ROW_DATA_BYTES = 512_000
 
 
+def _validate_site_route(route: str) -> str:
+    """Return a canonical provider route or reject non-local URL syntax.
+
+    Provider routes name pages in the site's route namespace; they are never
+    general URLs.  Keeping this check at the public contract boundary means
+    providers cannot accidentally turn an HTML ``href`` into a scheme or an
+    external/protocol-relative URL when an engine supplies the builder.
+    """
+
+    if not isinstance(route, str) or not route.strip():
+        raise ValueError("provider URL route must be a non-empty string")
+    normalized = route.strip()
+    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in normalized):
+        raise ValueError("provider URL route must not contain control characters")
+    if any(character in normalized for character in (":", "?", "#", "\\")):
+        raise ValueError("provider URL route must not contain URL, query, fragment, or backslash syntax")
+    if normalized.startswith("/"):
+        raise ValueError("provider URL route must be a relative site route")
+    segments = normalized.split("/")
+    if any(segment in {".", ".."} for segment in segments):
+        raise ValueError("provider URL route must not contain dot path segments")
+    return normalized
+
+
 def _default_url_builder(route: str, query: Mapping[str, str] | None) -> str:
     encoded_query = urlencode(dict(query or {}))
     return f"{route}?{encoded_query}" if encoded_query else route
@@ -64,8 +88,7 @@ class ProviderContext:
     def url_for(self, route: str, *, query: Mapping[str, str] | None = None) -> str:
         """Build a site-local route URL without exposing the ASGI request."""
 
-        if not isinstance(route, str) or not route.strip():
-            raise ValueError("provider URL route must be a non-empty string")
+        route = _validate_site_route(route)
         if query is not None and not all(
             isinstance(key, str) and isinstance(value, str) for key, value in query.items()
         ):

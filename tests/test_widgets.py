@@ -61,6 +61,37 @@ def test_widget_examples_in_code_contexts_are_literal(tmp_path: Path, suffix: st
     assert "escaped" in output
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        (
+            "````markdown\n{{ widget(\"text\", text=\"inside-long-fence\") }}\n```\n"
+            "{{ widget(\"text\", text=\"still-inside-long-fence\") }}\n````\n\n"
+            "{{ widget(\"text\", text=\"after-true-close\") }}"
+        ),
+        (
+            "```markdown\n{{ widget(\"text\", text=\"inside-fence\") }}\n``` trailing\n"
+            "{{ widget(\"text\", text=\"still-inside-fence\") }}\n```\n\n"
+            "{{ widget(\"text\", text=\"after-true-close\") }}"
+        ),
+    ],
+)
+def test_markdown_fence_closers_require_matching_length_and_whitespace_tail(tmp_path: Path, source: str) -> None:
+    src = _src(tmp_path)
+    (src / "content" / "index.md").write_text(source, encoding="utf-8")
+    engine = SiteEngine(SiteConfig.from_srcdir(src))
+    rendered_content = engine._render_content_without_templates(engine.resolve("index"))
+
+    output = engine.render("index").body.decode()
+
+    assert len(rendered_content.widgets) == 1
+    assert rendered_content.widgets[0].name == "text"
+    assert rendered_content.widgets[0].props == {"text": "after-true-close"}
+    assert "{{ widget(&quot;text&quot;" in output
+    assert "inside" in output
+    assert "after-true-close" in output
+
+
 @pytest.mark.parametrize("tag", ["pre", "code", "script", "style", "textarea"])
 def test_markdown_raw_html_code_containers_with_blank_lines_are_literal(tmp_path: Path, tag: str) -> None:
     src = _src(tmp_path)

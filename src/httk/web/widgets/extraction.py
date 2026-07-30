@@ -15,6 +15,7 @@ _KEY = re.compile(r"[a-z][a-z0-9_]*\Z")
 _ID = re.compile(r"[A-Za-z][A-Za-z0-9_:-]*\Z")
 _CLASS_TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*\Z")
 _MARKDOWN_RAW_CODE_TAG = re.compile(r"<\s*(/?)\s*(pre|code|script|style|textarea)\b[^>]*>", re.IGNORECASE)
+_MARKDOWN_FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})([^\r\n]*)$")
 
 
 def parse_widget_invocation(text: str, *, source_path: Path, line: int, column: int) -> tuple[str, dict[str, object]]:
@@ -131,23 +132,24 @@ def markdown_source(source: str, source_path: Path, *, line_offset: int = 0) -> 
 
     lines = source.splitlines(keepends=True)
     placements: list[WidgetPlacement] = []
-    fence: str | None = None
+    fence: tuple[str, int] | None = None
     raw_html_code_stack: list[str] = []
     index = 0
     position = 0
     while position < len(lines):
         line = lines[position]
         stripped = line.strip()
-        fence_match = re.match(r"^\s*(`{3,}|~{3,})", line)
-        if fence_match:
-            marker = fence_match.group(1)[0]
-            if fence is None:
-                fence = marker
-            elif marker == fence:
+        if fence is not None:
+            if _markdown_fence_closes(line, fence):
                 fence = None
             position += 1
             continue
-        if fence is not None or line.startswith(("    ", "\t")):
+        opening_fence = _markdown_fence_opens(line)
+        if opening_fence is not None:
+            fence = opening_fence
+            position += 1
+            continue
+        if line.startswith(("    ", "\t")):
             position += 1
             continue
         if raw_html_code_stack:
@@ -164,7 +166,7 @@ def markdown_source(source: str, source_path: Path, *, line_offset: int = 0) -> 
         start = position
         paragraph: list[str] = []
         while position < len(lines) and lines[position].strip() and not lines[position].startswith(("    ", "\t")):
-            if re.match(r"^\s*(`{3,}|~{3,})", lines[position]):
+            if _markdown_fence_opens(lines[position]) is not None:
                 break
             paragraph.append(lines[position])
             position += 1
@@ -190,6 +192,31 @@ def markdown_source(source: str, source_path: Path, *, line_offset: int = 0) -> 
                 lines[start:position] = [invocation + ("\n" if paragraph[-1].endswith("\n") else "")]
                 position = start + 1
     return "".join(lines), tuple(placements)
+
+
+def _markdown_fence_opens(line: str) -> tuple[str, int] | None:
+    """Return a CommonMark-style fenced-code opener, if *line* is one."""
+
+    match = _MARKDOWN_FENCE.match(line)
+    if match is None:
+        return None
+    marker_run, info = match.group(2), match.group(3)
+    # A backtick fence cannot use backticks in its info string.  This keeps a
+    # malformed apparent opener in ordinary Markdown rather than hiding later
+    # standalone widget paragraphs.
+    if marker_run[0] == "`" and "`" in info:
+        return None
+    return marker_run[0], len(marker_run)
+
+
+def _markdown_fence_closes(line: str, opener: tuple[str, int]) -> bool:
+    """Whether *line* closes a CommonMark-style fenced code block."""
+
+    match = _MARKDOWN_FENCE.match(line)
+    if match is None:
+        return False
+    marker_run, tail = match.group(2), match.group(3)
+    return marker_run[0] == opener[0] and len(marker_run) >= opener[1] and not tail.strip()
 
 
 def _update_markdown_raw_code_stack(stack: list[str], line: str) -> None:

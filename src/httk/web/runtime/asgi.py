@@ -94,8 +94,8 @@ async def _handle_table_page(request: Request) -> Response:
                 return _table_error("Table pagination request is too large.", status_code=413)
         except ValueError:
             return _table_error("Invalid table pagination request.", status_code=400)
-    raw = await request.body()
-    if len(raw) > MAX_TABLE_POST_BODY_BYTES:
+    raw = await _read_limited_body(request, limit=MAX_TABLE_POST_BODY_BYTES)
+    if raw is None:
         return _table_error("Table pagination request is too large.", status_code=413)
     try:
         payload = json.loads(
@@ -158,6 +158,19 @@ def _table_error(message: str, *, status_code: int, headers: dict[str, str] | No
 
 def _reject_json_constant(value: str) -> object:
     raise ValueError(f"non-finite JSON constant: {value}")
+
+
+async def _read_limited_body(request: Request, *, limit: int) -> bytes | None:
+    """Read at most *limit* request bytes, including chunked bodies."""
+
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > limit:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _caused_by_table_provider(error: BaseException) -> bool:

@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict, cast
 from urllib.parse import urlencode
 
-from httk.web.providers import ProviderContext, TableColumn, TablePage, TableRequest
+from httk.web.providers import ProviderContext, TableColumn, TablePage, TableRequest, _validate_site_route
 
 from .core import WidgetContext, WidgetRenderResult
 
@@ -385,15 +385,9 @@ class TableRuntime:
         return table_page
 
     def _provider_url(self, source_route: str, target: str, query: Mapping[str, str] | None) -> str:
-        normalized_target = target.strip()
-        if "?" in normalized_target or "#" in normalized_target or "\\" in normalized_target:
-            raise ValueError("provider URL route must not contain query, fragment, or backslash syntax")
-        candidate = Path(normalized_target)
-        if candidate.is_absolute() or ".." in candidate.parts or "." in candidate.parts:
-            raise ValueError("provider URL route must be a contained site route")
-        target_route = str(candidate).replace("\\", "/")
-        if not target_route:
-            raise ValueError("provider URL route must be a non-empty string")
+        # Keep the engine boundary defensive even though ProviderContext.url_for
+        # validates public provider input before calling its URL builder.
+        target_route = _validate_site_route(target)
         path = self.engine._route_link_url(
             source_route_key=source_route,
             target_route_key=target_route,
