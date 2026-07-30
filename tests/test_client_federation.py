@@ -88,11 +88,12 @@ def _remote(
     rows_by_endpoint: Mapping[str, Iterable[Mapping[str, object]]],
     *,
     fail_queries: bool = False,
+    page_limit: int = 1,
 ) -> tuple[OptimadeStore, AsgiSyncClient]:
     provider = _StructuresProvider(rows_by_endpoint)
     app = create_asgi_app(adapter_from_providers([provider]), baseurl=base_url)
     client = AsgiSyncClient(app, base_url=base_url, fail_queries=fail_queries)
-    return OptimadeStore(base_url, client=client, page_limit=1), client
+    return OptimadeStore(base_url, client=client, page_limit=page_limit), client
 
 
 def _federated_structures(
@@ -137,6 +138,7 @@ def test_federated_real_asgi_sources_paginate_source_major_and_keep_remote_resou
             "other-structures": (),
             "vendor-structures": (_row("shared", "vendor-structures"), _row("beta", "vendor-structures")),
         },
+        page_limit=2,
     )
     federation = FederatedStore({"alpha": alpha, "beta": beta})
     searcher, structure = _federated_structures(federation, alpha, beta)
@@ -178,10 +180,12 @@ def test_federated_real_asgi_sources_paginate_source_major_and_keep_remote_resou
     one_searcher.add(one_structure.id == "beta")
     assert one_searcher.results(record=one_structure, origin=one_searcher.origin).one().origin == "beta"
 
-    for client in (alpha_client, beta_client):
+    for client, configured_page_limit in ((alpha_client, 1), (beta_client, 2)):
         query_urls = _query_urls(client)
         assert query_urls
-        assert all(parse_qs(urlsplit(url).query)["page_limit"] == ["1"] for url in query_urls)
+        requested_page_limits = [int(parse_qs(urlsplit(url).query)["page_limit"][0]) for url in query_urls]
+        assert configured_page_limit in requested_page_limits
+        assert all(1 <= requested <= configured_page_limit for requested in requested_page_limits)
         assert all(urlsplit(url).netloc == urlsplit(client.base_url).netloc for url in client.requests)
         assert not client.closed
 
