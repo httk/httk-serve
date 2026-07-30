@@ -10,6 +10,7 @@ class SiteConfig:
     static_subdir: str = "static"
     template_subdir: str = "templates"
     functions_subdir: str = "functions"
+    widgets_subdir: str = "widgets"
     baseurl: str | None = None
     host_static: str | None = None
     compatibility_mode: bool = False
@@ -58,3 +59,7 @@ class SiteConfig:
             if legacy.exists():
                 return legacy
         return primary
+
+    @property
+    def widgets_dir(self) -> Path:
+        return self.srcdir / self.widgets_subdir

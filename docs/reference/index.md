@@ -3,8 +3,4 @@
 
 This section documents the supported public API.
 
-```{toctree}
-:maxdepth: 2
-
-autoapi/httk/web/index
-```
+The generated API reference is available at {doc}`autoapi/httk/web/index`.

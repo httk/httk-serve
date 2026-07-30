@@ -5,6 +5,9 @@ documentation of *httk₂* as a whole, see [docs.httk.org](https://docs.httk.org
 
 *httk-web* is a [*httk₂*](https://github.com/httk/httk2) module providing web serving and static publishing functionality under the namespace `httk.web`.
 
+See [Widgets](widgets.md) for safe static page components and the `httk web`
+authoring commands.
+
 ```{admonition} Quick links
 :class: tip
 
@@ -39,6 +42,7 @@ serve("path/to/site/src")
 :caption: Documentation
 
 reference/index
+widgets
 how_it_works
 deployment_apache
 deployment_nginx

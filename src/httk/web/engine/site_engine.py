@@ -1,3 +1,4 @@
+import inspect
 import posixpath
 import re
 from mimetypes import guess_type
@@ -9,16 +10,25 @@ from markupsafe import Markup
 from httk.web.engine.discovery import normalize_route, resolve_route
 from httk.web.functions import PythonFunctionHandler
 from httk.web.model.config import SiteConfig
-from httk.web.model.errors import FunctionInjectionError, NotFoundError
+from httk.web.model.errors import (
+    FunctionInjectionError,
+    NotFoundError,
+    WidgetDiscoveryError,
+    WidgetRenderingError,
+    WidgetValidationError,
+)
 from httk.web.model.page import PageResult, ResolvedRoute
 from httk.web.model.request import HttpRequestContext
 from httk.web.renderers import RENDERERS_BY_SUFFIX
+from httk.web.renderers.base import RenderResult, WidgetPlacement
 from httk.web.templating import (
     HttkCompatTemplateEngine,
     JinjaTemplateEngine,
     TemplateEngine,
     TemplateRenderInput,
 )
+from httk.web.widgets import SiteWidgetLoader, WidgetContext, WidgetRenderResult
+from httk.web.widgets.core import BUILTIN_WIDGETS, Widget, _immutable_mapping
 
 
 class SiteEngine:
@@ -30,6 +40,7 @@ class SiteEngine:
         else:
             self.template_engine = JinjaTemplateEngine(template_dir=config.template_dir)
         self.function_handler = PythonFunctionHandler(functions_dir=config.functions_dir)
+        self.widget_loader = SiteWidgetLoader(config.widgets_dir)
         self.global_data: dict[str, object] = self._load_global_config_metadata()
         self._publish_route_mode_cache: dict[str, str] = {}
         self._run_init_function()
@@ -68,12 +79,13 @@ class SiteEngine:
         postvars = dict(request_context.postvars)
         request_params = dict(query_params)
         request_params.update(postvars)
-        rendered_html, metadata = self._render_content_without_templates(resolved)
         route_key = normalize_route(route)
-        self._publish_route_mode_cache[route_key] = self._publish_route_mode_from_metadata(metadata)
         warnings: list[str] = []
 
         render_mode = "serve" if request is not None else "publish"
+        rendered = self._render_content_without_templates(resolved)
+        rendered_html, metadata = rendered.html, dict(rendered.metadata)
+        self._publish_route_mode_cache[route_key] = self._publish_route_mode_from_metadata(metadata)
         template_name = self._metadata_string(
             metadata,
             f"template_{render_mode}",
@@ -92,6 +104,15 @@ class SiteEngine:
             postvars=postvars,
             request=request_context,
             render_mode=render_mode,
+        )
+        rendered_html = self._expand_widgets(
+            rendered_html,
+            placements=rendered.widgets,
+            route_key=route_key,
+            render_mode=render_mode,
+            query=query_params,
+            postvars=postvars,
+            page=context["page"],
         )
         self._apply_function_injections(
             metadata=metadata,
@@ -120,7 +141,7 @@ class SiteEngine:
             warnings=warnings,
         )
 
-    def _render_content_without_templates(self, resolved: ResolvedRoute) -> tuple[str, dict[str, object]]:
+    def _render_content_without_templates(self, resolved: ResolvedRoute) -> RenderResult:
         if resolved.kind != "content" or resolved.source_path is None:
             raise NotFoundError(f"Route is not content: {resolved.route}")
 
@@ -130,7 +151,173 @@ class SiteEngine:
             raise NotFoundError(f"No renderer for content suffix: {suffix}")
 
         rendered = renderer.render(resolved.source_path)
-        return rendered.html, dict(rendered.metadata)
+        return rendered
+
+    def _expand_widgets(
+        self,
+        html: str,
+        *,
+        placements: tuple[WidgetPlacement, ...],
+        route_key: str,
+        render_mode: str,
+        query: dict[str, str],
+        postvars: dict[str, str],
+        page: object,
+    ) -> str:
+        if not placements:
+            return html
+        if not isinstance(page, dict):
+            raise WidgetRenderingError("page context is unavailable")
+        self._validate_widget_placeholders(html, placements)
+        ids: set[str] = set()
+        rendered_by_placeholder: dict[str, str] = {}
+        for placement in placements:
+            widget_id = placement.props.get("id")
+            if widget_id is None:
+                widget_id = f"widget-{placement.placeholder.removeprefix('HTTK_WIDGET_').lower()}"
+            assert isinstance(widget_id, str)
+            if widget_id in ids:
+                raise WidgetValidationError(
+                    "duplicate widget id on this route",
+                    source_path=placement.source_path,
+                    line=placement.line,
+                    column=placement.column,
+                    snippet=placement.snippet,
+                    widget_name=placement.name,
+                    widget_id=widget_id,
+                    correction="choose a unique id= value for each widget",
+                )
+            ids.add(widget_id)
+            widget = self._resolve_widget(placement)
+            context = WidgetContext(
+                route=route_key,
+                render_mode=render_mode,
+                widget_id=widget_id,
+                query=_immutable_mapping(query),
+                postvars=_immutable_mapping(postvars),
+                page=_immutable_mapping(page),
+                source_path=placement.source_path,
+                url_for=lambda target: self._route_link_url(
+                    source_route_key=route_key,
+                    target_route_key=normalize_route(target),
+                    render_mode=render_mode,
+                    relative_start=False,
+                ),
+                absolute_url_for=lambda target: self._absolute_url(normalize_route(target), render_mode=render_mode),
+            )
+            rendered = self._render_widget(widget, context, placement, widget_id)
+            rendered_by_placeholder[placement.placeholder] = rendered
+        return self._replace_widget_placeholders_once(html, rendered_by_placeholder)
+
+    def _validate_widget_placeholders(self, html: str, placements: tuple[WidgetPlacement, ...]) -> None:
+        """Ensure only the renderer's one original node owns each placeholder."""
+
+        seen: set[str] = set()
+        for placement in placements:
+            count = html.count(placement.placeholder)
+            if placement.placeholder in seen or count != 1:
+                raise WidgetValidationError(
+                    f"renderer placeholder must occur exactly once (found {count})",
+                    source_path=placement.source_path,
+                    line=placement.line,
+                    column=placement.column,
+                    snippet=placement.snippet,
+                    widget_name=placement.name,
+                    correction="remove literal HTTK_WIDGET_ placeholder text from the source",
+                )
+            seen.add(placement.placeholder)
+
+    @staticmethod
+    def _replace_widget_placeholders_once(html: str, rendered_by_placeholder: dict[str, str]) -> str:
+        """Replace placements in original renderer output, never widget output."""
+
+        locations = sorted((html.index(placeholder), placeholder) for placeholder in rendered_by_placeholder)
+        parts: list[str] = []
+        cursor = 0
+        for start, placeholder in locations:
+            parts.append(html[cursor:start])
+            parts.append(rendered_by_placeholder[placeholder])
+            cursor = start + len(placeholder)
+        parts.append(html[cursor:])
+        return "".join(parts)
+
+    def _resolve_widget(self, placement: WidgetPlacement) -> Widget:
+        widget = BUILTIN_WIDGETS.resolve(placement.name)
+        if widget is None:
+            try:
+                widget = self.widget_loader.resolve(placement.name)
+            except Exception as exc:
+                raise WidgetDiscoveryError(
+                    str(exc),
+                    source_path=placement.source_path,
+                    line=placement.line,
+                    column=placement.column,
+                    snippet=placement.snippet,
+                    widget_name=placement.name,
+                ) from exc
+        if widget is None:
+            available = BUILTIN_WIDGETS.available() + self.widget_loader.available()
+            names = [name for name, _ in available]
+            nearby = ", ".join(sorted(names, key=lambda item: self._name_distance(item, placement.name))[:4]) or "none"
+            locations = "; ".join(f"{name} ({source})" for name, source in available[:8]) or "no widgets found"
+            raise WidgetDiscoveryError(
+                f"unknown widget; nearby names: {nearby}. Available: {locations}",
+                source_path=placement.source_path,
+                line=placement.line,
+                column=placement.column,
+                snippet=placement.snippet,
+                widget_name=placement.name,
+                correction='create src/widgets/<name>.py with render(context, **props), or use a listed name',
+            )
+        return widget
+
+    @staticmethod
+    def _name_distance(left: str, right: str) -> int:
+        return abs(len(left) - len(right)) + sum(a != b for a, b in zip(left, right, strict=False))
+
+    def _render_widget(self, widget: Widget, context: WidgetContext, placement: WidgetPlacement, widget_id: str) -> str:
+        try:
+            signature_target = getattr(widget, "render_function", widget.render)
+            inspect.signature(signature_target).bind(context, **dict(placement.props))
+        except TypeError as exc:
+            raise WidgetValidationError(
+                f"properties do not match widget render signature: {exc}",
+                source_path=placement.source_path,
+                line=placement.line,
+                column=placement.column,
+                snippet=placement.snippet,
+                widget_name=placement.name,
+                widget_id=widget_id,
+                correction="adjust the literal properties or the widget render() signature",
+            ) from exc
+        try:
+            output = widget.render(context, **dict(placement.props))
+        except Exception as exc:
+            raise WidgetRenderingError(
+                str(exc),
+                source_path=placement.source_path,
+                line=placement.line,
+                column=placement.column,
+                snippet=placement.snippet,
+                widget_name=placement.name,
+                widget_id=widget_id,
+                correction="inspect the widget render() implementation",
+            ) from exc
+        if isinstance(output, WidgetRenderResult):
+            return str(output.html)
+        if isinstance(output, Markup):
+            return str(output)
+        if isinstance(output, str):
+            return str(Markup.escape(output))
+        raise WidgetRenderingError(
+            "render() must return str, Markup, or WidgetRenderResult",
+            source_path=placement.source_path,
+            line=placement.line,
+            column=placement.column,
+            snippet=placement.snippet,
+            widget_name=placement.name,
+            widget_id=widget_id,
+        )
 
     def _build_template_context(
         self,
@@ -189,7 +376,8 @@ class SiteEngine:
                 target = self.resolve(path)
                 if target.kind != "content" or target.source_path is None:
                     return None
-                page_html, page_metadata = self._render_content_without_templates(target)
+                rendered_page = self._render_content_without_templates(target)
+                page_html, page_metadata = rendered_page.html, dict(rendered_page.metadata)
                 page_cache[normalized] = (page_html, page_metadata)
 
             metadata_value = self._metadata_field_value(page_metadata, field)
@@ -433,7 +621,8 @@ class SiteEngine:
         if target.kind != "content" or target.source_path is None:
             return None
 
-        page_html, page_metadata = self._render_content_without_templates(target)
+        rendered_page = self._render_content_without_templates(target)
+        page_html, page_metadata = rendered_page.html, dict(rendered_page.metadata)
         metadata_value = self._metadata_field_value(page_metadata, field)
         if metadata_value is not None:
             return metadata_value
@@ -485,7 +674,7 @@ class SiteEngine:
         if resolved.kind != "content" or resolved.source_path is None:
             self._publish_route_mode_cache[route_key] = "static"
             return "static"
-        _, metadata = self._render_content_without_templates(resolved)
+        metadata = self._render_content_without_templates(resolved).metadata
         mode = self._publish_route_mode_from_metadata(metadata)
         self._publish_route_mode_cache[route_key] = mode
         return mode

@@ -51,6 +51,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "httk.web" = ["py.typed"]
+"httk.registry.cli.web" = ["py.typed"]
 
 [project.optional-dependencies]
 dev = [
