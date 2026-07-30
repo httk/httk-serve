@@ -127,20 +127,21 @@ def _check(arguments: argparse.Namespace) -> int:
     except (OSError, ValueError, WebError) as exc:
         print(f"httk web check: {exc}", file=sys.stderr)
         return 2
-    pages = _content_routes(engine.config.content_dir)
-    errors = _reserved_route_collisions(engine.config, pages)
-    for route in pages:
-        try:
-            engine.render(route)
-        except (OSError, ValueError, WebError) as exc:
-            errors.append(str(exc))
-    if errors:
-        for error in errors:
-            print(error, file=sys.stderr)
-        print(f"httk web check: {len(errors)} error(s) across {len(pages)} page(s)", file=sys.stderr)
-        return 1
-    print(f"httk web check: {len(pages)} page(s) valid")
-    return 0
+    with engine:
+        pages = _content_routes(engine.config.content_dir)
+        errors = _reserved_route_collisions(engine.config, pages)
+        for route in pages:
+            try:
+                engine.render(route)
+            except (OSError, ValueError, WebError) as exc:
+                errors.append(str(exc))
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            print(f"httk web check: {len(errors)} error(s) across {len(pages)} page(s)", file=sys.stderr)
+            return 1
+        print(f"httk web check: {len(pages)} page(s) valid")
+        return 0
 
 
 def _list(arguments: argparse.Namespace) -> int:
@@ -149,10 +150,11 @@ def _list(arguments: argparse.Namespace) -> int:
     except (OSError, ValueError, WebError) as exc:
         print(f"httk web list: {exc}", file=sys.stderr)
         return 2
-    items = BUILTIN_WIDGETS.available() + engine.widget_loader.available()
-    for name, source in sorted(items):
-        print(f"{name}\t{source}")
-    return 0
+    with engine:
+        items = BUILTIN_WIDGETS.available() + engine.widget_loader.available()
+        for name, source in sorted(items):
+            print(f"{name}\t{source}")
+        return 0
 
 
 def _content_routes(content_dir: Path) -> list[str]:

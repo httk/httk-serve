@@ -26,7 +26,11 @@ def create_asgi_app(
         config_name=config_name,
     )
     engine = SiteEngine(config, table_token_secret=table_token_secret)
-    return create_app(engine=engine, debug=debug)
+    try:
+        return create_app(engine=engine, debug=debug)
+    except BaseException as exc:
+        _close_after_operation_error(engine, exc)
+        raise
 
 
 def serve(
@@ -48,7 +52,12 @@ def serve(
         debug=debug,
         table_token_secret=table_token_secret,
     )
-    run_dev_server(app=app, host=host, port=port)
+    try:
+        run_dev_server(app=app, host=host, port=port)
+    except BaseException as exc:
+        _close_after_operation_error(app.state.engine, exc)
+        raise
+    app.state.engine.close()
 
 
 def publish(
@@ -71,4 +80,19 @@ def publish(
         publish_use_urls_without_ext=publish_use_urls_without_ext,
     )
     engine = SiteEngine(config)
-    return publish_site(engine=engine, outdir=outdir)
+    try:
+        report = publish_site(engine=engine, outdir=outdir)
+    except BaseException as exc:
+        _close_after_operation_error(engine, exc)
+        raise
+    engine.close()
+    return report
+
+
+def _close_after_operation_error(engine: SiteEngine, operation_error: BaseException) -> None:
+    """Release an engine without concealing the operation that failed first."""
+
+    try:
+        engine.close()
+    except BaseException as cleanup_error:
+        operation_error.add_note(f"Additional site resource cleanup failure: {cleanup_error!r}")

@@ -110,6 +110,32 @@ When compatibility mode is enabled, `httk-web` additionally supports:
 - running `functions/init.py` at engine startup
 - `_functions/` directory fallback when `functions/` is not present
 
+## Site resource lifecycle
+
+`functions/init.py` can open a persistent, site-local resource once and register
+its synchronous cleanup callback through the stable
+`global_data["httk_web_resources"]` entry.  `SiteResources` calls callbacks in
+reverse registration order when its `SiteEngine` closes.  The registry is
+idempotent, so it is safe for a server wrapper and ASGI shutdown to both close
+the same engine.
+
+```python
+# src/functions/init.py
+from httk.web import SITE_RESOURCES_KEY
+
+
+def execute(global_data, **kwargs):
+    store = open_store()
+    global_data["store"] = store
+    global_data[SITE_RESOURCES_KEY].register(store.close)
+```
+
+Startup failures close resources registered so far before the original error is
+reported.  `publish()`, `httk web check`, and `httk web list` close their
+short-lived engines automatically; an ASGI app owns its engine until ASGI
+lifespan shutdown.  Call `engine.close()` (or use `with SiteEngine(...)`) when
+managing an engine directly.
+
 ### Examples
 
 Migrated legacy examples are available under `examples/legacy`:

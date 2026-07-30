@@ -1,4 +1,5 @@
 import json
+from contextlib import asynccontextmanager
 from importlib.resources import files
 from urllib.parse import parse_qsl
 
@@ -48,9 +49,21 @@ async def _handle_request(request: Request) -> Response:
     return Response(content=result.body, status_code=result.status_code, media_type=result.content_type)
 
 
+@asynccontextmanager
+async def _engine_lifespan(app: Starlette):
+    """Make ASGI startup/shutdown the owner of its site engine."""
+
+    try:
+        yield
+    finally:
+        engine: SiteEngine = app.state.engine
+        engine.close()
+
+
 def create_app(*, engine: SiteEngine, debug: bool = False) -> Starlette:
     app = Starlette(
         debug=debug,
+        lifespan=_engine_lifespan,
         routes=[
             Route("/_httk/table/page", _handle_table_page, methods=["GET", "POST"]),
             Route("/_httk/assets/table.js", _handle_table_javascript, methods=["GET"]),

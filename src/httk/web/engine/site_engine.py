@@ -3,7 +3,8 @@ import posixpath
 import re
 from hashlib import sha256
 from mimetypes import guess_type
-from typing import ClassVar
+from types import TracebackType
+from typing import ClassVar, Literal, Self
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from markupsafe import Markup
@@ -22,6 +23,7 @@ from httk.web.model.page import PageResult, ResolvedRoute
 from httk.web.model.request import HttpRequestContext
 from httk.web.renderers import RENDERERS_BY_SUFFIX
 from httk.web.renderers.base import RenderResult, WidgetPlacement
+from httk.web.resources import SITE_RESOURCES_KEY, SiteResources
 from httk.web.templating import (
     HttkCompatTemplateEngine,
     JinjaTemplateEngine,
@@ -36,6 +38,7 @@ from httk.web.widgets.table import TableRuntime
 class SiteEngine:
     def __init__(self, config: SiteConfig, *, table_token_secret: str | bytes | None = None) -> None:
         self.config = config
+        self.resources = SiteResources()
         self.template_engine: TemplateEngine
         if config.compatibility_mode:
             self.template_engine = HttkCompatTemplateEngine(template_dir=config.template_dir)
@@ -44,9 +47,36 @@ class SiteEngine:
         self.function_handler = PythonFunctionHandler(functions_dir=config.functions_dir)
         self.widget_loader = SiteWidgetLoader(config.widgets_dir)
         self.global_data: dict[str, object] = self._load_global_config_metadata()
+        self.global_data[SITE_RESOURCES_KEY] = self.resources
         self._publish_route_mode_cache: dict[str, str] = {}
-        self._run_init_function()
-        self.table_runtime = TableRuntime(engine=self, token_secret=table_token_secret)
+        try:
+            self._run_init_function()
+            self.table_runtime = TableRuntime(engine=self, token_secret=table_token_secret)
+        except BaseException as exc:
+            self._close_after_failed_initialization(exc)
+            raise
+
+    def close(self) -> None:
+        """Release resources registered by site startup code exactly once."""
+
+        self.resources.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> Literal[False]:
+        try:
+            self.close()
+        except BaseException as cleanup_error:
+            if exc_value is None:
+                raise
+            exc_value.add_note(f"Additional site resource cleanup failure: {cleanup_error!r}")
+        return False
 
     def resolve(self, route: str) -> ResolvedRoute:
         return resolve_route(config=self.config, route=route)
@@ -609,7 +639,17 @@ class SiteEngine:
         init_context = dict(self.global_data)
         init_context["pages"] = self._global_pages_helper
         self.function_handler.execute(function_name="init", params={}, global_data=init_context)
+        if init_context.get(SITE_RESOURCES_KEY) is not self.resources:
+            raise ValueError(f"functions/init.py must not replace reserved global_data[{SITE_RESOURCES_KEY!r}]")
         self.global_data.update(init_context)
+
+    def _close_after_failed_initialization(self, startup_error: BaseException) -> None:
+        """Preserve the startup error while still releasing registered resources."""
+
+        try:
+            self.close()
+        except BaseException as cleanup_error:
+            startup_error.add_note(f"Additional site resource cleanup failure: {cleanup_error!r}")
 
     def _normalize_legacy_list_keys(self, metadata: dict[str, object]) -> dict[str, object]:
         normalized = dict(metadata)
