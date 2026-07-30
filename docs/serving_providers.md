@@ -125,7 +125,9 @@ app = create_asgi_app(
 
 Allowed origins receive CORS responses for `GET`, `HEAD`, and preflight
 `OPTIONS` requests. Origins must not include paths (apart from a trailing
-slash), credentials, queries, or fragments.
+slash), credentials, queries, or fragments. Hostnames must be ASCII; configure
+an internationalized domain name in browser-compatible punycode form so it
+matches the browser's `Origin` header exactly.
 
 ## Query programmatically
 

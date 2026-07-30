@@ -272,10 +272,10 @@ def test_cors_preflight_allows_only_configured_origin_and_safe_get_header() -> N
     assert "access-control-allow-credentials" not in rejected.headers
 
 
-def test_cors_origin_normalizes_internationalized_hosts_like_a_browser() -> None:
+def test_cors_origin_accepts_browser_compatible_punycode() -> None:
     browser_origin = "https://xn--bcher-kva.example"
     client = TestClient(
-        make_app(config=OptimadeConfig(cors_origins=("HTTPS://BÜCHER.EXAMPLE:443/",))),
+        make_app(config=OptimadeConfig(cors_origins=("HTTPS://XN--BCHER-KVA.EXAMPLE:443/",))),
         base_url="http://testserver",
     )
 
@@ -296,6 +296,7 @@ def test_cors_origin_normalizes_internationalized_hosts_like_a_browser() -> None
         "https://table.example?query=value",
         "https://table.example#fragment",
         "https://table.example\\bad",
+        "https://faß.de",
     ],
 )
 def test_invalid_cors_origin_fails_when_application_is_created(origin: str) -> None:
