@@ -22,6 +22,7 @@ class WidgetContext:
     source_path: Path
     url_for: Callable[[str], str]
     absolute_url_for: Callable[[str], str]
+    table_runtime: object | None = None
 
 
 @dataclass(frozen=True)
@@ -126,3 +127,9 @@ BUILTIN_WIDGETS = WidgetRegistry()
 BUILTIN_WIDGETS.register(
     FunctionWidget(name="httk.text", render_function=_text_widget, source="httk.web.widgets.core"), alias="text"
 )
+
+# Imported after the public contracts above so the table implementation can use
+# the same WidgetContext and WidgetRenderResult types without an import cycle.
+from .table import TableWidget
+
+BUILTIN_WIDGETS.register(TableWidget(), alias="table")

@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import inspect
 import sys
 import threading
 from contextlib import contextmanager
@@ -28,6 +29,30 @@ class PythonFunctionHandler:
         callargs["global_data"] = global_data
         with self._function_import_paths(module_path):
             return execute_fn(**callargs)
+
+    def execute_provider(
+        self,
+        *,
+        provider_name: str,
+        context: object,
+        request: object,
+        provider_args: dict[str, object],
+    ) -> Any:
+        """Call a contained site function module's explicit ``provide`` facade."""
+
+        module_path = self._resolve_function_path(provider_name)
+        module = self._load_module(module_path)
+        provide_fn = getattr(module, "provide", None)
+        if not callable(provide_fn):
+            raise ValueError(
+                f"Provider module missing callable provide(context, request, **provider_args): {module_path}"
+            )
+        try:
+            inspect.signature(provide_fn).bind(context, request, **provider_args)
+        except TypeError as exc:
+            raise ValueError(f"Provider provide() signature does not accept these arguments: {exc}") from exc
+        with self._function_import_paths(module_path):
+            return provide_fn(context, request, **provider_args)
 
     def _resolve_function_path(self, function_name: str) -> Path:
         candidate = function_name.strip()

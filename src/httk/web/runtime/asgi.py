@@ -1,17 +1,29 @@
 import json
+from importlib.resources import files
 from urllib.parse import parse_qsl
 
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from httk.web.engine.site_engine import SiteEngine
 from httk.web.model.errors import WebError
 from httk.web.model.request import HttpRequestContext
+from httk.web.widgets.table import (
+    MAX_TABLE_RESPONSE_BYTES,
+    TableContinuationError,
+    TableContinuationExpired,
+    TableProviderError,
+    TableRevisionMismatch,
+    _no_duplicate_object_pairs,
+)
 
 MAX_POST_BODY_BYTES = 1_000_000
+MAX_TABLE_POST_BODY_BYTES = 64_000
+_TABLE_ASSET_CACHE: dict[str, bytes] = {}
 
 
 async def _handle_request(request: Request) -> Response:
@@ -24,17 +36,126 @@ async def _handle_request(request: Request) -> Response:
             postvars=await _extract_postvars(request),
             headers={k.lower(): v for k, v in request.headers.items()},
         )
-        result = engine.render(route, request=request_context)
+        result = await run_in_threadpool(engine.render, route, request=request_context)
     except WebError as exc:
+        if _caused_by_table_provider(exc):
+            return _table_error(
+                "Table provider could not load this page.",
+                status_code=500,
+            )
         return Response(content=str(exc), status_code=exc.status_code, media_type="text/plain")
 
     return Response(content=result.body, status_code=result.status_code, media_type=result.content_type)
 
 
 def create_app(*, engine: SiteEngine, debug: bool = False) -> Starlette:
-    app = Starlette(debug=debug, routes=[Route("/{path:path}", _handle_request, methods=["GET", "POST"])])
+    app = Starlette(
+        debug=debug,
+        routes=[
+            Route("/_httk/table/page", _handle_table_page, methods=["GET", "POST"]),
+            Route("/_httk/assets/table.js", _handle_table_javascript, methods=["GET"]),
+            Route("/_httk/assets/table.css", _handle_table_stylesheet, methods=["GET"]),
+            Route("/_httk/{path:path}", _handle_reserved_httk_route, methods=["GET", "POST"]),
+            Route("/{path:path}", _handle_request, methods=["GET", "POST"]),
+        ],
+    )
     app.state.engine = engine
     return app
+
+
+async def _handle_reserved_httk_route(request: Request) -> Response:
+    del request
+    return Response("Not Found", status_code=404, media_type="text/plain")
+
+
+async def _handle_table_page(request: Request) -> Response:
+    if request.method != "POST":
+        return _table_error("Method not allowed.", status_code=405, headers={"Allow": "POST"})
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type != "application/json":
+        return _table_error("Table pagination requires application/json.", status_code=415)
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > MAX_TABLE_POST_BODY_BYTES:
+                return _table_error("Table pagination request is too large.", status_code=413)
+        except ValueError:
+            return _table_error("Invalid table pagination request.", status_code=400)
+    raw = await request.body()
+    if len(raw) > MAX_TABLE_POST_BODY_BYTES:
+        return _table_error("Table pagination request is too large.", status_code=413)
+    try:
+        payload = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_no_duplicate_object_pairs,
+            parse_constant=_reject_json_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return _table_error("Invalid table pagination request.", status_code=400)
+    try:
+        engine: SiteEngine = request.app.state.engine
+        result = await run_in_threadpool(engine.table_runtime.continuation, payload)
+        response_bytes = json.dumps(result, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        if len(response_bytes) > MAX_TABLE_RESPONSE_BYTES:
+            raise TableProviderError("provider response is too large")
+    except TableContinuationExpired:
+        return _table_error("Table pagination link has expired. Reload the page and try again.", status_code=410)
+    except TableRevisionMismatch:
+        return _table_error("Table data changed. Reload the page and try again.", status_code=409)
+    except TableContinuationError:
+        return _table_error("Invalid table pagination request.", status_code=400)
+    except TableProviderError:
+        return _table_error("Table provider could not load this page.", status_code=500)
+    except Exception:
+        return _table_error("Table provider could not load this page.", status_code=500)
+    return JSONResponse(result, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+async def _handle_table_javascript(request: Request) -> Response:
+    del request
+    return Response(
+        _table_asset("table.js"),
+        media_type="text/javascript; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+async def _handle_table_stylesheet(request: Request) -> Response:
+    del request
+    return Response(
+        _table_asset("table.css"),
+        media_type="text/css; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+def _table_asset(name: str) -> bytes:
+    cached = _TABLE_ASSET_CACHE.get(name)
+    if cached is None:
+        cached = files("httk.web").joinpath("assets", name).read_bytes()
+        _TABLE_ASSET_CACHE[name] = cached
+    return cached
+
+
+def _table_error(message: str, *, status_code: int, headers: dict[str, str] | None = None) -> Response:
+    response_headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+    response_headers.update(headers or {})
+    return Response(message, status_code=status_code, media_type="text/plain", headers=response_headers)
+
+
+def _reject_json_constant(value: str) -> object:
+    raise ValueError(f"non-finite JSON constant: {value}")
+
+
+def _caused_by_table_provider(error: BaseException) -> bool:
+    """Keep source-aware author diagnostics out of live provider responses."""
+
+    current: BaseException | None = error
+    while current is not None:
+        if isinstance(current, TableProviderError):
+            return True
+        current = current.__cause__
+    return False
 
 
 async def _extract_postvars(request: Request) -> dict[str, str]:

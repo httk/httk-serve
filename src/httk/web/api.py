@@ -17,6 +17,7 @@ def create_asgi_app(
     compatibility_mode: bool = False,
     config_name: str = "config",
     debug: bool = False,
+    table_token_secret: str | bytes | None = None,
 ) -> Starlette:
     config = SiteConfig.from_srcdir(
         srcdir=srcdir,
@@ -24,7 +25,7 @@ def create_asgi_app(
         compatibility_mode=compatibility_mode,
         config_name=config_name,
     )
-    engine = SiteEngine(config)
+    engine = SiteEngine(config, table_token_secret=table_token_secret)
     return create_app(engine=engine, debug=debug)
 
 
@@ -37,6 +38,7 @@ def serve(
     compatibility_mode: bool = False,
     config_name: str = "config",
     debug: bool = False,
+    table_token_secret: str | bytes | None = None,
 ) -> None:
     app = create_asgi_app(
         srcdir=srcdir,
@@ -44,6 +46,7 @@ def serve(
         compatibility_mode=compatibility_mode,
         config_name=config_name,
         debug=debug,
+        table_token_secret=table_token_secret,
     )
     run_dev_server(app=app, host=host, port=port)
 

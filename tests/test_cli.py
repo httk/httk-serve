@@ -22,7 +22,17 @@ def test_check_and_list_commands(tmp_path: Path, capsys) -> None:
     assert command(["list", str(src)], context) == 0
     output = capsys.readouterr().out
     assert "httk.text" in output
+    assert "httk.table" in output
     assert "site.hello" in output
+
+
+def test_check_rejects_reserved_runtime_route_collisions(tmp_path: Path, capsys) -> None:
+    src = _src(tmp_path)
+    (src / "static" / "_httk").mkdir()
+    context = CLIContext("httk", tmp_path)
+
+    assert command(["check", str(src)], context) == 1
+    assert "Reserved httk-web route collision" in capsys.readouterr().err
 
 
 def test_web_registry_registers_lazy_umbrella_command() -> None:

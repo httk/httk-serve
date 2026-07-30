@@ -128,7 +128,7 @@ def _check(arguments: argparse.Namespace) -> int:
         print(f"httk web check: {exc}", file=sys.stderr)
         return 2
     pages = _content_routes(engine.config.content_dir)
-    errors: list[str] = []
+    errors = _reserved_route_collisions(engine.config, pages)
     for route in pages:
         try:
             engine.render(route)
@@ -164,6 +164,18 @@ def _content_routes(content_dir: Path) -> list[str]:
             continue
         routes.append(str(path.relative_to(content_dir).with_suffix("")).replace("\\", "/"))
     return routes
+
+
+def _reserved_route_collisions(config: SiteConfig, pages: list[str]) -> list[str]:
+    """Keep application-reserved runtime paths unavailable to site files."""
+
+    collisions: list[str] = []
+    if any(route == "_httk" or route.startswith("_httk/") for route in pages):
+        collisions.append("Reserved httk-web route collision in content: _httk")
+    static_reserved = config.static_dir / "_httk"
+    if static_reserved.exists():
+        collisions.append("Reserved httk-web route collision in static: _httk")
+    return collisions
 
 
 if __name__ == "__main__":

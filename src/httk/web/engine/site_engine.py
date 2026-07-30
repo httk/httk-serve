@@ -1,6 +1,7 @@
 import inspect
 import posixpath
 import re
+from hashlib import sha256
 from mimetypes import guess_type
 from typing import ClassVar
 from urllib.parse import SplitResult, urlsplit, urlunsplit
@@ -29,10 +30,11 @@ from httk.web.templating import (
 )
 from httk.web.widgets import SiteWidgetLoader, WidgetContext, WidgetRenderResult
 from httk.web.widgets.core import BUILTIN_WIDGETS, Widget, _immutable_mapping
+from httk.web.widgets.table import TableRuntime
 
 
 class SiteEngine:
-    def __init__(self, config: SiteConfig) -> None:
+    def __init__(self, config: SiteConfig, *, table_token_secret: str | bytes | None = None) -> None:
         self.config = config
         self.template_engine: TemplateEngine
         if config.compatibility_mode:
@@ -44,6 +46,7 @@ class SiteEngine:
         self.global_data: dict[str, object] = self._load_global_config_metadata()
         self._publish_route_mode_cache: dict[str, str] = {}
         self._run_init_function()
+        self.table_runtime = TableRuntime(engine=self, token_secret=table_token_secret)
 
     def resolve(self, route: str) -> ResolvedRoute:
         return resolve_route(config=self.config, route=route)
@@ -171,10 +174,10 @@ class SiteEngine:
         self._validate_widget_placeholders(html, placements)
         ids: set[str] = set()
         rendered_by_placeholder: dict[str, str] = {}
-        for placement in placements:
+        for placement_index, placement in enumerate(placements):
             widget_id = placement.props.get("id")
             if widget_id is None:
-                widget_id = f"widget-{placement.placeholder.removeprefix('HTTK_WIDGET_').lower()}"
+                widget_id = self._default_widget_id(route_key, placement, placement_index)
             assert isinstance(widget_id, str)
             if widget_id in ids:
                 raise WidgetValidationError(
@@ -204,10 +207,18 @@ class SiteEngine:
                     relative_start=False,
                 ),
                 absolute_url_for=lambda target: self._absolute_url(normalize_route(target), render_mode=render_mode),
+                table_runtime=self.table_runtime,
             )
             rendered = self._render_widget(widget, context, placement, widget_id)
             rendered_by_placeholder[placement.placeholder] = rendered
         return self._replace_widget_placeholders_once(html, rendered_by_placeholder)
+
+    @staticmethod
+    def _default_widget_id(route_key: str, placement: WidgetPlacement, placement_index: int) -> str:
+        """Stable across site-directory relocations while preserving local uniqueness."""
+
+        material = f"{route_key}\x1f{placement.name}\x1f{placement.snippet}\x1f{placement_index}"
+        return f"widget-{sha256(material.encode('utf-8')).hexdigest()[:16]}"
 
     def _validate_widget_placeholders(self, html: str, placements: tuple[WidgetPlacement, ...]) -> None:
         """Ensure only the renderer's one original node owns each placeholder."""

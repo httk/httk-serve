@@ -50,7 +50,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"httk.web" = ["py.typed"]
+"httk.web" = ["py.typed", "assets/*.css", "assets/*.js"]
 "httk.registry.cli.web" = ["py.typed"]
 
 [project.optional-dependencies]
