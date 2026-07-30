@@ -58,14 +58,14 @@ class BackendAdapter:
 
     def __post_init__(self) -> None:
         if not self.field_handlers:
-            from httk.data.optimade_query import simple_property_handlers
+            from ._property_handlers import value_aware_property_handlers
 
             derived: dict[str, HandlerTable] = {}
             for entry in self.schema.all_entries:
                 properties = self.schema.entry_info[entry]['properties']
                 property_keys = {name: name for name in properties if name not in ('id', 'type')}
                 property_fulltypes = {name: prop.get('fulltype', 'string') for name, prop in properties.items()}
-                derived[entry] = simple_property_handlers(entry, property_keys, property_fulltypes)
+                derived[entry] = value_aware_property_handlers(entry, property_keys, property_fulltypes)
             object.__setattr__(self, 'field_handlers', derived)
 
         # Every property declared sortable for an entry type must have a

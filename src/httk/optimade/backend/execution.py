@@ -28,6 +28,7 @@ class StoreResults:
         unknown_response_fields: list[str],
         limit: int | None,
         offset: int,
+        total_count: int,
         recognized_prefixes: tuple[str, ...],
     ) -> None:
         self.pairs = pairs
@@ -40,13 +41,17 @@ class StoreResults:
         self.unknown_response_fields = unknown_response_fields
         self._count = 0
         self.offset = offset
+        self._total_count = total_count
         self.more_data_available = True
 
     def count(self) -> int:
-        count = 0
-        for _source, searcher in self.pairs:
-            count += searcher.count() - searcher.offset
-        return count
+        """Return all current-filter matches, before pagination.
+
+        The endpoint metadata needs the filtered total even after execution has
+        applied page limits and offsets to its searchers. Retaining it here also
+        keeps the value stable once this one-shot result iterator is consumed.
+        """
+        return self._total_count
 
     def __iter__(self) -> "StoreResults":
         return self
@@ -126,6 +131,7 @@ def execute_query(
 ) -> StoreResults:
 
     pairs = translate_filter(filter_ast, entries, adapter, sort)
+    total_count = sum(searcher.count() for _source, searcher in pairs)
 
     if sort and len(pairs) > 1:
         raise TranslatorError("Sorting across multiple data sources is not implemented.", 501, "Not implemented")
@@ -160,5 +166,11 @@ def execute_query(
 
     # Offset (and limit, but it doesn't matter) is already handled by the searcher.
     return StoreResults(
-        pairs, response_fields, unknown_response_fields, response_limit, 0, adapter.schema.recognized_prefixes
+        pairs,
+        response_fields,
+        unknown_response_fields,
+        response_limit,
+        0,
+        total_count,
+        adapter.schema.recognized_prefixes,
     )

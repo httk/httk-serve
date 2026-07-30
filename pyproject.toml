@@ -14,6 +14,7 @@ authors = [{ name = "Rickard Armiento", email = "rickard-gpg@armiento.net" }]
 dependencies = [
   "httk-core>=2.0.2,<3",
   "httk-data>=0.2.0,<1",
+  "httpx>=0.27",
   "starlette>=0.37",
   "uvicorn>=0.30",
 ]
@@ -51,16 +52,11 @@ where = ["src"]
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
-  "httpx>=0.27",
   "ruff>=0.16,<0.17",
   "pyright",
   "mypy"
 ]
 docs = [
-  # The examples notebook drives the app in-process through starlette's
-  # TestClient, which needs httpx; docs builds now execute notebooks, so this
-  # is a docs-time requirement and not only a test one.
-  "httpx>=0.27",
   "sphinx",
   "furo",
   "myst-parser",

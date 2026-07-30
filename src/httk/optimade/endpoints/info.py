@@ -52,7 +52,7 @@ def generate_info_endpoint_reply(
 def generate_entry_info_endpoint_reply(
     request: ValidatedRequest, config: OptimadeConfig, entry: str, schema: ServedSchema
 ) -> dict[str, Any]:
-    return {
+    response: dict[str, Any] = {
         "data": {
             "id": entry,
             "type": "info",
@@ -70,6 +70,10 @@ def generate_entry_info_endpoint_reply(
             warnings=request.warnings or None,
         ),
     }
+    definition_id = schema.entry_definition_ids.get(entry)
+    if definition_id is not None:
+        response["links"] = {"describedby": definition_id}
+    return response
 
 
 def generate_base_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig) -> str:

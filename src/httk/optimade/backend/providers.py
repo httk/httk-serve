@@ -15,10 +15,10 @@ from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry
 from httk.data.optimade_query import (
     HandlerTable,
     relationship_id_handler,
-    simple_property_handlers,
 )
 
 from ..schema.served import build_served_schema
+from ._property_handlers import value_aware_property_handlers
 from .adapter import BackendAdapter, EntrySource
 from .memory_store import InMemoryStore
 
@@ -167,7 +167,7 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
         property_fulltypes = {
             name: prop.get('fulltype', 'string') for name, prop in schema.entry_info[entry_type]['properties'].items()
         }
-        handlers = simple_property_handlers(entry_type, filter_keys, property_fulltypes)
+        handlers = value_aware_property_handlers(entry_type, filter_keys, property_fulltypes)
         fields: dict[str, Callable[[Any], Any]] = {name: _key_extractor(key) for name, key in property_keys.items()}
         entry_relationships = relationships_by_entry.get(entry_type)
         relationships = _relationships_extractor(entry_relationships) if entry_relationships else None

@@ -114,6 +114,7 @@ class ServedSchema:
     """The entry types and properties served, with derived lookup tables."""
 
     entry_info: dict[str, dict[str, Any]]
+    entry_definition_ids: dict[str, str]
     recognized_prefixes: tuple[str, ...]
     all_entries: tuple[str, ...]
     valid_endpoints: tuple[str, ...]
@@ -149,6 +150,7 @@ def build_served_schema(
     if recognized_prefixes is None:
         recognized_prefixes = known_definition_prefixes()
     entry_info: dict[str, dict[str, Any]] = {}
+    entry_definition_ids: dict[str, str] = {}
     property_definitions: dict[str, dict[str, dict[str, Any]]] = {}
     properties_by_entry: dict[str, tuple[str, ...]] = {}
     default_response_fields: dict[str, tuple[str, ...]] = {}
@@ -157,6 +159,8 @@ def build_served_schema(
     sortable_response_fields: dict[str, tuple[str, ...]] = {}
 
     for entry, definition in definitions.items():
+        if definition.definition_id is not None:
+            entry_definition_ids[entry] = definition.definition_id
         described = definition.properties
         served_names = list(served[entry]) if served is not None and entry in served else list(described)
 
@@ -208,6 +212,7 @@ def build_served_schema(
 
     return ServedSchema(
         entry_info=entry_info,
+        entry_definition_ids=entry_definition_ids,
         recognized_prefixes=recognized_prefixes,
         all_entries=all_entries,
         valid_endpoints=tuple(["info", "links"] + list(all_entries) + ["info/" + x for x in all_entries] + [""]),

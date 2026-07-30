@@ -1,5 +1,10 @@
 import pytest
-from definition_fixtures import structures_definition, widgets_definition
+from definition_fixtures import (
+    calculations_definition,
+    references_definition,
+    structures_definition,
+    widgets_definition,
+)
 from materials_fixtures import materials_schema
 
 from httk.optimade.schema.served import build_served_schema
@@ -11,6 +16,11 @@ def test_built_schema_property_definitions() -> None:
     assert nelements["x-optimade-type"] == "integer"
     assert nelements["x-optimade-implementation"]["sortable"] is False
     assert nelements["x-optimade-implementation"]["response-default"] is True
+
+
+def test_built_schema_retains_only_exact_entry_definition_ids() -> None:
+    schema = build_served_schema({"references": references_definition(), "calculations": calculations_definition()})
+    assert schema.entry_definition_ids == {"references": references_definition().definition_id}
 
 
 def test_build_served_schema_custom_entry_selection() -> None:

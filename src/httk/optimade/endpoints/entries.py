@@ -158,7 +158,6 @@ def generate_entry_endpoint_reply(
     data: QueryResults,
     related_resolver: RelatedResolver | None = None,
 ) -> dict[str, Any]:
-    ndata_returned = data.count()
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:
@@ -186,9 +185,9 @@ def generate_entry_endpoint_reply(
             representation=request.representation,
             api_version=request.version,
             config=config,
-            data_count=ndata_returned,
+            data_count=len(data_part),
             more_data_available=data.more_data_available,
-            data_available=config.data_available.get(request.endpoint),
+            data_available=data.count(),
             warnings=request.warnings or None,
             last_id=last_id,
         ),
@@ -248,7 +247,7 @@ def generate_single_entry_endpoint_reply(
             config=config,
             data_count=ndata,
             more_data_available=False,
-            data_available=config.data_available.get(request.endpoint),
+            data_available=data.count(),
             warnings=request.warnings or None,
         ),
     }

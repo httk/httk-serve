@@ -120,6 +120,17 @@ nitpick_ignore = [
     ("py:class", "typing.Optional"),
     ("py:class", "typing.Union"),
     ("py:class", "Ellipsis"),
+    # These contracts are new in the sibling httk-core/httk-data workspaces.
+    # The checked-in intersphinx inventories intentionally describe released
+    # versions, so they cannot resolve the symbols until those releases exist.
+    ("py:class", "httk.core.OptimadeSchemaSnapshot"),
+    ("py:class", "httk.core.OptimadeEntryBinding"),
+    ("py:class", "httk.data.ResultRow"),
+    ("py:class", "httk.data.query.ResultRowLike"),
+    ("py:class", "httk.data.query.ResultSetLike"),
+    # The client deliberately keeps its backend variable private; AutoAPI
+    # excludes it but still renders public-method annotations that mention it.
+    ("py:class", "_RemoteVariable"),
 ]
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True

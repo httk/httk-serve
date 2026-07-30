@@ -6,12 +6,13 @@ string matching, the reserved constant-expression methods, and the named
 multi-output ``SearchResult`` shape.
 """
 
-from httk.data.query import SearchResult
+import pytest
+from httk.data.query import MultipleResultsError, NoResultError, SearchResult
 
 from httk.optimade.backend.memory_store import (
     InMemoryStore,
-    MemoryField,
     MemoryExpression,
+    MemoryField,
     MemoryVariable,
 )
 
@@ -71,6 +72,16 @@ def test_string_matching_guards_non_string_values():
 
 def test_like_is_gone_from_the_field_surface():
     assert not hasattr(MemoryField("text"), "like")
+
+
+def test_scalar_membership_includes_none() -> None:
+    searcher, variable = searcher_over_labels()
+    searcher.add(variable.note.is_in(None))
+    assert texts(searcher) == ALL_LABELS
+
+    searcher, variable = searcher_over_labels()
+    searcher.add(variable.text.is_in("a_b", "axb"))
+    assert texts(searcher) == {"a_b", "axb"}
 
 
 # ------------------------------------------------------------- constant expressions
@@ -140,3 +151,16 @@ def test_iteration_without_outputs_raises():
         assert "output" in str(error)
     else:  # pragma: no cover - the assertion above is the test
         raise AssertionError("iterating without outputs must raise")
+
+
+def test_result_set_one_uses_neutral_errors() -> None:
+    memory_store = store()
+    searcher = memory_store.searcher()
+    variable = searcher.variable("labels")
+
+    with pytest.raises(MultipleResultsError):
+        searcher.results(label=variable).one()
+
+    searcher.add(variable.text == "not present")
+    with pytest.raises(NoResultError):
+        searcher.results(label=variable).one()

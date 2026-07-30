@@ -8,6 +8,17 @@ from .backend import (
     adapter_from_providers,
     providers_from_registry,
 )
+from .client import (
+    ALL_ADVERTISED,
+    OptimadeClientError,
+    OptimadeDiscoveryError,
+    OptimadeErrorDocumentError,
+    OptimadeHTTPError,
+    OptimadeStore,
+    OptimadeTransportError,
+    OptimadeVersionNegotiationError,
+    RemoteEntryType,
+)
 from .engine.processing import process, process_init
 from .model import (
     EndpointResponse,
@@ -18,17 +29,40 @@ from .model import (
     ValidatedParameters,
     ValidatedRequest,
 )
+from .remote_query import (
+    CountUnavailableError,
+    OptimadePaginationError,
+    OptimadeResponseError,
+    RemoteResultColumn,
+    RemoteResultSet,
+    RemoteSearcher,
+)
 
 __all__ = [
+    "ALL_ADVERTISED",
     "BackendAdapter",
+    "CountUnavailableError",
     "EndpointResponse",
     "EntrySource",
     "InMemoryStore",
+    "OptimadeClientError",
     "OptimadeConfig",
+    "OptimadeDiscoveryError",
     "OptimadeError",
+    "OptimadeErrorDocumentError",
+    "OptimadeHTTPError",
+    "OptimadePaginationError",
+    "OptimadeResponseError",
+    "OptimadeStore",
+    "OptimadeTransportError",
+    "OptimadeVersionNegotiationError",
     "ParserError",
     "ParserSyntaxError",
     "RawRequest",
+    "RemoteEntryType",
+    "RemoteResultColumn",
+    "RemoteResultSet",
+    "RemoteSearcher",
     "TranslatorError",
     "ValidatedParameters",
     "ValidatedRequest",

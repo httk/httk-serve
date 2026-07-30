@@ -1,6 +1,8 @@
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
+from definition_fixtures import calculations_definition, references_definition
 from materials_fixtures import materials_schema
 
 from httk.optimade.endpoints import (
@@ -19,15 +21,22 @@ from httk.optimade.model import (
     ValidatedParameters,
     ValidatedRequest,
 )
+from httk.optimade.schema.served import build_served_schema
 
 
 class StubResults:
-    def __init__(self, rows: list[dict[str, Any]], more_data_available: bool = False) -> None:
+    def __init__(
+        self,
+        rows: list[dict[str, Any]],
+        more_data_available: bool = False,
+        total_count: int | None = None,
+    ) -> None:
         self.rows = rows
         self.more_data_available = more_data_available
+        self.total_count = len(rows) if total_count is None else total_count
 
     def count(self) -> int:
-        return len(self.rows)
+        return self.total_count
 
     def __iter__(self) -> Iterator[ResultRow]:
         return iter(ResultRow(values=row) for row in self.rows)
@@ -67,6 +76,21 @@ def test_entry_info_endpoint_reply() -> None:
     assert "elements" in reply["data"]["properties"]
     assert "description" in reply["data"]["properties"]["elements"]
     assert "elements" in reply["data"]["output_fields_by_format"]["json"]
+    assert "links" not in reply
+
+
+def test_entry_info_endpoint_reply_exposes_only_exact_definition_identity() -> None:
+    standard_schema = build_served_schema({"references": references_definition()})
+    standard_reply = generate_entry_info_endpoint_reply(
+        make_validated("info/references"), make_config(), "references", standard_schema
+    )
+    assert standard_reply["links"]["describedby"] == references_definition().definition_id
+
+    extended_schema = build_served_schema({"calculations": calculations_definition()})
+    extended_reply = generate_entry_info_endpoint_reply(
+        make_validated("info/calculations"), make_config(), "calculations", extended_schema
+    )
+    assert "links" not in extended_reply
 
 
 def test_base_endpoint_reply() -> None:
@@ -108,7 +132,7 @@ def test_entry_endpoint_reply() -> None:
     assert reply["data"][0]["id"] == "1"
     assert reply["data"][0]["attributes"] == {"nelements": 2}
     assert reply["meta"]["data_returned"] == 2
-    assert reply["meta"]["data_available"] == 10
+    assert reply["meta"]["data_available"] == 2
     assert reply["meta"]["more_data_available"] is False
 
 
@@ -125,17 +149,31 @@ def test_entry_endpoint_reply_pagination() -> None:
     assert reply["meta"]["more_data_available"] is True
 
 
+def test_entry_endpoint_reply_uses_filtered_total_and_emitted_page_size() -> None:
+    rows = [{"id": str(i), "type": "structures"} for i in range(2)]
+    reply = generate_entry_endpoint_reply(
+        make_validated("structures", page_limit=2, page_offset=4),
+        make_config(),
+        StubResults(rows, more_data_available=True, total_count=7),
+    )
+    assert reply["meta"]["data_available"] == 7
+    assert reply["meta"]["data_returned"] == 2
+    assert "page_offset=6" in reply["links"]["next"]
+
+
 def test_single_entry_endpoint_reply() -> None:
     rows = [{"id": "1", "type": "structures", "nelements": 2}]
     reply = generate_single_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults(rows))
     assert reply["data"]["id"] == "1"
     assert reply["meta"]["data_returned"] == 1
+    assert reply["meta"]["data_available"] == 1
 
 
 def test_single_entry_endpoint_reply_not_found() -> None:
     reply = generate_single_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults([]))
     assert reply["data"] is None
     assert reply["meta"]["data_returned"] == 0
+    assert reply["meta"]["data_available"] == 0
 
 
 def test_single_entry_endpoint_reply_multiple_is_error() -> None:
@@ -187,10 +225,9 @@ def test_entry_info_endpoint_reply_custom_property_definitions() -> None:
     assert energy["type"] == ["number", "null"]
 
 
-def test_entry_reply_without_data_available_counts() -> None:
-    # A config whose data_available was never populated (process_init not run
-    # for this entry type) must not crash the reply; the meta field is omitted.
+def test_entry_reply_without_static_data_available_count() -> None:
+    # Entry response metadata derives from the current query, not process_init.
     config = OptimadeConfig()
     rows = [{"id": "1", "type": "structures"}]
     reply = generate_entry_endpoint_reply(make_validated("structures"), config, StubResults(rows))
-    assert "data_available" not in reply["meta"]
+    assert reply["meta"]["data_available"] == 1

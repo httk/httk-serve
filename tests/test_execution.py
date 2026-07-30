@@ -26,12 +26,14 @@ CALC_FIELDS: dict[str, Any] = {
 }
 
 
-def make_adapter(structures: list[Row], aimd: list[Row] = [], elastic: list[Row] = []) -> BackendAdapter:
+def make_adapter(
+    structures: list[Row], aimd: list[Row] | None = None, elastic: list[Row] | None = None
+) -> BackendAdapter:
     store = FakeStore(
         rows_by_target={
             "structure-table": structures,
-            "aimd-table": aimd,
-            "elastic-table": elastic,
+            "aimd-table": aimd or [],
+            "elastic-table": elastic or [],
         }
     )
     return BackendAdapter(
@@ -127,13 +129,24 @@ def test_offset_beyond_total_returns_nothing() -> None:
     adapter = make_adapter(rows(3))
     results = execute_query(adapter, ["structures"], ["id", "type"], [], 10, 7)
     assert list(results) == []
-    assert results.count() == 0
+    assert results.count() == 3
 
 
 def test_count_subtracts_offsets() -> None:
     adapter = make_adapter(rows(5))
     results = execute_query(adapter, ["structures"], ["id", "type"], [], None, 2)
-    assert results.count() == 3
+    assert results.count() == 5
+    assert [row.values["id"] for row in results] == ["s2", "s3", "s4"]
+    assert results.count() == 5
+
+
+def test_count_is_pre_pagination_total() -> None:
+    adapter = make_adapter(rows(5))
+    results = execute_query(adapter, ["structures"], ["id", "type"], [], 2, 2)
+    assert results.count() == 5
+    assert [row.values["id"] for row in results] == ["s2", "s3"]
+    assert results.count() == 5
+    assert results.more_data_available is True
 
 
 def test_zero_limit_counts_without_rows() -> None:

@@ -67,6 +67,9 @@ class FakeColumn:
     def contains(self, text: str) -> FakeExpression:
         return self._binary("contains", text)
 
+    def has(self, value: Any) -> FakeExpression:
+        return FakeExpression(("has", ("column", self.name), value))
+
     def has_any(self, *values: Any) -> FakeExpression:
         return FakeExpression(("has_any", ("column", self.name), values))
 

@@ -5,9 +5,11 @@ httk-optimade), exercising the generic provider path end to end without any
 materials-science specifics.
 """
 
+import asyncio
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+import httpx
 import pytest
 from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition, RelatedEntry
 from starlette.testclient import TestClient
@@ -214,6 +216,30 @@ def test_asgi_end_to_end_over_provider() -> None:
     assert payload["data"][0]["attributes"]["tags"] == ["blue"]
 
 
+def test_asgi_known_unknown_filters_inspect_each_resource_value() -> None:
+    provider = WidgetProvider(
+        [
+            {"__id": "known", "type": "widgets", "cogs": 3, "tags": []},
+            {"__id": "null", "type": "widgets", "cogs": None, "tags": []},
+            {"__id": "missing", "type": "widgets", "tags": []},
+        ]
+    )
+    app = create_asgi_app(adapter_from_providers([provider]), baseurl="http://testserver")
+
+    async def request(filter_string: str) -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            return await client.get("/widgets", params={"filter": filter_string})
+
+    known = asyncio.run(request("cogs IS KNOWN"))
+    unknown = asyncio.run(request("cogs IS UNKNOWN"))
+
+    assert known.status_code == 200
+    assert unknown.status_code == 200
+    assert [entry["id"] for entry in known.json()["data"]] == ["known"]
+    assert {entry["id"] for entry in unknown.json()["data"]} == {"null", "missing"}
+
+
 class LinkedProvider(EntryProvider):
     """A provider serving ``structures`` linked to ``references`` via the relationships hook."""
 
@@ -247,9 +273,7 @@ class LinkedProvider(EntryProvider):
     def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
         if entry_type == "structures":
             return {
-                "s-1": (
-                    RelatedEntry("references", "ref-1", description="Cited for this structure", role="citation"),
-                )
+                "s-1": (RelatedEntry("references", "ref-1", description="Cited for this structure", role="citation"),)
             }
         return {}
 

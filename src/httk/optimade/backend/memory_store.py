@@ -25,7 +25,14 @@ whole row dict, a field output the row's value for that field.
 from collections.abc import Callable, Iterator
 from typing import Any, NoReturn
 
-from httk.data.query import ResultRow, ResultRowLike, ResultSetLike, SearchResult
+from httk.data.query import (
+    MultipleResultsError,
+    NoResultError,
+    ResultRow,
+    ResultRowLike,
+    ResultSetLike,
+    SearchResult,
+)
 
 Row = dict[str, Any]
 Predicate = Callable[[Row], bool]
@@ -86,6 +93,13 @@ class MemoryField:
 
     def contains(self, other: str) -> MemoryExpression:
         return self._compare(other, lambda a, b: isinstance(a, str) and b in a)
+
+    def is_in(self, *values: Any) -> MemoryExpression:
+        """Match a scalar field against one of the supplied values."""
+        return MemoryExpression(lambda row: self._value(row) in values)
+
+    def has(self, value: Any) -> MemoryExpression:
+        return MemoryExpression(lambda row: value in (self._value(row) or ()))
 
     def has_any(self, *values: Any) -> MemoryExpression:
         return MemoryExpression(lambda row: bool(set(self._value(row) or ()) & set(values)))
@@ -252,9 +266,9 @@ class MemoryResultSet:
 
     def one(self) -> ResultRowLike:
         if not self._rows:
-            raise LookupError("expected exactly one result, found none")
+            raise NoResultError("expected exactly one result, found none")
         if len(self._rows) > 1:
-            raise LookupError("expected exactly one result, found more than one")
+            raise MultipleResultsError("expected exactly one result, found more than one")
         return next(iter(self))
 
     def scalars(self, name: str | None = None) -> Iterator[Any]:
