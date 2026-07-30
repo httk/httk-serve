@@ -1,0 +1,12 @@
+{
+  "name": "httk-web-browser-tests",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  },
+  "scripts": {
+    "test-js": "node --test tests/optimade-table-protocol.test.mjs tests/optimade-table-controller.test.mjs",
+    "test-browser": "playwright test tests/optimade-table.browser.spec.mjs"
+  }
+}

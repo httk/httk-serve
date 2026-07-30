@@ -1,11 +1,13 @@
 PYTHON ?= python3
+NODE ?= node
+NPM ?= npm
 DIST_DIR ?= dist
 
 # Base URL of the published httk documentation site, used for cross-linking docs
 # between httk repositories (read by docs/conf.py via HTTK_DOCS_BASE_URL).
 DOCS_BASE_URL ?= https://docs.httk.org
 
-.PHONY: docs docs-live docs-clean docs-inventories docs-lock docs-lock-check clean dist-clean dist dist-check release-check format format-check typecheck typecheck_pyright lint test test_fastfail test-extended test-extended-fastfail audit
+.PHONY: docs docs-live docs-clean docs-inventories docs-lock docs-lock-check clean dist-clean dist dist-check release-check format format-check typecheck typecheck_pyright lint test test-js test-browser test_fastfail test-extended test-extended-fastfail audit
 
 docs: docs-clean
 	HTTK_DOCS_BASE_URL=$(DOCS_BASE_URL) $(PYTHON) -m sphinx -E -a -b html -W --keep-going docs docs/_build/html
@@ -68,6 +70,12 @@ typecheck:
 test:
 	$(PYTHON) -m pytest
 
+test-js:
+	$(NODE) --test tests/optimade-table-protocol.test.mjs tests/optimade-table-controller.test.mjs
+
+test-browser:
+	$(NPM) run test-browser
+
 test_fastfail:
 	$(PYTHON) -m pytest -q -x
 
@@ -79,7 +87,7 @@ test-extended-fastfail:
 
 check: format-check typecheck typecheck_pyright test
 
-ci: format-check typecheck typecheck_pyright test-extended-fastfail
+ci: format-check typecheck typecheck_pyright test-extended-fastfail test-js
 
 dist: dist-clean
 	$(PYTHON) -m build --outdir $(DIST_DIR)

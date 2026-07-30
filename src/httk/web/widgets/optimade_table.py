@@ -238,10 +238,9 @@ def _origin(value: str) -> str:
         raise OptimadeTableProtocolError("allowed_origins entries must be exact HTTP(S) origins") from None
     if host is None:
         raise OptimadeTableProtocolError("allowed_origins entries must be exact HTTP(S) origins")
-    try:
-        host = host.encode("idna").decode("ascii").lower()
-    except UnicodeError:
-        raise OptimadeTableProtocolError("allowed_origins entries must be exact HTTP(S) origins") from None
+    if any(ord(char) > 127 for char in host):
+        raise OptimadeTableProtocolError("allowed_origins host must be ASCII; use browser-compatible punycode")
+    host = host.lower()
     if ":" in host:
         host = f"[{host}]"
     scheme = parsed.scheme.lower()

@@ -184,9 +184,47 @@ whose complete value overrides `filter`; neither is access control. Detail
 links require both a safe site-local `detail_route` and a selected
 `detail_column`.
 
-This phase establishes only the safe HTML/configuration and asset boundary. The
-packaged OPTIMADE modules are intentionally no-op placeholders; browser
-negotiation, fetches, and pagination follow in the next phase.
+At page load, the browser validates the local configuration and negotiates the
+remote OPTIMADE API. An unversioned base is negotiated through `/versions` for
+OPTIMADE major 1; an explicit `/v1`, `/v1.3`, or `/v1.3.0` base is checked
+directly. It then validates `/info` and `/info/<entry_type>` before requesting
+the first page. The selected columns are requested as `response_fields`; every
+response is bounded, has its content type checked, and is validated as an
+OPTIMADE envelope before the table changes. Equivalent tables on one page share
+that discovery work, while their results and pager state remain independent.
+
+The widget is browser-to-service traffic: httk-web does not proxy requests or
+hold remote cursors. Deploy the OPTIMADE endpoint on the page origin, or ensure
+that its CORS policy permits the published page origin. `allowed_origins` is a
+client-side allow-list for explicitly requested OPTIMADE origins and
+continuation URLs; redirects are rejected before the browser follows them. It
+does not grant CORS access and is not an access-control boundary. Origin hosts
+must be ASCII; write internationalized domain names in the browser-compatible
+punycode form that appears in `window.location.origin`.
+
+`filter_query` is useful for static publications and ordinary GET forms. When
+the browser URL contains that parameter, its **first complete value** replaces
+the authored `filter`; an empty value means no filter. Filters are never
+concatenated. The override is limited to 4096 characters, matching the shell
+limit, and an overlong value is shown as a recoverable table error. No URL,
+history, cookie, storage, or form field is modified by the table.
+
+Only the current page is rendered. A widget holds at most 100 previous page
+URLs in JavaScript memory; Previous refetches the preceding page and Next uses
+the validated OPTIMADE continuation URL. Those URLs are never written into the
+DOM, events, browser storage, or page history. Empty, loading, loaded, and
+error states update the table's native controls and polite status message;
+errors expose a Retry control. Published static pages therefore have the same
+client behavior as live pages, subject to the remote service being reachable
+and CORS-enabled from that publication.
+
+Remote values are inserted as text, never HTML. Null values render as an
+accessible dash and complex values have deterministic, bounded JSON-like
+presentation. If detail links are configured, only `detail_column` becomes a
+site-local link: the resource id replaces `detail_query` while other detail
+route query values are retained. The widget dispatches a bubbling
+`httk:optimade-table-updated` event only after a page commits; its detail has
+only the entry type, result count, page index, and next/previous availability.
 
 There is no interactive header sorting in this phase. Put sort and filter
 controls in ordinary GET forms; the original query snapshot reaches the provider

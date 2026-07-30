@@ -201,6 +201,7 @@ def test_optimade_table_canonicalizes_origins_and_detail_urls_by_page(tmp_path: 
         '{{ widget("optimade_table", base_url="/optimade", columns=["nsites"], detail_route="details") }}',
         '{{ widget("optimade_table", base_url="/optimade", columns=["nsites"], filter="not valid %%") }}',
         '{{ widget("optimade_table", base_url="/optimade", columns=["nsites"], allowed_origins=["HTTPS://EXAMPLE.TEST:443", "https://example.test"]) }}',
+        '{{ widget("optimade_table", base_url="/optimade", columns=["nsites"], allowed_origins=["https://faß.de"]) }}',
     ],
 )
 def test_optimade_table_invalid_props_are_source_aware(tmp_path: Path, invocation: str) -> None:

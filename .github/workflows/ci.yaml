@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -35,6 +40,13 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e .[dev]
+          npm ci
+
+      - name: Install Chromium for browser smoke tests
+        run: npx playwright install --with-deps chromium
 
       - name: Run CI
         run: make ci
+
+      - name: Run browser smoke tests
+        run: make test-browser
