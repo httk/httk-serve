@@ -473,7 +473,7 @@ def test_structure_list_projection_decodes_tuples_and_exact_fractions() -> None:
                     resource(
                         "s1",
                         "structures-vendor-name",
-                        {"elements": ["Si", "O"], "elements_ratios": [0.3333333333333333, 0.6666666666666667]},
+                        {"elements": ["O", "Si"], "elements_ratios": [0.3333333333333333, 0.6666666666666667]},
                     )
                 ]
             )
@@ -483,7 +483,7 @@ def test_structure_list_projection_decodes_tuples_and_exact_fractions() -> None:
     variable = searcher.variable(store.entry_types[0])
     row = searcher.results(elements=variable.elements, ratios=variable.elements_ratios).one()
 
-    assert row.elements == ("Si", "O")
+    assert row.elements == ("O", "Si")
     assert row.ratios == (
         Fraction(3333333333333333, 10**16),
         Fraction(6666666666666667, 10**16),

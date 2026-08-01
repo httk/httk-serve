@@ -285,4 +285,4 @@ def test_simple_property_handlers_timestamp_generates_comparison() -> None:
     assert 'stringmatching' not in table
     sv = FakeVariable('files')
     expr = table['comparison']('last_modified', '>=', '2021-01-01T00:00:00Z', sv)
-    assert expr.tree == ("ge", ("column", "last_modified"), "2021-01-01T00:00:00Z")
+    assert expr.tree == ("ge", ("column", "last_modified"), "2021-01-01T00:00:00+00:00")
