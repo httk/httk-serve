@@ -1,6 +1,7 @@
 """Full provider-to-ASGI coverage for native and stored atomistic structures."""
 
 import datetime
+import math
 from fractions import Fraction
 
 import pytest
@@ -11,11 +12,12 @@ from httk.atomistic import (
     StructureEntry,
     StructureEntryProvider,
     UnitcellStructureRecord,
+    UnitcellStructureView,
 )
-from httk.data.db import Database, SqlStore
+from httk.data.db import Database, SqlStore, StoredEntrySource
 from starlette.testclient import TestClient
 
-from httk.serve.optimade import adapter_from_providers, create_asgi_app
+from httk.serve.optimade import adapter_from_providers, adapter_from_stores, create_asgi_app
 
 STANDARD_STRUCTURE_PROPERTIES = {
     "id",
@@ -82,6 +84,36 @@ def _entries() -> dict[str, Structure]:
         last_modified=datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.UTC),
     )
     return {"mixed": mixed, "silicon": silicon}
+
+
+def test_stored_structure_preserves_signed_zero_through_view_and_asgi() -> None:
+    species = Species(name="Si", chemical_symbols=("Si",), concentration=(1,), mass=(-0.0,))
+    structure = Structure(
+        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
+        [[0, 0, 0]],
+        [species],
+        ["Si"],
+    )
+    key = structure.id
+    with Database.sqlite() as database:
+        SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord}).save(structure)
+        reopened = SqlStore(database)
+        record = reopened.fetch_entry(StructureEntry, key)
+        assert isinstance(record, UnitcellStructureRecord)
+        view = UnitcellStructureView(record)
+        assert record.id == key
+        assert view.id == key
+        assert math.copysign(1.0, view.species[0].mass[0]) == -1.0
+
+        app = create_asgi_app(
+            adapter_from_stores([StoredEntrySource(reopened, StructureEntry, "signed-zero")]),
+            baseurl="http://testserver",
+        )
+        with TestClient(app, base_url="http://testserver") as client:
+            response = client.get(f"/structures/{key}")
+        assert response.status_code == 200
+        served_mass = response.json()["data"]["attributes"]["species"][0]["mass"][0]
+        assert math.copysign(1.0, served_mass) == -1.0
 
 
 @pytest.fixture(params=("atomistic", "sqlite-record"))
