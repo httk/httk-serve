@@ -1,13 +1,13 @@
 from starlette.applications import Starlette
 
-from .backend.adapter import BackendAdapter
 from .model.config import OptimadeConfig
+from .model.results import OptimadeAdapter
 from .runtime.asgi import create_app
 from .runtime.devserver import run_dev_server
 
 
 def create_asgi_app(
-    adapter: BackendAdapter,
+    adapter: OptimadeAdapter,
     config: OptimadeConfig | None = None,
     *,
     baseurl: str | None = None,
@@ -22,7 +22,7 @@ def create_asgi_app(
 
 
 def serve(
-    adapter: BackendAdapter,
+    adapter: OptimadeAdapter,
     config: OptimadeConfig | None = None,
     *,
     host: str = "127.0.0.1",

@@ -1,8 +1,11 @@
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from httk.core import FilterAst
+
+if TYPE_CHECKING:
+    from ..schema.served import ServedSchema
 
 
 @dataclass(slots=True)
@@ -22,7 +25,8 @@ class QueryResults(Protocol):
     are always present.
     """
 
-    more_data_available: bool
+    @property
+    def more_data_available(self) -> bool: ...
 
     def count(self) -> int: ...
 
@@ -44,3 +48,17 @@ class QueryFunction(Protocol):
         sort: Sequence[tuple[str, bool]] | None = None,
         debug: bool = False,
     ) -> QueryResults: ...
+
+
+class OptimadeAdapter(Protocol):
+    """Structural adapter contract consumed by the public serving helpers.
+
+    Query execution may be backed by the ordinary Store/Searcher adapter or a
+    storage federation with its own bounded paging policy.  The HTTP layer only
+    needs the served schema and a callback implementing :class:`QueryFunction`.
+    """
+
+    @property
+    def schema(self) -> "ServedSchema": ...
+
+    def query_function(self) -> QueryFunction: ...

@@ -5,7 +5,9 @@ from .backend import (
     BackendAdapter,
     EntrySource,
     InMemoryStore,
+    StoredBackendAdapter,
     adapter_from_providers,
+    adapter_from_stores,
     providers_from_registry,
 )
 from .client import (
@@ -22,6 +24,7 @@ from .client import (
 from .engine.processing import process, process_init
 from .model import (
     EndpointResponse,
+    OptimadeAdapter,
     OptimadeConfig,
     OptimadeError,
     RawRequest,
@@ -45,6 +48,7 @@ __all__ = [
     "EndpointResponse",
     "EntrySource",
     "InMemoryStore",
+    "OptimadeAdapter",
     "OptimadeClientError",
     "OptimadeConfig",
     "OptimadeDiscoveryError",
@@ -63,10 +67,12 @@ __all__ = [
     "RemoteResultColumn",
     "RemoteResultSet",
     "RemoteSearcher",
+    "StoredBackendAdapter",
     "TranslatorError",
     "ValidatedParameters",
     "ValidatedRequest",
     "adapter_from_providers",
+    "adapter_from_stores",
     "create_asgi_app",
     "parse_optimade_filter",
     "process",
