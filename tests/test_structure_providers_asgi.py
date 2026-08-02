@@ -8,16 +8,14 @@ from httk.atomistic import (
     Assembly,
     Species,
     Structure,
-    StructureEntry,
     StructureEntryProvider,
-    StructureEntryRecord,
+    UnitcellStructureRecord,
 )
-from httk.data.db import Database, SqlStore, StoreEntryProvider
+from httk.data.db import Database, SqlStore
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import adapter_from_providers, create_asgi_app
 
-STRUCTURES_DEFINITION = "https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures"
 STANDARD_STRUCTURE_PROPERTIES = {
     "id",
     "type",
@@ -52,7 +50,7 @@ STANDARD_STRUCTURE_PROPERTIES = {
 }
 
 
-def _entries() -> tuple[StructureEntry, StructureEntry]:
+def _entries() -> dict[str, Structure]:
     mixed_species = Species(
         name="mixed",
         chemical_symbols=("Ge", "Si"),
@@ -67,6 +65,8 @@ def _entries() -> tuple[StructureEntry, StructureEntry]:
         chemical_formula_descriptive="Ge5Si3",
         chemical_formula_hill="Ge5Si3",
         optimization_type="local",
+        immutable_id="source/mixed",
+        last_modified=datetime.datetime(2026, 1, 2, 3, 4, 5, tzinfo=datetime.UTC),
     )
     silicon_species = Species(name="Si", chemical_symbols=("Si",), concentration=(1,))
     silicon = Structure(
@@ -77,21 +77,10 @@ def _entries() -> tuple[StructureEntry, StructureEntry]:
         chemical_formula_descriptive="Si",
         chemical_formula_hill="Si",
         optimization_type="experimental",
+        immutable_id=None,
+        last_modified=datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.UTC),
     )
-    return (
-        StructureEntry(
-            mixed,
-            id="mixed",
-            immutable_id="source/mixed",
-            last_modified=datetime.datetime(2026, 1, 2, 3, 4, 5, tzinfo=datetime.UTC),
-        ),
-        StructureEntry(
-            silicon,
-            id="silicon",
-            immutable_id=None,
-            last_modified=datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.UTC),
-        ),
-    )
+    return {"mixed": mixed, "silicon": silicon}
 
 
 @pytest.fixture(params=("atomistic", "sqlite-record"))
@@ -107,24 +96,17 @@ def structure_api(request):
     with Database.sqlite() as database:
         store = SqlStore(database)
         with store.transaction():
-            for entry in entries:
-                assert entry.structure is not None
-                store.save(
-                    StructureEntryRecord.from_structure(
-                        entry.structure,
-                        id=entry.id,
-                        immutable_id=entry.immutable_id,
-                        last_modified=entry.last_modified,
-                    )
-                )
-        provider = StoreEntryProvider(store, {"structures": StructureEntryRecord})
+            sids = {entry_id: store.save(structure) for entry_id, structure in entries.items()}
+        provider = StructureEntryProvider(
+            {entry_id: store.fetch(UnitcellStructureRecord, sid) for entry_id, sid in sids.items()}
+        )
         app = create_asgi_app(adapter_from_providers([provider]), baseurl="http://testserver")
         with TestClient(app, base_url="http://testserver") as client:
             yield request.param, client
 
 
 def test_structure_provider_info_exposes_complete_standard_contract(structure_api) -> None:
-    mode, client = structure_api
+    _mode, client = structure_api
     response = client.get("/info/structures")
 
     assert response.status_code == 200
@@ -135,8 +117,6 @@ def test_structure_provider_info_exposes_complete_standard_contract(structure_ap
     assert STANDARD_STRUCTURE_PROPERTIES <= set(payload["data"]["output_fields_by_format"]["json"])
     assert payload["data"]["properties"]["elements"]["x-optimade-type"] == "list"
     assert payload["data"]["properties"]["chemical_formula_reduced"]["x-optimade-type"] == "string"
-    if mode == "sqlite-record":
-        assert payload["links"]["describedby"] == STRUCTURES_DEFINITION
 
 
 def test_structure_provider_listing_preserves_standard_semantics(structure_api) -> None:
