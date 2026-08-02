@@ -225,7 +225,7 @@ def test_federated_remote_and_sqlite_share_a_typed_backend_with_filter_projectio
     saved = remote_backends[0]
 
     with Database.sqlite() as database:
-        local = SqlStore(database, entry_backings={})
+        local = SqlStore(database, entry_records={})
         local.save(saved)
         federation = FederatedStore({"remote": remote, "local": local})
         searcher = federation.searcher()

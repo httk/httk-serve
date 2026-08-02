@@ -259,7 +259,7 @@ def test_same_portable_structure_query_across_memory_sql_and_real_asgi_remote(di
     assert all(type(backend).__name__ == "OptimadeStructure" for backend in remote_backends)
 
     with _database(dialect) as database:
-        sql = SqlStore(database, entry_backings={})
+        sql = SqlStore(database, entry_records={})
         for backend in remote_backends:
             sql.save(backend)
 
@@ -326,7 +326,7 @@ def test_remote_typed_and_generic_resources_copy_to_sqlite_without_losing_source
     assert nacl.resource.schema.info_document.text
 
     with Database.sqlite() as database:
-        store = SqlStore(database, entry_backings={})
+        store = SqlStore(database, entry_records={})
         typed_sid = store.save(nacl)
         generic_sid = store.save(nacl.resource)
         typed = store.fetch(type(nacl), typed_sid)

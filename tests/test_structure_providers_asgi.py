@@ -96,7 +96,7 @@ def test_stored_structure_preserves_signed_zero_through_view_and_asgi() -> None:
     )
     key = structure.id
     with Database.sqlite() as database:
-        SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord}).save(structure)
+        SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord}).save(structure)
         reopened = SqlStore(database)
         record = reopened.fetch_entry(StructureEntry, key)
         assert isinstance(record, UnitcellStructureRecord)
@@ -127,7 +127,7 @@ def structure_api(request):
         return
 
     with Database.sqlite() as database:
-        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         with store.transaction():
             sids = {entry_id: store.save(structure) for entry_id, structure in entries.items()}
         provider = StructureEntryProvider(

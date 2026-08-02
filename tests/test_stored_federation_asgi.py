@@ -59,7 +59,7 @@ def _client(adapter) -> TestClient:
 def test_single_store_preserves_public_prefix_and_prefixed_property_name() -> None:
     source = _structure("Na", basis_precision=Fraction(1, 1000))
     with Database.sqlite() as database:
-        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "alpha", "alpha-"),))
 
@@ -92,7 +92,7 @@ def test_one_store_serves_multiple_concrete_backings() -> None:
     with Database.sqlite() as database:
         store = SqlStore(
             database,
-            entry_backings={StructureEntry: (UnitcellStructureRecord, ASUStructureRecord)},
+            entry_records={StructureEntry: (UnitcellStructureRecord, ASUStructureRecord)},
         )
         store.save(unitcell)
         store.save(asu)
@@ -117,8 +117,8 @@ def test_multiple_sources_push_filter_sort_and_pagination() -> None:
     with ExitStack() as stack:
         first_database = stack.enter_context(Database.sqlite())
         second_database = stack.enter_context(Database.sqlite())
-        first = SqlStore(first_database, entry_backings={StructureEntry: UnitcellStructureRecord})
-        second = SqlStore(second_database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        first = SqlStore(first_database, entry_records={StructureEntry: UnitcellStructureRecord})
+        second = SqlStore(second_database, entry_records={StructureEntry: UnitcellStructureRecord})
         first_sources = (_structure("Na"), _structure("Na", "Cl"))
         second_sources = (_structure("Si"), _structure("Si", "O"))
         for structure in first_sources:
@@ -179,8 +179,8 @@ def test_duplicate_public_ids_map_to_safe_http_500_and_remain_auditable() -> Non
     with ExitStack() as stack:
         first_database = stack.enter_context(Database.sqlite())
         second_database = stack.enter_context(Database.sqlite())
-        first = SqlStore(first_database, entry_backings={StructureEntry: UnitcellStructureRecord})
-        second = SqlStore(second_database, entry_backings={StructureEntry: UnitcellStructureRecord})
+        first = SqlStore(first_database, entry_records={StructureEntry: UnitcellStructureRecord})
+        second = SqlStore(second_database, entry_records={StructureEntry: UnitcellStructureRecord})
         first.save(duplicated)
         second.save(duplicated)
         with warnings.catch_warnings(record=True) as caught:
