@@ -24,7 +24,6 @@ from .client import (
 from .engine.processing import process, process_init
 from .model import (
     EndpointResponse,
-    OptimadeAdapter,
     OptimadeConfig,
     OptimadeError,
     RawRequest,
@@ -48,7 +47,6 @@ __all__ = [
     "EndpointResponse",
     "EntrySource",
     "InMemoryStore",
-    "OptimadeAdapter",
     "OptimadeClientError",
     "OptimadeConfig",
     "OptimadeDiscoveryError",

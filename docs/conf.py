@@ -128,6 +128,9 @@ nitpick_ignore = [
     ("py:class", "httk.data.ResultRow"),
     ("py:class", "httk.data.query.ResultRowLike"),
     ("py:class", "httk.data.query.ResultSetLike"),
+    # StoredEntrySource is new in the sibling httk-data workspace; the
+    # committed release inventory cannot name it until httk-data is released.
+    ("py:class", "httk.data.db.StoredEntrySource"),
     # The client deliberately keeps its backend variable private; AutoAPI
     # excludes it but still renders public-method annotations that mention it.
     ("py:class", "_RemoteVariable"),

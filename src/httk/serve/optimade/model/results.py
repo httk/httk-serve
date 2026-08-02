@@ -55,7 +55,8 @@ class OptimadeAdapter(Protocol):
 
     Query execution may be backed by the ordinary Store/Searcher adapter or a
     storage federation with its own bounded paging policy.  The HTTP layer only
-    needs the served schema and a callback implementing :class:`QueryFunction`.
+    needs the served schema and a callback implementing
+    :class:`~httk.serve.optimade.model.results.QueryFunction`.
     """
 
     @property
