@@ -211,7 +211,7 @@ opt into the database capability and save the exact object yourself:
 ```python
 from httk.data.db import Database, SqlStore
 
-cache = SqlStore(Database.sqlite("optimade-cache.sqlite"))
+cache = SqlStore(Database.sqlite("optimade-cache.sqlite"), entry_backings={})
 backend = rows.one().reference  # a typed backend from a prior result
 sid = cache.save(backend)
 offline = cache.fetch(type(backend), sid)

@@ -8,6 +8,7 @@ from httk.atomistic import (
     Assembly,
     Species,
     Structure,
+    StructureEntry,
     StructureEntryProvider,
     UnitcellStructureRecord,
 )
@@ -94,7 +95,7 @@ def structure_api(request):
         return
 
     with Database.sqlite() as database:
-        store = SqlStore(database)
+        store = SqlStore(database, entry_backings={StructureEntry: UnitcellStructureRecord})
         with store.transaction():
             sids = {entry_id: store.save(structure) for entry_id, structure in entries.items()}
         provider = StructureEntryProvider(
