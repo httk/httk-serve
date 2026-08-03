@@ -16,8 +16,8 @@ from urllib.parse import urlsplit
 
 import httpx
 import pytest
-from httk.atomistic import Species, Structure, StructureEntryProvider
-from httk.core import EntryProvider, EntryTypeDefinition, OptimadeResource, RelatedEntry, load_entry_type_schema
+from httk.atomistic import Species, StructureEntryProvider, UnitcellStructure
+from httk.core import EntryProvider, EntryTypeDefinition, OptimadeResource, RelatedEntry, load_entry_type_definition
 from httk.data.db import Database, SqlStore
 
 from httk.serve.optimade import OptimadeStore, adapter_from_providers, create_asgi_app
@@ -51,7 +51,7 @@ class AsgiSyncClient:
 class _FlatStructureProvider(EntryProvider):
     """A standard (not extended) structure endpoint for exact describedby."""
 
-    _definition = load_entry_type_schema("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
+    _definition = load_entry_type_definition("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
     _keys: ClassVar[dict[str, str]] = {
         "id": "id",
         "type": "type",
@@ -129,7 +129,7 @@ class _FlatStructureProvider(EntryProvider):
 
 
 class _FlatReferenceProvider(EntryProvider):
-    _definition = load_entry_type_schema("https://schemas.optimade.org/defs/v1.2/entrytypes/optimade/references")
+    _definition = load_entry_type_definition("https://schemas.optimade.org/defs/v1.2/entrytypes/optimade/references")
 
     def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
         return {"references": self._definition}
@@ -158,7 +158,7 @@ def _extended_atomistic_provider() -> StructureEntryProvider:
     sodium = Species(name="Na", chemical_symbols=("Na",), concentration=(1.0,))
     return StructureEntryProvider(
         {
-            "sodium": Structure(
+            "sodium": UnitcellStructure(
                 [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
                 [[0, 0, 0]],
                 [sodium],

@@ -13,7 +13,7 @@ from urllib.parse import quote, urlencode, urljoin, urlsplit
 from httk.core import (
     OptimadeDocument,
     OptimadeResource,
-    load_entry_type_schema,
+    load_entry_type_definition,
     optimade_document_root,
     redact_optimade_url,
 )
@@ -419,7 +419,7 @@ class RemoteSearcher:
                 generic_all_fields[generic_local_name] = generic_remote_name
             return generic_fields, generic_all_fields, generic_kinds, {}
 
-        schema = load_entry_type_schema(binding.definition_id)
+        schema = load_entry_type_definition(binding.definition_id)
         definitions_by_iri = {definition.definition_id: name for name, definition in schema.properties.items()}
         typed_all_fields = {
             name: descriptor.property_names[definition.definition_id]
@@ -494,7 +494,7 @@ class RemoteSearcher:
             definition_ids["id"] = _CORE_ID
             definition_ids["type"] = _CORE_TYPE
         else:
-            schema = load_entry_type_schema(descriptor.binding.definition_id)
+            schema = load_entry_type_definition(descriptor.binding.definition_id)
             definition_ids = {name: definition.definition_id for name, definition in schema.properties.items()}
         for local_name, remote_name in query_fields.items():
             fields[local_name] = _RemoteField(

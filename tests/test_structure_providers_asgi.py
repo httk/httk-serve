@@ -8,7 +8,7 @@ import pytest
 from httk.atomistic import (
     Assembly,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureEntry,
     StructureEntryProvider,
     UnitcellStructureRecord,
@@ -53,13 +53,13 @@ STANDARD_STRUCTURE_PROPERTIES = {
 }
 
 
-def _entries() -> dict[str, Structure]:
+def _entries() -> dict[str, UnitcellStructure]:
     mixed_species = Species(
         name="mixed",
         chemical_symbols=("Ge", "Si"),
         concentration=(Fraction(5, 8), Fraction(3, 8)),
     )
-    mixed = Structure(
+    mixed = UnitcellStructure(
         [[3, 0, 0], [0, 3, 0], [0, 0, 3]],
         [[0, 0, 0]],
         [mixed_species],
@@ -72,7 +72,7 @@ def _entries() -> dict[str, Structure]:
         last_modified=datetime.datetime(2026, 1, 2, 3, 4, 5, tzinfo=datetime.UTC),
     )
     silicon_species = Species(name="Si", chemical_symbols=("Si",), concentration=(1,))
-    silicon = Structure(
+    silicon = UnitcellStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         [[0, 0, 0]],
         [silicon_species],
@@ -88,7 +88,7 @@ def _entries() -> dict[str, Structure]:
 
 def test_stored_structure_preserves_signed_zero_through_view_and_asgi() -> None:
     species = Species(name="Si", chemical_symbols=("Si",), concentration=(1,), mass=(-0.0,))
-    structure = Structure(
+    structure = UnitcellStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         [[0, 0, 0]],
         [species],

@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 from httk.atomistic import OptimadeStructure
-from httk.core import EntryProvider, EntryTypeDefinition, load_entry_type_schema
+from httk.core import EntryProvider, EntryTypeDefinition, load_entry_type_definition
 from httk.data import FederatedSourceError, FederatedStore, MultipleResultsError
 from httk.data.db import Database, SqlStore
 
@@ -50,7 +50,7 @@ class AsgiSyncClient:
 class _StructuresProvider(EntryProvider):
     """Serve one or more structure endpoint spellings from fixed rows."""
 
-    _definition = load_entry_type_schema("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
+    _definition = load_entry_type_definition("https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures")
     _keys: ClassVar[dict[str, str]] = {
         "id": "id",
         "type": "type",

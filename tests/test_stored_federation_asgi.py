@@ -6,13 +6,13 @@ from fractions import Fraction
 
 import pytest
 from httk.atomistic import (
-    ASUSite,
+    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     Cell,
     Sites,
     Species,
-    Structure,
+    UnitcellStructure,
     StructureEntry,
     UnitcellStructureRecord,
 )
@@ -27,11 +27,11 @@ from starlette.testclient import TestClient
 from httk.serve.optimade import adapter_from_stores, create_asgi_app
 
 
-def _structure(*symbols: str, basis_precision: Fraction | None = None) -> Structure:
+def _structure(*symbols: str, basis_precision: Fraction | None = None) -> UnitcellStructure:
     species = tuple(Species(symbol, (symbol,), (1,)) for symbol in symbols)
     count = len(symbols)
     coordinates = [[Fraction(index, count), 0, 0] for index in range(count)] if count else []
-    return Structure(
+    return UnitcellStructure(
         Cell([[4, 0, 0], [0, 4, 0], [0, 0, 4]], precision=basis_precision),
         Sites(coordinates),
         species,
@@ -44,7 +44,7 @@ def _asu() -> ASUStructure:
     return ASUStructure(
         [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
         225,
-        (ASUSite("a", (), "Na"),),
+        (WyckoffSite("a", (), "Na"),),
         (sodium,),
     )
 

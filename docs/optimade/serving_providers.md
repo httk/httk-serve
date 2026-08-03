@@ -239,16 +239,16 @@ adapter = adapter_from_providers([provider])
 ## Serving crystal structures (via *httk-atomistic*)
 
 The materials mapping lives in *httk-atomistic*, not here: its
-`StructureEntryProvider` maps `Structure` objects to an OPTIMADE `structures`
+`StructureEntryProvider` maps `UnitcellStructure` objects to an OPTIMADE `structures`
 entry type (`species`, `species_at_sites`, `lattice_vectors`,
 `cartesian_site_positions`, `nsites`, `elements`, `nelements`,
 `structure_features`). With *httk-atomistic* installed:
 
 ```python
-from httk.atomistic import Structure, StructureEntryProvider
+from httk.atomistic import UnitcellStructure, StructureEntryProvider
 from httk.serve.optimade import adapter_from_providers, serve
 
-nacl = Structure(
+nacl = UnitcellStructure(
     cell=(5.64, 5.64, 5.64, 90.0, 90.0, 90.0),
     sites=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
     species=[

@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from httk.atomistic import OptimadeStructure
-from httk.core import OptimadeFile, OptimadeResource, load_entry_type_schema, parse_optimade_filter
+from httk.core import OptimadeFile, OptimadeResource, load_entry_type_definition, parse_optimade_filter
 from httk.data import CountUnavailableError as NeutralCountUnavailableError
 from httk.data import MultipleResultsError, NoResultError, UnsupportedQueryError
 
@@ -119,7 +119,7 @@ def schema_properties(
     sortable: tuple[str, ...] = (),
     response_defaults: tuple[str, ...] = (),
 ) -> dict[str, object]:
-    schema = load_entry_type_schema(definition_id)
+    schema = load_entry_type_definition(definition_id)
     renames = {} if renames is None else renames
     return {
         renames.get(name, name): property_document(

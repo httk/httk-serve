@@ -21,7 +21,7 @@ from httk.core import (
     OptimadeResource,
     OptimadeSchemaSnapshot,
     known_optimade_entry_bindings,
-    load_entry_type_schema,
+    load_entry_type_definition,
     optimade_entry_binding,
     redact_optimade_url,
 )
@@ -592,7 +592,7 @@ class OptimadeStore:
                     "(local registry)", f"binding {definition_id!r} disappeared during discovery"
                 )
             try:
-                definition = load_entry_type_schema(definition_id)
+                definition = load_entry_type_definition(definition_id)
             except Exception as exc:
                 raise OptimadeDiscoveryError(
                     "(local registry)", f"could not load entry-type definition for binding {definition_id!r}: {exc}"
