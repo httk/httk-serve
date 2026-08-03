@@ -90,7 +90,7 @@ against the definition), the filter handlers from the property keys, and the
 response-field extractors from the property keys, then loads the records.
 
 The materials provider itself lives in *httk-atomistic*
-(`httk.atomistic.structure_entries.StructureEntryProvider`), which serves
+(`httk.atomistic.entries.structures.StructureEntryProvider`), which serves
 OPTIMADE `structures` — `species`, `species_at_sites`, `lattice_vectors`,
 `cartesian_site_positions`, ... — from `httk.atomistic.UnitcellStructure` objects.
 Providers self-register a factory via `httk.core.register_entry_provider`, so
