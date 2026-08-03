@@ -1,11 +1,11 @@
 """Re-exports of the OPTIMADE filter-language parser.
 
-The parser is implemented in :mod:`httk.core.optimade_filter`, beside the
-vendored OPTIMADE property definitions in ``httk.core.optimade_defs``, and is
+The parser is implemented in :mod:`httk.core.optimade`, beside the
+vendored OPTIMADE property definitions, and is
 also exposed through this package.
 """
 
-from httk.core.optimade_filter import (
+from httk.core.optimade import (
     ParserError,
     ParserSyntaxError,
     parse_optimade_filter,

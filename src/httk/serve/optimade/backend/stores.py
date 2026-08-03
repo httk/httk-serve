@@ -16,7 +16,9 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 
-from httk.core import EntryTypeDefinition, FilterAst, stored_property_projections
+from httk.core import EntryTypeDefinition
+from httk.core.optimade import FilterAst
+from httk.core.storage import stored_property_projections
 from httk.data.optimade_query import FilterTranslationError
 
 from ..model.errors import OptimadeError, TranslatorError, translator_error_from

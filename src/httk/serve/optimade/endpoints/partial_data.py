@@ -11,7 +11,7 @@ import json
 from typing import Any
 from urllib.parse import quote
 
-from httk.core import FilterAst
+from httk.core.optimade import FilterAst
 
 from ..backend.partial import PartialValue
 from ..model.config import OptimadeConfig

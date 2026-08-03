@@ -2,7 +2,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from httk.core import FilterAst
+from httk.core.optimade import FilterAst
 from httk.data.optimade_query import HandlerTable
 from httk.data.query import Store
 

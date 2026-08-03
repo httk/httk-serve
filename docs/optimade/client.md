@@ -57,7 +57,7 @@ contradictory IRIs leave the endpoint generic. In particular, an unknown
 Recognized standard endpoints resolve to `OptimadeReference`, `OptimadeFile`,
 or `OptimadeCalculation`; a recognized structures endpoint resolves to
 `httk.atomistic.OptimadeStructure` when *httk-atomistic* is installed. Generic
-resources use `httk.core.OptimadeResource`. All of these retain their original
+resources use `httk.core.optimade.OptimadeResource`. All of these retain their original
 immutable source resource:
 
 For ordinary use, obtain the backend from a result (shown below), then choose a

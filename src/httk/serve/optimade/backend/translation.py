@@ -12,7 +12,7 @@ OPTIMADE-side wrappers over the upstream functions.
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from httk.core import FilterAst
+from httk.core.optimade import FilterAst
 from httk.data.optimade_query import (
     FilterTranslationError,
     HandlerTable,

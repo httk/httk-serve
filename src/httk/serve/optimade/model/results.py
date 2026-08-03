@@ -2,7 +2,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol
 
-from httk.core import FilterAst
+from httk.core.optimade import FilterAst
 
 if TYPE_CHECKING:
     from ..schema.served import ServedSchema

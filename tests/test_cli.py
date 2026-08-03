@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from httk.core.cli_context import CLIContext
+from httk.core.cli import CLIContext
 
 from httk.serve.web.cli import command
 

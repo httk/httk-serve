@@ -123,8 +123,8 @@ nitpick_ignore = [
     # These contracts are new in the sibling httk-core/httk-data workspaces.
     # The checked-in intersphinx inventories intentionally describe released
     # versions, so they cannot resolve the symbols until those releases exist.
-    ("py:class", "httk.core.OptimadeSchemaSnapshot"),
-    ("py:class", "httk.core.OptimadeEntryBinding"),
+    ("py:class", "httk.core.optimade.OptimadeSchemaSnapshot"),
+    ("py:class", "httk.core.register.OptimadeEntryBinding"),
     ("py:class", "httk.data.ResultRow"),
     ("py:class", "httk.data.query.ResultRowLike"),
     ("py:class", "httk.data.query.ResultSetLike"),

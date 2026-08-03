@@ -7,7 +7,7 @@ from html import escape
 from importlib.resources import files
 from urllib.parse import urlsplit
 
-from httk.core import ParserError, parse_optimade_filter
+from httk.core.optimade import ParserError, parse_optimade_filter
 
 from httk.serve.web.providers import _validate_site_route
 

@@ -10,10 +10,10 @@ from types import MappingProxyType
 from typing import cast
 from urllib.parse import quote, urlencode, urljoin, urlsplit
 
-from httk.core import (
+from httk.core import load_entry_type_definition
+from httk.core.optimade import (
     OptimadeDocument,
     OptimadeResource,
-    load_entry_type_definition,
     optimade_document_root,
     redact_optimade_url,
 )

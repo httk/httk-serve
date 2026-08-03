@@ -3,7 +3,7 @@
 from collections.abc import Iterator, Sequence
 from typing import Any
 
-from httk.core import FilterAst
+from httk.core.optimade import FilterAst
 from httk.data.query import Searcher
 
 from ..model.errors import TranslatorError

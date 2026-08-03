@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import httpx
 import pytest
-from httk.core import OptimadeResource
+from httk.core.optimade import OptimadeResource
 
 from httk.serve.optimade import (
     ALL_ADVERTISED,

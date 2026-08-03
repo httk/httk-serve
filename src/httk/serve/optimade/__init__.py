@@ -1,4 +1,4 @@
-from httk.core import ParserError, ParserSyntaxError, parse_optimade_filter
+from httk.core.optimade import ParserError, ParserSyntaxError, parse_optimade_filter
 
 from .api import create_asgi_app, serve
 from .backend import (

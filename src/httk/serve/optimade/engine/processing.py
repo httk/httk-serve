@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pprint import pformat
 from typing import Any
 
-from httk.core import FilterAst, ParserSyntaxError, parse_optimade_filter
+from httk.core.optimade import FilterAst, ParserSyntaxError, parse_optimade_filter
 
 from ..endpoints.entries import (
     _resource_object,

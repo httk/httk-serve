@@ -183,6 +183,6 @@ def _reserved_route_collisions(config: SiteConfig, pages: list[str]) -> list[str
 
 
 if __name__ == "__main__":
-    from httk.core import CLIContext
+    from httk.core.cli import CLIContext
 
     raise SystemExit(command(sys.argv[1:], CLIContext("httk", Path.cwd())))

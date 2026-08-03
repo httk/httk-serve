@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from httk.core.cli_context import CLIContext
+from httk.core.cli import CLIContext
 from starlette.testclient import TestClient
 
 from httk.serve.web import api

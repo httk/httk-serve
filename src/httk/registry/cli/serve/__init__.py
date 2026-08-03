@@ -1,6 +1,6 @@
 """Register the lazy :command:`httk serve web` umbrella command."""
 
-from httk.core import register_cli_command
+from httk.core.register import register_cli_command
 
 register_cli_command(
     "serve",

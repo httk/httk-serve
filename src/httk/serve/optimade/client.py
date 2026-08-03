@@ -15,15 +15,17 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Protocol, Self, TypeGuard, cast
 from urllib.parse import parse_qsl, quote, urlsplit
 
-from httk.core import (
+from httk.core import load_entry_type_definition
+from httk.core.optimade import (
     OptimadeDocument,
-    OptimadeEntryBinding,
     OptimadeResource,
     OptimadeSchemaSnapshot,
-    known_optimade_entry_bindings,
-    load_entry_type_definition,
-    optimade_entry_binding,
     redact_optimade_url,
+)
+from httk.core.register import (
+    OptimadeEntryBinding,
+    known_optimade_entry_bindings,
+    optimade_entry_binding,
 )
 
 if TYPE_CHECKING:
