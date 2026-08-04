@@ -62,7 +62,8 @@ provider = WidgetProvider(
 Each property's type drives which filter operations the engine offers for it
 (comparisons for numbers, string matching for strings, `HAS` membership for
 lists) — no handler code is needed. Custom (database-specific) properties must
-carry a recognized prefix (`_httk_`/`_omdb_`) and be merged into a standard
+carry a recognized prefix (`_httk_` is pre-registered; others via
+`httk.core.register_definition_prefix`) and be merged into a standard
 definition with `EntryTypeDefinition.extended({...})`.
 
 ## Serve it
@@ -220,7 +221,8 @@ both kinds of relationship filtering) is in `examples/optimade/provider_server/`
 
 ## Discover registered providers
 
-Provider packages can self-register a factory under `httk.registry.*` via
+Provider packages can self-register a factory from a registration package
+under the reserved entries tier (`httk.registry.entries.<module>`) via
 `httk.core.register_entry_provider`. For example, *httk-data* registers
 in-memory providers for the standard `references`/`files`/`calculations` entry
 types (as `data-references`/`data-files`/`data-calculations`), and
