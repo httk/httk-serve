@@ -1,7 +1,9 @@
 import json
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
+from httk.core.report import collect_reports
 from starlette.applications import Starlette
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..endpoints.error import format_optimade_error
+from ..endpoints.meta import merge_collected_warnings
 from ..engine.processing import process, process_init
 from ..engine.validate import determine_optimade_version
 from ..model.config import OptimadeConfig
@@ -159,11 +162,16 @@ async def _handle_request(request: Request) -> Response:
         query=dict(request.query_params),
     )
 
-    try:
-        version = determine_optimade_version(raw_request)
-        output = process(raw_request, state.query_function, version, state.config, state.schema, debug=state.debug)
-    except Exception as ex:
-        output = _error_output(ex, raw_request, state.config)
+    with collect_reports(level=state.report_level, context_levels=state.report_context_levels):
+        try:
+            version = determine_optimade_version(raw_request)
+            output = process(raw_request, state.query_function, version, state.config, state.schema, debug=state.debug)
+        except Exception as ex:
+            output = _error_output(ex, raw_request, state.config)
+        if output.content_type in ('application/vnd.api+json', 'application/json') and isinstance(
+            output.json_response, dict
+        ):
+            merge_collected_warnings(output.json_response)
 
     return _render(output)
 
@@ -175,6 +183,8 @@ def create_app(
     schema: ServedSchema,
     baseurl: str | None = None,
     debug: bool = False,
+    report_level: str | int = "warning",
+    report_context_levels: Mapping[str, str | int] | None = None,
 ) -> Starlette:
     if baseurl is not None and not baseurl.endswith("/"):
         baseurl += "/"
@@ -183,6 +193,8 @@ def create_app(
     process_init(config, query_function, schema, debug=debug)
 
     app = Starlette(debug=debug, routes=[Route("/{path:path}", _handle_request, methods=["GET"])])
+    # The embedding application owns logging configuration; core preserves
+    # lastResort stderr output and scopes warning capture to each request.
     if cors_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -197,4 +209,6 @@ def create_app(
     app.state.schema = schema
     app.state.baseurl = baseurl
     app.state.debug = debug
+    app.state.report_level = report_level
+    app.state.report_context_levels = {"optimade": "info"} if report_context_levels is None else report_context_levels
     return app

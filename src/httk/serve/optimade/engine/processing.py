@@ -27,7 +27,7 @@ from ..model.results import QueryFunction
 from ..schema.served import ServedSchema
 from .validate import validate_optimade_request
 
-logger = logging.getLogger("httk.serve.optimade")
+_LOG = logging.getLogger("httk.serve.optimade")
 
 
 def _make_related_resolver(
@@ -102,20 +102,21 @@ def process(
     types and properties.
     """
 
-    if debug:
-        logger.debug("==== OPTIMADE REQUEST FOR: %s", request.representation)
+    if _LOG.isEnabledFor(logging.DEBUG):
+        _LOG.debug("==== OPTIMADE REQUEST FOR: %s", request.representation, extra={"context": "optimade"})
 
     validated_request = validate_optimade_request(request, version, schema)
     endpoint = validated_request.endpoint
     request_id = validated_request.request_id
     validated_parameters = validated_request.query
 
-    if debug:
-        logger.debug(
+    if _LOG.isEnabledFor(logging.DEBUG):
+        _LOG.debug(
             "==== VALIDATED ENDPOINT: %s, REQUEST_ID: %s, PARAMETERS: %s",
             endpoint,
             request_id,
             validated_parameters,
+            extra={"context": "optimade"},
         )
 
     if endpoint == '':
@@ -164,8 +165,8 @@ def process(
                 except ParserSyntaxError as e:
                     raise OptimadeError(str(e), 400, "Bad request")
 
-            if debug:
-                logger.debug("==== FILTER STRING PARSE RESULT: %s", pformat(filter_ast))
+            if _LOG.isEnabledFor(logging.DEBUG):
+                _LOG.debug("==== FILTER STRING PARSE RESULT: %s", pformat(filter_ast), extra={"context": "optimade"})
 
             try:
                 results = query_function(
@@ -199,8 +200,8 @@ def process(
         else:
             response = generate_entry_endpoint_reply(validated_request, config, results, related_resolver)
 
-        if debug:
-            logger.debug("==== END RESULT: %s", pformat(response))
+        if _LOG.isEnabledFor(logging.DEBUG):
+            _LOG.debug("==== END RESULT: %s", pformat(response), extra={"context": "optimade"})
 
     elif endpoint.startswith("info/"):
         info, _sep, base = endpoint.partition("/")

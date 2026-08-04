@@ -2,12 +2,41 @@ import datetime
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
+from httk.core.report import active_collections
+
 from ..model.config import OptimadeConfig
 
 try:
     _implementation_version = version("httk-serve")
 except PackageNotFoundError:  # pragma: no cover - only hit when running from a raw source tree
     _implementation_version = "0.0.0"
+
+
+def merge_collected_warnings(json_response: dict[str, Any]) -> None:
+    collections = active_collections()
+    if not collections:
+        return
+
+    meta: dict[str, Any] = json_response.setdefault("meta", {})
+    warnings = list(meta.get("warnings") or [])
+    for record in collections[-1].records:
+        warning: dict[str, Any] = {"type": "warning", "detail": record.getMessage()}
+        title = getattr(record, "title", None)
+        if isinstance(title, str) and title:
+            warning["title"] = title
+        warnings.append(warning)
+
+    unique_warnings: list[dict[str, Any]] = []
+    seen: set[tuple[Any, Any]] = set()
+    for warning in warnings:
+        key = (warning.get("title") or None, warning.get("detail"))
+        if key not in seen:
+            seen.add(key)
+            unique_warnings.append(warning)
+    if unique_warnings:
+        meta["warnings"] = unique_warnings
+    else:
+        meta.pop("warnings", None)
 
 
 def generate_meta(
