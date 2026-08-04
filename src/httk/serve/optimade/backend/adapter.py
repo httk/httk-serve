@@ -3,8 +3,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from httk.core.optimade import FilterAst
-from httk.data.optimade_query import HandlerTable
 from httk.data.query import Store
+from httk.data.query.optimade_filters import HandlerTable
 
 from ..model.results import QueryFunction, QueryResults
 from ..schema.served import ServedSchema
@@ -45,7 +45,7 @@ class BackendAdapter:
     ``schema`` is required: it declares the served entry types and properties.
     ``field_handlers`` maps each entry type to its filter-handler table. When
     omitted (left empty) it is derived from ``schema`` via
-    :func:`~httk.data.optimade_query.simple_property_handlers`, using an
+    :func:`~httk.data.query.optimade_filters.simple_property_handlers`, using an
     identity property-key map (each property is filtered against a backend field
     of the same name); a backend whose field names differ, or that wants finer
     control, supplies its own tables instead.

@@ -252,7 +252,7 @@ def test_list_typed_property_scalar_comparison_is_rejected() -> None:
 @pytest.mark.parametrize(
     "filter_string,response_code,response_msg",
     [
-        # One filter per httk.data.optimade_query FilterTranslationError
+        # One filter per httk.data.FilterTranslationError
         # category, locking the category -> HTTP status mapping:
         # unrecognized-property (a recognized-prefix property that does not exist)
         ('_httk_bananas = 3', 400, "Bad request"),

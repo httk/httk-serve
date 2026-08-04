@@ -1,15 +1,15 @@
 """Re-exports of the generic OPTIMADE filter handlers.
 
 The handler tables and generic handlers are implemented in
-:mod:`httk.data.optimade_query` and exposed here under the
+:mod:`httk.data.query.optimade_filters` and exposed here under the
 ``httk.serve.optimade.backend.handlers`` namespace.
 
 The handlers raise
-:class:`~httk.data.optimade_query.FilterTranslationError` (which carries a
+:class:`~httk.data.FilterTranslationError` (which carries a
 neutral failure category instead of HTTP semantics);
 :func:`~httk.serve.optimade.backend.translation.translate_filter` wraps it into
 :class:`~httk.serve.optimade.model.errors.TranslatorError` with the appropriate
-HTTP status. :func:`~httk.data.optimade_query.simple_property_handlers` takes a
+HTTP status. :func:`~httk.data.query.optimade_filters.simple_property_handlers` takes a
 plain property-name -> ``fulltype`` mapping as its third argument. A ``'HAS'``
 handler is called as
 ``handler(property, ops, values, search_variable, has_type)`` and returns a
@@ -18,7 +18,7 @@ plain :class:`~httk.data.query.SearchExpression`; the caller applies ``NOT`` as
 post-filter evaluation.
 """
 
-from httk.data.optimade_query import (
+from httk.data.query.optimade_filters import (
     HandlerTable,
     constant_comparison_handler,
     constant_set_handler,

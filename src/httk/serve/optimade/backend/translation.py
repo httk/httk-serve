@@ -1,9 +1,9 @@
 """Translation of OPTIMADE filter syntax trees into backend search expressions.
 
-The generic translation is implemented in :mod:`httk.data.optimade_query`;
+The generic translation is implemented in :mod:`httk.data.query.optimade_filters`;
 :func:`translate_filter` delegates to
-:func:`~httk.data.optimade_query.translate_filter_ast` and wraps its neutral
-:class:`~httk.data.optimade_query.FilterTranslationError` failure categories
+:func:`~httk.data.query.optimade_filters.translate_filter_ast` and wraps its neutral
+:class:`~httk.data.FilterTranslationError` failure categories
 into :class:`~httk.serve.optimade.model.errors.TranslatorError` HTTP errors.
 :func:`format_value` and :func:`translate_filter_node` are thin
 OPTIMADE-side wrappers over the upstream functions.
@@ -13,14 +13,14 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from httk.core.optimade import FilterAst
-from httk.data.optimade_query import (
-    FilterTranslationError,
+from httk.data import FilterTranslationError
+from httk.data.query import Searcher, SearchExpression, SearchVariable
+from httk.data.query.optimade_filters import (
     HandlerTable,
     RelatedPropertyResolver,
     translate_filter_ast,
 )
-from httk.data.optimade_query import format_value as _format_value
-from httk.data.query import Searcher, SearchExpression, SearchVariable
+from httk.data.query.optimade_filters import format_value as _format_value
 
 from ..model.errors import translator_error_from
 from .adapter import BackendAdapter, EntrySource
@@ -29,9 +29,9 @@ from .adapter import BackendAdapter, EntrySource
 def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) -> Any:
     """Convert a filter value and translate neutral failures to HTTP errors.
 
-    Delegates to :func:`httk.data.optimade_query.format_value` and raises
+    Delegates to :func:`httk.data.query.optimade_filters.format_value` and raises
     :class:`~httk.serve.optimade.model.errors.TranslatorError` for its neutral
-    :class:`~httk.data.optimade_query.FilterTranslationError` failures.
+    :class:`~httk.data.FilterTranslationError` failures.
     """
     try:
         return _format_value(fulltype, val, allow_null=allow_null)
@@ -40,7 +40,7 @@ def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) 
 
 
 def _related_property_resolver(adapter: BackendAdapter) -> RelatedPropertyResolver:
-    """Build the :data:`~httk.data.optimade_query.RelatedPropertyResolver` for an adapter.
+    """Build the :data:`~httk.data.query.optimade_filters.RelatedPropertyResolver` for an adapter.
 
     The returned resolver serves the two-phase semi-join behind depth-1
     relationship-property filters (e.g. ``references.doi CONTAINS "10.1"``):
@@ -56,7 +56,7 @@ def _related_property_resolver(adapter: BackendAdapter) -> RelatedPropertyResolv
     The sub-translation runs with empty ``relationship_targets`` and no nested
     resolver, enforcing depth-1 semantics (nested dotted paths were already
     rejected before the resolver is called). Sub-search translation errors
-    propagate as :class:`~httk.data.optimade_query.FilterTranslationError` and
+    propagate as :class:`~httk.data.FilterTranslationError` and
     receive the normal category-to-status wrapping in the caller.
     """
 
@@ -75,7 +75,6 @@ def _related_property_resolver(adapter: BackendAdapter) -> RelatedPropertyResolv
                 translate_filter_ast(
                     sub_ast,
                     search_variable,
-                    related_type,
                     property_fulltypes,
                     handlers,
                     adapter.schema.recognized_prefixes,
@@ -126,7 +125,6 @@ def translate_filter(
                     search_expr = translate_filter_ast(
                         filter_ast,
                         search_variable,
-                        entry,
                         property_fulltypes,
                         field_handlers,
                         adapter.schema.recognized_prefixes,
@@ -153,12 +151,12 @@ def translate_filter_node(
     """Translate one filter node against an OPTIMADE *entry-info* property mapping.
 
     An OPTIMADE-side adaptation of
-    :func:`~httk.data.optimade_query.translate_filter_ast`: ``entry_info`` maps
+    :func:`~httk.data.query.optimade_filters.translate_filter_ast`: ``entry_info`` maps
     property names to their property dictionaries (only their ``'fulltype'``
     keys are read) rather than straight to fulltypes, ``served_entries`` names
     the relationship targets, and failures surface as
     :class:`~httk.serve.optimade.model.errors.TranslatorError` instead of the
-    upstream neutral :class:`~httk.data.optimade_query.FilterTranslationError`.
+    upstream neutral :class:`~httk.data.FilterTranslationError`.
 
     No related-property resolver is threaded through, so relationship-property
     filters other than ``<type>.id HAS ...`` raise a not-implemented (501)
@@ -170,7 +168,6 @@ def translate_filter_node(
         return translate_filter_ast(
             node,
             search_variable,
-            entry,
             property_fulltypes,
             handlers,
             recognized_prefixes,

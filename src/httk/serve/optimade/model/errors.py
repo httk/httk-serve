@@ -1,4 +1,4 @@
-from httk.data.optimade_query import FilterTranslationError
+from httk.data import FilterTranslationError
 
 
 class OptimadeError(Exception):
@@ -14,7 +14,7 @@ class TranslatorError(OptimadeError):
 
 
 # HTTP status and title for each neutral filter-translation failure category
-# reported by httk.data.optimade_query.
+# reported by httk.data.
 _CATEGORY_STATUS: dict[str, tuple[int, str]] = {
     "unrecognized-property": (400, "Bad request"),
     "type-mismatch": (400, "Bad request"),
@@ -24,7 +24,7 @@ _CATEGORY_STATUS: dict[str, tuple[int, str]] = {
 
 
 def translator_error_from(error: FilterTranslationError) -> TranslatorError:
-    """Wrap a neutral :class:`~httk.data.optimade_query.FilterTranslationError`
+    """Wrap a neutral :class:`~httk.data.FilterTranslationError`
     into a :class:`TranslatorError` carrying the corresponding HTTP status."""
     response_code, response_message = _CATEGORY_STATUS.get(error.category, _CATEGORY_STATUS["internal"])
     return TranslatorError(str(error), response_code, response_message, longmsg=error.detail)
