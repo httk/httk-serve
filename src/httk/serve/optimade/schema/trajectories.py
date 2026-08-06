@@ -8,6 +8,11 @@ single value when the property is constant across frames (see the specification
 sections "Trajectories Entries" and "Compact list representation"). Two
 trajectory-specific properties, ``nframes`` and ``reference_frames``, are added.
 
+When ``httk-atomistic`` is present, its ``TrajectoryEntryProvider`` serves the
+vendored official OPTIMADE v1.3 definition and is the preferred route. This
+helper remains for deriving a definition from a supplied ``structures``
+definition.
+
 The source structures properties are taken from a supplied
 :class:`~httk.core.EntryTypeDefinition` (its :class:`~httk.core.PropertyDefinition`
 objects, reduced to the simplified dialect); this module produces the simplified

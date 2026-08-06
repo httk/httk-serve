@@ -1,14 +1,17 @@
 import json
 from typing import Any
 
+import pytest
 from definition_fixtures import served_schema, structures_definition
 from fake_backend import FakeStore
+from httk.core import load_entry_type_definition
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import BackendAdapter, EntrySource, OptimadeConfig, create_asgi_app
 from httk.serve.optimade.backend import simple_property_handlers, translate_filter
 from httk.serve.optimade.backend.partial import PartialDimension, PartialValue
 from httk.serve.optimade.filter import parse_optimade_filter
+from httk.serve.optimade.schema.served import entry_type_definition_from_simple, fulltype_of
 from httk.serve.optimade.schema.trajectories import trajectories_entry_info
 
 # The structures properties reused (frame-wrapped) for the trajectory.
@@ -109,6 +112,28 @@ def test_nframes_and_reference_frames_present() -> None:
     assert reference_frames['required_support'] is False
     assert reference_frames['default_response'] is True
     assert 'last_modified' in properties
+
+
+def test_helper_matches_core_members_of_vendored_definition() -> None:
+    pytest.importorskip('httk.core')
+    try:
+        official = load_entry_type_definition('https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/trajectories')
+        structures = load_entry_type_definition('https://schemas.optimade.org/defs/v1.3/entrytypes/optimade/structures')
+    except ValueError as exc:
+        pytest.skip(f'OPTIMADE v1.3 definitions are not registered: {exc}')
+
+    info = trajectories_entry_info(
+        structures, tuple(name for name in STRUCTURE_PROPERTIES if name in structures.properties)
+    )
+    derived = entry_type_definition_from_simple('trajectories', info)
+    official_names = set(official.properties)
+    frame_wrapped = set(info['properties']) - {'id', 'type', 'last_modified', 'nframes', 'reference_frames'}
+    overlap = frame_wrapped & official_names
+    missing = sorted(frame_wrapped - official_names)
+
+    assert overlap, f'no frame-wrapped helper properties overlap the official definition; missing={missing}'
+    for name in ('nframes', 'reference_frames'):
+        assert fulltype_of(derived.properties[name]) == fulltype_of(official.properties[name])
 
 
 # --- Property definitions emit x-optimade-dimensions with dim_frames ----------
