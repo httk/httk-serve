@@ -36,7 +36,7 @@ def _relationships_extractor(
     The returned callable maps a record (looked up by its ``__id`` key) to the
     :class:`~httk.serve.optimade.backend.adapter.EntrySource` relationships-block shape:
     the flat :class:`~httk.core.RelatedEntry` tuple is grouped by related entry
-    type into ``{related_type: [{'id': ..., 'description'?: ..., 'role'?: ...},
+    type into ``{related_type: [{'id': ..., 'description'?: ..., 'role'?: ..., 'label'?: ...},
     ...]}`` (empty when the record has no related entries), passing the
     per-identifier metadata through to the rendered ``meta`` object.
     """
@@ -52,6 +52,8 @@ def _relationships_extractor(
                 identifier['description'] = entry.description
             if entry.role:
                 identifier['role'] = entry.role
+            if entry.label is not None:
+                identifier['label'] = entry.label
             grouped.setdefault(entry.entry_type, []).append(identifier)
         return grouped
 

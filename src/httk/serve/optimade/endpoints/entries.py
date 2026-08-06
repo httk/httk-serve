@@ -16,8 +16,8 @@ def _relationships_block(relationships: dict[str, list[dict[str, Any]]]) -> dict
     """Build the JSON:API ``relationships`` object for a resource.
 
     Relationships are grouped by related entry type; each resource identifier
-    object carries a ``meta`` dictionary with the ``description`` and ``role``
-    keys when present.
+    object carries a ``meta`` dictionary with the ``description``, ``role``,
+    and provider-prefixed ``_httk_label`` keys when present.
     """
     block: dict[str, Any] = {}
     for etype, rels in relationships.items():
@@ -25,6 +25,8 @@ def _relationships_block(relationships: dict[str, list[dict[str, Any]]]) -> dict
         for rel in rels:
             identifier: dict[str, Any] = {"type": etype, "id": rel["id"]}
             meta = {k: rel[k] for k in ("description", "role") if rel.get(k) is not None}
+            if "label" in rel and rel["label"] is not None:
+                meta["_httk_label"] = rel["label"]
             if meta:
                 identifier["meta"] = meta
             data.append(identifier)

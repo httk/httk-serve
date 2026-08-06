@@ -273,7 +273,15 @@ class LinkedProvider(EntryProvider):
     def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
         if entry_type == "structures":
             return {
-                "s-1": (RelatedEntry("references", "ref-1", description="Cited for this structure", role="citation"),)
+                "s-1": (
+                    RelatedEntry(
+                        "references",
+                        "ref-1",
+                        description="Cited for this structure",
+                        role="citation",
+                        label="artifact",
+                    ),
+                )
             }
         return {}
 
@@ -294,7 +302,7 @@ def test_provider_relationships_served_and_included() -> None:
     assert rels[0] == {
         "type": "references",
         "id": "ref-1",
-        "meta": {"description": "Cited for this structure", "role": "citation"},
+        "meta": {"description": "Cited for this structure", "role": "citation", "_httk_label": "artifact"},
     }
     included = payload["included"]
     assert [obj["id"] for obj in included] == ["ref-1"]
