@@ -1,3 +1,5 @@
+"""Adapt a site engine to Starlette request and lifecycle handling."""
+
 import json
 from contextlib import asynccontextmanager
 from urllib.parse import parse_qsl
@@ -59,6 +61,12 @@ async def _engine_lifespan(app: Starlette):
 
 
 def create_app(*, engine: SiteEngine, debug: bool = False) -> Starlette:
+    """Create the Starlette application for a site engine.
+
+    :param engine: Site engine owned by the ASGI application lifecycle.
+    :param debug: Whether to enable Starlette debug responses.
+    :return: Configured Starlette application.
+    """
     app = Starlette(
         debug=debug,
         lifespan=_engine_lifespan,

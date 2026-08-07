@@ -1,3 +1,5 @@
+"""Public generic OPTIMADE serving, client, and query APIs."""
+
 from httk.core.optimade import ParserError, ParserSyntaxError, parse_optimade_filter
 
 from .api import create_asgi_app, serve

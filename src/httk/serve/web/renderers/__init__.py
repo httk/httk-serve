@@ -1,3 +1,5 @@
+"""Provide content renderers and suffix dispatch for web pages."""
+
 from .base import Renderer, RenderResult
 from .html import HtmlRenderer
 from .httkweb_compat import HttkwebCompatRenderer

@@ -1,3 +1,5 @@
+"""Provide legacy template resolution on top of Jinja rendering."""
+
 from pathlib import Path
 
 from markupsafe import Markup
@@ -21,6 +23,8 @@ class HttkCompatTemplateEngine(JinjaTemplateEngine):
 
     The compatibility engine keeps Jinja rendering but prioritizes legacy
     template suffixes so old `.httkweb.html` files resolve first.
+
+    :param template_dir: Directory containing site templates.
     """
 
     def __init__(self, template_dir: Path) -> None:
@@ -28,6 +32,11 @@ class HttkCompatTemplateEngine(JinjaTemplateEngine):
         self._legacy_formatter = HttkTemplateFormatter()
 
     def render(self, render_input: TemplateRenderInput) -> str:
+        """Render page content using legacy-compatible template resolution.
+
+        :param render_input: Content, template names, and template context.
+        :return: Rendered HTML.
+        """
         template_key = self._resolve_template(render_input.template_name)
         base_key = self._resolve_template(render_input.base_template_name)
 
@@ -42,6 +51,12 @@ class HttkCompatTemplateEngine(JinjaTemplateEngine):
         return content
 
     def render_fragment(self, *, template_name: str, context: dict[str, object]) -> str | None:
+        """Render an optional fragment using legacy template conventions.
+
+        :param template_name: Fragment template name.
+        :param context: Values exposed to the fragment.
+        :return: Rendered fragment, or ``None`` when no template exists.
+        """
         template_key = self._resolve_fragment_template(template_name)
         if template_key is None:
             return None

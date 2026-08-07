@@ -78,7 +78,11 @@ class OptimadeClientError(RuntimeError):
 
 
 class OptimadeTransportError(OptimadeClientError):
-    """The HTTP client could not complete a request."""
+    """Report that the HTTP client could not complete a request.
+
+    :param source_url: Redacted URL of the failed request.
+    :param detail: Safe transport detail.
+    """
 
     def __init__(self, source_url: str, detail: str) -> None:
         self.source_url = redact_optimade_url(source_url)
@@ -87,7 +91,12 @@ class OptimadeTransportError(OptimadeClientError):
 
 
 class OptimadeHTTPError(OptimadeClientError):
-    """A remote endpoint returned a non-success HTTP status."""
+    """Report a non-success HTTP status from a remote endpoint.
+
+    :param source_url: Redacted URL of the response.
+    :param status_code: HTTP status code returned by the service.
+    :param detail: Optional safe error detail.
+    """
 
     def __init__(self, source_url: str, status_code: int, detail: str | None = None) -> None:
         self.source_url = redact_optimade_url(source_url)
@@ -100,11 +109,15 @@ class OptimadeHTTPError(OptimadeClientError):
 
 
 class OptimadeErrorDocumentError(OptimadeHTTPError):
-    """A non-success response supplied a parseable OPTIMADE ``errors`` document."""
+    """Report a non-success response with a parseable OPTIMADE error document."""
 
 
 class OptimadeDiscoveryError(OptimadeClientError):
-    """An ``/info`` document was malformed or inconsistent for discovery."""
+    """Report a malformed or inconsistent ``/info`` discovery document.
+
+    :param source_url: Redacted URL of the malformed document.
+    :param detail: Safe discovery detail.
+    """
 
     def __init__(self, source_url: str, detail: str) -> None:
         self.source_url = redact_optimade_url(source_url)
@@ -113,7 +126,11 @@ class OptimadeDiscoveryError(OptimadeClientError):
 
 
 class OptimadeVersionNegotiationError(OptimadeClientError):
-    """An OPTIMADE base URL could not be negotiated to a supported API version."""
+    """Report failure to negotiate a supported OPTIMADE API version.
+
+    :param source_url: Redacted URL used for negotiation.
+    :param detail: Safe negotiation detail.
+    """
 
     def __init__(self, source_url: str, detail: str) -> None:
         self.source_url = redact_optimade_url(source_url)
@@ -127,11 +144,23 @@ def _frozen_mapping(values: Mapping[str, str]) -> Mapping[str, str]:
 
 @dataclass(frozen=True, slots=True)
 class RemoteEntryType:
-    """One immutable remote entry endpoint discovered from ``/info``.
+    """Describe one immutable remote entry endpoint discovered from ``/info``.
 
     ``name`` is solely the service's transport endpoint name.  Semantic
     recognition is intentionally represented by ``binding`` and is derived
     exclusively from definition IRIs.
+
+    :param name: Transport endpoint name.
+    :param definition_id: Entry-definition IRI, when advertised.
+    :param schema: Lossless schema snapshot from discovery.
+    :param property_iris: Transport property names keyed by definition IRI.
+    :param property_names: Local property names keyed by definition IRI.
+    :param property_types: Property kinds keyed by transport name.
+    :param advertised_properties: Properties advertised by the service.
+    :param default_response_properties: Properties returned by default.
+    :param sortable_properties: Properties accepted by remote sorting.
+    :param binding: Recognized semantic binding, when available.
+    :param backend: Backend class associated with the binding.
     """
 
     name: str
@@ -211,7 +240,22 @@ def _error_detail(text: str) -> str | None:
 
 
 class OptimadeStore:
-    """A synchronous read-only OPTIMADE service connection with eager discovery."""
+    """Connect synchronously to a read-only OPTIMADE service and discover it eagerly.
+
+    Unversioned bases negotiate strictly through the preference-ordered
+    ``/versions`` CSV. Query pagination validates complete pages before yielding,
+    uses lazy one-root exact-literal requests, and bounds continuation links by
+    page count and origin.
+
+    :param base_url: Absolute HTTP(S) service base URL.
+    :param client: Optional borrowed synchronous HTTP client.
+    :param page_limit: Default remote page size.
+    :param max_pages: Maximum continuation pages followed by one query.
+    :param allow_cross_origin_pagination: Permit continuation links on another origin.
+    :param response_fields: Default response-field selection for new searchers.
+    :raises OptimadeVersionNegotiationError: If the service cannot select a supported version.
+    :raises OptimadeDiscoveryError: If discovery documents are malformed.
+    """
 
     def __init__(
         self,
@@ -398,7 +442,12 @@ class OptimadeStore:
         return self._entry_types_by_name
 
     def entry_type(self, name: str) -> RemoteEntryType:
-        """Return one discovered endpoint by its transport name."""
+        """Return one discovered endpoint by transport name.
+
+        :param name: Service-advertised endpoint name.
+        :return: Discovered endpoint descriptor.
+        :raises KeyError: If no endpoint has that name.
+        """
 
         try:
             return self._entry_types_by_name[name]
@@ -617,7 +666,10 @@ class OptimadeStore:
         return None
 
     def refresh(self) -> None:
-        """Atomically replace discovery state after a fully successful rediscovery."""
+        """Refresh discovery state after a fully successful rediscovery.
+
+        :raises OptimadeClientError: If the store is closed or discovery fails.
+        """
 
         with self._lock:
             self._require_open()
@@ -651,6 +703,10 @@ class OptimadeStore:
         Passing ``response_fields`` overrides the store-level selection. An
         omitted value inherits it, while explicit ``None`` requests the
         service default.
+
+        :param response_fields: Per-search field selection override.
+        :return: New remote search plan.
+        :raises OptimadeClientError: If the store is closed.
         """
 
         from .remote_query import RemoteSearcher

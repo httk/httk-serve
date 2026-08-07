@@ -22,12 +22,15 @@ from httk.core.property_definitions import known_definition_prefixes
 
 
 def fulltype_of(definition: PropertyDefinition) -> str:
-    """Reconstruct the simplified ``fulltype`` string of a property definition.
+    """Reconstruct a property's simplified ``fulltype`` string.
 
     Maps the OPTIMADE type back to the compact spelling used by the filter
     layer: ``"string"``/``"integer"``/``"float"``/``"boolean"``/``"timestamp"``,
     ``"dict"`` for dictionaries, and ``"list of ..."`` (nesting through the
     definition's ``items``) for lists.
+
+    :param definition: Property definition to inspect.
+    :return: Compact fulltype spelling used by the filter and response layers.
     """
     return _fulltype_from_doc(definition.as_optimade())
 
@@ -61,12 +64,18 @@ def simplified_property(
     required_response: bool = False,
     default_response: bool = False,
 ) -> dict[str, Any]:
-    """A small dialect view of a property definition for the filter/wrap layers.
+    """Build a simplified property view for the filter and wrapping layers.
 
     Carries the ``description``, reconstructed ``fulltype``, the implementation
     flags (``sortable``/``required_response``/``default_response``), and — when
     present — the property's ``unit`` and ``dimensions`` (used by the trajectory
     frame-wrapping).
+
+    :param definition: Property definition to simplify.
+    :param sortable: Mark the property as sortable by the backend.
+    :param required_response: Mark the property as required in responses.
+    :param default_response: Mark the property as returned by default.
+    :return: Simplified property metadata.
     """
     info: dict[str, Any] = {
         "description": definition.description,
@@ -85,13 +94,17 @@ def simplified_property(
 
 
 def entry_type_definition_from_simple(name: str, info: Mapping[str, Any]) -> EntryTypeDefinition:
-    """Build an :class:`~httk.core.EntryTypeDefinition` from the simplified dialect.
+    """Build an :class:`~httk.core.EntryTypeDefinition` from simplified metadata.
 
     ``info`` is a ``{"description": <str>, "properties": {<name>: <simplified
     property dict>}}`` mapping (as produced by, e.g.,
     :func:`~httk.serve.optimade.schema.trajectories.trajectories_entry_info`); each
     property is generated with
     :meth:`~httk.core.PropertyDefinition.from_simple`.
+
+    :param name: Entry endpoint and definition name.
+    :param info: Simplified entry description and property mapping.
+    :return: Full entry-type definition.
     """
     properties = {
         prop_name: PropertyDefinition.from_simple(
@@ -111,7 +124,20 @@ def entry_type_definition_from_simple(name: str, info: Mapping[str, Any]) -> Ent
 
 @dataclass(frozen=True)
 class ServedSchema:
-    """The entry types and properties served, with derived lookup tables."""
+    """Describe served entry types and their derived lookup tables.
+
+    :param entry_info: Simplified entry-info documents keyed by entry type.
+    :param entry_definition_ids: Definition IRIs keyed by entry type.
+    :param recognized_prefixes: Property-definition prefixes recognized in requests.
+    :param all_entries: Served entry endpoint names in declaration order.
+    :param valid_endpoints: Fixed and entry endpoint names accepted by validation.
+    :param properties_by_entry: Served property names keyed by entry type.
+    :param default_response_fields: Default response fields keyed by entry type.
+    :param required_response_fields: Required response fields keyed by entry type.
+    :param unknown_response_fields: Defined but unserved fields keyed by entry type.
+    :param sortable_response_fields: Sortable response fields keyed by entry type.
+    :param property_definitions: Full property definitions keyed by entry type.
+    """
 
     entry_info: dict[str, dict[str, Any]]
     entry_definition_ids: dict[str, str]
@@ -146,6 +172,14 @@ def build_served_schema(
     marks served properties as sortable. ``recognized_prefixes`` defaults to the
     prefixes currently registered via :func:`~httk.core.register_definition_prefix`
     (resolved at call time so newly registered prefixes are honored).
+
+    :param definitions: Full definitions keyed by served entry type.
+    :param served: Optional served-property subset keyed by entry type.
+    :param default_response_overrides: Additional default fields keyed by entry type.
+    :param sortable: Sortable fields keyed by entry type.
+    :param recognized_prefixes: Prefixes recognized in response-field requests.
+    :return: Derived schema and lookup tables.
+    :raises ValueError: If a requested served property is not defined.
     """
     if recognized_prefixes is None:
         recognized_prefixes = known_definition_prefixes()

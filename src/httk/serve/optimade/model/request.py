@@ -4,10 +4,19 @@ from typing import Any
 
 @dataclass(slots=True)
 class RawRequest:
-    """An incoming OPTIMADE request, as handed over by the web layer.
+    """Represent an incoming OPTIMADE request from the web layer.
 
     Only ``baseurl`` and ``representation`` are mandatory; missing information
     is derived from ``representation`` during validation.
+
+    :param baseurl: Base URL used when generating response links.
+    :param representation: Request path and query representation.
+    :param relurl: Relative request URL, when supplied by the web layer.
+    :param querystr: Raw query string.
+    :param query: Parsed query parameters.
+    :param endpoint: Preselected endpoint, when supplied by the caller.
+    :param request_id: Preselected entry identifier, when supplied by the caller.
+    :param version: API version declared by the caller.
     """
 
     baseurl: str
@@ -22,11 +31,15 @@ class RawRequest:
 
 @dataclass(slots=True)
 class RequestedSlice:
-    """A slice requested via the ``dimension_slices`` query parameter.
+    """Represent a slice requested via ``dimension_slices``.
 
     The values are stored exactly as given (a ``None`` component means the
     client omitted it and the default applies). Per the OPTIMADE specification,
     ``stop`` is *inclusive*.
+
+    :param start: Inclusive first index, or ``None`` for the default.
+    :param stop: Inclusive last index, or ``None`` for the default.
+    :param step: Slice step, or ``None`` for the default.
     """
 
     start: int | None = None
@@ -36,7 +49,17 @@ class RequestedSlice:
 
 @dataclass(slots=True)
 class ValidatedParameters:
-    """Validated URL query parameters of an OPTIMADE request."""
+    """Represent validated URL query parameters of an OPTIMADE request.
+
+    :param response_format: Requested response format.
+    :param page_limit: Maximum number of entries in a page.
+    :param page_offset: Number of matching entries to skip.
+    :param response_fields: Comma-separated requested response fields.
+    :param filter: Raw OPTIMADE filter expression.
+    :param sort: Raw OPTIMADE sort expression.
+    :param include: Raw related-entry inclusion request.
+    :param dimension_slices: Requested slices keyed by dimension name.
+    """
 
     response_format: str = 'json'
     page_limit: int = 50
@@ -48,7 +71,10 @@ class ValidatedParameters:
     dimension_slices: dict[str, RequestedSlice] = field(default_factory=dict)
 
     def as_query_dict(self) -> dict[str, str]:
-        """Return the parameters as a URL query dict, omitting unset values."""
+        """Return the parameters as a URL query mapping.
+
+        :return: Query values with unset optional parameters omitted.
+        """
         query: dict[str, str] = {
             'response_format': self.response_format,
             'page_limit': str(self.page_limit),
@@ -75,7 +101,24 @@ class ValidatedParameters:
 
 @dataclass(slots=True)
 class ValidatedRequest:
-    """The result of validating a :class:`RawRequest`."""
+    """Represent the result of validating a :class:`RawRequest`.
+
+    :param baseurl: Base URL used when generating response links.
+    :param representation: Original request representation.
+    :param endpoint: Validated endpoint name.
+    :param version: Validated OPTIMADE version.
+    :param query: Validated query parameters.
+    :param url_version: Version segment present in the request URL.
+    :param request_id: Validated entry identifier.
+    :param recognized_response_fields: Requested fields known to the schema.
+    :param unrecognized_response_fields: Requested fields not known to the schema.
+    :param sort_fields: Validated sort fields and directions.
+    :param include_paths: Validated related-entry paths.
+    :param property_metadata_requested: Whether property metadata was requested.
+    :param partial_data_parts: Entry, identifier, and property for partial data.
+    :param partial_data_offset: Offset into a partial-data response.
+    :param warnings: Warnings collected while processing the request.
+    """
 
     baseurl: str
     representation: str
@@ -96,10 +139,17 @@ class ValidatedRequest:
 
 @dataclass(slots=True)
 class EndpointResponse:
-    """A response produced by an endpoint, to be serialized by the web layer.
+    """Represent an endpoint response for serialization by the web layer.
 
     Either ``json_response`` (a JSON:API document) or ``content`` (a raw body)
     is set.
+
+    :param response_code: HTTP status code.
+    :param response_msg: HTTP status title.
+    :param content_type: Response media type.
+    :param encoding: Response character encoding.
+    :param content: Raw response body, when the response is not JSON.
+    :param json_response: JSON:API response document, when the response is JSON.
     """
 
     response_code: int = 200

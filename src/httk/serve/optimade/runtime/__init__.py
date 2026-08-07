@@ -1,3 +1,5 @@
+"""Public ASGI application and development-server helpers."""
+
 from .asgi import create_app
 from .devserver import run_dev_server
 

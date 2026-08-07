@@ -1,3 +1,5 @@
+"""Validate OPTIMADE paths, versions, and query parameters."""
+
 import re
 from urllib.parse import parse_qsl, urlparse
 
@@ -119,6 +121,14 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
 
 
 def validate_optimade_request(request: RawRequest, version: str, schema: ServedSchema) -> ValidatedRequest:
+    """Validate a raw request against an explicit served schema.
+
+    :param request: Raw request supplied by the web layer.
+    :param version: API version selected for the request.
+    :param schema: Served entry and property schema.
+    :return: Canonical request and validated query parameters.
+    :raises httk.serve.optimade.model.errors.OptimadeError: If the path, version, or query is invalid.
+    """
     endpoint = request.endpoint
     request_id = request.request_id
     validated_version = request.version if request.version is not None else optimade_default_version
@@ -346,6 +356,12 @@ def validate_optimade_request(request: RawRequest, version: str, schema: ServedS
 
 
 def determine_optimade_version(request: RawRequest) -> str:
+    """Determine the OPTIMADE version named by a request path.
+
+    :param request: Raw request whose relative path is inspected.
+    :return: Supported API version, using the default when unversioned.
+    :raises httk.serve.optimade.model.errors.OptimadeError: If the path names an unsupported version.
+    """
     if request.relurl is not None:
         relurl = request.relurl
     else:

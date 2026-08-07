@@ -160,6 +160,14 @@ def generate_entry_endpoint_reply(
     data: QueryResults,
     related_resolver: RelatedResolver | None = None,
 ) -> dict[str, Any]:
+    """Build a JSON:API collection response for an entry endpoint.
+
+    :param request: Validated request controlling links and field selection.
+    :param config: Service configuration for metadata and links.
+    :param data: Query results for the current page.
+    :param related_resolver: Optional depth-one resolver for included resources.
+    :return: JSON:API collection document.
+    """
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:
@@ -207,6 +215,15 @@ def generate_single_entry_endpoint_reply(
     data: QueryResults,
     related_resolver: RelatedResolver | None = None,
 ) -> dict[str, Any]:
+    """Build a JSON:API single-resource response for an entry identifier.
+
+    :param request: Validated request controlling links and field selection.
+    :param config: Service configuration for metadata and links.
+    :param data: Query results expected to contain at most one row.
+    :param related_resolver: Optional depth-one resolver for included resources.
+    :return: JSON:API single-resource document.
+    :raises httk.serve.optimade.model.errors.OptimadeError: If the query yields multiple rows or another page.
+    """
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:

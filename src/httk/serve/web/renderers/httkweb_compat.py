@@ -1,3 +1,5 @@
+"""Render legacy ``.httkweb`` source files."""
+
 from pathlib import Path
 
 from docutils.core import publish_doctree, publish_from_doctree
@@ -17,6 +19,11 @@ class HttkwebCompatRenderer:
     """
 
     def render(self, source_path: Path) -> RenderResult:
+        """Render one legacy ``.httkweb`` source file.
+
+        :param source_path: Legacy source file to render.
+        :return: Rendered HTML, metadata, and widget placements.
+        """
         source = source_path.read_text(encoding="utf-8")
         metadata, body = split_front_matter(source)
         document = publish_doctree(

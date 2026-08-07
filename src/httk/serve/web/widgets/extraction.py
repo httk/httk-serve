@@ -19,7 +19,16 @@ _MARKDOWN_FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})([^\r\n]*)$")
 
 
 def parse_widget_invocation(text: str, *, source_path: Path, line: int, column: int) -> tuple[str, dict[str, object]]:
-    """Parse one invocation without evaluation or general Python expressions."""
+    """Parse one literal-only widget invocation without evaluating it.
+
+    :param text: Complete widget invocation text.
+    :param source_path: Source file containing the invocation.
+    :param line: One-based source line.
+    :param column: One-based source column.
+    :return: Widget name and validated literal properties.
+    :raises httk.serve.web.model.errors.WidgetParseError: If the invocation is not literal-only.
+    :raises httk.serve.web.model.errors.WidgetValidationError: If a property value is invalid.
+    """
 
     source = text.strip()
     if source.startswith("{{") and source.endswith("}}"):
@@ -114,6 +123,15 @@ def _parse_error(message: str, text: str, source_path: Path, line: int, column: 
 
 
 def placement_for(text: str, *, source_path: Path, line: int, column: int, index: int) -> WidgetPlacement:
+    """Create a stable renderer placement for one widget invocation.
+
+    :param text: Complete widget invocation text.
+    :param source_path: Source file containing the invocation.
+    :param line: One-based source line.
+    :param column: One-based source column.
+    :param index: Zero-based placement index in the source.
+    :return: Parsed widget placement with a deterministic placeholder.
+    """
     name, props = parse_widget_invocation(text, source_path=source_path, line=line, column=column)
     digest = hashlib.sha256(f"{source_path}:{line}:{column}:{index}".encode()).hexdigest()[:16]
     return WidgetPlacement(
@@ -128,7 +146,13 @@ def placement_for(text: str, *, source_path: Path, line: int, column: int, index
 
 
 def markdown_source(source: str, source_path: Path, *, line_offset: int = 0) -> tuple[str, tuple[WidgetPlacement, ...]]:
-    """Replace only standalone Markdown paragraphs, excluding code blocks."""
+    """Replace standalone Markdown widget paragraphs while excluding code blocks.
+
+    :param source: Markdown source text.
+    :param source_path: Source file containing the text.
+    :param line_offset: Number of lines preceding the supplied source.
+    :return: Source with placeholders and the extracted placements.
+    """
 
     lines = source.splitlines(keepends=True)
     placements: list[WidgetPlacement] = []
@@ -246,15 +270,18 @@ class _HtmlInvocationCollector(HTMLParser):
         self.placements: list[WidgetPlacement] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Track code-like HTML containers that suppress widget extraction."""
         del attrs
         if tag.lower() in self._SKIP:
             self.skip_depth += 1
 
     def handle_endtag(self, tag: str) -> None:
+        """Track the end of code-like HTML containers."""
         if tag.lower() in self._SKIP and self.skip_depth:
             self.skip_depth -= 1
 
     def handle_data(self, data: str) -> None:
+        """Extract a complete widget invocation from ordinary HTML text."""
         if self.skip_depth:
             return
         candidate = data.strip()
@@ -284,7 +311,12 @@ class _HtmlInvocationCollector(HTMLParser):
 
 
 def html_source(source: str, source_path: Path) -> tuple[str, tuple[WidgetPlacement, ...]]:
-    """Extract complete HTML text blocks while deliberately skipping code-like tags."""
+    """Extract complete HTML widget blocks while skipping code-like tags.
+
+    :param source: HTML source text.
+    :param source_path: Source file containing the text.
+    :return: Source with placeholders and the extracted placements.
+    """
 
     if "widget(" not in source:
         return source, ()

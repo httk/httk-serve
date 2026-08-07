@@ -42,7 +42,13 @@ def _default_url_builder(route: str, query: Mapping[str, str] | None) -> str:
 
 
 def immutable_mapping(values: Mapping[str, object]) -> Mapping[str, object]:
-    """Take a recursively immutable snapshot suitable for provider context."""
+    """Snapshot mappings and standard containers into immutable values.
+
+    Other leaves are preserved as-is.
+
+    :param values: String-keyed mapping to snapshot.
+    :return: Mapping proxy containing immutable mappings and standard containers.
+    """
 
     return MappingProxyType({key: _immutable_value(value) for key, value in values.items()})
 
@@ -61,7 +67,14 @@ def _immutable_value(value: object) -> object:
 
 @dataclass(frozen=True)
 class ProviderContext:
-    """The immutable, site-local context passed to a table provider."""
+    """Provide immutable site-local context to a table provider.
+
+    :param route: Route containing the table widget.
+    :param widget_id: Stable identifier of the table widget on the route.
+    :param query: Request query values.
+    :param page: Page context supplied by the site.
+    :param global_data: Site-global data supplied by startup code.
+    """
 
     route: str
     widget_id: str
@@ -86,7 +99,14 @@ class ProviderContext:
         object.__setattr__(self, "global_data", immutable_mapping(dict(self.global_data)))
 
     def url_for(self, route: str, *, query: Mapping[str, str] | None = None) -> str:
-        """Build a site-local route URL without exposing the ASGI request."""
+        """Build a site-local route URL without exposing the ASGI request.
+
+        :param route: Relative site route to link to.
+        :param query: Optional string query values.
+        :return: Site-local URL for the route.
+        :raises ValueError: If the route is not a safe relative site route.
+        :raises TypeError: If query keys or values are not strings.
+        """
 
         route = _validate_site_route(route)
         if query is not None and not all(
@@ -98,7 +118,12 @@ class ProviderContext:
 
 @dataclass(frozen=True)
 class TableRequest:
-    """The bounded page request passed to ``provide(context, request, ...)``."""
+    """Describe one bounded page request passed to a table provider.
+
+    :param page_size: Maximum number of rows requested.
+    :param cursor: Opaque provider cursor for continuation.
+    :param revision: Optional provider revision pinned across pages.
+    """
 
     page_size: int = 50
     cursor: str | None = None
@@ -115,7 +140,13 @@ class TableRequest:
 
 @dataclass(frozen=True)
 class TableColumn:
-    """A table column and its small, presentation-only metadata."""
+    """Describe one table column and its presentation-only metadata.
+
+    :param key: Stable row value key.
+    :param label: Accessible column label.
+    :param align: Optional horizontal alignment.
+    :param class_name: Optional whitespace-free CSS class name.
+    """
 
     key: str
     label: str
@@ -138,7 +169,13 @@ class TableColumn:
 
     @classmethod
     def from_value(cls, value: Self | str | Mapping[str, object]) -> Self:
-        """Adapt the compact forms useful in small, site-local providers."""
+        """Adapt a compact column declaration to a table column.
+
+        :param value: Existing column, string key, or explicit field mapping.
+        :return: Normalized table column.
+        :raises TypeError: If the declaration has an unsupported shape.
+        :raises ValueError: If the declaration contains unknown or invalid fields.
+        """
 
         if isinstance(value, cls):
             return value
@@ -165,7 +202,15 @@ class TableColumn:
 
 @dataclass(frozen=True)
 class TablePage:
-    """One provider-owned page of structured rows and opaque navigation cursors."""
+    """Represent one bounded page of presentation rows and opaque cursors.
+
+    :param rows: Presentation-only row mappings.
+    :param columns: Table columns.
+    :param next_cursor: Opaque cursor for the next page.
+    :param previous_cursor: Opaque cursor for the previous page.
+    :param total: Optional exact total row count.
+    :param revision: Optional provider revision for stable pagination.
+    """
 
     rows: tuple[Mapping[str, object], ...]
     columns: tuple[TableColumn, ...]
@@ -229,7 +274,16 @@ class TablePage:
         total: int | None = None,
         revision: str | None = None,
     ) -> Self:
-        """Construct a page while adapting compact column declarations."""
+        """Construct a page while adapting compact column declarations.
+
+        :param rows: Presentation-only row mappings.
+        :param columns: Column declarations.
+        :param next_cursor: Opaque cursor for the next page.
+        :param previous_cursor: Opaque cursor for the previous page.
+        :param total: Optional exact total row count.
+        :param revision: Optional provider revision for stable pagination.
+        :return: Normalized table page.
+        """
 
         return cls(
             rows=tuple(rows),
@@ -242,7 +296,13 @@ class TablePage:
 
     @classmethod
     def from_result(cls, value: object) -> Self:
-        """Accept a :class:`TablePage` or the equivalent explicit mapping."""
+        """Normalize a table page or equivalent explicit mapping.
+
+        :param value: Provider result to normalize.
+        :return: Normalized table page.
+        :raises TypeError: If the result is not a table page or mapping.
+        :raises ValueError: If the mapping contains invalid fields or values.
+        """
 
         if isinstance(value, cls):
             return value

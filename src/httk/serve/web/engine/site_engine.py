@@ -1,3 +1,5 @@
+"""Render site content, templates, widgets, and request-backed pages."""
+
 import inspect
 import posixpath
 import re
@@ -37,6 +39,12 @@ from httk.serve.web.widgets.table import TableRuntime
 
 
 class SiteEngine:
+    """Render a configured site and own its engine-local resources.
+
+    :param config: Site directory and rendering configuration.
+    :param table_token_secret: Secret used to authenticate table continuation tokens.
+    """
+
     def __init__(self, config: SiteConfig, *, table_token_secret: str | bytes | None = None) -> None:
         self.config = config
         self.resources = SiteResources()
@@ -81,6 +89,11 @@ class SiteEngine:
         return False
 
     def resolve(self, route: str) -> ResolvedRoute:
+        """Resolve a route without rendering its contents.
+
+        :param route: Site route to resolve.
+        :return: Description of the matching static, content, or missing route.
+        """
         return resolve_route(config=self.config, route=route)
 
     def render(
@@ -89,6 +102,15 @@ class SiteEngine:
         query: dict[str, str] | None = None,
         request: HttpRequestContext | None = None,
     ) -> PageResult:
+        """Render one site route for serving or static publication.
+
+        :param route: Site route to render.
+        :param query: Optional query parameters for non-request rendering.
+        :param request: Optional request context; its presence selects live rendering.
+        :return: Rendered response body and publication metadata.
+        :raises httk.serve.web.model.errors.NotFoundError: If the route has no renderable source.
+        :raises httk.serve.web.model.errors.WidgetError: If widget extraction or rendering fails.
+        """
         resolved = self.resolve(route)
 
         if resolved.kind == "missing" or resolved.source_path is None:

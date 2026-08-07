@@ -1,1 +1,1 @@
-# Placeholder package for compatibility helpers.
+"""Provide compatibility helpers for legacy web-site conventions."""

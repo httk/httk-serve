@@ -1,3 +1,5 @@
+"""Render reStructuredText source files with safe widget extraction."""
+
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +20,14 @@ _RST_SETTINGS_OVERRIDES = {
 
 
 class RstRenderer:
+    """Render reStructuredText source files."""
+
     def render(self, source_path: Path) -> RenderResult:
+        """Render one reStructuredText source file.
+
+        :param source_path: reStructuredText source file to render.
+        :return: Rendered HTML, metadata, and widget placements.
+        """
         source = source_path.read_text(encoding="utf-8")
 
         # Docutils is used as the block parser here, not as a rendered-HTML

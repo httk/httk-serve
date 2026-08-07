@@ -10,7 +10,12 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True)
 class ResultRow:
-    """One entry result: its attribute values plus per-entry envelope data."""
+    """Represent one entry result and its envelope data.
+
+    :param values: Response-field values keyed by OPTIMADE property name.
+    :param relationships: Related resources keyed by entry type.
+    :param property_metadata: Per-property metadata keyed by response field.
+    """
 
     values: dict[str, Any]
     relationships: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
@@ -26,11 +31,20 @@ class QueryResults(Protocol):
     """
 
     @property
-    def more_data_available(self) -> bool: ...
+    def more_data_available(self) -> bool:
+        """Report whether another page is available."""
 
-    def count(self) -> int: ...
+        ...
 
-    def __iter__(self) -> Iterator[ResultRow]: ...
+    def count(self) -> int:
+        """Return the total number of matches before pagination."""
+
+        ...
+
+    def __iter__(self) -> Iterator[ResultRow]:
+        """Yield the current page as result rows."""
+
+        ...
 
 
 class QueryFunction(Protocol):
@@ -47,7 +61,21 @@ class QueryFunction(Protocol):
         *,
         sort: Sequence[tuple[str, bool]] | None = None,
         debug: bool = False,
-    ) -> QueryResults: ...
+    ) -> QueryResults:
+        """Execute one validated entry query.
+
+        :param entries: Entry endpoints to query.
+        :param response_fields: Recognized fields to return.
+        :param unknown_response_fields: Unknown fields to return as null.
+        :param page_limit: Maximum page size.
+        :param page_offset: Number of matches to skip.
+        :param filter_ast: Parsed filter, when one was requested.
+        :param sort: Field names paired with descending flags.
+        :param debug: Enable backend diagnostics.
+        :return: Query results for the requested page.
+        """
+
+        ...
 
 
 class OptimadeAdapter(Protocol):
@@ -60,6 +88,12 @@ class OptimadeAdapter(Protocol):
     """
 
     @property
-    def schema(self) -> "ServedSchema": ...
+    def schema(self) -> "ServedSchema":
+        """Return the schema supplied by the adapter."""
 
-    def query_function(self) -> QueryFunction: ...
+        ...
+
+    def query_function(self) -> QueryFunction:
+        """Return the callback used to execute entry queries."""
+
+        ...

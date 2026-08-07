@@ -93,13 +93,22 @@ def process(
     *,
     debug: bool = False,
 ) -> EndpointResponse:
-    """Process an OPTIMADE query.
+    """Process one OPTIMADE query.
 
     ``request`` carries the incoming request; only ``baseurl`` and
     ``representation`` must be set, missing information is derived from
     ``representation``. ``query_function`` is the callback used to execute
     entry queries against the backend. ``schema`` describes the served entry
     types and properties.
+
+    :param request: Raw request to validate and dispatch.
+    :param query_function: Backend callback used for entry queries.
+    :param version: API version selected for the request.
+    :param config: Service response configuration.
+    :param schema: Explicit served schema for endpoint validation.
+    :param debug: Enable backend diagnostics.
+    :return: Endpoint response before web serialization.
+    :raises httk.serve.optimade.model.errors.OptimadeError: If request validation or endpoint processing fails.
     """
 
     if _LOG.isEnabledFor(logging.DEBUG):
@@ -225,7 +234,13 @@ def process(
 def process_init(
     config: OptimadeConfig, query_function: QueryFunction, schema: ServedSchema, *, debug: bool = False
 ) -> None:
-    """Precompute the number of available entries per entry endpoint."""
+    """Precompute entry counts for endpoint metadata.
+
+    :param config: Service configuration to populate.
+    :param query_function: Backend callback used to count entries.
+    :param schema: Explicit served schema whose entry types are counted.
+    :param debug: Enable backend diagnostics.
+    """
     config.data_available = {}
     for endpoint in schema.all_entries:
         results = query_function([endpoint], [], [], 0, 0, debug=debug)

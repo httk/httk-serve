@@ -1,3 +1,5 @@
+"""Public backend adapters, stores, and filter translation helpers."""
+
 from httk.data.query import (
     Searcher,
     SearchExpression,

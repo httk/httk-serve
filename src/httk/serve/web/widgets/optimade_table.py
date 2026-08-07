@@ -44,7 +44,29 @@ def render(
     detail_column: str | None = None,
     detail_query: str = "id",
 ) -> WidgetRenderResult:
-    """Render an inert, accessible OPTIMADE table shell and its trusted assets."""
+    """Render an inert, accessible OPTIMADE table shell and trusted assets.
+
+    The browser negotiates continuation URLs from inert configuration; those
+    URLs are not placed in DOM attributes, events, storage, or history.
+    ``allowed_origins`` is a client continuation allow-list, not an access
+    control boundary. ``filter_query`` replaces the whole browser filter.
+
+    :param context: Immutable widget invocation context.
+    :param base_url: Origin- or path-relative OPTIMADE endpoint base URL.
+    :param entry_type: OPTIMADE entry resource type.
+    :param columns: Column names or column mappings to display.
+    :param page_size: Number of entries requested per browser page.
+    :param caption: Accessible table caption.
+    :param filter: Initial OPTIMADE filter expression.
+    :param filter_query: Whole-filter query parameter name used by the browser.
+    :param sort: Optional OPTIMADE sort expression.
+    :param allowed_origins: Client-side allow-list for continuation origins.
+    :param detail_route: Optional site route for entry details.
+    :param detail_column: Column supplying the detail value.
+    :param detail_query: Query parameter receiving the detail value.
+    :return: Accessible table shell and its trusted assets.
+    :raises OptimadeTableProtocolError: If configuration violates the browser protocol.
+    """
 
     normalized_base_url = _base_url(base_url)
     normalized_entry_type = _identifier(entry_type, field="entry_type")

@@ -66,7 +66,7 @@ def _frame_wrapped(name: str, info: dict[str, Any]) -> dict[str, Any]:
 def trajectories_entry_info(
     structure_definition: EntryTypeDefinition, structure_properties: Sequence[str]
 ) -> dict[str, Any]:
-    """Build the ``trajectories`` entry info from named ``structures`` properties.
+    """Build ``trajectories`` entry metadata from named ``structures`` properties.
 
     ``structure_definition`` is the ``structures``
     :class:`~httk.core.EntryTypeDefinition`; ``id`` and ``type`` are copied
@@ -75,6 +75,10 @@ def trajectories_entry_info(
     property plus the trajectory-specific ``nframes`` and ``reference_frames``
     are added. The result is the simplified ``{"description", "properties"}``
     dialect.
+
+    :param structure_definition: Full ``structures`` entry definition.
+    :param structure_properties: Structure properties to carry into trajectories.
+    :return: Simplified ``trajectories`` entry metadata.
     """
     described = structure_definition.properties
 

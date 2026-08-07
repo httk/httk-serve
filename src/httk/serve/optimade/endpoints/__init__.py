@@ -1,3 +1,5 @@
+"""Public OPTIMADE endpoint response generators."""
+
 from .entries import generate_entry_endpoint_reply, generate_single_entry_endpoint_reply
 from .error import format_optimade_error
 from .info import (

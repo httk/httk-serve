@@ -1,3 +1,5 @@
+"""Build OPTIMADE response metadata and collected warning entries."""
+
 import datetime
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
@@ -13,6 +15,10 @@ except PackageNotFoundError:  # pragma: no cover - only hit when running from a 
 
 
 def merge_collected_warnings(json_response: dict[str, Any]) -> None:
+    """Merge the innermost active report collection into response metadata.
+
+    :param json_response: JSON:API document whose ``meta.warnings`` is updated.
+    """
     collections = active_collections()
     if not collections:
         return
@@ -50,6 +56,18 @@ def generate_meta(
     warnings: list[dict[str, Any]] | None = None,
     last_id: str | None = None,
 ) -> dict[str, Any]:
+    """Build the OPTIMADE response metadata object.
+
+    :param representation: Request representation recorded in metadata.
+    :param api_version: OPTIMADE version used for the response.
+    :param config: Service metadata configuration.
+    :param data_count: Number of entries returned in this response.
+    :param more_data_available: Whether another page is available.
+    :param data_available: Total matches for the current query.
+    :param warnings: Warnings already associated with the request.
+    :param last_id: Identifier of the final returned entry.
+    :return: OPTIMADE metadata mapping.
+    """
     implementation = {
         "name": "httk-serve",
         "version": _implementation_version,

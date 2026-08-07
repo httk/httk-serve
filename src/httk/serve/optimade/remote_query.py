@@ -338,7 +338,11 @@ class _Output:
 
 
 class RemoteSearcher:
-    """One portable single-root OPTIMADE query under construction."""
+    """Build one portable single-root OPTIMADE query.
+
+    :param store: Remote OPTIMADE store used for discovery and requests.
+    :param response_fields: Optional field-selection policy for this search.
+    """
 
     def __init__(self, store: OptimadeStore, *, response_fields: object = None) -> None:
         self._store = store
@@ -513,6 +517,12 @@ class RemoteSearcher:
         return self._variable
 
     def variable(self, target: object) -> _RemoteVariable:
+        """Bind the query to one discovered remote entry type.
+
+        :param target: Discovered entry descriptor or registered backend class.
+        :return: Query variable exposing portable fields.
+        :raises httk.data.query.protocols.UnsupportedQueryError: If the target is not recognized or a root variable is already bound.
+        """
         if self._variable is not None:
             raise _unsupported("a second root variable")
         return self._bind_descriptor(self._resolve_descriptor(target))
@@ -532,6 +542,12 @@ class RemoteSearcher:
         return _RemoteExpression(self, f"{id_field._remote_name} IS {state}")
 
     def add(self, expression: object) -> None:
+        """Add a filter expression to the query.
+
+        :param expression: Expression created by this searcher.
+        :raises ValueError: If no query variable is bound.
+        :raises httk.data.UnsupportedQueryError: If the expression belongs elsewhere.
+        """
         self._require_variable()
         if not isinstance(expression, _RemoteExpression) or expression.searcher is not self:
             raise _unsupported("expressions from another backend or searcher")
@@ -539,6 +555,13 @@ class RemoteSearcher:
         self._invalidate_count()
 
     def output(self, variable: object, name: str) -> None:
+        """Declare a whole-record or scalar output.
+
+        :param variable: Root variable or field to project.
+        :param name: Output name.
+        :raises ValueError: If the name is empty or duplicated.
+        :raises httk.data.UnsupportedQueryError: If the output belongs elsewhere.
+        """
         _descriptor, root = self._require_variable()
         if not isinstance(name, str) or not name:
             raise ValueError("output name must be a nonempty string")
@@ -607,6 +630,12 @@ class RemoteSearcher:
         return tuple(selected)
 
     def add_sort(self, field: object, descending: bool = False) -> None:
+        """Append a sortable field to the remote query.
+
+        :param field: Field exposed by this searcher's variable.
+        :param descending: Sort in descending order when true.
+        :raises httk.data.UnsupportedQueryError: If the field is not portable or sortable.
+        """
         descriptor, _variable = self._require_variable()
         if not isinstance(field, _RemoteField) or field._searcher is not self:
             raise _unsupported("sort keys from another backend or searcher")
@@ -617,11 +646,19 @@ class RemoteSearcher:
         self._sorts.append((field, descending))
 
     def set_limit(self, limit: int) -> None:
+        """Set the query result limit.
+
+        :param limit: Nonnegative limit, or a negative value for no bound.
+        """
         if not isinstance(limit, int) or isinstance(limit, bool):
             raise TypeError("limit must be an integer")
         self._limit = None if limit < 0 else limit
 
     def add_offset(self, offset: int) -> None:
+        """Advance the query offset.
+
+        :param offset: Nonnegative number of matching rows to skip.
+        """
         if not isinstance(offset, int) or isinstance(offset, bool):
             raise TypeError("offset must be an integer")
         if offset < 0:
@@ -855,9 +892,16 @@ class RemoteSearcher:
             yield SearchResult(values, names)
 
     def __iter__(self) -> Iterator[SearchResult]:
+        """Yield remote search results in output order."""
+
         return self._search_results()
 
     def count(self) -> int:
+        """Return the filtered remote count.
+
+        :return: ``meta.data_available`` reported by the service.
+        :raises CountUnavailableError: If the service omits a valid count.
+        """
         self._require_variable()
         if self._count_cache.value is not None:
             return self._count_cache.value
@@ -878,11 +922,21 @@ class RemoteSearcher:
         return value
 
     def results(self, **outputs: object) -> "RemoteResultSet":
+        """Freeze the query as a lazy, re-iterable result set.
+
+        :param \\*\\*outputs: Optional output names mapped to this searcher's projections.
+        :return: Frozen remote result plan.
+        :raises ValueError: If no outputs are declared.
+        """
         return RemoteResultSet(self, outputs or None)
 
 
 class RemoteResultColumn:
-    """One named scalar projection from a lazy remote result set."""
+    """Expose one named scalar projection from a lazy result set.
+
+    :param result: Result set owning the projection.
+    :param index: Zero-based projection index.
+    """
 
     def __init__(self, result: "RemoteResultSet", index: int) -> None:
         self._result = result
@@ -890,14 +944,25 @@ class RemoteResultColumn:
         self.name = result.names[index]
 
     def __len__(self) -> int:
+        """Return the number of projected results.
+
+        :return: Result count after query paging.
+        """
+
         return len(self._result)
 
     def __iter__(self) -> Iterator[object]:
+        """Yield projected scalar values."""
+
         return (row[self._index] for row in self._result)
 
 
 class RemoteResultSet:
-    """A frozen, lazy and re-iterable remote OPTIMADE result plan."""
+    """Represent a frozen, lazy, and re-iterable remote result plan.
+
+    :param searcher: Search plan to clone.
+    :param outputs: Optional output names mapped to the searcher's projections.
+    """
 
     def __init__(self, searcher: RemoteSearcher, outputs: Mapping[str, object] | None = None) -> None:
         self._plan = searcher._clone()
@@ -915,6 +980,13 @@ class RemoteResultSet:
         self.names = tuple(output.name for output in self._plan._outputs)
 
     def __getitem__(self, item: slice) -> "RemoteResultSet":
+        """Return a derived result plan for a unit-step slice.
+
+        :param item: Nonnegative slice with no step or a unit step.
+        :return: Derived lazy result plan.
+        :raises TypeError: If integer indexing is requested.
+        :raises ValueError: If slice bounds or step are unsupported.
+        """
         if not isinstance(item, slice):
             raise TypeError("remote result sets support slicing, not integer indexing")
         if item.step not in (None, 1):
@@ -942,15 +1014,27 @@ class RemoteResultSet:
         return derived
 
     def __iter__(self) -> Iterator[ResultRow]:
+        """Yield projected rows as result rows."""
+
         return (ResultRow(result.values, result.names) for result in self._plan._search_results())
 
     def __len__(self) -> int:
+        """Return the bounded result count.
+
+        :return: Number of rows available under this result plan.
+        """
+
         available = max(0, self._plan.count() - self._plan.offset)
         if self._plan._limit is not None:
             available = min(available, self._plan._limit)
         return available
 
     def first(self) -> ResultRow | None:
+        """Return the first result, if present.
+
+        :return: First row or ``None``.
+        """
+
         iterator = self._plan._search_results(maximum=1)
         try:
             result = next(iterator)
@@ -959,6 +1043,13 @@ class RemoteResultSet:
         return ResultRow(result.values, result.names)
 
     def one(self) -> ResultRow:
+        """Return the only result.
+
+        :return: Sole result row.
+        :raises httk.data.NoResultError: If no result exists.
+        :raises httk.data.MultipleResultsError: If more than one result exists.
+        """
+
         iterator = self._plan._search_results(maximum=2)
         try:
             first = next(iterator)
@@ -971,6 +1062,13 @@ class RemoteResultSet:
         raise MultipleResultsError("expected exactly one result, found more than one")
 
     def scalars(self, name: str | None = None) -> Iterator[object]:
+        """Iterate one named scalar output from each result.
+
+        :param name: Output name, or ``None`` when exactly one exists.
+        :return: Iterator over scalar values.
+        :raises KeyError: If the named output is unknown.
+        :raises ValueError: If no name is given and multiple outputs exist.
+        """
         if name is None:
             if len(self.names) != 1:
                 raise ValueError(f"scalars() without a name requires exactly one output; declared: {self.names}")
@@ -982,6 +1080,13 @@ class RemoteResultSet:
         return (row[index] for row in self)
 
     def column(self, name: str) -> RemoteResultColumn:
+        """Return a lazy column for a scalar output.
+
+        :param name: Scalar output name.
+        :return: Lazy result column.
+        :raises KeyError: If the output is unknown.
+        :raises TypeError: If the output is a whole-record projection.
+        """
         try:
             index = self.names.index(name)
         except ValueError:
@@ -992,4 +1097,10 @@ class RemoteResultSet:
         return RemoteResultColumn(self, index)
 
     def cursor(self) -> Iterator[ResultRow]:
+        """Reject unsupported cursor access.
+
+        :return: Never; remote OPTIMADE cursors are unsupported.
+        :raises NotImplementedError: Remote OPTIMADE cursors are unavailable.
+        """
+
         raise NotImplementedError("remote OPTIMADE cursor rows are not supported")

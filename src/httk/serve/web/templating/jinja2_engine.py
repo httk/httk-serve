@@ -1,3 +1,5 @@
+"""Render pages and fragments with Jinja templates."""
+
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -15,6 +17,12 @@ TEMPLATE_SUFFIXES: tuple[str, ...] = (
 
 
 class JinjaTemplateEngine:
+    """Resolve and render Jinja templates from a site directory.
+
+    :param template_dir: Directory containing site templates.
+    :param template_suffixes: Suffixes probed for bare template names.
+    """
+
     def __init__(
         self,
         template_dir: Path,
@@ -31,6 +39,11 @@ class JinjaTemplateEngine:
         )
 
     def render(self, render_input: TemplateRenderInput) -> str:
+        """Render page content through optional content and base templates.
+
+        :param render_input: Content, template names, and template context.
+        :return: Rendered HTML.
+        """
         template_key = self._resolve_template(render_input.template_name)
         base_key = self._resolve_template(render_input.base_template_name)
 
@@ -50,6 +63,12 @@ class JinjaTemplateEngine:
         return content
 
     def render_fragment(self, *, template_name: str, context: dict[str, object]) -> str | None:
+        """Render an optional named fragment template.
+
+        :param template_name: Fragment template name.
+        :param context: Values exposed to the fragment.
+        :return: Rendered fragment, or ``None`` when no template exists.
+        """
         template_key = self._resolve_fragment_template(template_name)
         if template_key is None:
             return None

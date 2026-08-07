@@ -13,7 +13,10 @@ from .core import FunctionWidget, Widget, WidgetRenderer
 
 
 class SiteWidgetLoader:
-    """Load ``src/widgets/<name>.py`` without allowing paths to escape it."""
+    """Load site widgets without allowing paths to escape their directory.
+
+    :param widgets_dir: Directory containing trusted site widget modules.
+    """
 
     def __init__(self, widgets_dir: Path) -> None:
         self.widgets_dir = widgets_dir
@@ -22,6 +25,10 @@ class SiteWidgetLoader:
         self._sys_path_lock = threading.Lock()
 
     def available(self) -> list[tuple[str, str]]:
+        """List valid site-local widget modules.
+
+        :return: Sorted ``(name, source path)`` pairs.
+        """
         if not self.widgets_dir.exists():
             return []
         items: list[tuple[str, str]] = []
@@ -33,6 +40,12 @@ class SiteWidgetLoader:
         return items
 
     def resolve(self, name: str) -> Widget | None:
+        """Resolve and load one site-local widget.
+
+        :param name: Site widget name beginning with ``site.``.
+        :return: Loaded widget, or ``None`` when the name or file is absent.
+        :raises ValueError: If the widget module or definition is invalid.
+        """
         if not name.startswith("site."):
             return None
         local_name = name.removeprefix("site.")

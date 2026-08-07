@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 import uvicorn
+from starlette.applications import Starlette
 
 from .api import create_asgi_app, serve
 from .engine.discovery import DEFAULT_CONTENT_EXTENSIONS
@@ -25,14 +26,22 @@ class CLIContextLike(Protocol):
     """The minimal root-command context consumed by :func:`command`."""
 
     @property
-    def program(self) -> str: ...
+    def program(self) -> str:
+        """Return the root program name."""
+        ...
 
     @property
-    def cwd(self) -> Path: ...
+    def cwd(self) -> Path:
+        """Return the root command's working directory."""
+        ...
 
 
 def build_parser(program: str) -> argparse.ArgumentParser:
-    """Build the public ``httk serve web`` argument parser."""
+    """Build the public ``httk serve web`` argument parser.
+
+    :param program: Program name displayed in command-line help.
+    :return: Configured argument parser.
+    """
 
     parser = argparse.ArgumentParser(prog=program, description="Serve and validate httk-serve sites")
     subparsers = parser.add_subparsers(dest="subcommand", metavar="COMMAND")
@@ -55,7 +64,12 @@ def _site_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def command(argv: Sequence[str], context: CLIContextLike) -> int:
-    """Dispatch the command registered by ``httk.registry.cli.serve``."""
+    """Dispatch the command registered by ``httk.registry.cli.serve``.
+
+    :param argv: Command-line arguments after the root command.
+    :param context: Root-command program and working-directory context.
+    :return: Process-style command status code.
+    """
 
     if argv and argv[0] == "web":
         argv = argv[1:]
@@ -100,8 +114,11 @@ def _serve(arguments: argparse.Namespace) -> int:
     return 0
 
 
-def reload_app():
-    """Uvicorn reload factory configured by the process-level reload dispatcher."""
+def reload_app() -> Starlette:
+    """Create the app selected by the process-level reload dispatcher.
+
+    :return: Fresh application configured from reload environment variables.
+    """
 
     srcdir = os.environ.get(_RELOAD_SRCDIR)
     if not srcdir:

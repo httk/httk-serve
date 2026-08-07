@@ -1,3 +1,5 @@
+"""Adapt store/searcher implementations to the OPTIMADE backend contract."""
+
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -14,7 +16,7 @@ type FieldExtractor = Callable[[Any], Any]
 
 @dataclass(frozen=True)
 class EntrySource:
-    """One queryable source (table/type) behind an OPTIMADE entry endpoint.
+    """Describe one queryable source behind an OPTIMADE entry endpoint.
 
     ``target`` is what gets passed to ``searcher.variable()``; ``fields`` maps
     OPTIMADE response-field names to extractors applied to matched row objects.
@@ -25,6 +27,12 @@ class EntrySource:
     on. ``property_metadata`` maps response-field names to extractors returning
     the per-property metadata dictionary for a matched row (or ``None`` when
     there is no metadata for that row).
+
+    :param target: Store-specific target passed to ``searcher.variable``.
+    :param fields: Response-field extractors applied to matched rows.
+    :param sort_keys: Response-field to backend-sort-field mappings.
+    :param relationships: Optional extractor for related-resource data.
+    :param property_metadata: Optional per-property metadata extractors.
     """
 
     target: Any
@@ -36,7 +44,7 @@ class EntrySource:
 
 @dataclass(frozen=True)
 class BackendAdapter:
-    """Binds a store to the OPTIMADE entry endpoints it serves.
+    """Bind a store to the OPTIMADE entry endpoints it serves.
 
     ``sources`` maps entry endpoint names (e.g. ``'structures'``) to the
     sources queried for that endpoint; an endpoint with several sources (e.g.
@@ -49,6 +57,11 @@ class BackendAdapter:
     identity property-key map (each property is filtered against a backend field
     of the same name); a backend whose field names differ, or that wants finer
     control, supplies its own tables instead.
+
+    :param store: Store implementing the neutral query protocol.
+    :param sources: Queryable sources keyed by entry endpoint.
+    :param schema: Required schema describing served entries and properties.
+    :param field_handlers: Optional filter handlers keyed by entry endpoint.
     """
 
     store: Store
@@ -85,6 +98,11 @@ class BackendAdapter:
                         )
 
     def query_function(self) -> QueryFunction:
+        """Return the callback that executes queries through this adapter.
+
+        :return: Query callback consumed by the OPTIMADE request engine.
+        """
+
         from .execution import execute_query
 
         def query(

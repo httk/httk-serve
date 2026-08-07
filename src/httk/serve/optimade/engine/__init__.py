@@ -1,3 +1,5 @@
+"""Public request-validation and endpoint-dispatch helpers."""
+
 from .processing import process, process_init
 from .validate import determine_optimade_version, validate_optimade_request
 

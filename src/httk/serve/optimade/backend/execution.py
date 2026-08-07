@@ -19,6 +19,14 @@ class StoreResults:
     protocol. Iteration yields one
     :class:`~httk.serve.optimade.model.results.ResultRow` per entry, whose values
     map response-field names to values extracted from the matched row objects.
+
+    :param pairs: Sources and already-configured searchers to iterate.
+    :param response_fields: Recognized fields to extract.
+    :param unknown_response_fields: Unknown fields to return as null.
+    :param limit: Maximum number of results to yield.
+    :param offset: Number of results to skip.
+    :param total_count: Total matches before pagination.
+    :param recognized_prefixes: Prefixes for dynamic row attributes.
     """
 
     def __init__(
@@ -129,6 +137,20 @@ def execute_query(
     sort: Sequence[tuple[str, bool]] | None = None,
     debug: bool = False,
 ) -> StoreResults:
+    """Execute a translated query across the adapter's sources.
+
+    :param adapter: Backend adapter providing sources and schema.
+    :param entries: Entry endpoints to query.
+    :param response_fields: Recognized fields to return.
+    :param unknown_response_fields: Unknown fields to return as null.
+    :param response_limit: Maximum number of returned rows.
+    :param response_offset: Number of matching rows to skip.
+    :param filter_ast: Parsed filter, when one was requested.
+    :param sort: Fields and directions to sort by.
+    :param debug: Enable backend diagnostics.
+    :return: Lazy results for the requested page.
+    :raises httk.serve.optimade.model.errors.TranslatorError: If sorting across multiple sources is requested.
+    """
 
     pairs = translate_filter(filter_ast, entries, adapter, sort)
     total_count = sum(searcher.count() for _source, searcher in pairs)

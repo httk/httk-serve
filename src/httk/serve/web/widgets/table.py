@@ -78,7 +78,12 @@ class _TableState(TypedDict):
 
 
 class TableTokenSigner:
-    """Authenticate the canonical, bounded continuation envelope."""
+    """Authenticate, but do not encrypt, bounded table continuation state.
+
+    Continuation state expires and cursor values must not contain secrets.
+
+    :param secret: Optional signing secret; generated per process when omitted.
+    """
 
     def __init__(self, secret: str | bytes | None = None) -> None:
         if secret is None:
@@ -97,6 +102,12 @@ class TableTokenSigner:
             raise TypeError("table token secret must be str, bytes, or None")
 
     def sign(self, payload: Mapping[str, object]) -> str:
+        """Sign canonical continuation state.
+
+        :param payload: Bounded JSON-like continuation state.
+        :return: Authenticated continuation token.
+        :raises TableProtocolError: If the state or token exceeds protocol limits.
+        """
         encoded = _canonical_json(payload)
         if len(encoded) > MAX_TOKEN_PAYLOAD_BYTES:
             raise TableProtocolError("table continuation state is too large")
@@ -108,6 +119,12 @@ class TableTokenSigner:
         return token
 
     def verify(self, token: object) -> dict[str, object]:
+        """Verify and decode an authenticated continuation token.
+
+        :param token: Token supplied by the browser.
+        :return: Authenticated continuation state.
+        :raises TableContinuationError: If the token is malformed or unauthenticated.
+        """
         if not isinstance(token, str) or not token or len(token) > MAX_TOKEN_BYTES:
             raise TableContinuationError("invalid table continuation")
         pieces = token.split(".")
@@ -144,7 +161,12 @@ class TableTokenSigner:
 
 
 class TableRuntime:
-    """Engine-local table dispatcher, renderer, and continuation authority."""
+    """Dispatch providers, render table pages, and authenticate continuations.
+
+    :param engine: Site engine that owns this runtime.
+    :param token_secret: Optional signing secret for continuation tokens.
+    :param token_ttl_seconds: Lifetime of authenticated continuation tokens.
+    """
 
     def __init__(
         self,
@@ -161,6 +183,17 @@ class TableRuntime:
         self._clock = time.time
 
     def render(self, context: WidgetContext, **props: object) -> WidgetRenderResult:
+        """Render the first bounded table page and live pagination controls.
+
+        Static publication renders only the first page with pagination disabled;
+        live rendering registers the browser assets and continuation endpoint.
+
+        :param context: Immutable widget invocation context.
+        :param \\*\\*props: Literal table provider and presentation properties.
+        :return: Rendered table shell and any live assets.
+        :raises TableProtocolError: If widget properties or provider state are invalid.
+        :raises TableProviderError: If the site provider cannot supply the page.
+        """
         provider, page_size, row_template, caption, provider_args = self._parse_props(props)
         page_state = _json_object(context.page, field="page context")
         query_state = _json_object(context.query, field="query")
@@ -231,6 +264,15 @@ class TableRuntime:
         )
 
     def continuation(self, payload: object) -> dict[str, object]:
+        """Resolve one authenticated browser continuation request.
+
+        :param payload: Request mapping containing token, route, and widget ID.
+        :return: Rendered next-page body and continuation metadata.
+        :raises TableContinuationError: If the request or token is invalid.
+        :raises TableContinuationExpired: If the token has expired.
+        :raises TableRevisionMismatch: If the provider revision changed.
+        :raises TableProviderError: If the provider cannot supply the page.
+        """
         if not isinstance(payload, Mapping):
             raise TableContinuationError("invalid table continuation request")
         if set(payload) != {"token", "route", "widget_id"}:
@@ -653,12 +695,19 @@ class TableRuntime:
 
 
 class TableWidget:
-    """Built-in adapter supplied with :class:`httk.serve.web.widgets.WidgetContext`."""
+    """Adapt the built-in table runtime to the widget protocol."""
 
     name = "httk.serve.table"
     source = "httk.serve.web.widgets.table"
 
     def render(self, context: WidgetContext, **props: object) -> WidgetRenderResult:
+        """Render a table through the engine-local table runtime.
+
+        :param context: Immutable widget invocation context.
+        :param \\*\\*props: Literal table provider and presentation properties.
+        :return: Rendered table shell and any live assets.
+        :raises TableProtocolError: If the context has no table runtime.
+        """
         runtime = context.table_runtime
         if not isinstance(runtime, TableRuntime):
             raise TableProtocolError("httk.serve.table needs an engine table runtime")

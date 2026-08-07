@@ -1,3 +1,5 @@
+"""Mount-aware Starlette runtime for the generic OPTIMADE engine."""
+
 import json
 from collections.abc import Mapping
 from typing import Any
@@ -186,6 +188,24 @@ def create_app(
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
 ) -> Starlette:
+    """Create a mount-aware ASGI application for an explicit schema and query callback.
+
+    An explicit ``baseurl`` is authoritative. Without one, the application
+    derives links from the request origin and ASGI ``root_path``, preserving the
+    mount path and exactly one version segment. CORS remains disabled unless
+    ``config.cors_origins`` contains a bounded exact allow-list; request report
+    collections are merged into response warnings, including error responses.
+
+    :param query_function: Callback that executes entry queries.
+    :param config: Service and runtime configuration.
+    :param schema: Required schema describing served entries and properties.
+    :param baseurl: Authoritative public API base URL, or ``None`` for derivation.
+    :param debug: Enable Starlette and backend diagnostics.
+    :param report_level: Minimum report level collected per request.
+    :param report_context_levels: Context-specific report levels.
+    :return: Configured Starlette ASGI application.
+    :raises ValueError: If configured CORS origins are invalid or excessive.
+    """
     if baseurl is not None and not baseurl.endswith("/"):
         baseurl += "/"
 

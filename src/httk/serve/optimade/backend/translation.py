@@ -32,6 +32,12 @@ def format_value(fulltype: str, val: tuple[Any, ...], allow_null: bool = False) 
     Delegates to :func:`httk.data.query.optimade_filters.format_value` and raises
     :class:`~httk.serve.optimade.model.errors.TranslatorError` for its neutral
     :class:`~httk.data.FilterTranslationError` failures.
+
+    :param fulltype: Simplified OPTIMADE property type.
+    :param val: Parsed filter values.
+    :param allow_null: Allow a null value for the property.
+    :return: Backend-ready filter value.
+    :raises httk.serve.optimade.model.errors.TranslatorError: If the value cannot be translated.
     """
     try:
         return _format_value(fulltype, val, allow_null=allow_null)
@@ -102,6 +108,13 @@ def translate_filter(
     are resolved through the adapter's related-property resolver (built by
     ``_related_property_resolver``), so filtering ``references.doi`` behaves
     exactly like filtering ``/references`` directly.
+
+    :param filter_ast: Parsed filter, or ``None`` for an unfiltered query.
+    :param entries: Entry endpoints to search.
+    :param adapter: Backend adapter supplying sources and handlers.
+    :param sort: Response fields and descending flags for sorting.
+    :return: Source/searcher pairs with the filter and sort applied.
+    :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
     """
 
     pairs: list[tuple[EntrySource, Searcher]] = []
@@ -162,6 +175,16 @@ def translate_filter_node(
     filters other than ``<type>.id HAS ...`` raise a not-implemented (501)
     error. Use :func:`translate_filter` (which builds the resolver from its
     adapter) for full relationship-property filtering.
+
+    :param node: Filter node to translate.
+    :param search_variable: Backend variable used by the expression.
+    :param entry: Entry endpoint being filtered.
+    :param entry_info: Simplified property metadata for the entry.
+    :param handlers: Property handlers used for translation.
+    :param recognized_prefixes: Property-definition prefixes accepted by the filter.
+    :param served_entries: Entry types available as relationship targets.
+    :return: Backend search expression.
+    :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
     """
     property_fulltypes = {name: prop.get('fulltype', 'unknown') for name, prop in entry_info.items()}
     try:

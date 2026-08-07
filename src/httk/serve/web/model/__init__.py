@@ -1,3 +1,5 @@
+"""Provide configuration, request, result, and error models for web sites."""
+
 from .config import SiteConfig
 from .errors import (
     FunctionInjectionError,

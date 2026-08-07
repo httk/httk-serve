@@ -15,11 +15,15 @@ from typing import Any
 
 @dataclass(frozen=True)
 class PartialDimension:
-    """One list axis of a :class:`PartialValue`.
+    """Describe one list axis of a :class:`PartialValue`.
 
     ``length`` is the number of items along the axis (``None`` when unknown or
     entry-dependent and not declared). ``sliceable`` indicates whether the
     server can honour a slice request for this axis.
+
+    :param name: Dimension name used in response metadata.
+    :param length: Number of items, or ``None`` when unknown.
+    :param sliceable: Whether the server accepts slices on this axis.
     """
 
     name: str
@@ -29,10 +33,13 @@ class PartialDimension:
 
 @dataclass(frozen=True)
 class PartialValue:
-    """A property value provided lazily, one slice at a time.
+    """Describe a property value provided lazily, one slice at a time.
 
     ``fetch`` takes a tuple of Python slices (one per dimension, with the usual
     *exclusive* stop) and returns the corresponding nested lists.
+
+    :param dimensions: Axes describing the value.
+    :param fetch: Slice retrieval operation.
     """
 
     dimensions: tuple[PartialDimension, ...]

@@ -17,11 +17,15 @@ SUPPORTED_WIDGET_ASSET_CONTENT_TYPES = frozenset({"text/css", "text/javascript"}
 
 @dataclass(frozen=True)
 class WidgetAsset:
-    """An immutable, deployment-relative asset declared by trusted widget code.
+    """Declare an immutable, deployment-relative asset from trusted widget code.
 
     ``path`` is relative to ``/_httk/serve/assets/`` and is never interpreted as a
     filesystem path.  The engine serves only assets it has registered while
     rendering this site instance.
+
+    :param path: Safe path below ``/_httk/serve/assets/``.
+    :param content: Immutable asset bytes.
+    :param content_type: Supported asset content type.
     """
 
     path: str
@@ -57,7 +61,19 @@ class WidgetAsset:
 
 @dataclass(frozen=True)
 class WidgetContext:
-    """Immutable request and page information made available to widgets."""
+    """Provide immutable request and page information to a widget.
+
+    :param route: Route containing the widget.
+    :param render_mode: ``serve`` for live rendering or ``publish`` for static output.
+    :param widget_id: Stable identifier for this widget placement.
+    :param query: Request query values.
+    :param postvars: Parsed request body values.
+    :param page: Page metadata and context.
+    :param source_path: Source file containing the widget invocation.
+    :param url_for: Builder for site-relative URLs.
+    :param absolute_url_for: Builder for absolute site URLs.
+    :param table_runtime: Engine-local table runtime when available.
+    """
 
     route: str
     render_mode: str
@@ -73,7 +89,11 @@ class WidgetContext:
 
 @dataclass(frozen=True)
 class WidgetRenderResult:
-    """An explicitly trusted HTML result returned by a widget."""
+    """Return explicitly trusted HTML and its declared widget assets.
+
+    :param html: Trusted HTML output.
+    :param assets: Immutable assets used by the output.
+    """
 
     html: str
     assets: tuple[WidgetAsset, ...] = ()
@@ -84,15 +104,21 @@ class WidgetRenderResult:
 
 
 class Widget(Protocol):
-    """Advanced immutable widget definition protocol."""
+    """Define the advanced immutable widget protocol."""
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        """Return the widget's canonical name."""
+        ...
 
     @property
-    def source(self) -> str: ...
+    def source(self) -> str:
+        """Return the widget's source identifier."""
+        ...
 
-    def render(self, context: WidgetContext, **props: object) -> str | WidgetRenderResult: ...
+    def render(self, context: WidgetContext, **props: object) -> str | WidgetRenderResult:
+        """Render trusted widget output for one invocation."""
+        ...
 
 
 WidgetRenderer = Callable[..., str | WidgetRenderResult]
@@ -100,13 +126,24 @@ WidgetRenderer = Callable[..., str | WidgetRenderResult]
 
 @dataclass(frozen=True)
 class FunctionWidget:
-    """An immutable adapter for the common module-level ``render`` facade."""
+    """Adapt a module-level ``render`` facade to the widget protocol.
+
+    :param name: Canonical widget name.
+    :param render_function: Function used to render the widget.
+    :param source: Source identifier for diagnostics and discovery.
+    """
 
     name: str
     render_function: WidgetRenderer
     source: str
 
     def render(self, context: WidgetContext, **props: object) -> str | WidgetRenderResult:
+        """Render the widget through its wrapped callable.
+
+        :param context: Immutable widget invocation context.
+        :param \\*\\*props: Literal widget properties.
+        :return: HTML string or explicitly trusted render result.
+        """
         return self.render_function(context, **props)
 
 
@@ -115,13 +152,22 @@ def function_widget(render: WidgetRenderer, *, name: str = "", source: str = "")
 
     Site-local modules normally need no wrapper: a module-level ``render`` is
     discovered automatically.  The helper is useful for explicit definitions.
+
+    :param render: Function used to render the widget.
+    :param name: Canonical widget name.
+    :param source: Source identifier for diagnostics and discovery.
+    :return: Immutable function-backed widget.
     """
 
     return FunctionWidget(name=name, render_function=render, source=source)
 
 
 def trusted_html(value: str) -> WidgetRenderResult:
-    """Mark a widget's reviewed HTML output as trusted."""
+    """Mark a widget's reviewed HTML output as trusted.
+
+    :param value: HTML reviewed by the widget author.
+    :return: Trusted widget render result.
+    """
 
     return WidgetRenderResult(Markup(value))
 
@@ -144,12 +190,18 @@ def _immutable_value(value: object) -> object:
 
 @dataclass
 class WidgetRegistry:
-    """Registry for built-ins; aliases never participate in site resolution."""
+    """Register built-in widgets whose aliases do not resolve site widgets."""
 
     _widgets: dict[str, Widget] = field(default_factory=dict)
     _aliases: dict[str, str] = field(default_factory=dict)
 
     def register(self, widget: Widget, *, alias: str | None = None) -> None:
+        """Register one built-in widget and optional display alias.
+
+        :param widget: Built-in widget to register.
+        :param alias: Optional shorthand alias.
+        :raises ValueError: If the name or alias is already registered.
+        """
         if not widget.name.startswith("httk."):
             raise ValueError("Built-in widget names must use the 'httk.' prefix")
         if widget.name in self._widgets:
@@ -161,9 +213,18 @@ class WidgetRegistry:
             self._aliases[alias] = widget.name
 
     def resolve(self, name: str) -> Widget | None:
+        """Resolve a built-in name or alias.
+
+        :param name: Built-in widget name or alias.
+        :return: Matching widget, or ``None`` when absent.
+        """
         return self._widgets.get(self._aliases.get(name, name))
 
     def available(self) -> list[tuple[str, str]]:
+        """List built-in widget names and source identifiers.
+
+        :return: Sorted ``(name, source)`` pairs.
+        """
         return sorted((name, widget.source) for name, widget in self._widgets.items())
 
 

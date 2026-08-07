@@ -27,7 +27,15 @@ def generate_partial_data_reply(
     query_function: QueryFunction,
     schema: ServedSchema,
 ) -> EndpointResponse:
-    """Produce the JSON Lines partial data reply for a single property value."""
+    """Produce the JSON Lines partial-data reply for one property value.
+
+    :param request: Validated partial-data request.
+    :param config: Service configuration controlling chunk size.
+    :param query_function: Callback used to retrieve the entry.
+    :param schema: Served schema used by the request engine.
+    :return: JSON Lines response.
+    :raises httk.serve.optimade.model.errors.OptimadeError: If the entry, property, or partial-data length is unavailable.
+    """
     assert request.partial_data_parts is not None
     entry, entry_id, prop = request.partial_data_parts
 

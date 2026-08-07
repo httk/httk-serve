@@ -46,7 +46,11 @@ class _StoredQueryResults:
 
 @dataclass(frozen=True, slots=True)
 class StoredBackendAdapter:
-    """An OPTIMADE serving adapter over one data federation per entry type."""
+    """Serve one data federation per OPTIMADE entry type.
+
+    :param federations: Durable federations keyed by entry endpoint.
+    :param schema: Schema describing the federations' served entries.
+    """
 
     federations: Mapping[str, Any]
     schema: ServedSchema
@@ -55,6 +59,11 @@ class StoredBackendAdapter:
         object.__setattr__(self, "federations", MappingProxyType(dict(self.federations)))
 
     def query_function(self) -> QueryFunction:
+        """Return the callback that queries the configured federations.
+
+        :return: Query callback consumed by the OPTIMADE request engine.
+        """
+
         def query(
             entries: list[str],
             response_fields: list[str],
@@ -236,6 +245,12 @@ def adapter_from_stores(
     endpoint.  The data layer owns all source/backing traversal and global
     pagination; this adapter advertises the family's definition and turns only
     the returned page into OPTIMADE result rows.
+
+    :param sources: Durable entry sources to federate by entry type.
+    :param \\*\\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+    :return: Lazy adapter over the supplied durable sources.
+    :raises ValueError: If sources conflict or expose incomplete sort mappings.
+    :raises TypeError: If a source is not a stored entry source.
     """
     from httk.data.db import StoredEntryFederation, StoredEntrySource, stored_property_sql_plan
 

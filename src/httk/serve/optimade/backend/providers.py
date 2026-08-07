@@ -96,6 +96,11 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     :func:`~httk.serve.optimade.backend.translation.translate_filter`, depth-1
     relationship-property filters such as ``references.doi CONTAINS "10.1"`` —
     therefore work without any hand-wiring.
+
+    :param providers: Generic entry providers supplying definitions, keys, records, and relationships.
+    :param \\*\\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+    :return: Fully wired in-memory backend adapter.
+    :raises ValueError: If provider keys or served properties are invalid.
     """
     served_map: dict[str, list[str]] = {}
     definitions: dict[str, EntryTypeDefinition] = {}
@@ -218,6 +223,8 @@ def providers_from_registry() -> dict[str, Callable[..., EntryProvider]]:
     :func:`httk.core.register_entry_provider` (through ``httk.registry.*``
     self-registration) into a callable. Providers need data, so applications
     instantiate them: ``providers_from_registry()["atomistic-structures"](data)``.
+
+    :return: Registered provider factories keyed by registry name.
     """
     from httk.core._plugins import resolve_callable
     from httk.core.register import entry_providers, known_entry_providers

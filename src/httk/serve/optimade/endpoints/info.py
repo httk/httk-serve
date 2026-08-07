@@ -1,3 +1,5 @@
+"""Generate OPTIMADE discovery and provider-link responses."""
+
 from typing import Any
 
 from ..model.config import OptimadeConfig
@@ -17,6 +19,13 @@ def _unversioned_baseurl(request: ValidatedRequest) -> str:
 def generate_info_endpoint_reply(
     request: ValidatedRequest, config: OptimadeConfig, schema: ServedSchema
 ) -> dict[str, Any]:
+    """Build the service ``/info`` response.
+
+    :param request: Validated request supplying the API version and base URL.
+    :param config: Service metadata and license configuration.
+    :param schema: Served entry types and properties.
+    :return: JSON:API service-info document.
+    """
     baseurl = _unversioned_baseurl(request)
     available_api_versions = []
     for ver in optimade_supported_versions:
@@ -60,6 +69,14 @@ def generate_info_endpoint_reply(
 def generate_entry_info_endpoint_reply(
     request: ValidatedRequest, config: OptimadeConfig, entry: str, schema: ServedSchema
 ) -> dict[str, Any]:
+    """Build the ``/info/{entry}`` response for one served entry type.
+
+    :param request: Validated request supplying response metadata context.
+    :param config: Service metadata configuration.
+    :param entry: Served entry endpoint name.
+    :param schema: Served entry definitions.
+    :return: JSON:API entry-info document.
+    """
     response: dict[str, Any] = {
         "data": {
             "id": entry,
@@ -85,6 +102,12 @@ def generate_entry_info_endpoint_reply(
 
 
 def generate_base_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig) -> str:
+    """Build the HTML response for the unversioned API base endpoint.
+
+    :param request: Validated request supplying the displayed API version.
+    :param config: Service configuration.
+    :return: HTML response body.
+    """
     return (
         """<!DOCTYPE html>
 <html lang="en">
@@ -104,12 +127,24 @@ def generate_base_endpoint_reply(request: ValidatedRequest, config: OptimadeConf
 
 
 def generate_versions_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig) -> str:
+    """Build the preference-ordered CSV of supported API major versions.
+
+    :param request: Validated request context.
+    :param config: Service configuration.
+    :return: Restricted ``/versions`` CSV body.
+    """
     return """version
 1
 """
 
 
 def generate_links_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig) -> dict[str, Any]:
+    """Build the provider-links response.
+
+    :param request: Validated request supplying response metadata context.
+    :param config: Service links and metadata configuration.
+    :return: JSON:API links document.
+    """
     links = config.links
     return {
         "data": [

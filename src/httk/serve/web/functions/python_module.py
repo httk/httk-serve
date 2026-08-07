@@ -1,3 +1,5 @@
+"""Load and invoke site-local Python function modules safely."""
+
 import hashlib
 import importlib.util
 import inspect
@@ -10,6 +12,11 @@ from typing import Any
 
 
 class PythonFunctionHandler:
+    """Load cached site function modules and invoke their public facades.
+
+    :param functions_dir: Directory containing trusted site function modules.
+    """
+
     def __init__(self, functions_dir: Path) -> None:
         self.functions_dir = functions_dir
         self._module_cache: dict[Path, ModuleType] = {}
@@ -18,6 +25,15 @@ class PythonFunctionHandler:
         self._sys_path_refcount: dict[str, int] = {}
 
     def execute(self, *, function_name: str, params: dict[str, str], global_data: dict[str, object]) -> Any:
+        """Execute a site function with request parameters and global data.
+
+        :param function_name: Relative function module name.
+        :param params: String parameters passed as keyword arguments.
+        :param global_data: Site-global values passed as ``global_data``.
+        :return: Value returned by the module's ``execute`` facade.
+        :raises FileNotFoundError: If the function module does not exist.
+        :raises ValueError: If the module path or execute facade is invalid.
+        """
         module_path = self._resolve_function_path(function_name)
         module = self._load_module(module_path)
 
@@ -38,7 +54,16 @@ class PythonFunctionHandler:
         request: object,
         provider_args: dict[str, object],
     ) -> Any:
-        """Call a contained site function module's explicit ``provide`` facade."""
+        """Call a contained site function module's explicit ``provide`` facade.
+
+        :param provider_name: Relative provider module name.
+        :param context: Immutable provider context.
+        :param request: Bounded table page request.
+        :param provider_args: Literal provider arguments from the widget.
+        :return: Value returned by the module's ``provide`` facade.
+        :raises FileNotFoundError: If the provider module does not exist.
+        :raises ValueError: If the module or provider signature is invalid.
+        """
 
         module_path = self._resolve_function_path(provider_name)
         module = self._load_module(module_path)

@@ -1,3 +1,5 @@
+"""Public request, response, configuration, and result models."""
+
 from .config import OptimadeConfig
 from .errors import OptimadeError, TranslatorError
 from .request import (

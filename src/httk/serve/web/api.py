@@ -1,3 +1,5 @@
+"""Expose high-level helpers for serving and publishing web sites."""
+
 from pathlib import Path
 
 from starlette.applications import Starlette
@@ -19,6 +21,16 @@ def create_asgi_app(
     debug: bool = False,
     table_token_secret: str | bytes | None = None,
 ) -> Starlette:
+    """Create an ASGI application for a site source directory.
+
+    :param srcdir: Site source directory.
+    :param baseurl: Optional site base URL used when building links.
+    :param compatibility_mode: Whether to use legacy site conventions.
+    :param config_name: Configuration module name.
+    :param debug: Whether to enable Starlette debug responses.
+    :param table_token_secret: Secret used to authenticate table continuation tokens.
+    :return: Configured Starlette application.
+    """
     config = SiteConfig.from_srcdir(
         srcdir=srcdir,
         baseurl=baseurl,
@@ -44,6 +56,17 @@ def serve(
     debug: bool = False,
     table_token_secret: str | bytes | None = None,
 ) -> None:
+    """Run a development server for a site source directory.
+
+    :param srcdir: Site source directory.
+    :param host: Interface on which to listen.
+    :param port: TCP port on which to listen.
+    :param baseurl: Optional site base URL used when building links.
+    :param compatibility_mode: Whether to use legacy site conventions.
+    :param config_name: Configuration module name.
+    :param debug: Whether to enable Starlette debug responses.
+    :param table_token_secret: Secret used to authenticate table continuation tokens.
+    """
     app = create_asgi_app(
         srcdir=srcdir,
         baseurl=baseurl,
@@ -70,6 +93,17 @@ def publish(
     config_name: str = "config",
     use_urls_without_ext: bool | None = None,
 ) -> PublishReport:
+    """Render a site source directory into static output files.
+
+    :param srcdir: Site source directory.
+    :param outdir: Destination directory for published files.
+    :param baseurl: Site base URL used when building links.
+    :param host_static: Optional host URL for static assets.
+    :param compatibility_mode: Whether to use legacy site conventions.
+    :param config_name: Configuration module name.
+    :param use_urls_without_ext: Whether published page links omit extensions.
+    :return: Report of files written and rendering warnings.
+    """
     publish_use_urls_without_ext = use_urls_without_ext if use_urls_without_ext is not None else not compatibility_mode
     config = SiteConfig.from_srcdir(
         srcdir=srcdir,

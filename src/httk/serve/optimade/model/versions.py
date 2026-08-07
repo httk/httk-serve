@@ -1,3 +1,5 @@
+"""Expose the supported and default OPTIMADE API versions."""
+
 from typing import Final
 
 optimade_supported_versions: Final[dict[str, str]] = {'v1': '1.3.0', 'v1.3': '1.3.0', 'v1.3.0': '1.3.0'}

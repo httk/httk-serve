@@ -1,3 +1,5 @@
+"""Publish rendered pages and only the widget assets they use."""
+
 import shutil
 from pathlib import Path
 
@@ -9,6 +11,13 @@ CONTENT_EXTENSIONS: set[str] = {".md", ".rst", ".html", ".httkweb"}
 
 
 def publish_site(*, engine: SiteEngine, outdir: str | Path) -> PublishReport:
+    """Publish a site engine into a static output directory.
+
+    :param engine: Site engine used to render pages and collect assets.
+    :param outdir: Destination directory for static output.
+    :return: Report of written files and rendering warnings.
+    :raises ValueError: If a used widget asset collides with site static output.
+    """
     output_root = Path(outdir).resolve()
     warnings: list[str] = []
     static_files: list[tuple[Path, Path]] = []

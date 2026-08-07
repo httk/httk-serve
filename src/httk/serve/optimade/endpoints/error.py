@@ -1,3 +1,5 @@
+"""Format exceptions as OPTIMADE JSON:API error responses."""
+
 from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError
 from ..model.request import EndpointResponse, RawRequest
@@ -11,6 +13,14 @@ def format_optimade_error(
     config: OptimadeConfig,
     version: str = optimade_default_version,
 ) -> EndpointResponse:
+    """Format an exception as an OPTIMADE error response.
+
+    :param ex: Exception raised while handling the request.
+    :param request: Raw request used to construct response metadata.
+    :param config: Service metadata configuration.
+    :param version: API version to report in response metadata.
+    :return: JSON:API error response.
+    """
     if isinstance(ex, OptimadeError):
         response_code = ex.response_code
         title = ex.response_msg

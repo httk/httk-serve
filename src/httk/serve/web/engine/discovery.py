@@ -1,3 +1,5 @@
+"""Resolve site routes to static files and renderable content sources."""
+
 from pathlib import Path
 
 from httk.serve.web.model.config import SiteConfig
@@ -7,6 +9,11 @@ DEFAULT_CONTENT_EXTENSIONS: tuple[str, ...] = (".md", ".rst", ".html", ".httkweb
 
 
 def normalize_route(route: str) -> str:
+    """Normalize a site route for lookup.
+
+    :param route: Route text supplied by a caller or request.
+    :return: Route without a leading slash, using ``index`` for the root.
+    """
     normalized = route.lstrip("/").strip()
     if normalized in {"", "."}:
         return "index"
@@ -22,6 +29,12 @@ def _is_within(path: Path, root: Path) -> bool:
 
 
 def resolve_route(config: SiteConfig, route: str) -> ResolvedRoute:
+    """Resolve a route against the configured static and content directories.
+
+    :param config: Site directory configuration.
+    :param route: Route to resolve.
+    :return: The matching static, content, or missing route description.
+    """
     normalized = normalize_route(route)
 
     static_candidate = (config.static_dir / normalized).resolve()
