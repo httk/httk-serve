@@ -1,0 +1,21 @@
+httk.serve
+==========
+
+.. py:module:: httk.serve
+
+.. autoapi-nested-parse::
+
+   Provide unified httk web-serving and OPTIMADE capabilities.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/optimade/index
+   /reference/autoapi/httk/serve/web/index
+
+

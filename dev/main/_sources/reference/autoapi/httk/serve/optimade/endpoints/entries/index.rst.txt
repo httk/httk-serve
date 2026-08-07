@@ -1,0 +1,51 @@
+httk.serve.optimade.endpoints.entries
+=====================================
+
+.. py:module:: httk.serve.optimade.endpoints.entries
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.endpoints.entries.RelatedResolver
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.endpoints.entries.generate_entry_endpoint_reply
+   httk.serve.optimade.endpoints.entries.generate_single_entry_endpoint_reply
+
+
+Module Contents
+---------------
+
+.. py:data:: RelatedResolver
+
+.. py:function:: generate_entry_endpoint_reply(request, config, data, related_resolver = None)
+
+   Build a JSON:API collection response for an entry endpoint.
+
+   :param request: Validated request controlling links and field selection.
+   :param config: Service configuration for metadata and links.
+   :param data: Query results for the current page.
+   :param related_resolver: Optional depth-one resolver for included resources.
+   :return: JSON:API collection document.
+
+
+.. py:function:: generate_single_entry_endpoint_reply(request, config, data, related_resolver = None)
+
+   Build a JSON:API single-resource response for an entry identifier.
+
+   :param request: Validated request controlling links and field selection.
+   :param config: Service configuration for metadata and links.
+   :param data: Query results expected to contain at most one row.
+   :param related_resolver: Optional depth-one resolver for included resources.
+   :return: JSON:API single-resource document.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If the query yields multiple rows or another page.
+
+

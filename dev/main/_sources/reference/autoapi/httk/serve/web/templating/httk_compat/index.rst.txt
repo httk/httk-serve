@@ -1,0 +1,67 @@
+httk.serve.web.templating.httk_compat
+=====================================
+
+.. py:module:: httk.serve.web.templating.httk_compat
+
+.. autoapi-nested-parse::
+
+   Provide legacy template resolution on top of Jinja rendering.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.templating.httk_compat.LEGACY_TEMPLATE_SUFFIXES
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.templating.httk_compat.HttkCompatTemplateEngine
+
+
+Module Contents
+---------------
+
+.. py:data:: LEGACY_TEMPLATE_SUFFIXES
+   :type:  tuple[str, Ellipsis]
+   :value: ('.httkweb.html', '.html', '.html.j2', '.jinja', '.j2')
+
+
+.. py:class:: HttkCompatTemplateEngine(template_dir)
+
+   Bases: :py:obj:`httk.serve.web.templating.jinja2_engine.JinjaTemplateEngine`
+
+
+   Legacy-oriented template resolution for old httkweb projects.
+
+   The compatibility engine keeps Jinja rendering but prioritizes legacy
+   template suffixes so old `.httkweb.html` files resolve first.
+
+   :param template_dir: Directory containing site templates.
+
+
+   .. py:method:: render(render_input)
+
+      Render page content using legacy-compatible template resolution.
+
+      :param render_input: Content, template names, and template context.
+      :return: Rendered HTML.
+
+
+
+   .. py:method:: render_fragment(*, template_name, context)
+
+      Render an optional fragment using legacy template conventions.
+
+      :param template_name: Fragment template name.
+      :param context: Values exposed to the fragment.
+      :return: Rendered fragment, or ``None`` when no template exists.
+
+
+

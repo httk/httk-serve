@@ -1,0 +1,124 @@
+httk.serve.optimade.backend.adapter
+===================================
+
+.. py:module:: httk.serve.optimade.backend.adapter
+
+.. autoapi-nested-parse::
+
+   Adapt store/searcher implementations to the OPTIMADE backend contract.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.adapter.FieldExtractor
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.adapter.EntrySource
+   httk.serve.optimade.backend.adapter.BackendAdapter
+
+
+Module Contents
+---------------
+
+.. py:type:: FieldExtractor
+   :canonical: Callable[[Any], Any]
+
+
+.. py:class:: EntrySource
+
+   Describe one queryable source behind an OPTIMADE entry endpoint.
+
+   ``target`` is what gets passed to ``searcher.variable()``; ``fields`` maps
+   OPTIMADE response-field names to extractors applied to matched row objects.
+   ``relationships``, when set, is an extractor mapping a matched row to a
+   dictionary keyed by related entry type, each value a list of
+   ``{'id': str, 'description': str?, 'role': str?}`` dictionaries.
+   ``sort_keys`` maps response-field names to the backend field names to sort
+   on. ``property_metadata`` maps response-field names to extractors returning
+   the per-property metadata dictionary for a matched row (or ``None`` when
+   there is no metadata for that row).
+
+   :param target: Store-specific target passed to ``searcher.variable``.
+   :param fields: Response-field extractors applied to matched rows.
+   :param sort_keys: Response-field to backend-sort-field mappings.
+   :param relationships: Optional extractor for related-resource data.
+   :param property_metadata: Optional per-property metadata extractors.
+
+
+   .. py:attribute:: target
+      :type:  Any
+
+
+   .. py:attribute:: fields
+      :type:  collections.abc.Mapping[str, FieldExtractor]
+
+
+   .. py:attribute:: sort_keys
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: relationships
+      :type:  FieldExtractor | None
+      :value: None
+
+
+
+   .. py:attribute:: property_metadata
+      :type:  collections.abc.Mapping[str, FieldExtractor]
+
+
+.. py:class:: BackendAdapter
+
+   Bind a store to the OPTIMADE entry endpoints it serves.
+
+   ``sources`` maps entry endpoint names (e.g. ``'structures'``) to the
+   sources queried for that endpoint; an endpoint with several sources (e.g.
+   several calculation result types) is queried across all of them.
+
+   ``schema`` is required: it declares the served entry types and properties.
+   ``field_handlers`` maps each entry type to its filter-handler table. When
+   omitted (left empty) it is derived from ``schema`` via
+   :func:`~httk.data.query.optimade_filters.simple_property_handlers`, using an
+   identity property-key map (each property is filtered against a backend field
+   of the same name); a backend whose field names differ, or that wants finer
+   control, supplies its own tables instead.
+
+   :param store: Store implementing the neutral query protocol.
+   :param sources: Queryable sources keyed by entry endpoint.
+   :param schema: Required schema describing served entries and properties.
+   :param field_handlers: Optional filter handlers keyed by entry endpoint.
+
+
+   .. py:attribute:: store
+      :type:  httk.data.query.Store
+
+
+   .. py:attribute:: sources
+      :type:  collections.abc.Mapping[str, collections.abc.Sequence[EntrySource]]
+
+
+   .. py:attribute:: schema
+      :type:  httk.serve.optimade.schema.served.ServedSchema
+
+
+   .. py:attribute:: field_handlers
+      :type:  collections.abc.Mapping[str, httk.data.query.optimade_filters.HandlerTable]
+
+
+   .. py:method:: query_function()
+
+      Return the callback that executes queries through this adapter.
+
+      :return: Query callback consumed by the OPTIMADE request engine.
+
+
+

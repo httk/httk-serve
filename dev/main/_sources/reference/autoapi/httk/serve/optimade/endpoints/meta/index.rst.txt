@@ -1,0 +1,45 @@
+httk.serve.optimade.endpoints.meta
+==================================
+
+.. py:module:: httk.serve.optimade.endpoints.meta
+
+.. autoapi-nested-parse::
+
+   Build OPTIMADE response metadata and collected warning entries.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.endpoints.meta.merge_collected_warnings
+   httk.serve.optimade.endpoints.meta.generate_meta
+
+
+Module Contents
+---------------
+
+.. py:function:: merge_collected_warnings(json_response)
+
+   Merge the innermost active report collection into response metadata.
+
+   :param json_response: JSON:API document whose ``meta.warnings`` is updated.
+
+
+.. py:function:: generate_meta(*, representation, api_version, config, data_count = None, more_data_available = False, data_available = None, warnings = None, last_id = None)
+
+   Build the OPTIMADE response metadata object.
+
+   :param representation: Request representation recorded in metadata.
+   :param api_version: OPTIMADE version used for the response.
+   :param config: Service metadata configuration.
+   :param data_count: Number of entries returned in this response.
+   :param more_data_available: Whether another page is available.
+   :param data_available: Total matches for the current query.
+   :param warnings: Warnings already associated with the request.
+   :param last_id: Identifier of the final returned entry.
+   :return: OPTIMADE metadata mapping.
+
+

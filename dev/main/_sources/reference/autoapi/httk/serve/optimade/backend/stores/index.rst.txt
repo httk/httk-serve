@@ -1,0 +1,80 @@
+httk.serve.optimade.backend.stores
+==================================
+
+.. py:module:: httk.serve.optimade.backend.stores
+
+.. autoapi-nested-parse::
+
+   Build an OPTIMADE adapter over lazy SQL-backed entry federation.
+
+   The durable layout, SQL translation, collision policy, and bounded global
+   pagination live in :mod:`httk.data.db`.  This module owns only the serving
+   boundary: the advertised OPTIMADE schema, request-error translation, public
+   response-field projection, and :class:`~httk.serve.optimade.model.ResultRow`
+   objects consumed by the endpoint envelope code.
+
+   Imports from ``httk.data.db`` deliberately remain inside call sites.  Importing
+   ``httk.serve.optimade`` therefore does not initialize a database backend or
+   load optional SQL dialects.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.stores.StoredBackendAdapter
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.stores.adapter_from_stores
+
+
+Module Contents
+---------------
+
+.. py:class:: StoredBackendAdapter
+
+   Serve one data federation per OPTIMADE entry type.
+
+   :param federations: Durable federations keyed by entry endpoint.
+   :param schema: Schema describing the federations' served entries.
+
+
+   .. py:attribute:: federations
+      :type:  collections.abc.Mapping[str, Any]
+
+
+   .. py:attribute:: schema
+      :type:  httk.serve.optimade.schema.served.ServedSchema
+
+
+   .. py:method:: query_function()
+
+      Return the callback that queries the configured federations.
+
+      :return: Query callback consumed by the OPTIMADE request engine.
+
+
+
+.. py:function:: adapter_from_stores(sources, **options)
+
+   Build a lazy store-backed adapter from durable entry sources.
+
+   Sources with the same exact logical family are federated under one entry
+   endpoint.  The data layer owns all source/backing traversal and global
+   pagination; this adapter advertises the family's definition and turns only
+   the returned page into OPTIMADE result rows.
+
+   :param sources: Durable entry sources to federate by entry type.
+   :param \*\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+   :return: Lazy adapter over the supplied durable sources.
+   :raises ValueError: If sources conflict or expose incomplete sort mappings.
+   :raises TypeError: If a source is not a stored entry source.
+
+

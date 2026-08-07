@@ -1,0 +1,333 @@
+httk.serve.optimade.backend.memory_store
+========================================
+
+.. py:module:: httk.serve.optimade.backend.memory_store
+
+.. autoapi-nested-parse::
+
+   A generic in-memory store implementing the httk store/searcher protocols.
+
+   Rows are plain dicts keyed by backend record keys, and search expressions
+   evaluate as predicates over those rows. It is the reference
+   :class:`~httk.data.query.Store` implementation: it backs the
+   example demo server and is what
+   :func:`~httk.serve.optimade.backend.providers.adapter_from_providers` loads an
+   :class:`~httk.core.EntryProvider`'s records into.
+
+   Set operations evaluate exactly here — ``has_any``/``has_only`` are plain set
+   predicates over the row's list value, and ``~`` negates them directly. The SQL
+   backend needs an aggregate rendering and a second (HAVING) evaluation position
+   to say the same thing, but that is entirely its own business: the neutral
+   protocol only ever hands a store one expression per ``searcher.add`` call.
+
+   String matching is literal here too (``contains``/``startswith``/``endswith``
+   are plain :class:`str` operations), which is exactly what the neutral protocol
+   promises — no pattern language is involved at any point.
+
+   Iteration yields :class:`~httk.data.query.SearchResult` values, one entry in
+   ``values`` per :meth:`MemorySearcher.output` call: a variable output yields the
+   whole row dict, a field output the row's value for that field.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.memory_store.Row
+   httk.serve.optimade.backend.memory_store.Predicate
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.memory_store.MemoryExpression
+   httk.serve.optimade.backend.memory_store.MemoryField
+   httk.serve.optimade.backend.memory_store.MemoryVariable
+   httk.serve.optimade.backend.memory_store.MemorySearcher
+   httk.serve.optimade.backend.memory_store.InMemoryStore
+   httk.serve.optimade.backend.memory_store.MemoryResultSet
+
+
+Module Contents
+---------------
+
+.. py:data:: Row
+
+.. py:data:: Predicate
+
+.. py:class:: MemoryExpression(predicate)
+
+   Represent a boolean predicate over an in-memory row.
+
+   :param predicate: Function returning whether a row matches.
+
+
+   .. py:attribute:: predicate
+
+
+.. py:class:: MemoryField(name)
+
+   Represent a named field in an in-memory row.
+
+   :param name: Row key addressed by the field.
+
+
+   .. py:attribute:: name
+
+
+   .. py:method:: startswith(other)
+
+      Match string values that start with ``other``.
+
+      :param other: Prefix to match.
+      :return: Matching predicate.
+
+
+
+   .. py:method:: endswith(other)
+
+      Match string values that end with ``other``.
+
+      :param other: Required string suffix.
+      :return: Matching predicate.
+
+
+
+   .. py:method:: contains(other)
+
+      Match string values containing ``other``.
+
+      :param other: Required substring.
+      :return: Matching predicate.
+
+
+
+   .. py:method:: is_in(*values)
+
+      Match a scalar field against supplied values.
+
+      :param \*values: Candidate scalar values.
+      :return: Matching predicate.
+
+
+
+   .. py:method:: has(value)
+
+      Match list values containing ``value``.
+
+      :param value: Required list member.
+      :return: Matching predicate.
+
+
+
+   .. py:method:: has_any(*values)
+
+      Match list values containing any supplied member.
+
+      :param \*values: Candidate list members.
+      :return: Matching predicate.
+
+
+
+   .. py:method:: has_only(*values)
+
+      Match list values containing no members outside the supplied set.
+
+      :param \*values: Allowed list members.
+      :return: Matching predicate.
+
+
+
+.. py:class:: MemoryVariable(target)
+
+   A query variable over one table of rows; attribute access yields fields.
+
+   ``always_true``/``always_false`` are real methods, declared before the
+   catch-all ``__getattr__`` so they win over it — they are reserved names
+   that never resolve to a row key.
+
+   :param target: Table name used by the searcher.
+
+
+   .. py:attribute:: target
+
+
+   .. py:method:: always_true()
+
+      Return a predicate that matches every row.
+
+      :return: Always-true predicate.
+
+
+
+   .. py:method:: always_false()
+
+      Return a predicate that matches no row.
+
+      :return: Always-false predicate.
+
+
+
+.. py:class:: MemorySearcher(tables)
+
+   Build and execute a query over in-memory row tables.
+
+   :param tables: Row lists keyed by table name.
+
+
+   .. py:attribute:: offset
+      :value: 0
+
+
+
+   .. py:method:: variable(target)
+
+      Select a table and return its query variable.
+
+      :param target: Table name to select.
+      :return: Variable addressing the selected table.
+
+
+
+   .. py:method:: output(variable, name)
+
+      Append a whole-row or field output.
+
+      :param variable: Variable for a whole row or field for one value.
+      :param name: Output name.
+      :raises TypeError: If ``variable`` is neither a variable nor a field.
+
+
+
+   .. py:method:: add(expression)
+
+      Add a predicate to the query.
+
+      :param expression: Predicate to apply to each row.
+
+
+
+   .. py:method:: add_sort(field, descending)
+
+      Append a sort key.
+
+      :param field: Field used for ordering.
+      :param descending: Sort in descending order when true.
+
+
+
+   .. py:method:: count()
+
+      Return the number of rows matching the current query.
+
+      :return: Number of matching rows before paging.
+
+
+
+   .. py:method:: set_limit(limit)
+
+      Set the maximum number of rows returned by this query.
+
+      :param limit: Maximum result count; a negative value means unbounded.
+
+
+
+   .. py:method:: add_offset(offset)
+
+      Advance the query offset.
+
+      :param offset: Number of matching rows to skip.
+
+
+
+   .. py:method:: results(**outputs)
+
+      Return a result set for selected outputs.
+
+      :param \*\*outputs: Optional output names mapped to variables or fields.
+      :return: Materialized result set.
+      :raises TypeError: If an output is not a variable or field.
+      :raises ValueError: If no outputs are selected.
+
+
+
+.. py:class:: InMemoryStore(tables)
+
+   Provide a store over dictionary rows.
+
+   :param tables: Row lists keyed by table name.
+
+
+   .. py:attribute:: tables
+
+
+   .. py:method:: searcher()
+
+      Create a searcher over this store's tables.
+
+      :return: Fresh in-memory searcher.
+
+
+
+.. py:class:: MemoryResultSet(rows, outputs)
+
+   Represent rows projected from an in-memory query.
+
+   :param rows: Matching rows after paging.
+   :param outputs: Named variables or fields projected from each row.
+
+
+   .. py:method:: first()
+
+      Return the first result, if present.
+
+      :return: First result or ``None``.
+
+
+
+   .. py:method:: one()
+
+      Return the only result.
+
+      :return: The sole result.
+      :raises httk.data.NoResultError: If the result set is empty.
+      :raises httk.data.MultipleResultsError: If it has more than one result.
+
+
+
+   .. py:method:: scalars(name = None)
+
+      Iterate one named scalar output from each result.
+
+      :param name: Output name, or ``None`` when exactly one output exists.
+      :return: Iterator over scalar values.
+      :raises KeyError: If ``name`` is not declared.
+      :raises ValueError: If no name is given and multiple outputs exist.
+
+
+
+   .. py:method:: column(name)
+      :abstractmethod:
+
+
+      Reject SQL-style column access for in-memory results.
+
+      :param name: Unsupported column name.
+      :raises NotImplementedError: In-memory results have no column proxy.
+
+
+
+   .. py:method:: cursor()
+      :abstractmethod:
+
+
+      Reject SQL-style cursor access for in-memory results.
+
+      :raises NotImplementedError: In-memory results have no cursor proxy.
+
+
+

@@ -1,0 +1,64 @@
+httk.serve.optimade.model.errors
+================================
+
+.. py:module:: httk.serve.optimade.model.errors
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.errors.OptimadeError
+   httk.serve.optimade.model.errors.TranslatorError
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.errors.translator_error_from
+
+
+Module Contents
+---------------
+
+.. py:exception:: OptimadeError(message, response_code, response_message, longmsg = None)
+
+   Bases: :py:obj:`Exception`
+
+
+   Represent an OPTIMADE response error.
+
+   :param message: Short error detail used as the exception message.
+   :param response_code: HTTP status code returned to the client.
+   :param response_message: HTTP status title returned to the client.
+   :param longmsg: Optional longer error detail returned in the response.
+
+
+   .. py:attribute:: response_code
+
+
+   .. py:attribute:: response_msg
+
+
+   .. py:attribute:: content
+
+
+.. py:exception:: TranslatorError(message, response_code, response_message, longmsg = None)
+
+   Bases: :py:obj:`OptimadeError`
+
+
+   Represent a filter translation failure with an HTTP response contract.
+
+
+.. py:function:: translator_error_from(error)
+
+   Wrap a neutral :class:`~httk.data.FilterTranslationError` for HTTP output.
+
+   :param error: Neutral filter translation failure to classify.
+   :return: A translated error carrying the corresponding HTTP status.
+
+

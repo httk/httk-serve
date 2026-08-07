@@ -1,0 +1,101 @@
+httk.serve.web.widgets.optimade_table
+=====================================
+
+.. py:module:: httk.serve.web.widgets.optimade_table
+
+.. autoapi-nested-parse::
+
+   The HTML/configuration boundary for the browser-driven OPTIMADE table.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_URL_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_IDENTIFIER_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_TEXT_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_LABEL_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_ORIGINS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_COLUMNS
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_table.OptimadeTableProtocolError
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_table.render
+
+
+Module Contents
+---------------
+
+.. py:data:: MAX_OPTIMADE_URL_CHARS
+   :value: 2048
+
+
+.. py:data:: MAX_OPTIMADE_IDENTIFIER_CHARS
+   :value: 128
+
+
+.. py:data:: MAX_OPTIMADE_TEXT_CHARS
+   :value: 4096
+
+
+.. py:data:: MAX_OPTIMADE_LABEL_CHARS
+   :value: 256
+
+
+.. py:data:: MAX_OPTIMADE_ORIGINS
+   :value: 16
+
+
+.. py:data:: MAX_OPTIMADE_COLUMNS
+   :value: 32
+
+
+.. py:exception:: OptimadeTableProtocolError
+
+   Bases: :py:obj:`ValueError`
+
+
+   A declared OPTIMADE table shell cannot meet the browser protocol.
+
+
+.. py:function:: render(context, *, base_url, entry_type = 'structures', columns, page_size = 50, caption = 'OPTIMADE results', filter = None, filter_query = None, sort = None, allowed_origins = (), detail_route = None, detail_column = None, detail_query = 'id')
+
+   Render an inert, accessible OPTIMADE table shell and trusted assets.
+
+   The browser negotiates continuation URLs from inert configuration; those
+   URLs are not placed in DOM attributes, events, storage, or history.
+   ``allowed_origins`` is a client continuation allow-list, not an access
+   control boundary. ``filter_query`` replaces the whole browser filter.
+
+   :param context: Immutable widget invocation context.
+   :param base_url: Origin- or path-relative OPTIMADE endpoint base URL.
+   :param entry_type: OPTIMADE entry resource type.
+   :param columns: Column names or column mappings to display.
+   :param page_size: Number of entries requested per browser page.
+   :param caption: Accessible table caption.
+   :param filter: Initial OPTIMADE filter expression.
+   :param filter_query: Whole-filter query parameter name used by the browser.
+   :param sort: Optional OPTIMADE sort expression.
+   :param allowed_origins: Client-side allow-list for continuation origins.
+   :param detail_route: Optional site route for entry details.
+   :param detail_column: Column supplying the detail value.
+   :param detail_query: Query parameter receiving the detail value.
+   :return: Accessible table shell and its trusted assets.
+   :raises OptimadeTableProtocolError: If configuration violates the browser protocol.
+
+

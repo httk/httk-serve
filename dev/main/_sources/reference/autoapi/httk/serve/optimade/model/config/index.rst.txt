@@ -1,0 +1,110 @@
+httk.serve.optimade.model.config
+================================
+
+.. py:module:: httk.serve.optimade.model.config
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.config.OptimadeConfig
+
+
+Module Contents
+---------------
+
+.. py:class:: OptimadeConfig
+
+   Configure a served OPTIMADE database.
+
+   ``implementation`` extends/overrides the fields of the ``meta`` ->
+   ``implementation`` dictionary (e.g. ``issue_tracker``, ``source_url``,
+   ``maintainer``). ``database``, ``schema_url``, and ``request_delay``
+   populate the corresponding optional ``meta`` fields (OPTIMADE v1.2+)
+   when set. ``license``, ``available_licenses``, and
+   ``available_licenses_for_entries`` populate the corresponding optional
+   base-info attributes when set. ``data_available`` is filled in by
+   ``process_init`` with the number of available entries per entry endpoint.
+
+   :param provider: Provider metadata for the OPTIMADE response envelope.
+   :param links: Provider links exposed by the ``/links`` endpoint.
+   :param implementation: Implementation metadata merged into response metadata.
+   :param database: Optional database metadata for response metadata.
+   :param schema_url: URL of the served schema, when one is available.
+   :param request_delay: Optional advertised request delay.
+   :param license: License metadata exposed by the base-info endpoint.
+   :param available_licenses: Licenses advertised for the service.
+   :param available_licenses_for_entries: Licenses advertised for entries.
+   :param data_available: Per-entry-type counts populated during app creation.
+   :param partial_data_chunk_size: Number of outer items emitted per partial-data page.
+   :param cors_origins: Exact browser origins allowed to make cross-origin requests.
+
+
+   .. py:attribute:: provider
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: links
+      :type:  list[dict[str, Any]]
+      :value: []
+
+
+
+   .. py:attribute:: implementation
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: database
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+   .. py:attribute:: schema_url
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_delay
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: license
+      :type:  dict[str, Any] | str | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses_for_entries
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: data_available
+      :type:  dict[str, int]
+
+
+   .. py:attribute:: partial_data_chunk_size
+      :type:  int
+      :value: 1000
+
+
+
+   .. py:attribute:: cors_origins
+      :type:  tuple[str, Ellipsis]
+      :value: ()
+
+
+

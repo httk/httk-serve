@@ -1,0 +1,43 @@
+httk.serve.optimade.runtime.asgi
+================================
+
+.. py:module:: httk.serve.optimade.runtime.asgi
+
+.. autoapi-nested-parse::
+
+   Mount-aware Starlette runtime for the generic OPTIMADE engine.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.runtime.asgi.create_app
+
+
+Module Contents
+---------------
+
+.. py:function:: create_app(*, query_function, config, schema, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Create a mount-aware ASGI application for an explicit schema and query callback.
+
+   An explicit ``baseurl`` is authoritative. Without one, the application
+   derives links from the request origin and ASGI ``root_path``, preserving the
+   mount path and exactly one version segment. CORS remains disabled unless
+   ``config.cors_origins`` contains a bounded exact allow-list; request report
+   collections are merged into response warnings, including error responses.
+
+   :param query_function: Callback that executes entry queries.
+   :param config: Service and runtime configuration.
+   :param schema: Required schema describing served entries and properties.
+   :param baseurl: Authoritative public API base URL, or ``None`` for derivation.
+   :param debug: Enable Starlette and backend diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+   :return: Configured Starlette ASGI application.
+   :raises ValueError: If configured CORS origins are invalid or excessive.
+
+

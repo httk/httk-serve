@@ -1,0 +1,53 @@
+httk.serve.optimade.api
+=======================
+
+.. py:module:: httk.serve.optimade.api
+
+.. autoapi-nested-parse::
+
+   Public helpers for creating and running generic OPTIMADE applications.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.api.create_asgi_app
+   httk.serve.optimade.api.serve
+
+
+Module Contents
+---------------
+
+.. py:function:: create_asgi_app(adapter, config = None, *, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Create an ASGI application serving an OPTIMADE API for a backend.
+
+   An absent ``baseurl`` makes the application derive a mount-aware URL from
+   the request. An explicit value is authoritative.
+
+   :param adapter: Backend providing the explicit served schema and query callback.
+   :param config: Optional service configuration.
+   :param baseurl: Public API base URL, or ``None`` for request-based derivation.
+   :param debug: Enable application and backend diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+   :return: Configured Starlette ASGI application.
+
+
+.. py:function:: serve(adapter, config = None, *, host = '127.0.0.1', port = 8080, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Serve an OPTIMADE API for a backend with a development web server.
+
+   :param adapter: Backend providing the explicit served schema and query callback.
+   :param config: Optional service configuration.
+   :param host: Interface or hostname to bind.
+   :param port: TCP port to bind.
+   :param baseurl: Public API base URL, or ``None`` to derive the local URL.
+   :param debug: Enable application and backend diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+
+

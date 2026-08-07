@@ -1,0 +1,85 @@
+httk.serve.optimade.engine
+==========================
+
+.. py:module:: httk.serve.optimade.engine
+
+.. autoapi-nested-parse::
+
+   Public request-validation and endpoint-dispatch helpers.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/optimade/engine/processing/index
+   /reference/autoapi/httk/serve/optimade/engine/validate/index
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.engine.process
+   httk.serve.optimade.engine.process_init
+   httk.serve.optimade.engine.determine_optimade_version
+   httk.serve.optimade.engine.validate_optimade_request
+
+
+Package Contents
+----------------
+
+.. py:function:: process(request, query_function, version, config, schema, *, debug = False)
+
+   Process one OPTIMADE query.
+
+   ``request`` carries the incoming request; only ``baseurl`` and
+   ``representation`` must be set, missing information is derived from
+   ``representation``. ``query_function`` is the callback used to execute
+   entry queries against the backend. ``schema`` describes the served entry
+   types and properties.
+
+   :param request: Raw request to validate and dispatch.
+   :param query_function: Backend callback used for entry queries.
+   :param version: API version selected for the request.
+   :param config: Service response configuration.
+   :param schema: Explicit served schema for endpoint validation.
+   :param debug: Enable backend diagnostics.
+   :return: Endpoint response before web serialization.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If request validation or endpoint processing fails.
+
+
+.. py:function:: process_init(config, query_function, schema, *, debug = False)
+
+   Precompute entry counts for endpoint metadata.
+
+   :param config: Service configuration to populate.
+   :param query_function: Backend callback used to count entries.
+   :param schema: Explicit served schema whose entry types are counted.
+   :param debug: Enable backend diagnostics.
+
+
+.. py:function:: determine_optimade_version(request)
+
+   Determine the OPTIMADE version named by a request path.
+
+   :param request: Raw request whose relative path is inspected.
+   :return: Supported API version, using the default when unversioned.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If the path names an unsupported version.
+
+
+.. py:function:: validate_optimade_request(request, version, schema)
+
+   Validate a raw request against an explicit served schema.
+
+   :param request: Raw request supplied by the web layer.
+   :param version: API version selected for the request.
+   :param schema: Served entry and property schema.
+   :return: Canonical request and validated query parameters.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If the path, version, or query is invalid.
+
+

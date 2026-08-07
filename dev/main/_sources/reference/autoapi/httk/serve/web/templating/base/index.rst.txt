@@ -1,0 +1,69 @@
+httk.serve.web.templating.base
+==============================
+
+.. py:module:: httk.serve.web.templating.base
+
+.. autoapi-nested-parse::
+
+   Define template render inputs and the engine protocol.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.templating.base.TemplateRenderInput
+   httk.serve.web.templating.base.TemplateEngine
+
+
+Module Contents
+---------------
+
+.. py:class:: TemplateRenderInput
+
+   Carry page content and context into a template engine.
+
+   :param content_html: Rendered page HTML supplied to the template.
+   :param template_name: Optional content template name.
+   :param base_template_name: Optional base template name.
+   :param context: Values exposed to templates.
+
+
+   .. py:attribute:: content_html
+      :type:  str
+
+
+   .. py:attribute:: template_name
+      :type:  str | None
+
+
+   .. py:attribute:: base_template_name
+      :type:  str | None
+
+
+   .. py:attribute:: context
+      :type:  dict[str, object]
+
+
+.. py:class:: TemplateEngine
+
+   Bases: :py:obj:`Protocol`
+
+
+   Define the page and fragment template-engine protocol.
+
+
+   .. py:method:: render(render_input)
+
+      Render page content through the configured templates.
+
+
+
+   .. py:method:: render_fragment(*, template_name, context)
+
+      Render one optional fragment template.
+
+
+
