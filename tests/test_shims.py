@@ -2,12 +2,12 @@
 
 Phase 3 of the filter-language migration moved the parser to
 ``httk.core.optimade`` and the generic handlers/translation to
-``httk.data.query.optimade_filters``; ``httk.serve.optimade.filter`` and
+``httk.store.query.optimade_filters``; ``httk.serve.optimade.filter`` and
 ``httk.serve.optimade.backend.handlers`` remain as pure re-export shims.
 """
 
 import httk.core.optimade
-import httk.data.query.optimade_filters
+import httk.store.query.optimade_filters
 
 import httk.serve.optimade.backend.handlers
 import httk.serve.optimade.filter
@@ -47,7 +47,7 @@ def test_handlers_shim_exports_historical_all() -> None:
         "simple_property_handlers",
     ]
     for name in httk.serve.optimade.backend.handlers.__all__:
-        assert getattr(httk.serve.optimade.backend.handlers, name) is getattr(httk.data.query.optimade_filters, name)
+        assert getattr(httk.serve.optimade.backend.handlers, name) is getattr(httk.store.query.optimade_filters, name)
 
 
 def test_parse_optimade_filter_is_the_core_function() -> None:

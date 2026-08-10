@@ -174,7 +174,7 @@ def test_late_warning_is_added_after_reply_meta_was_built(monkeypatch: pytest.Mo
     assert any(warning["detail"] == "late-warning" for warning in response.json()["meta"]["warnings"])
 
 
-def test_httk_data_unknown_provider_property_warning() -> None:
+def test_httk_store_unknown_provider_property_warning() -> None:
     class Row:
         sid = "demo-1"
 

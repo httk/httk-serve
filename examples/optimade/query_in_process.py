@@ -15,7 +15,7 @@ developing a provider: the whole API surface is available synchronously, and a
 failure is a normal Python traceback rather than a log line in a server that is
 still running.
 
-The data here comes from the ready-made providers *httk-data* registers for the
+The data here comes from the ready-made providers *httk-store* registers for the
 standard `files` and `calculations` entry types, so no provider class has to be
 written to have something to query — see
 [Serving entry providers](../optimade/serving_providers.md) for how to write your own,
@@ -49,7 +49,7 @@ import json
 from typing import Any
 
 from httk.core import RelatedEntry
-from httk.data.entry_providers import CalculationEntryProvider, FileEntryProvider
+from httk.store.entry_providers import CalculationEntryProvider, FileEntryProvider
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import adapter_from_providers, create_asgi_app

@@ -8,7 +8,7 @@ execution tests). Expressions are plain nested tuples built by ``FakeColumn``.
 from collections.abc import Iterator
 from typing import Any
 
-from httk.data.query import ResultRow, ResultRowLike, ResultSetLike, SearchResult
+from httk.store.query import ResultRow, ResultRowLike, ResultSetLike, SearchResult
 
 
 class FakeExpression:

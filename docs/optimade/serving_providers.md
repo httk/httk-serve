@@ -223,9 +223,9 @@ both kinds of relationship filtering) is in `examples/optimade/provider_server/`
 
 Provider packages can self-register a factory from a registration package
 under the reserved entries tier (`httk.registry.entries.<module>`) via
-`httk.core.register_entry_provider`. For example, *httk-data* registers
+`httk.core.register_entry_provider`. For example, *httk-store* registers
 in-memory providers for the standard `references`/`files`/`calculations` entry
-types (as `data-references`/`data-files`/`data-calculations`), and
+types (as `store-references`/`store-files`/`store-calculations`), and
 *httk-atomistic* registers `atomistic-structures`. `providers_from_registry`
 resolves everything registered in the current environment; since providers need
 data, you instantiate them:

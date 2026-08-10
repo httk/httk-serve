@@ -15,7 +15,7 @@ from math import gcd
 from typing import Any
 
 from httk.core import EntryTypeDefinition, PropertyDefinition, standard_entry_type
-from httk.data.query.optimade_filters import relationship_id_handler
+from httk.store.query.optimade_filters import relationship_id_handler
 
 from httk.serve.optimade import (
     BackendAdapter,

@@ -14,7 +14,7 @@ from httk.atomistic import (
     UnitcellStructureRecord,
     UnitcellStructureView,
 )
-from httk.data.db import Database, SqlStore, StoredEntrySource
+from httk.store.db import Database, SqlStore, StoredEntrySource
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import adapter_from_providers, adapter_from_stores, create_asgi_app

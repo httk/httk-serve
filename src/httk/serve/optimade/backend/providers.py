@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry
-from httk.data.query.optimade_filters import (
+from httk.store.query.optimade_filters import (
     HandlerTable,
     relationship_id_handler,
 )
@@ -67,7 +67,7 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     entry types (described by their :class:`~httk.core.EntryTypeDefinition`), its
     :meth:`~httk.core.EntryProvider.property_keys` name the served subset and drive
     both the filter handlers (via
-    :func:`~httk.data.query.optimade_filters.simple_property_handlers`) and the
+    :func:`~httk.store.query.optimade_filters.simple_property_handlers`) and the
     response-field extractors, and its
     :meth:`~httk.core.EntryProvider.records` are loaded into an
     :class:`~httk.serve.optimade.backend.memory_store.InMemoryStore`. Every served
@@ -88,7 +88,7 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     is materialized on EVERY row of that entry type (an empty list when the row
     has no related entries of that type, so inverse set semantics are
     well-defined), and a ``'<related_type>.id'`` entry built with
-    :func:`~httk.data.query.optimade_filters.relationship_id_handler` is merged into the
+    :func:`~httk.store.query.optimade_filters.relationship_id_handler` is merged into the
     entry type's derived filter-handler table (never overwriting an entry
     already present, mirroring how :class:`~httk.serve.optimade.backend.adapter.BackendAdapter`
     respects explicitly supplied handler tables). ``<related_type>.id HAS ...``

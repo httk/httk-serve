@@ -19,7 +19,7 @@ import pytest
 from httk.atomistic import Species, StructureEntryProvider, UnitcellStructure
 from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry, load_entry_type_definition
 from httk.core.optimade import OptimadeResource
-from httk.data.db import Database, SqlStore
+from httk.store.db import Database, SqlStore
 
 from httk.serve.optimade import OptimadeStore, adapter_from_providers, create_asgi_app
 from httk.serve.optimade.backend.memory_store import InMemoryStore

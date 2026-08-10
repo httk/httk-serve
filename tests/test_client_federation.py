@@ -14,8 +14,8 @@ import httpx
 import pytest
 from httk.atomistic import OptimadeStructure
 from httk.core import EntryProvider, EntryTypeDefinition, load_entry_type_definition
-from httk.data import FederatedSourceError, FederatedStore, MultipleResultsError
-from httk.data.db import Database, SqlStore
+from httk.store import FederatedSourceError, FederatedStore, MultipleResultsError
+from httk.store.db import Database, SqlStore
 
 from httk.serve.optimade import OptimadeStore, OptimadeTransportError, adapter_from_providers, create_asgi_app
 

@@ -16,7 +16,7 @@ from httk.atomistic import (
     StructureEntry,
     UnitcellStructureRecord,
 )
-from httk.data.db import (
+from httk.store.db import (
     Database,
     DuplicateEntryIdError,
     SqlStore,

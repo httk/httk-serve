@@ -8,7 +8,7 @@ directory, not against the directory pytest was started in.
 
 It matters whenever a repository is tested straight from a source checkout
 rather than from an install — the sibling httk repositories are developed that
-way, with invocations such as ``PYTHONPATH=src:../httk-data/src pytest``. Left
+way, with invocations such as ``PYTHONPATH=src:../httk-store/src pytest``. Left
 alone, those relative entries would resolve against the temporary directory in
 the child process and point at nothing, so every example would fail to import
 its own package: a false failure that says nothing about the example.

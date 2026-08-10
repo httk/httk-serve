@@ -11,7 +11,7 @@ repository-url = "https://github.com/httk/httk-core"
 main-branch = "main"
 
 [[internal-dependency]]
-distribution = "httk-data"
-slug = "httk-data"
-repository-url = "https://github.com/httk/httk-data"
+distribution = "httk-store"
+slug = "httk-store"
+repository-url = "https://github.com/httk/httk-store"
 main-branch = "main"

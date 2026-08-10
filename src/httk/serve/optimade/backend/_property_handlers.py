@@ -3,9 +3,9 @@
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from httk.data import FilterTranslationError
-from httk.data.query import SearchExpression, SearchVariable
-from httk.data.query.optimade_filters import simple_property_handlers
+from httk.store import FilterTranslationError
+from httk.store.query import SearchExpression, SearchVariable
+from httk.store.query.optimade_filters import simple_property_handlers
 
 
 def _known_value_handler(

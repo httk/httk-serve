@@ -2,7 +2,7 @@
 
 Rows are plain dicts keyed by backend record keys, and search expressions
 evaluate as predicates over those rows. It is the reference
-:class:`~httk.data.query.Store` implementation: it backs the
+:class:`~httk.store.query.Store` implementation: it backs the
 example demo server and is what
 :func:`~httk.serve.optimade.backend.providers.adapter_from_providers` loads an
 :class:`~httk.core.EntryProvider`'s records into.
@@ -17,7 +17,7 @@ String matching is literal here too (``contains``/``startswith``/``endswith``
 are plain :class:`str` operations), which is exactly what the neutral protocol
 promises — no pattern language is involved at any point.
 
-Iteration yields :class:`~httk.data.query.SearchResult` values, one entry in
+Iteration yields :class:`~httk.store.query.SearchResult` values, one entry in
 ``values`` per :meth:`MemorySearcher.output` call: a variable output yields the
 whole row dict, a field output the row's value for that field.
 """
@@ -25,7 +25,7 @@ whole row dict, a field output the row's value for that field.
 from collections.abc import Callable, Iterator
 from typing import Any, NoReturn
 
-from httk.data.query import (
+from httk.store.query import (
     MultipleResultsError,
     NoResultError,
     ResultRow,
@@ -160,7 +160,7 @@ class MemoryField:
     def __getattr__(self, name: str) -> NoReturn:
         """Refuse to chain: rows here are flat, so no field refers to a record.
 
-        The :class:`~httk.data.query.SearchField` contract allows attribute
+        The :class:`~httk.store.query.SearchField` contract allows attribute
         access because a field may be a reference in a store that has them;
         this one keeps plain dict rows, so it says so explicitly instead of
         failing as though the name were a mistyped method.
@@ -325,7 +325,7 @@ class MemorySearcher:
         return MemoryResultSet(rows, selected)
 
     def __iter__(self) -> Iterator[SearchResult]:
-        """Yield one :class:`~httk.data.query.SearchResult` per match, in output order."""
+        """Yield one :class:`~httk.store.query.SearchResult` per match, in output order."""
         if not self._outputs:
             raise ValueError("this searcher has no outputs; call output() before iterating")
         rows = self._matches()[self.offset :]
@@ -409,8 +409,8 @@ class MemoryResultSet:
         """Return the only result.
 
         :return: The sole result.
-        :raises httk.data.NoResultError: If the result set is empty.
-        :raises httk.data.MultipleResultsError: If it has more than one result.
+        :raises httk.store.NoResultError: If the result set is empty.
+        :raises httk.store.MultipleResultsError: If it has more than one result.
         """
 
         if not self._rows:

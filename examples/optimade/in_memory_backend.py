@@ -14,7 +14,7 @@ Four pieces, and no others:
   `{target: [row, ...]}`, where a row is any plain mapping. It supports the
   same search-expression surface a SQL store does, so it is not a toy: it is
   the store `adapter_from_providers` itself loads provider records into, and
-  the one the SQL backend in *httk-data* is checked against for parity.
+  the one the SQL backend in *httk-store* is checked against for parity.
 
 `EntrySource`
 : Where an entry endpoint's rows come from, and how a row becomes a response.

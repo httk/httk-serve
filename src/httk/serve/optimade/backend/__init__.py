@@ -1,6 +1,6 @@
 """Public backend adapters, stores, and filter translation helpers."""
 
-from httk.data.query import (
+from httk.store.query import (
     Searcher,
     SearchExpression,
     SearchField,

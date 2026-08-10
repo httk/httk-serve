@@ -12,8 +12,8 @@ import pytest
 from httk.atomistic import OptimadeStructure
 from httk.core import load_entry_type_definition
 from httk.core.optimade import OptimadeFile, OptimadeResource, parse_optimade_filter
-from httk.data import CountUnavailableError as NeutralCountUnavailableError
-from httk.data import MultipleResultsError, NoResultError, UnsupportedQueryError
+from httk.store import CountUnavailableError as NeutralCountUnavailableError
+from httk.store import MultipleResultsError, NoResultError, UnsupportedQueryError
 
 from httk.serve.optimade import (
     ALL_ADVERTISED,

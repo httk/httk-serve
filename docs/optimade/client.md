@@ -3,7 +3,7 @@
 `OptimadeStore` is the synchronous, read-only client entry point. It discovers
 the remote schema eagerly, keeps the exact redacted `/info/<entry>` documents
 that describe every result, and exposes the neutral `Store`/`Searcher` query
-profile from *httk-data*.
+profile from *httk-store*.
 
 ```python
 from httk.serve.optimade import OptimadeStore
@@ -116,7 +116,7 @@ not implemented.
 
 ## Federating endpoints
 
-`FederatedStore` (from *httk-data*) combines already-open stores into one
+`FederatedStore` (from *httk-store*) combines already-open stores into one
 read-only, source-major union. Manage the remote connections yourself: the
 federation borrows them and never closes either endpoint.
 
@@ -124,7 +124,7 @@ federation borrows them and never closes either endpoint.
 from contextlib import ExitStack
 
 from httk.atomistic import OptimadeStructure
-from httk.data import FederatedStore
+from httk.store import FederatedStore
 from httk.serve.optimade import OptimadeStore
 
 with ExitStack() as stack:
@@ -209,7 +209,7 @@ Remote reads never write local state. To retain a resource for offline work,
 opt into the database capability and save the exact object yourself:
 
 ```python
-from httk.data.db import Database, SqlStore
+from httk.store.db import Database, SqlStore
 
 cache = SqlStore(Database.sqlite("optimade-cache.sqlite"), entry_backings={})
 backend = rows.one().reference  # a typed backend from a prior result

@@ -1,13 +1,13 @@
 """Tests for the reference in-memory store (httk.serve.optimade.backend.memory_store).
 
-The SQL backend in httk-data is checked against this store for parity; these
+The SQL backend in httk-store is checked against this store for parity; these
 tests pin the parts of the neutral contract that only show up here — literal
 string matching, the reserved constant-expression methods, and the named
 multi-output ``SearchResult`` shape.
 """
 
 import pytest
-from httk.data.query import MultipleResultsError, NoResultError, SearchResult
+from httk.store.query import MultipleResultsError, NoResultError, SearchResult
 
 from httk.serve.optimade.backend.memory_store import (
     InMemoryStore,

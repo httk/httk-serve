@@ -94,7 +94,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", "_inventories/python.inv"),
     "starlette": ("https://www.starlette.io/", "_inventories/starlette.inv"),
     "httk-core": (f"{_docs_base_url}/httk-core/", "_inventories/httk-core.inv"),
-    "httk-data": (f"{_docs_base_url}/httk-data/", "_inventories/httk-data.inv"),
+    "httk-store": (f"{_docs_base_url}/httk-store/", "_inventories/httk-store.inv"),
 }
 
 autoapi_options = [
@@ -122,17 +122,17 @@ nitpick_ignore = [
     ("py:class", "typing.Optional"),
     ("py:class", "typing.Union"),
     ("py:class", "Ellipsis"),
-    # These contracts are new in the sibling httk-core/httk-data workspaces.
+    # These contracts are new in the sibling httk-core/httk-store workspaces.
     # The checked-in intersphinx inventories intentionally describe released
     # versions, so they cannot resolve the symbols until those releases exist.
     ("py:class", "httk.core.optimade.OptimadeSchemaSnapshot"),
     ("py:class", "httk.core.register.OptimadeEntryBinding"),
-    ("py:class", "httk.data.ResultRow"),
-    ("py:class", "httk.data.query.ResultRowLike"),
-    ("py:class", "httk.data.query.ResultSetLike"),
-    # StoredEntrySource is new in the sibling httk-data workspace; the
-    # committed release inventory cannot name it until httk-data is released.
-    ("py:class", "httk.data.db.StoredEntrySource"),
+    ("py:class", "httk.store.ResultRow"),
+    ("py:class", "httk.store.query.ResultRowLike"),
+    ("py:class", "httk.store.query.ResultSetLike"),
+    # StoredEntrySource is new in the sibling httk-store workspace; the
+    # committed release inventory cannot name it until httk-store is released.
+    ("py:class", "httk.store.db.StoredEntrySource"),
     # The client deliberately keeps its backend variable private; AutoAPI
     # excludes it but still renders public-method annotations that mention it.
     ("py:class", "_RemoteVariable"),

@@ -17,8 +17,8 @@ from httk.core.optimade import (
     optimade_document_root,
     redact_optimade_url,
 )
-from httk.data import CountUnavailableError as NeutralCountUnavailableError
-from httk.data import (
+from httk.store import CountUnavailableError as NeutralCountUnavailableError
+from httk.store import (
     MultipleResultsError,
     NoResultError,
     PortableQueryCapabilities,
@@ -521,7 +521,7 @@ class RemoteSearcher:
 
         :param target: Discovered entry descriptor or registered backend class.
         :return: Query variable exposing portable fields.
-        :raises httk.data.query.protocols.UnsupportedQueryError: If the target is not recognized or a root variable is already bound.
+        :raises httk.store.query.protocols.UnsupportedQueryError: If the target is not recognized or a root variable is already bound.
         """
         if self._variable is not None:
             raise _unsupported("a second root variable")
@@ -546,7 +546,7 @@ class RemoteSearcher:
 
         :param expression: Expression created by this searcher.
         :raises ValueError: If no query variable is bound.
-        :raises httk.data.UnsupportedQueryError: If the expression belongs elsewhere.
+        :raises httk.store.UnsupportedQueryError: If the expression belongs elsewhere.
         """
         self._require_variable()
         if not isinstance(expression, _RemoteExpression) or expression.searcher is not self:
@@ -560,7 +560,7 @@ class RemoteSearcher:
         :param variable: Root variable or field to project.
         :param name: Output name.
         :raises ValueError: If the name is empty or duplicated.
-        :raises httk.data.UnsupportedQueryError: If the output belongs elsewhere.
+        :raises httk.store.UnsupportedQueryError: If the output belongs elsewhere.
         """
         _descriptor, root = self._require_variable()
         if not isinstance(name, str) or not name:
@@ -634,7 +634,7 @@ class RemoteSearcher:
 
         :param field: Field exposed by this searcher's variable.
         :param descending: Sort in descending order when true.
-        :raises httk.data.UnsupportedQueryError: If the field is not portable or sortable.
+        :raises httk.store.UnsupportedQueryError: If the field is not portable or sortable.
         """
         descriptor, _variable = self._require_variable()
         if not isinstance(field, _RemoteField) or field._searcher is not self:
@@ -1046,8 +1046,8 @@ class RemoteResultSet:
         """Return the only result.
 
         :return: Sole result row.
-        :raises httk.data.NoResultError: If no result exists.
-        :raises httk.data.MultipleResultsError: If more than one result exists.
+        :raises httk.store.NoResultError: If no result exists.
+        :raises httk.store.MultipleResultsError: If more than one result exists.
         """
 
         iterator = self._plan._search_results(maximum=2)

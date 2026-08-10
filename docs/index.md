@@ -14,7 +14,7 @@ protocol.
 :class: tip
 
 - **Serve your data over OPTIMADE**: {doc}`optimade/serving_providers` —
-  write an `EntryProvider` (or use one from *httk-data*), serve it, query it
+  write an `EntryProvider` (or use one from *httk-store*), serve it, query it
 - **Query other databases**: {doc}`optimade/client`
 - **How the OPTIMADE side works**: {doc}`optimade/how_it_works`
 - **Build and deploy the website**: {doc}`web/index` — widgets, templates,

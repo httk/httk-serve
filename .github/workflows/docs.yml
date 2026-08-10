@@ -33,7 +33,7 @@ jobs:
         run: |
           # Clone first so the shared stdlib-only docs CLI is available before
           # any pip command, and so bootstrap resolution can see local internals.
-          for dependency in httk-core httk-data; do
+          for dependency in httk-core httk-store; do
             git clone --depth 1 --branch main "https://github.com/httk/$dependency" "$RUNNER_TEMP/dep-$dependency"
           done
           if [ -f docs/requirements.lock ]; then
@@ -49,7 +49,7 @@ jobs:
           fi
           # Install local internal checkouts before the project so bootstrap
           # resolution sees the checkouts satisfying their dependency floors.
-          for dependency in httk-core httk-data; do
+          for dependency in httk-core httk-store; do
             pip install -e "$RUNNER_TEMP/dep-$dependency" --no-deps
           done
           if [ -f docs/requirements.lock ]; then
@@ -63,7 +63,7 @@ jobs:
           import os
           from pathlib import Path
 
-          checks = {"httk.core":"httk-core","httk.data":"httk-data"}
+          checks = {"httk.core":"httk-core","httk.store":"httk-store"}
           for module_name, dependency in checks.items():
               module = importlib.import_module(module_name)
               module_path = Path(module.__file__).resolve()
