@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   discoveryCacheKey,
   effectiveFilter,
+  effectiveSort,
   formatCellValue,
   OptimadeTableController,
 } from "../src/httk/serve/web/assets/serve-optimade-table.mjs";
@@ -23,6 +24,14 @@ test("a URL filter overrides the authored filter completely, including an empty 
   assert.equal(effectiveFilter(configuration, { search: "?filter=" }), null);
   assert.equal(effectiveFilter(configuration, { search: "?other=1" }), "nsites >= 2");
   assert.throws(() => effectiveFilter(configuration, { search: `?filter=${"x".repeat(4097)}` }), /4096/);
+});
+
+test("a URL sort overrides the authored sort completely and is bounded", () => {
+  const withSort = { ...configuration, sort: "-nsites", sort_query: "sort" };
+  assert.equal(effectiveSort(withSort, { search: "?sort=chemical_formula_reduced" }), "chemical_formula_reduced");
+  assert.equal(effectiveSort(withSort, { search: "?sort=" }), null);
+  assert.equal(effectiveSort(withSort, { search: "?other=1" }), "-nsites");
+  assert.throws(() => effectiveSort(withSort, { search: `?sort=${"x".repeat(4097)}` }), /4096/);
 });
 
 test("discovery cache keys include discovery inputs but not table-only options", () => {

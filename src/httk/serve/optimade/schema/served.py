@@ -57,6 +57,13 @@ def _is_required_response(name: str, definition: PropertyDefinition) -> bool:
     return definition.requirements.get("response-level") == "must" and not definition.nullable
 
 
+def _is_default_response(name: str, definition: PropertyDefinition, default_names: set[str]) -> bool:
+    """Whether a served property belongs in responses without response_fields."""
+    if name in ("id", "type"):
+        return True
+    return name in default_names and definition.requirements.get("response-level") not in {"should not", "must not"}
+
+
 def simplified_property(
     definition: PropertyDefinition,
     *,
@@ -221,7 +228,7 @@ def build_served_schema(
         for name in served_names:
             prop = described[name]
             is_sortable = name in sortable_names
-            is_default = name in ("id", "type") or name in default_names
+            is_default = _is_default_response(name, prop, default_names)
             is_required = _is_required_response(name, prop)
             simplified[name] = simplified_property(
                 prop, sortable=is_sortable, required_response=is_required, default_response=is_default

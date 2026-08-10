@@ -300,3 +300,68 @@ test("non-2xx JSON errors are bounded and do not expose whole response bodies", 
     return true;
   });
 });
+
+test("fetchOne validates a single resource, included resources, relationships, and encoded ids", async () => {
+  const id = "mp/one two";
+  const one = `${BASE}/v1/structures/${encodeURIComponent(id)}?response_fields=nsites&include=references`;
+  const root = {
+    meta: { api_version: "1.3.0" },
+    data: {
+      id,
+      type: "structures",
+      attributes: { nsites: 2 },
+      relationships: { references: { data: { type: "references", id: "ref/1" } }, empty: { data: null }, many: { data: [] } },
+    },
+    included: [{ type: "references", id: "ref/1", attributes: { title: "A" } }],
+  };
+  const network = routes({
+    [`${BASE}/versions`]: text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: json(info(), `${BASE}/v1/info`),
+    [`${BASE}/v1/info/structures`]: json(entry(), `${BASE}/v1/info/structures`),
+    [one]: json(root, one),
+  });
+  const result = await transport(network.fetch, { response_fields: ["nsites"] }).fetchOne(id, { include: ["references"] });
+  assert.deepEqual(result.resource, root.data);
+  assert.deepEqual(result.included, root.included);
+  assert.equal(network.requests.at(-1).options.credentials, "omit");
+  assert.equal(network.requests.at(-1).options.redirect, "error");
+});
+
+test("fetchOne accepts data null, works without columns, and rejects invalid envelopes", async () => {
+  const one = `${BASE}/v1/structures/id?response_fields=nsites`;
+  const setup = (data, extra = {}) => routes({
+    [`${BASE}/versions`]: text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: json(info(), `${BASE}/v1/info`),
+    [`${BASE}/v1/info/structures`]: json(entry(), `${BASE}/v1/info/structures`),
+    [one]: json({ meta: { api_version: "1.3.0" }, data, ...extra }, one),
+  });
+  const empty = setup(null);
+  assert.equal(await transport(empty.fetch, { columns: undefined, response_fields: ["nsites"] }).fetchOne("id"), null);
+  for (const data of [
+    { id: "id", type: "other", attributes: { nsites: 1 } },
+    { id: "id", type: "structures", attributes: {} },
+    { id: "id", type: "structures", attributes: { nsites: 1 }, relationships: [] },
+  ]) {
+    const network = setup(data);
+    await assert.rejects(transport(network.fetch).fetchOne("id"), (error) => error.code === "single entry");
+  }
+  const invalidIncluded = setup({ id: "id", type: "structures", attributes: { nsites: 1 } }, { included: [{}] });
+  await assert.rejects(transport(invalidIncluded.fetch).fetchOne("id"), (error) => error.code === "single entry");
+});
+
+test("fetchOne enforces the bounded response body", async () => {
+  const one = `${BASE}/v1/structures/id?response_fields=nsites`;
+  const large = new Response(new ReadableStream({
+    start(controller) { controller.enqueue(new TextEncoder().encode("{".repeat(32))); controller.close(); },
+  }), { headers: { "content-type": "application/vnd.api+json" } });
+  Object.defineProperty(large, "url", { value: one });
+  const network = routes({
+    [`${BASE}/versions`]: text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: json(info(), `${BASE}/v1/info`),
+    [`${BASE}/v1/info/structures`]: json(entry(), `${BASE}/v1/info/structures`),
+    [one]: large,
+  });
+  await assert.rejects(new OptimadeTransport({ base_url: BASE, entry_type: "structures", response_fields: ["nsites"], page_size: 1 }, {
+    fetch: network.fetch, documentBase: "https://site.example.test/", bodyLimit: 10,
+  }).fetchOne("id"), (error) => error.code === "body_limit");
+});

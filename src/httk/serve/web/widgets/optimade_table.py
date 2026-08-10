@@ -1,10 +1,12 @@
 """The HTML/configuration boundary for the browser-driven OPTIMADE table."""
 
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from html import escape
 from importlib.resources import files
+from typing import cast
 from urllib.parse import urlsplit
 
 from httk.core.optimade import ParserError, parse_optimade_filter
@@ -12,6 +14,8 @@ from httk.core.optimade import ParserError, parse_optimade_filter
 from httk.serve.web.providers import _validate_site_route
 
 from .core import WidgetAsset, WidgetContext, WidgetRenderResult
+from .optimade_assets import _internal_root as _asset_internal_root
+from .optimade_assets import optimade_protocol_asset, optimade_protocol_href
 
 MAX_OPTIMADE_URL_CHARS = 2_048
 MAX_OPTIMADE_IDENTIFIER_CHARS = 128
@@ -39,6 +43,7 @@ def render(
     filter: str | None = None,
     filter_query: str | None = None,
     sort: str | None = None,
+    sort_query: str | None = None,
     allowed_origins: tuple[str, ...] = (),
     detail_route: str | None = None,
     detail_column: str | None = None,
@@ -49,7 +54,8 @@ def render(
     The browser negotiates continuation URLs from inert configuration; those
     URLs are not placed in DOM attributes, events, storage, or history.
     ``allowed_origins`` is a client continuation allow-list, not an access
-    control boundary. ``filter_query`` replaces the whole browser filter.
+    control boundary. ``filter_query`` and ``sort_query`` replace the whole
+    browser filter and sort values.
 
     :param context: Immutable widget invocation context.
     :param base_url: Origin- or path-relative OPTIMADE endpoint base URL.
@@ -60,6 +66,7 @@ def render(
     :param filter: Initial OPTIMADE filter expression.
     :param filter_query: Whole-filter query parameter name used by the browser.
     :param sort: Optional OPTIMADE sort expression.
+    :param sort_query: Query parameter name whose complete value replaces ``sort``.
     :param allowed_origins: Client-side allow-list for continuation origins.
     :param detail_route: Optional site route for entry details.
     :param detail_column: Column supplying the detail value.
@@ -77,10 +84,13 @@ def render(
     normalized_filter = _filter(filter)
     normalized_filter_query = _optional_identifier(filter_query, field="filter_query")
     normalized_sort = _optional_text(sort, field="sort")
+    normalized_sort_query = _optional_identifier(sort_query, field="sort_query")
     normalized_origins = _origins(allowed_origins)
     normalized_detail_query = _identifier(detail_query, field="detail_query")
     normalized_detail_route, normalized_detail_column = _detail(
-        detail_route, detail_column, column_keys={column["key"] for column in normalized_columns}
+        detail_route,
+        detail_column,
+        column_keys={column["key"] for column in normalized_columns if isinstance(column["key"], str)},
     )
     if normalized_detail_route is not None:
         normalized_detail_route = context.url_for(normalized_detail_route)
@@ -98,6 +108,7 @@ def render(
         "filter_query": normalized_filter_query,
         "page_size": page_size,
         "sort": normalized_sort,
+        "sort_query": normalized_sort_query,
         "widget_id": context.widget_id,
     }
     config_json = _safe_json(configuration)
@@ -106,12 +117,12 @@ def render(
     config_id = escape(f"httk-serve-optimade-table-{context.widget_id}-config", quote=True)
     headers = "".join(
         f'<th scope="col" class="httk-serve-optimade-table__header httk-serve-optimade-table__header--{column["align"]}">'
-        f'{escape(column["label"], quote=False)}</th>'
+        f'{escape(cast(str, column["label"]), quote=False)}</th>'
         for column in normalized_columns
     )
     html = (
         f'<link rel="stylesheet" href="{internal_root}/assets/serve-optimade-table.css">'
-        f'<script type="module" src="{internal_root}/assets/serve-optimade-table-protocol.mjs"></script>'
+        f'<script type="module" src="{optimade_protocol_href(context)}"></script>'
         f'<script type="module" src="{internal_root}/assets/serve-optimade-table.mjs"></script>'
         f'<section class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-widget-id="{widget_id}" '
         f'data-config-id="{config_id}" aria-busy="true">'
@@ -195,12 +206,12 @@ def _filter(value: object) -> str | None:
     return text
 
 
-def _columns(value: object) -> list[dict[str, str]]:
+def _columns(value: object) -> list[dict[str, object]]:
     if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
         raise OptimadeTableProtocolError("columns must be a sequence of strings or mappings")
     if not 1 <= len(value) <= MAX_OPTIMADE_COLUMNS:
         raise OptimadeTableProtocolError(f"columns must contain between 1 and {MAX_OPTIMADE_COLUMNS} entries")
-    result: list[dict[str, str]] = []
+    result: list[dict[str, object]] = []
     keys: set[str] = set()
     for column in value:
         if isinstance(column, str):
@@ -208,8 +219,8 @@ def _columns(value: object) -> list[dict[str, str]]:
             label = key
             align = "start"
         elif isinstance(column, Mapping):
-            if set(column) - {"key", "label", "align"} or "key" not in column:
-                raise OptimadeTableProtocolError("column mappings may contain only key, label, and align")
+            if set(column) - {"key", "label", "align", "format"} or "key" not in column:
+                raise OptimadeTableProtocolError("column mappings may contain only key, label, align, and format")
             key = _identifier(column["key"], field="column key")
             label = _text(column.get("label", key), field="column label", maximum=MAX_OPTIMADE_LABEL_CHARS)
             align = column.get("align", "start")
@@ -217,11 +228,53 @@ def _columns(value: object) -> list[dict[str, str]]:
                 raise OptimadeTableProtocolError("column align must be start, center, or end")
         else:
             raise OptimadeTableProtocolError("columns must contain only strings or mappings")
+        normalized_format = (
+            _column_format(column.get("format")) if isinstance(column, Mapping) and "format" in column else None
+        )
         if key in keys:
             raise OptimadeTableProtocolError("column keys must be unique")
         keys.add(key)
-        result.append({"key": key, "label": label, "align": align})
+        result.append(
+            {
+                "key": key,
+                "label": label,
+                "align": align,
+                **({"format": normalized_format} if normalized_format is not None else {}),
+            }
+        )
     return result
+
+
+def _column_format(value: object) -> str | dict[str, object]:
+    if value == "formula":
+        return "formula"
+    if not isinstance(value, Mapping) or "name" not in value:
+        raise OptimadeTableProtocolError("column format must be formula, number, or join")
+    name = value["name"]
+    if name == "number":
+        if set(value) - {"name", "digits", "scale", "suffix"} or "digits" not in value:
+            raise OptimadeTableProtocolError("number format has invalid keys")
+        digits = value["digits"]
+        if isinstance(digits, bool) or not isinstance(digits, int) or not 0 <= digits <= 10:
+            raise OptimadeTableProtocolError("number format digits must be an integer between 0 and 10")
+        scale = value.get("scale", 1)
+        if isinstance(scale, bool) or not isinstance(scale, (int, float)) or not math.isfinite(scale) or scale == 0:
+            raise OptimadeTableProtocolError("number format scale must be a finite non-zero number")
+        suffix = value.get("suffix", "")
+        _short_format_text(suffix, "number format suffix")
+        return {"name": "number", "digits": digits, "scale": float(scale), "suffix": suffix}
+    if name == "join":
+        if set(value) - {"name", "separator"}:
+            raise OptimadeTableProtocolError("join format has invalid keys")
+        separator = value.get("separator", ", ")
+        _short_format_text(separator, "join format separator")
+        return {"name": "join", "separator": separator}
+    raise OptimadeTableProtocolError("column format name must be number or join")
+
+
+def _short_format_text(value: object, field: str) -> None:
+    if not isinstance(value, str) or len(value) > 16 or any(ord(char) < 0x20 or ord(char) == 0x7F for char in value):
+        raise OptimadeTableProtocolError(f"{field} must be a string of at most 16 characters without controls")
 
 
 def _origins(value: object) -> list[str]:
@@ -289,10 +342,10 @@ def _detail(value_route: object, value_column: object, *, column_keys: set[str])
 
 
 def _internal_root(context: WidgetContext) -> str:
-    relative_base = context.page.get("relbaseurl", ".")
-    if not isinstance(relative_base, str) or not relative_base or relative_base.startswith("/"):
-        raise OptimadeTableProtocolError("page context has no safe relative base URL")
-    return f"{relative_base.rstrip('/')}/_httk/serve"
+    try:
+        return _asset_internal_root(context)
+    except ValueError as exc:
+        raise OptimadeTableProtocolError(str(exc)) from exc
 
 
 def _safe_json(value: object) -> str:
@@ -317,10 +370,6 @@ def _optimade_table_assets() -> tuple[WidgetAsset, ...]:
             WidgetAsset(
                 "serve-optimade-table.mjs", assets.joinpath("serve-optimade-table.mjs").read_bytes(), "text/javascript"
             ),
-            WidgetAsset(
-                "serve-optimade-table-protocol.mjs",
-                assets.joinpath("serve-optimade-table-protocol.mjs").read_bytes(),
-                "text/javascript",
-            ),
+            optimade_protocol_asset(),
         )
     return _OPTIMADE_TABLE_ASSETS

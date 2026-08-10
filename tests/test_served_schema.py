@@ -5,8 +5,11 @@ from definition_fixtures import (
     structures_definition,
     widgets_definition,
 )
+from httk.core import EntryTypeDefinition, PropertyDefinition
 from materials_fixtures import materials_schema
 
+from httk.serve.optimade.engine.validate import validate_optimade_request
+from httk.serve.optimade.model import RawRequest
 from httk.serve.optimade.schema.served import build_served_schema
 
 
@@ -76,3 +79,51 @@ def test_build_served_schema_rejects_undescribed_served_property() -> None:
     with pytest.raises(ValueError) as excinfo:
         build_served_schema({"widgets": widgets_definition()}, {"widgets": ["id", "type", "bogus"]})
     assert "bogus" in str(excinfo.value)
+
+
+def test_response_should_not_is_excluded_from_defaults_but_explicitly_retrievable() -> None:
+    hidden = PropertyDefinition.from_optimade(
+        "hidden",
+        {
+            "$id": "https://example.test/hidden",
+            "description": "Hidden by default",
+            "x-optimade-type": "string",
+            "type": ["string", "null"],
+            "x-optimade-requirements": {"response-level": "should not"},
+        },
+    )
+    must_not = PropertyDefinition.from_optimade(
+        "must_not",
+        {
+            "$id": "https://example.test/must_not",
+            "description": "Never returned by default",
+            "x-optimade-type": "string",
+            "type": ["string", "null"],
+            "x-optimade-requirements": {"response-level": "must not"},
+        },
+    )
+    definition = EntryTypeDefinition(
+        "widgets",
+        "A widgets entry.",
+        {
+            "id": PropertyDefinition.from_simple("id", description="The id", required_response=True),
+            "type": PropertyDefinition.from_simple("type", description="The type", required_response=True),
+            "hidden": hidden,
+            "must_not": must_not,
+        },
+    )
+    schema = build_served_schema(
+        {"widgets": definition},
+        {"widgets": ["id", "type", "hidden", "must_not"]},
+        default_response_overrides={"widgets": ["hidden", "must_not"]},
+    )
+    assert schema.default_response_fields["widgets"] == ("id", "type")
+    assert {"hidden", "must_not"} <= set(schema.properties_by_entry["widgets"])
+    default = validate_optimade_request(RawRequest("http://localhost/", "/widgets"), "1.3.0", schema)
+    explicit = validate_optimade_request(
+        RawRequest("http://localhost/", "/widgets?response_fields=hidden,must_not"), "1.3.0", schema
+    )
+    assert "hidden" not in default.recognized_response_fields
+    assert "hidden" in explicit.recognized_response_fields
+    assert "must_not" not in default.recognized_response_fields
+    assert "must_not" in explicit.recognized_response_fields

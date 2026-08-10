@@ -9,8 +9,17 @@ from httk.serve.web.api import create_asgi_app, publish
 from httk.serve.web.engine.site_engine import SiteEngine
 from httk.serve.web.model.config import SiteConfig
 from httk.serve.web.publishing.static import publish_site
-from httk.serve.web.widgets import MAX_WIDGET_ASSET_BYTES, WidgetAsset, WidgetRenderResult
+from httk.serve.web.widgets import (
+    MAX_WIDGET_ASSET_BYTES,
+    OptimadeTableProtocolError,
+    WidgetAsset,
+    WidgetContext,
+    WidgetRenderResult,
+    optimade_protocol_asset,
+    optimade_protocol_href,
+)
 from httk.serve.web.widgets.assets import WidgetAssetRegistry
+from httk.serve.web.widgets.optimade_table import render as render_optimade_table
 
 
 def _src(tmp_path: Path, content: str) -> Path:
@@ -38,6 +47,61 @@ def test_widget_asset_is_immutable_and_rejects_unsafe_values() -> None:
     assert registry.register(WidgetAsset("nested/site.css", b".site{}", "text/css")) == asset
     with pytest.raises(ValueError, match="conflicting"):
         registry.register(WidgetAsset("nested/site.css", b".changed{}", "text/css"))
+
+
+def test_public_optimade_protocol_asset_matches_builtin_href() -> None:
+    context = WidgetContext(
+        route="guide",
+        render_mode="serve",
+        widget_id="table",
+        query={},
+        postvars={},
+        page={"relbaseurl": ".."},
+        source_path=Path("guide.md"),
+        url_for=lambda route: route,
+        absolute_url_for=lambda route: route,
+    )
+    result = render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"])
+    asset = optimade_protocol_asset()
+    assert asset.path == "serve-optimade-table-protocol.mjs"
+    assert asset in result.assets
+    assert optimade_protocol_href(context) in result.html
+
+
+def test_optimade_column_formats_are_strict_and_serialized() -> None:
+    context = WidgetContext(
+        route="index",
+        render_mode="serve",
+        widget_id="table",
+        query={},
+        postvars={},
+        page={"relbaseurl": "."},
+        source_path=Path("index.md"),
+        url_for=lambda route: route,
+        absolute_url_for=lambda route: route,
+    )
+    result = render_optimade_table(
+        context,
+        base_url="/optimade/v1",
+        sort_query="sort",
+        columns=[
+            {"key": "formula", "format": "formula"},
+            {"key": "energy", "format": {"name": "number", "digits": 2, "scale": 2, "suffix": " eV"}},
+            {"key": "elements", "format": {"name": "join"}},
+        ],
+    )
+    assert '"sort_query":"sort"' in result.html
+    assert '"scale":2.0' in result.html
+    for invalid in (
+        {"name": "number"},
+        {"name": "number", "digits": 11},
+        {"name": "number", "digits": 1, "scale": 0},
+        {"name": "join", "separator": "x" * 17},
+        {"name": "join", "unknown": ","},
+        "html",
+    ):
+        with pytest.raises(OptimadeTableProtocolError):
+            render_optimade_table(context, base_url="/optimade/v1", columns=[{"key": "x", "format": invalid}])
 
 
 def test_site_local_declared_asset_is_served_only_after_its_page_renders(tmp_path: Path) -> None:

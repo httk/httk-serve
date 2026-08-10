@@ -269,14 +269,12 @@ class MemorySearcher:
     def _matches(self) -> list[Row]:
         rows = [row for row in self._rows if all(e.predicate(row) for e in self._expressions)]
         # Stable multi-key sort: apply keys in reverse declaration order so the
-        # first-declared sort key is the most significant. None sorts first.
+        # first-declared sort key is the most significant. None always sorts last.
         for sort_field, descending in reversed(self._sorts):
-
-            def key(row: Row, c: MemoryField = sort_field) -> tuple[bool, Any]:
-                value = c._value(row)
-                return (value is None, value)
-
-            rows = sorted(rows, key=key, reverse=descending)
+            present = [row for row in rows if sort_field._value(row) is not None]
+            missing = [row for row in rows if sort_field._value(row) is None]
+            present = sorted(present, key=sort_field._value, reverse=descending)
+            rows = present + missing
         return rows
 
     def count(self) -> int:

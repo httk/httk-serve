@@ -85,8 +85,9 @@ export function parseVersionsCsv(text) {
  * @param {object} configuration widget configuration emitted by httk-serve
  * @param {string} configuration.base_url OPTIMADE base URL (absolute or page-relative)
  * @param {string} configuration.entry_type entry endpoint name
- * @param {Array<string|{key: string}>} configuration.columns selected table columns
- * @param {number} configuration.page_size requested page size
+ * @param {Array<string|{key: string}>} [configuration.columns] selected table columns
+ * @param {string[]} [configuration.response_fields] selected OPTIMADE fields
+ * @param {number} [configuration.page_size] requested page size (defaults to 1 for response_fields-only use)
  * @param {string[]} [configuration.allowed_origins] extra permitted origins
  * @param {string} [configuration.filter] complete OPTIMADE filter value
  * @param {string} [configuration.sort] complete OPTIMADE sort value
@@ -104,10 +105,12 @@ export class OptimadeTransport {
     this.requestedBase = checkedUrl(configuration.base_url, this.documentBase);
     this.requestedBase = stripTrailingSlash(this.requestedBase);
     this.entryType = nonemptyString(configuration.entry_type, "entry_type");
-    this.pageSize = positiveInteger(configuration.page_size, "page_size");
+    this.pageSize = configuration.page_size === undefined && configuration.response_fields !== undefined
+      ? 1
+      : positiveInteger(configuration.page_size, "page_size");
     this.filter = optionalConfigurationString(configuration.filter, "filter");
     this.sort = optionalConfigurationString(configuration.sort, "sort");
-    this.selectedFields = selectedFields(configuration.columns);
+    this.selectedFields = selectedFields(configuration.columns, configuration.response_fields);
     this.extraOrigins = new Set((configuration.allowed_origins ?? []).map((origin) => canonicalOrigin(origin)));
     this.allowedOrigins = new Set([...this.extraOrigins, this.requestedBase.origin]);
     this.apiBase = null;
@@ -172,6 +175,38 @@ export class OptimadeTransport {
       responseUrl: page.url,
       allowUrl: (url) => this.#allowedUrl(url),
     });
+  }
+
+  /** Fetch and validate one resource, including explicitly requested relations. */
+  async fetchOne(id, { include = [], signal = undefined } = {}) {
+    await this.discover();
+    if (typeof id !== "string" || !id) throw protocol("configuration", "id must be a non-empty string");
+    if (!Array.isArray(include) || include.some((item) => typeof item !== "string" || !item)) {
+      throw protocol("configuration", "include must be an array of non-empty strings");
+    }
+    const requestUrl = appendPath(this.apiBase, encodeURIComponent(this.entryType));
+    requestUrl.pathname += `/${encodeURIComponent(id)}`;
+    const query = new URLSearchParams();
+    const responseFields = this.selectedFields.filter((field) => field !== "id" && field !== "type");
+    if (responseFields.length) query.set("response_fields", responseFields.join(","));
+    if (include.length) query.set("include", include.join(","));
+    requestUrl.search = query.toString();
+    const response = await this.#request(requestUrl, "json", signal);
+    const root = parseJson(response.text, "single entry");
+    validateMeta(root, "single entry");
+    let included = [];
+    if (Object.hasOwn(root, "included")) {
+      if (!Array.isArray(root.included)) throw protocol("single entry", "OPTIMADE included must be an array");
+      included = root.included.map((item) => validateIncluded(item));
+    }
+    if (root.data === null) return null;
+    const resource = validateResource(root.data, {
+      entryType: this.entryType,
+      selectedFields: this.selectedFields,
+      label: "single entry",
+      relationships: true,
+    });
+    return { resource, included };
   }
 
   #allowedUrl(value) {
@@ -287,7 +322,13 @@ function lastPathSegment(url) {
   return parts[parts.length - 1];
 }
 
-function selectedFields(columns) {
+function selectedFields(columns, responseFields) {
+  if (responseFields !== undefined) {
+    if (!Array.isArray(responseFields) || responseFields.some((field) => typeof field !== "string" || !/^[A-Za-z_][A-Za-z0-9_.]*$/.test(field))) {
+      throw protocol("configuration", "response_fields must be an array of OPTIMADE identifiers");
+    }
+    return [...new Set(responseFields)];
+  }
   if (!Array.isArray(columns) || !columns.length) throw protocol("configuration", "columns must be a non-empty array");
   const fields = columns.map((column) => typeof column === "string" ? column : column?.key);
   if (fields.some((field) => typeof field !== "string" || !field)) {
@@ -436,8 +477,7 @@ function validateEntryInfo(root, api, entryType, selected) {
 }
 
 function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, allowUrl }) {
-  if (!isObject(root.meta)) throw protocol("page", "OPTIMADE page meta must be an object");
-  semver(root.meta.api_version, "page meta.api_version");
+  validateMeta(root, "page");
   if (!Array.isArray(root.data) || root.data.length > pageSize) {
     throw protocol("page", "OPTIMADE page data must be an array no larger than page_limit");
   }
@@ -447,14 +487,7 @@ function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, 
   const more = Object.hasOwn(root.meta, "more_data_available") ? root.meta.more_data_available : false;
   if (typeof more !== "boolean") throw protocol("page", "OPTIMADE page has invalid meta.more_data_available");
   for (const resource of root.data) {
-    if (!isObject(resource) || resource.type !== entryType || typeof resource.id !== "string" || !isObject(resource.attributes)) {
-      throw protocol("page", "OPTIMADE page contains an invalid resource");
-    }
-    for (const field of selectedFields) {
-      if (field !== "id" && field !== "type" && !Object.hasOwn(resource.attributes, field)) {
-        throw protocol("page", `OPTIMADE resource omits selected field ${field}`);
-      }
-    }
+    validateResource(resource, { entryType, selectedFields, label: "page" });
   }
   let next = null;
   if (Object.hasOwn(root, "links")) {
@@ -472,4 +505,52 @@ function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, 
   }
   if (more !== (next !== null)) throw protocol("page", "OPTIMADE page has inconsistent more_data_available and links.next");
   return Object.freeze({ resources: Object.freeze(root.data), nextUrl: next, moreDataAvailable: more, responseUrl: responseUrl.href });
+}
+
+function validateMeta(root, label) {
+  if (!isObject(root.meta)) throw protocol(label, `OPTIMADE ${label} meta must be an object`);
+  semver(root.meta.api_version, `${label} meta.api_version`);
+}
+
+function validateResource(resource, { entryType, selectedFields, label, relationships = false }) {
+  if (!isObject(resource) || resource.type !== entryType || typeof resource.id !== "string" || !isObject(resource.attributes)) {
+    throw protocol(label, `OPTIMADE ${label} contains an invalid resource`);
+  }
+  for (const field of selectedFields) {
+    if (field !== "id" && field !== "type" && !Object.hasOwn(resource.attributes, field)) {
+      throw protocol(label, `OPTIMADE resource omits selected field ${field}`);
+    }
+  }
+  if (relationships && Object.hasOwn(resource, "relationships")) validateRelationships(resource.relationships, label);
+  const result = { id: resource.id, type: resource.type, attributes: resource.attributes };
+  if (Object.hasOwn(resource, "relationships")) result.relationships = resource.relationships;
+  return result;
+}
+
+function validateIncluded(resource) {
+  if (!isObject(resource) || typeof resource.type !== "string" || typeof resource.id !== "string" || !isObject(resource.attributes)) {
+    throw protocol("single entry", "OPTIMADE included contains an invalid resource");
+  }
+  if (Object.hasOwn(resource, "relationships")) validateRelationships(resource.relationships, "single entry");
+  const result = { id: resource.id, type: resource.type, attributes: resource.attributes };
+  if (Object.hasOwn(resource, "relationships")) result.relationships = resource.relationships;
+  return result;
+}
+
+function validateRelationships(value, label) {
+  if (!isObject(value)) throw protocol(label, "OPTIMADE relationships must be an object");
+  for (const relationship of Object.values(value)) {
+    if (!isObject(relationship) || !Object.hasOwn(relationship, "data")) {
+      throw protocol(label, "OPTIMADE relationship must contain data");
+    }
+    const data = relationship.data;
+    if (data === null) continue;
+    if (Array.isArray(data)) {
+      if (data.some((item) => !isObject(item) || typeof item.type !== "string" || typeof item.id !== "string")) {
+        throw protocol(label, "OPTIMADE relationship data is invalid");
+      }
+    } else if (!isObject(data) || typeof data.type !== "string" || typeof data.id !== "string") {
+      throw protocol(label, "OPTIMADE relationship data is invalid");
+    }
+  }
 }

@@ -177,12 +177,16 @@ and its three internal assets in both live and published output:
 
 The declaration accepts `base_url`, `entry_type="structures"`, `columns`,
 `page_size=50`, `caption="OPTIMADE results"`, `filter`, `filter_query`,
-`sort`, `allowed_origins=()`, `detail_route`, `detail_column`, and
+`sort`, `sort_query`, `allowed_origins=()`, `detail_route`, `detail_column`, and
 `detail_query="id"`. URLs, identifiers, columns, origins, and display text are
 strictly bounded and validated. `filter_query` names a browser URL parameter
-whose complete value overrides `filter`; neither is access control. Detail
+whose complete value overrides `filter`, while `sort_query` similarly overrides
+`sort`; neither is access control. Detail
 links require both a safe site-local `detail_route` and a selected
-`detail_column`.
+`detail_column`. A column mapping may set `format="formula"`, or use
+`{"name": "number", "digits": 2, "scale": 1, "suffix": " eV"}` or
+`{"name": "join", "separator": ", "}`. Formula digit runs are rendered in
+`sub` elements; all formatter output remains text-only.
 
 At page load, the browser validates the local configuration and negotiates the
 remote OPTIMADE API. An unversioned base is negotiated through `/versions` for
@@ -206,7 +210,8 @@ punycode form that appears in `window.location.origin`.
 the browser URL contains that parameter, its **first complete value** replaces
 the authored `filter`; an empty value means no filter. Filters are never
 concatenated. The override is limited to 4096 characters, matching the shell
-limit, and an overlong value is shown as a recoverable table error. No URL,
+limit, and an overlong value is shown as a recoverable table error. `sort_query`
+uses the same replacement and limit rules for the authored `sort`. No URL,
 history, cookie, storage, or form field is modified by the table.
 
 Only the current page is rendered. A widget holds at most 100 previous page

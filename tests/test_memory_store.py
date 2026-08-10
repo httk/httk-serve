@@ -164,3 +164,40 @@ def test_result_set_one_uses_neutral_errors() -> None:
     searcher.add(variable.text == "not present")
     with pytest.raises(NoResultError):
         searcher.results(label=variable).one()
+
+
+@pytest.mark.parametrize(
+    ("descending", "expected"),
+    [(False, [1, 2, 3, None, None]), (True, [3, 2, 1, None, None])],
+)
+def test_sort_keeps_nulls_last_and_paging_stable(descending: bool, expected: list[int | None]) -> None:
+    memory_store = InMemoryStore(
+        {
+            "values": [
+                {"id": "first-null", "value": None},
+                {"id": "one", "value": 1},
+                {"id": "second-null", "value": None},
+                {"id": "three", "value": 3},
+                {"id": "two", "value": 2},
+            ]
+        }
+    )
+    searcher = memory_store.searcher()
+    variable = searcher.variable("values")
+    searcher.output(variable.value, "value")
+    searcher.add_sort(variable.value, descending)
+    assert [result.values[0] for result in searcher] == expected
+
+    page = memory_store.searcher()
+    variable = page.variable("values")
+    page.output(variable.value, "value")
+    page.add_sort(variable.value, descending)
+    page.add_offset(3)
+    page.set_limit(2)
+    assert [result.values[0] for result in page] == [None, None]
+
+    stable = memory_store.searcher()
+    variable = stable.variable("values")
+    stable.output(variable, "row")
+    stable.add_sort(variable.value, descending)
+    assert [result.values[0]["id"] for result in stable][-2:] == ["first-null", "second-null"]

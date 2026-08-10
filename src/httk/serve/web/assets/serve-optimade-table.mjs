@@ -20,6 +20,20 @@ export function effectiveFilter(configuration, location = globalThis.location) {
   return value || null;
 }
 
+/** Return the sort selected by the document URL, without composing sorts. */
+export function effectiveSort(configuration, location = globalThis.location) {
+  const authored = optionalString(configuration.sort, "sort");
+  if (configuration.sort_query === null || configuration.sort_query === undefined) return authored;
+  if (typeof configuration.sort_query !== "string" || !configuration.sort_query) {
+    throw new Error("OPTIMADE table sort_query is invalid");
+  }
+  const parameters = new URLSearchParams(location?.search ?? "");
+  if (!parameters.has(configuration.sort_query)) return authored;
+  const value = parameters.get(configuration.sort_query) ?? "";
+  if (value.length > MAX_FILTER_CHARS) throw new Error("The OPTIMADE sort in this URL is longer than 4096 characters.");
+  return value || null;
+}
+
 /** A stable key for work that discovers an OPTIMADE API, not a table page. */
 export function discoveryCacheKey(configuration, documentBase = globalThis.document?.baseURI, bodyLimit = undefined) {
   const base = new URL(configuration.base_url, documentBase).href;
@@ -54,7 +68,11 @@ export function installOptimadeTable(shell, options = {}) {
     view = requiredShell(shell);
     configuration = readConfiguration(shell, options.document ?? globalThis.document);
     validateConfiguration(configuration);
-    configuration = { ...configuration, filter: effectiveFilter(configuration, options.location ?? globalThis.location) };
+    configuration = {
+      ...configuration,
+      filter: effectiveFilter(configuration, options.location ?? globalThis.location),
+      sort: effectiveSort(configuration, options.location ?? globalThis.location),
+    };
   } catch (error) {
     failInstallation(shell, view, messageFor(error));
     return null;
@@ -265,6 +283,20 @@ function validateConfiguration(config) {
   if (config.columns.some((column) => !column || typeof column.key !== "string" || !column.key)) {
     throw new Error("OPTIMADE table columns are invalid.");
   }
+  for (const column of config.columns) {
+    if (column.format === undefined) continue;
+    if (column.format === "formula") continue;
+    if (!column.format || typeof column.format !== "object" || Array.isArray(column.format)) {
+      throw new Error("OPTIMADE table column format is invalid.");
+    }
+    if (column.format.name === "number") {
+      if (!Number.isSafeInteger(column.format.digits) || column.format.digits < 0 || column.format.digits > 10 ||
+          typeof column.format.scale !== "number" || !Number.isFinite(column.format.scale) || column.format.scale === 0 ||
+          typeof column.format.suffix !== "string") throw new Error("OPTIMADE table number format is invalid.");
+    } else if (column.format.name === "join") {
+      if (typeof column.format.separator !== "string") throw new Error("OPTIMADE table join format is invalid.");
+    } else throw new Error("OPTIMADE table column format is invalid.");
+  }
 }
 
 function requiredShell(shell) {
@@ -290,15 +322,16 @@ function renderRows(tbody, resources, configuration, document) {
     const row = document.createElement("tr");
     for (const column of configuration.columns) {
       const value = column.key === "id" ? resource.id : column.key === "type" ? resource.type : resource.attributes[column.key];
-      const rendered = formatCellValue(value);
+      const rendered = formattedCellValue(value, column.format);
       const cell = document.createElement("td");
       cell.className = `httk-serve-optimade-table__cell httk-serve-optimade-table__cell--${column.align ?? "start"}`;
       if (rendered.missing) cell.setAttribute("aria-label", "No value");
       if (rendered.truncated) cell.title = "Value abbreviated for display";
       if (configuration.detail_route && configuration.detail_column === column.key) {
         const link = detailLink(configuration, resource.id, rendered, document);
+        appendFormattedValue(link, rendered, document);
         cell.append(link);
-      } else cell.textContent = rendered.text;
+      } else appendFormattedValue(cell, rendered, document);
       row.append(cell);
     }
     tbody.append(row);
@@ -312,9 +345,42 @@ function detailLink(configuration, id, rendered, document) {
   route.searchParams.set(configuration.detail_query, id);
   const link = document.createElement("a");
   link.href = route.href;
-  link.textContent = rendered.missing ? id : rendered.text;
+  if (rendered.missing) link.textContent = id;
   if (rendered.missing) link.setAttribute("aria-label", `View ${id}`);
   return link;
+}
+
+function formattedCellValue(value, format) {
+  if (format === "formula" && typeof value === "string") {
+    const rendered = formatCellValue(value);
+    return { ...rendered, formula: true };
+  }
+  if (format?.name === "number" && typeof value === "number" && Number.isFinite(value)) {
+    const scaled = value * format.scale;
+    if (Number.isFinite(scaled)) {
+      return formatCellValue(`${scaled.toFixed(format.digits)}${format.suffix}`);
+    }
+  }
+  if (format?.name === "join" && Array.isArray(value) && value.every((item) => item === null || typeof item === "string" || typeof item === "number" || typeof item === "boolean")) {
+    return formatCellValue(value.join(format.separator));
+  }
+  return formatCellValue(value);
+}
+
+function appendFormattedValue(parent, rendered, document) {
+  if (!rendered.formula) {
+    parent.textContent = rendered.text;
+    return;
+  }
+  let start = 0;
+  for (const match of rendered.text.matchAll(/\d+/g)) {
+    if (match.index > start) parent.append(document.createTextNode(rendered.text.slice(start, match.index)));
+    const sub = document.createElement("sub");
+    sub.append(document.createTextNode(match[0]));
+    parent.append(sub);
+    start = match.index + match[0].length;
+  }
+  if (start < rendered.text.length) parent.append(document.createTextNode(rendered.text.slice(start)));
 }
 
 function renderNotice(tbody, columns, message, state, document) {

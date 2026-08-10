@@ -13,6 +13,7 @@ from .core import (
     trusted_html,
 )
 from .loader import SiteWidgetLoader
+from .optimade_assets import optimade_protocol_asset, optimade_protocol_href
 from .optimade_table import OptimadeTableProtocolError
 
 __all__ = [
@@ -27,5 +28,7 @@ __all__ = [
     "WidgetRegistry",
     "WidgetRenderResult",
     "function_widget",
+    "optimade_protocol_asset",
+    "optimade_protocol_href",
     "trusted_html",
 ]
