@@ -29,6 +29,7 @@ from ..schema.served import ServedSchema
 from .validate import validate_optimade_request
 
 _LOG = logging.getLogger("httk.serve.optimade")
+type SnapshotCutoff = Callable[[str, int], int | None]
 
 
 def _make_related_resolver(
@@ -98,6 +99,7 @@ def process(
     config: OptimadeConfig,
     schema: ServedSchema,
     *,
+    snapshot_cutoff_ns: SnapshotCutoff | None = None,
     debug: bool = False,
 ) -> EndpointResponse:
     """Process one OPTIMADE query.
@@ -113,6 +115,7 @@ def process(
     :param version: API version selected for the request.
     :param config: Service response configuration.
     :param schema: Explicit served schema for endpoint validation.
+    :param snapshot_cutoff_ns: Optional stored-backend snapshot capability.
     :param debug: Enable backend diagnostics.
     :return: Endpoint response before web serialization.
     :raises httk.serve.optimade.model.errors.OptimadeError: If request validation or endpoint processing fails.
@@ -126,8 +129,15 @@ def process(
     request_id = validated_request.request_id
     validated_parameters = validated_request.query
 
-    if endpoint in schema.all_entries and validated_parameters.as_of is None:
-        validated_parameters.as_of = (time.time_ns() // 1000) * 1000
+    if endpoint in schema.all_entries:
+        if snapshot_cutoff_ns is None:
+            validated_parameters.as_of = None
+        else:
+            cutoff = snapshot_cutoff_ns(endpoint, time.time_ns())
+            if cutoff is None:
+                validated_parameters.as_of = None
+            elif validated_parameters.as_of is None:
+                validated_parameters.as_of = cutoff
 
     if _LOG.isEnabledFor(logging.DEBUG):
         _LOG.debug(

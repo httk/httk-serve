@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..endpoints.error import format_optimade_error
 from ..endpoints.meta import merge_collected_warnings
-from ..engine.processing import process, process_init
+from ..engine.processing import SnapshotCutoff, process, process_init
 from ..engine.validate import determine_optimade_version
 from ..model.config import OptimadeConfig
 from ..model.request import EndpointResponse, RawRequest
@@ -167,7 +167,15 @@ async def _handle_request(request: Request) -> Response:
     with collect_reports(level=state.report_level, context_levels=state.report_context_levels):
         try:
             version = determine_optimade_version(raw_request)
-            output = process(raw_request, state.query_function, version, state.config, state.schema, debug=state.debug)
+            output = process(
+                raw_request,
+                state.query_function,
+                version,
+                state.config,
+                state.schema,
+                snapshot_cutoff_ns=state.snapshot_cutoff_ns,
+                debug=state.debug,
+            )
         except Exception as ex:
             output = _error_output(ex, raw_request, state.config)
         if output.content_type in ('application/vnd.api+json', 'application/json') and isinstance(
@@ -187,6 +195,7 @@ def create_app(
     debug: bool = False,
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
+    snapshot_cutoff_ns: SnapshotCutoff | None = None,
 ) -> Starlette:
     """Create a mount-aware ASGI application for an explicit schema and query callback.
 
@@ -203,6 +212,7 @@ def create_app(
     :param debug: Enable Starlette and backend diagnostics.
     :param report_level: Minimum report level collected per request.
     :param report_context_levels: Context-specific report levels.
+    :param snapshot_cutoff_ns: Optional stored-backend snapshot capability.
     :return: Configured Starlette ASGI application.
     :raises ValueError: If configured CORS origins are invalid or excessive.
     """
@@ -225,6 +235,7 @@ def create_app(
         )
         app.add_middleware(_VaryOriginMiddleware)
     app.state.query_function = query_function
+    app.state.snapshot_cutoff_ns = snapshot_cutoff_ns
     app.state.config = config
     app.state.schema = schema
     app.state.baseurl = baseurl

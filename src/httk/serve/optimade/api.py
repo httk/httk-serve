@@ -40,6 +40,7 @@ def create_asgi_app(
         query_function=adapter.query_function(),
         config=config,
         schema=adapter.schema,
+        snapshot_cutoff_ns=getattr(adapter, "snapshot_cutoff_ns", None),
         baseurl=baseurl,
         debug=debug,
         report_level=report_level,

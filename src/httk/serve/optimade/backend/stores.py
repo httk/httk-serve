@@ -58,6 +58,10 @@ class StoredBackendAdapter:
     def __post_init__(self) -> None:
         object.__setattr__(self, "federations", MappingProxyType(dict(self.federations)))
 
+    def snapshot_cutoff_ns(self, entry_type: str, now_ns: int) -> int | None:
+        """Return the resolution-aware snapshot cutoff for one entry type."""
+        return self.federations[entry_type].snapshot_cutoff_ns(now_ns)
+
     def query_function(self) -> QueryFunction:
         """Return the callback that queries the configured federations.
 

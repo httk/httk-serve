@@ -225,7 +225,7 @@ def test_as_of_link_stabilizes_stored_pagination(monkeypatch: pytest.MonkeyPatch
         with _client(adapter) as client:
             first_page = client.get("/structures", params={"sort": "id", "page_limit": "1"}).json()
             assert first_page["meta"]["data_available"] == 2
-            assert "_httk_as_of=3000000000" in first_page["links"]["next"]
+            assert "_httk_as_of=2999999999" in first_page["links"]["next"]
 
             store._clock = lambda: 4_000_000_000
             added = _structure("Si")
@@ -245,6 +245,83 @@ def test_as_of_link_stabilizes_stored_pagination(monkeypatch: pytest.MonkeyPatch
             monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 5_000_000_000)
             fresh = client.get("/structures", params={"sort": "id"}).json()
             assert {item["id"] for item in fresh["data"]} == {first.id, second.id, added.id}
+
+
+def test_resolution_aware_snapshot_excludes_later_row_in_current_second(monkeypatch: pytest.MonkeyPatch) -> None:
+    with Database.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={StructureEntry: UnitcellStructureRecord},
+            store_timestamp_resolution=1_000_000_000,
+        )
+        store._clock = lambda: 9_900_000_000
+        old = _structure("Na")
+        store.save(old)
+        store._clock = lambda: 10_500_000_000
+        later = _structure("Si")
+        store.save(later)
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
+
+        monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 10_900_000_000)
+        with _client(adapter) as client:
+            snapshot = client.get("/structures", params={"sort": "id"}).json()
+            assert {item["id"] for item in snapshot["data"]} == {old.id}
+
+            monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 11_100_000_000)
+            fresh = client.get("/structures", params={"sort": "id"}).json()
+            assert {item["id"] for item in fresh["data"]} == {old.id, later.id}
+
+
+def test_microsecond_snapshot_includes_previous_unit_and_excludes_current_unit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with Database.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={StructureEntry: UnitcellStructureRecord},
+            store_timestamp_resolution=1_000,
+        )
+        store._clock = lambda: 2_000_000_999
+        previous = _structure("Na")
+        store.save(previous)
+        store._clock = lambda: 2_000_001_000
+        current = _structure("Si")
+        store.save(current)
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
+
+        monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 2_000_001_999)
+        with _client(adapter) as client:
+            snapshot = client.get("/structures", params={"sort": "id"}).json()
+            assert {item["id"] for item in snapshot["data"]} == {previous.id}
+
+
+def test_timestamp_disabled_federation_skips_snapshot_links_and_cutoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    with Database.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={StructureEntry: UnitcellStructureRecord},
+            store_timestamps=False,
+        )
+        store.save(_structure("Na"))
+        store.save(_structure("Si"))
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
+        federation = adapter.federations["structures"]
+        original_query = federation.query
+        as_of_values: list[object] = []
+
+        def tracked_query(*args: object, **kwargs: object):
+            as_of_values.append(kwargs.get("as_of"))
+            return original_query(*args, **kwargs)
+
+        monkeypatch.setattr(federation, "query", tracked_query)
+        with _client(adapter) as client:
+            page = client.get("/structures", params={"page_limit": "1"}).json()
+            assert "_httk_as_of" not in page["links"]["next"]
+            client.get(page["links"]["next"])
+            incoming = client.get("/structures?page_limit=1&_httk_as_of=42").json()
+            assert "_httk_as_of" not in incoming["links"]["next"]
+
+        assert as_of_values and set(as_of_values) == {None}
 
 
 def test_as_of_single_entry_fetch_hides_later_store_rows(monkeypatch: pytest.MonkeyPatch) -> None:

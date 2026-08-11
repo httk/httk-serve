@@ -120,11 +120,16 @@ def test_entry_endpoint_captures_and_reuses_microsecond_snapshot(monkeypatch: py
     query_function = MoreResultsQuery([{"id": "a", "type": "structures"}])
     monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 1234567891)
     output = process(
-        make_request("/structures?page_limit=1"), query_function, "1.3.0", make_config(), materials_schema()
+        make_request("/structures?page_limit=1"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        materials_schema(),
+        snapshot_cutoff_ns=lambda _entry, now_ns: (now_ns // 1000) * 1000 - 1,
     )
 
-    assert query_function.calls[0]["as_of"] == 1234567000
-    assert "_httk_as_of=1234567000" in output.json_response["links"]["next"]  # type: ignore[index]
+    assert query_function.calls[0]["as_of"] == 1234566999
+    assert "_httk_as_of=1234566999" in output.json_response["links"]["next"]  # type: ignore[index]
 
 
 def test_entry_endpoint_preserves_supplied_snapshot() -> None:
@@ -142,6 +147,7 @@ def test_entry_endpoint_preserves_supplied_snapshot() -> None:
         "1.3.0",
         make_config(),
         materials_schema(),
+        snapshot_cutoff_ns=lambda _entry, _now_ns: 999,
     )
 
     assert output.json_response is not None
