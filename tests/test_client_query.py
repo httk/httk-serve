@@ -215,10 +215,15 @@ def test_negotiated_base_routes_queries_through_effective_versioned_url() -> Non
     searcher.output(variable, "record")
 
     assert list(searcher) == []
-
     query_url = client.requests[-1]
     assert query_url.startswith(effective + "/files?")
     assert not query_url.startswith(requested + "/files?")
+
+
+def test_remote_store_rejects_historic_snapshot_requests() -> None:
+    store, _client = make_structures([])
+    with pytest.raises(ValueError, match="as_of.*remote.*negotiation"):
+        store.searcher(as_of=42)
 
 
 def query_parameters(client: QueryClient, index: int = 2) -> dict[str, list[str]]:

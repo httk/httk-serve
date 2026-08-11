@@ -1,5 +1,5 @@
-from collections.abc import Iterable, Mapping
-from typing import Any, Iterator
+from collections.abc import Iterable, Iterator, Mapping
+from typing import Any
 
 import pytest
 from definition_fixtures import served_schema
@@ -204,6 +204,7 @@ class StubQueryFunction:
         page_offset: int,
         filter_ast: Any = None,
         *,
+        as_of: int | None = None,
         sort: Any = None,
         debug: bool = False,
     ) -> StubResults:

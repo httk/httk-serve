@@ -113,9 +113,11 @@ class BackendAdapter:
             page_offset: int,
             filter_ast: FilterAst | None = None,
             *,
+            as_of: int | None = None,
             sort: Sequence[tuple[str, bool]] | None = None,
             debug: bool = False,
         ) -> QueryResults:
+            del as_of  # In-memory provider data has no timestamped snapshot.
             return execute_query(
                 self,
                 entries,

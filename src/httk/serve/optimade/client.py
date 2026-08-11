@@ -697,7 +697,7 @@ class OptimadeStore:
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         self.close()
 
-    def searcher(self, *, response_fields: object = ...) -> "RemoteSearcher":
+    def searcher(self, *, response_fields: object = ..., as_of: object = None) -> "RemoteSearcher":
         """Create one synchronous, read-only remote search plan.
 
         Passing ``response_fields`` overrides the store-level selection. An
@@ -705,9 +705,14 @@ class OptimadeStore:
         service default.
 
         :param response_fields: Per-search field selection override.
+        :param as_of: Historic cutoff; unsupported because remote snapshot negotiation is unavailable.
         :return: New remote search plan.
         :raises OptimadeClientError: If the store is closed.
+        :raises ValueError: If a historic cutoff is requested.
         """
+
+        if as_of is not None:
+            raise ValueError("OptimadeStore cannot honor as_of; remote historic snapshot negotiation is unsupported")
 
         from .remote_query import RemoteSearcher
 

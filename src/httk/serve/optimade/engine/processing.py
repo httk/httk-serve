@@ -1,6 +1,7 @@
 """Endpoint dispatch: routes a validated OPTIMADE request to its reply generator."""
 
 import logging
+import time
 from collections.abc import Callable
 from pprint import pformat
 from typing import Any
@@ -31,7 +32,12 @@ _LOG = logging.getLogger("httk.serve.optimade")
 
 
 def _make_related_resolver(
-    query_function: QueryFunction, schema: ServedSchema, baseurl: str, *, debug: bool = False
+    query_function: QueryFunction,
+    schema: ServedSchema,
+    baseurl: str,
+    *,
+    as_of: int | None = None,
+    debug: bool = False,
 ) -> "Callable[[dict[str, set[str]]], list[dict[str, Any]]]":
     """Build a resolver that fetches related resources for the ``included`` field.
 
@@ -70,6 +76,7 @@ def _make_related_resolver(
                 len(id_list),
                 0,
                 filter_ast,
+                as_of=as_of,
                 debug=debug,
             )
             for row in results:
@@ -118,6 +125,9 @@ def process(
     endpoint = validated_request.endpoint
     request_id = validated_request.request_id
     validated_parameters = validated_request.query
+
+    if endpoint in schema.all_entries and validated_parameters.as_of is None:
+        validated_parameters.as_of = (time.time_ns() // 1000) * 1000
 
     if _LOG.isEnabledFor(logging.DEBUG):
         _LOG.debug(
@@ -185,6 +195,7 @@ def process(
                     validated_parameters.page_limit,
                     validated_parameters.page_offset,
                     filter_ast,
+                    as_of=validated_parameters.as_of,
                     sort=validated_request.sort_fields or None,
                     debug=debug,
                 )
@@ -198,11 +209,18 @@ def process(
                 unknown_response_fields,
                 validated_parameters.page_limit,
                 validated_parameters.page_offset,
+                as_of=validated_parameters.as_of,
                 sort=validated_request.sort_fields or None,
                 debug=debug,
             )
 
-        related_resolver = _make_related_resolver(query_function, schema, validated_request.baseurl, debug=debug)
+        related_resolver = _make_related_resolver(
+            query_function,
+            schema,
+            validated_request.baseurl,
+            as_of=validated_parameters.as_of,
+            debug=debug,
+        )
 
         if request_id is not None:
             response = generate_single_entry_endpoint_reply(validated_request, config, results, related_resolver)

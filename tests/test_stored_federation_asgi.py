@@ -6,15 +6,15 @@ from fractions import Fraction
 
 import pytest
 from httk.atomistic import (
-    WyckoffSite,
     ASUStructure,
     ASUStructureRecord,
     Cell,
     Sites,
     Species,
-    UnitcellStructure,
     StructureEntry,
+    UnitcellStructure,
     UnitcellStructureRecord,
+    WyckoffSite,
 )
 from httk.store.db import (
     Database,
@@ -209,3 +209,60 @@ def test_duplicate_public_ids_map_to_safe_http_500_and_remain_auditable() -> Non
         federation = adapter.federations["structures"]
         with pytest.raises(DuplicateEntryIdError):
             federation.audit_duplicate_ids(batch_size=1)
+
+
+def test_as_of_link_stabilizes_stored_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store._clock = lambda: 1_000_000_000
+        first = _structure("Na")
+        second = _structure("Na", "Cl")
+        store.save(first)
+        store.save(second)
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
+
+        monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 3_000_000_000)
+        with _client(adapter) as client:
+            first_page = client.get("/structures", params={"sort": "id", "page_limit": "1"}).json()
+            assert first_page["meta"]["data_available"] == 2
+            assert "_httk_as_of=3000000000" in first_page["links"]["next"]
+
+            store._clock = lambda: 4_000_000_000
+            added = _structure("Si")
+            store.save(added)
+
+            pages = [first_page]
+            while pages[-1]["links"]["next"] is not None:
+                pages.append(client.get(pages[-1]["links"]["next"]).json())
+
+            second_page = pages[-1]
+            assert [item["id"] for item in second_page["data"]] == [max(first.id, second.id)]
+            assert second_page["meta"]["data_available"] == 2
+            assert second_page["meta"]["more_data_available"] is False
+            assert second_page["links"]["next"] is None
+            assert {item["id"] for page in pages for item in page["data"]} == {first.id, second.id}
+
+            monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 5_000_000_000)
+            fresh = client.get("/structures", params={"sort": "id"}).json()
+            assert {item["id"] for item in fresh["data"]} == {first.id, second.id, added.id}
+
+
+def test_as_of_single_entry_fetch_hides_later_store_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store._clock = lambda: 1_000_000_000
+        saved = _structure("Na")
+        store.save(saved)
+        store._clock = lambda: 3_000_000_000
+        later = _structure("Si")
+        store.save(later)
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
+
+        with _client(adapter) as client:
+            hidden = client.get(f"/structures/{later.id}", params={"_httk_as_of": 2_000_000_000})
+            assert hidden.status_code == 200
+            assert hidden.json()["data"] is None
+            monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 4_000_000_000)
+            visible = client.get(f"/structures/{later.id}")
+            assert visible.status_code == 200
+            assert visible.json()["data"]["id"] == later.id

@@ -42,6 +42,11 @@ def searcher_over_labels():
     return searcher, variable
 
 
+def test_historic_query_is_rejected() -> None:
+    with pytest.raises(ValueError, match="InMemoryStore.*historic"):
+        store().searcher(as_of=42)
+
+
 def texts(searcher) -> set[str]:
     return {item[0][0]["text"] for item in searcher}
 

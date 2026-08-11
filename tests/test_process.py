@@ -34,6 +34,7 @@ class StubQueryFunction:
         page_offset: int,
         filter_ast: Any = None,
         *,
+        as_of: int | None = None,
         sort: Any = None,
         debug: bool = False,
     ) -> StubResults:
@@ -45,6 +46,7 @@ class StubQueryFunction:
                 "page_limit": page_limit,
                 "page_offset": page_offset,
                 "filter_ast": filter_ast,
+                "as_of": as_of,
                 "sort": sort,
             }
         )
@@ -106,6 +108,44 @@ def test_entry_endpoint_with_filter_parses_ast() -> None:
     query_function = StubQueryFunction()
     process(make_request("/structures?filter=nelements=3"), query_function, "1.3.0", make_config(), materials_schema())
     assert query_function.calls[0]["filter_ast"] == ("=", ("Identifier", "nelements"), ("Number", "3"))
+
+
+def test_entry_endpoint_captures_and_reuses_microsecond_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MoreResultsQuery(StubQueryFunction):
+        def __call__(self, *args: Any, **kwargs: Any) -> StubResults:
+            results = super().__call__(*args, **kwargs)
+            results.more_data_available = True
+            return results
+
+    query_function = MoreResultsQuery([{"id": "a", "type": "structures"}])
+    monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 1234567891)
+    output = process(
+        make_request("/structures?page_limit=1"), query_function, "1.3.0", make_config(), materials_schema()
+    )
+
+    assert query_function.calls[0]["as_of"] == 1234567000
+    assert "_httk_as_of=1234567000" in output.json_response["links"]["next"]  # type: ignore[index]
+
+
+def test_entry_endpoint_preserves_supplied_snapshot() -> None:
+    query_function = StubQueryFunction([{"id": "a", "type": "structures"}])
+
+    class MoreResultsQuery(StubQueryFunction):
+        def __call__(self, *args: Any, **kwargs: Any) -> StubResults:
+            results = super().__call__(*args, **kwargs)
+            results.more_data_available = True
+            return results
+
+    output = process(
+        make_request("/structures?page_limit=1&_httk_as_of=42"),
+        MoreResultsQuery(query_function.rows),
+        "1.3.0",
+        make_config(),
+        materials_schema(),
+    )
+
+    assert output.json_response is not None
+    assert "_httk_as_of=42" in output.json_response["links"]["next"]
 
 
 def test_entry_endpoint_with_bad_filter_raises_400() -> None:

@@ -59,6 +59,7 @@ class QueryFunction(Protocol):
         page_offset: int,
         filter_ast: FilterAst | None = None,
         *,
+        as_of: int | None = None,
         sort: Sequence[tuple[str, bool]] | None = None,
         debug: bool = False,
     ) -> QueryResults:
@@ -70,6 +71,10 @@ class QueryFunction(Protocol):
         :param page_limit: Maximum page size.
         :param page_offset: Number of matches to skip.
         :param filter_ast: Parsed filter, when one was requested.
+        :param as_of: Nanosecond timestamp cutoff for a query snapshot; honored by
+            timestamp-capable stored backends, served current-state by
+            timestamp-disabled federation sources, and ignored by generic
+            provider backends.
         :param sort: Field names paired with descending flags.
         :param debug: Enable backend diagnostics.
         :return: Query results for the requested page.

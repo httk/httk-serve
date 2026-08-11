@@ -58,6 +58,8 @@ class ValidatedParameters:
     :param filter: Raw OPTIMADE filter expression.
     :param sort: Raw OPTIMADE sort expression.
     :param include: Raw related-entry inclusion request.
+    :param as_of: Nanosecond timestamp cutoff for timestamp-capable stored sources;
+        timestamp-disabled sources may serve current state and generic providers ignore it.
     :param dimension_slices: Requested slices keyed by dimension name.
     """
 
@@ -68,6 +70,7 @@ class ValidatedParameters:
     filter: str | None = None
     sort: str | None = None
     include: str | None = None
+    as_of: int | None = None
     dimension_slices: dict[str, RequestedSlice] = field(default_factory=dict)
 
     def as_query_dict(self) -> dict[str, str]:
@@ -88,6 +91,8 @@ class ValidatedParameters:
             query['sort'] = self.sort
         if self.include is not None:
             query['include'] = self.include
+        if self.as_of is not None:
+            query['_httk_as_of'] = str(self.as_of)
         if self.dimension_slices:
             parts = []
             for name, requested in self.dimension_slices.items():

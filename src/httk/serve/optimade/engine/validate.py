@@ -19,6 +19,7 @@ PAGE_LIMIT_MAX = 50
 # start/stop/step components (optional non-negative integers) separated by two
 # mandatory colons, then ']'.
 _DIMENSION_SLICE_RE = re.compile(r'^([^\[\]:]+)\[(\d*):(\d*):(\d*)\]$')
+_CANONICAL_NONNEGATIVE_INTEGER_RE = re.compile(r'[0-9]+')
 
 
 def _versioned_baseurl(baseurl: str, url_version: str | None) -> str:
@@ -116,6 +117,12 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
     # entry types happens in validate_optimade_request.
     if 'include' in query and query['include'] is not None and endpoint in schema.all_entries:
         validated_parameters.include = query['include']
+
+    if '_httk_as_of' in query and query['_httk_as_of'] is not None:
+        value = query['_httk_as_of']
+        if _CANONICAL_NONNEGATIVE_INTEGER_RE.fullmatch(value) is None or (len(value) > 1 and value.startswith('0')):
+            raise OptimadeError("_httk_as_of must be a non-negative integer.", 400, "Bad request")
+        validated_parameters.as_of = int(value)
 
     return validated_parameters
 

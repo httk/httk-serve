@@ -216,6 +216,14 @@ def test_asgi_end_to_end_over_provider() -> None:
     assert payload["data"][0]["attributes"]["tags"] == ["blue"]
 
 
+def test_provider_backend_ignores_as_of() -> None:
+    app = create_asgi_app(adapter_from_providers([make_provider()]), baseurl="http://testserver")
+    with TestClient(app, base_url="http://testserver") as client:
+        response = client.get("/widgets", params={"_httk_as_of": "42"})
+    assert response.status_code == 200
+    assert {entry["id"] for entry in response.json()["data"]} == {"w-1", "w-2"}
+
+
 def test_asgi_known_unknown_filters_inspect_each_resource_value() -> None:
     provider = WidgetProvider(
         [

@@ -89,6 +89,19 @@ def test_bad_response_format() -> None:
     assert excinfo.value.response_code == 400
 
 
+@pytest.mark.parametrize("value", ("not-an-integer", "-1", "+42", " 42", "42_0", "٤٢", "042"))
+def test_bad_as_of(value: str) -> None:
+    with pytest.raises(OptimadeError) as excinfo:
+        validate_optimade_request(make_request(f"/structures?_httk_as_of={value}"), "1.3.0", SCHEMA)
+    assert excinfo.value.response_code == 400
+
+
+def test_as_of_is_validated_and_emitted() -> None:
+    validated = validate_optimade_request(make_request("/structures?_httk_as_of=42"), "1.3.0", SCHEMA)
+    assert validated.query.as_of == 42
+    assert validated.query.as_query_dict()["_httk_as_of"] == "42"
+
+
 def test_response_fields_recognized() -> None:
     validated = validate_optimade_request(
         make_request("/structures?response_fields=elements,nelements"), "1.3.0", SCHEMA

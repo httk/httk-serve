@@ -344,11 +344,15 @@ class InMemoryStore:
     def __init__(self, tables: dict[str, list[Row]]) -> None:
         self.tables = tables
 
-    def searcher(self) -> MemorySearcher:
+    def searcher(self, *, as_of: object = None) -> MemorySearcher:
         """Create a searcher over this store's tables.
 
+        :param as_of: Optional historic timestamp cutoff; unsupported here.
         :return: Fresh in-memory searcher.
+        :raises ValueError: If a historic cutoff is requested.
         """
+        if as_of is not None:
+            raise ValueError("InMemoryStore does not support historic as_of queries")
 
         return MemorySearcher(self.tables)
 
