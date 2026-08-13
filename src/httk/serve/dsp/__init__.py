@@ -8,12 +8,18 @@ from .config import (
     DSP_TRANSFER_FORMAT,
     DSP_VERSION,
     HTTP_ENDPOINT_TYPE,
+    DcatDataService,
+    DspDatasetPublication,
+    DspDatasetSource,
     DspProviderConfig,
+    InlineDspDatasetSource,
 )
 from .models import (
     AgreementRecord,
     CatalogueProfile,
     DataServiceProfile,
+    DatasetProfile,
+    DcatDataServiceProfile,
     DeliveryStatus,
     DistributionProfile,
     DspProtocolError,
@@ -22,6 +28,7 @@ from .models import (
     TransferRecord,
 )
 from .provider import DspProvider, UtcClock, UuidFactory
+from .sources import DspEntryProviderDatasetSource, DspPublicationFactory
 
 __all__ = [
     "DCAT_FILE_FORMAT",
@@ -34,12 +41,20 @@ __all__ = [
     "CallbackTransportError",
     "CatalogueProfile",
     "DataServiceProfile",
+    "DatasetProfile",
+    "DcatDataService",
+    "DcatDataServiceProfile",
     "DefaultCallbackSender",
     "DeliveryStatus",
     "DistributionProfile",
+    "DspDatasetPublication",
+    "DspDatasetSource",
+    "DspEntryProviderDatasetSource",
     "DspProtocolError",
     "DspProvider",
     "DspProviderConfig",
+    "DspPublicationFactory",
+    "InlineDspDatasetSource",
     "NegotiationRecord",
     "OfferProfile",
     "TransferRecord",

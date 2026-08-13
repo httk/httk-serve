@@ -4,7 +4,7 @@ This directory contains raw upstream bytes for the pinned Eclipse Dataspace Prot
 
 DSP assets are Apache-2.0 licensed; the complete upstream notice is [`LICENSE-APACHE-2.0.txt`](LICENSE-APACHE-2.0.txt). DCAT-AP 3.0.1 repository material is CC-BY-4.0; the complete authoritative legal text is vendored as [`LICENSE-CC-BY-4.0.txt`](LICENSE-CC-BY-4.0.txt). The EU Publications Office RDF fixture is retained with its source-specific attribution recorded in `provenance.json`.
 
-The owned profile assets are in [`profile/`](profile/): an inline-capable JSON-LD context, strict one-catalogue/one-dataset projection schema, fixed `HttpData-PULL`/`DataAddress` schema, and small valid JSON fixtures. They are marked local and AGPL-3.0-or-later in `provenance.json`, with local SHA-256 values rather than upstream provenance.
+The owned profile assets are in [`profile/`](profile/): an inline-capable JSON-LD context, strict catalogue projection schema (including additional public DCAT data services), fixed `HttpData-PULL`/`DataAddress` schema, and small valid JSON fixtures. They are marked local and AGPL-3.0-or-later in `provenance.json`, with local SHA-256 values rather than upstream provenance.
 
 The requested all-in-one DCAT-AP SHACL digest is pinned and verified as `990d3e42721de6a4be8cc338a7171559f195e62dea89c0b56531356b78cc026f`.
 

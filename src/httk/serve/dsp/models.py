@@ -95,6 +95,26 @@ class DataServiceProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class DcatDataServiceProfile:
+    """Describe a public API included only in the owned DCAT projection.
+
+    :param id: Stable service identifier.
+    :param title: Human-readable service title.
+    :param endpoint_url: Public HTTPS API endpoint.
+    :param conforms_to: Technical standards implemented by the service.
+    :param serves_dataset_ids: Catalogue dataset identifiers served by the API.
+    :param endpoint_description: Optional IRI describing the API interface.
+    """
+
+    id: str
+    title: str
+    endpoint_url: str
+    conforms_to: tuple[str, ...]
+    serves_dataset_ids: tuple[str, ...]
+    endpoint_description: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class DistributionProfile:
     """Describe the one pull distribution for the provider dataset.
 
@@ -111,27 +131,41 @@ class DistributionProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class DatasetProfile:
+    """Group one dataset with its DSP offer, distribution, and data address.
+
+    :param dataset: Protocol-neutral dataset metadata.
+    :param offer: Unconditional ODRL use offer for this dataset.
+    :param distribution: Pull distribution advertised for this dataset.
+    :param data_service: Service embedded in the distribution.
+    :param data_address: Immutable pull address returned for authorized transfers.
+    """
+
+    dataset: Dataset
+    offer: OfferProfile
+    distribution: DistributionProfile
+    data_service: DataServiceProfile
+    data_address: Mapping[str, FrozenJsonValue]
+
+
+@dataclass(frozen=True, slots=True)
 class CatalogueProfile:
-    """Describe the fixed, one-dataset catalogue served by this provider.
+    """Describe the immutable multi-dataset catalogue served by this provider.
 
     :param id: Stable catalogue identifier.
     :param title: Human-readable catalogue title.
     :param description: Human-readable catalogue description.
     :param participant_id: Provider participant identifier.
-    :param dataset: Dataset publication metadata.
-    :param offer: The one advertised ODRL use offer.
-    :param distribution: The one distribution for the dataset.
-    :param data_service: The one delivery service.
+    :param datasets: Dataset publication profiles in stable declaration order.
+    :param dcat_data_services: Additional public APIs for the DCAT projection.
     """
 
     id: str
     title: str
     description: str
     participant_id: str
-    dataset: Dataset
-    offer: OfferProfile
-    distribution: DistributionProfile
-    data_service: DataServiceProfile
+    datasets: tuple[DatasetProfile, ...]
+    dcat_data_services: tuple[DcatDataServiceProfile, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +293,8 @@ __all__ = [
     "AgreementRecord",
     "CatalogueProfile",
     "DataServiceProfile",
+    "DatasetProfile",
+    "DcatDataServiceProfile",
     "DeliveryStatus",
     "DistributionProfile",
     "DspProtocolError",

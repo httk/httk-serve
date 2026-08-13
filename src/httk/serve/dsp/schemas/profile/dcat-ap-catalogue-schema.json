@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json",
-  "title": "httk strict one-dataset DCAT-AP projection",
+  "title": "httk strict DCAT-AP catalogue projection",
   "type": "object",
   "additionalProperties": false,
   "required": ["@context", "@id", "@type", "title", "description", "dct:publisher", "dcat:dataset", "dcat:service"],
@@ -12,8 +12,8 @@
     "title": {"$ref": "#/$defs/text"},
     "description": {"$ref": "#/$defs/text"},
     "dct:publisher": {"$ref": "#/$defs/publisher"},
-    "dcat:dataset": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/dataset"}},
-    "dcat:service": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/service"}}
+    "dcat:dataset": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/dataset"}},
+    "dcat:service": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/service"}}
   },
   "$defs": {
     "text": {"type": "string", "minLength": 1, "pattern": "\\S"},
@@ -92,7 +92,24 @@
         "@id": {"$ref": "#/$defs/iri"},
         "@type": {"const": "DataService"},
         "title": {"$ref": "#/$defs/text"},
-        "endpointURL": {"$ref": "#/$defs/iriObject"}
+        "endpointURL": {"$ref": "#/$defs/iriObject"},
+        "endpointDescription": {"$ref": "#/$defs/iriObject"},
+        "servesDataset": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/iriObject"}
+        },
+        "conformsTo": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["@id", "@type"],
+            "properties": {
+              "@id": {"$ref": "#/$defs/iri"},
+              "@type": {"const": "dct:Standard"}
+            }
+          }
+        }
       }
     }
   }

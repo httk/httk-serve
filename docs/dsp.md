@@ -1,8 +1,9 @@
 # DSP provider connector
 
 `httk.serve.dsp` provides a mountable, in-memory provider-side control plane for
-DSP 2025-1. It advertises one dataset, one unconditional ODRL `use` offer, one
-`HttpData-PULL` distribution, and a separately serialized DCAT-AP catalogue.
+DSP 2025-1. It advertises one or more datasets, each with an unconditional ODRL
+`use` offer and `HttpData-PULL` distribution, plus a separately serialized
+DCAT-AP catalogue.
 It composes independently with the web and OPTIMADE applications:
 
 ```python
@@ -20,6 +21,90 @@ root, such as `https://provider.example/dsp`. Version discovery is deliberately
 unversioned at `/.well-known/dspace-version`; the provider endpoints are below
 `/2025-1`. Public URLs come from this explicit configuration rather than
 request headers.
+
+## Declaring datasets
+
+Each `DspDatasetPublication` combines the neutral `httk.core.Dataset` metadata
+with DSP-specific offer, distribution, service, access URL, and data-address
+settings. A short script can declare several publications directly:
+
+```python
+config = DspProviderConfig(
+    connector_root_url="https://provider.example/dsp",
+    service_id="https://provider.example/dsp/service",
+    participant_id="https://provider.example/participants/provider",
+    catalog_id="https://provider.example/catalogs/materials",
+    catalog_title="Materials catalogue",
+    catalog_description="Published example datasets.",
+    datasets=(first_publication, second_publication),
+)
+app = create_dsp_app(DspProvider(config))
+```
+
+The older singular `dataset=`, `offer_id=`, and related arguments still work
+for a one-dataset configuration. `InlineDspDatasetSource` is available when a
+source object is more convenient than the `datasets` tuple.
+
+For stored records, `DspEntryProviderDatasetSource` reads one entry type from
+any `httk.core.EntryProvider` and applies a caller-supplied function to each
+record. In particular, this accepts `httk.store.db.StoreEntryProvider`, so SQL
+storage remains behind the neutral provider boundary:
+
+```python
+source = DspEntryProviderDatasetSource(
+    store_entry_provider,
+    "published_datasets",
+    publication_from_record,
+)
+config = DspProviderConfig(..., dataset_source=source)
+```
+
+The source is read once when `DspProvider` is constructed. The provider then
+serves an immutable in-memory snapshot; later store changes require constructing
+a new provider. At least one publication is required. Dataset, offer, and
+distribution identifiers must be unique, and every dataset in one DCAT
+catalogue must declare the same publisher identifier and name. A data service
+may be shared when its identifier and title are consistent.
+
+## Tier 1: public OPTIMADE access
+
+Tier 1 advertises a public OPTIMADE API as a second DCAT `DataService`; it does
+not replace the DSP access service embedded in a distribution:
+
+```python
+optimade = DcatDataService(
+    id="https://provider.example/services/optimade",
+    title="Public materials OPTIMADE API",
+    endpoint_url="https://provider.example/optimade/v1",
+    conforms_to=(
+        "https://schemas.optimade.org/defs/v1.3/standards/optimade",
+    ),
+    endpoint_description="https://www.optimade.org/specification/latest/",
+)
+
+config = DspProviderConfig(
+    ...,
+    datasets=(structures, calculations),
+    dcat_data_services=(optimade,),
+)
+```
+
+With `serves_dataset_ids=None`, the default, the service's `dcat:servesDataset`
+links resolve to every dataset in the provider's startup snapshot. An explicit
+tuple advertises only that subset and fails startup if any ID is absent. The
+owned DCAT projection also emits the endpoint as `dcat:endpointURL`, each
+standard as `dct:conformsTo`, and the optional description as
+`dcat:endpointDescription`.
+
+The DSP projection deliberately does not include these companion services.
+Each distribution's `accessService` remains the DSP service whose endpoint is
+the connector's `/2025-1` root. The public OPTIMADE service may be mounted at
+`/optimade` in the same composed ASGI application or hosted elsewhere.
+
+Tier 1 is discovery, not access control: clients can query the advertised
+OPTIMADE endpoint directly without negotiating through DSP. Future tiers may
+return protected OPTIMADE connection information after transfer negotiation;
+token issuance and endpoint enforcement remain outside this tier.
 
 ## Catalogue representations
 
@@ -48,13 +133,13 @@ Runtime DSP validation is fully offline.
 
 The provider implements consumer-initiated contract negotiation through
 `REQUESTED`, `OFFERED`, `ACCEPTED`, `AGREED`, `VERIFIED`, and `FINALIZED`, plus
-termination. An agreement is a unique `urn:uuid:` policy tied to the configured
-dataset and the two protocol PIDs. Only a finalized agreement can start a
-transfer.
+termination. An agreement is a unique `urn:uuid:` policy tied to the selected
+catalogue dataset and the two protocol PIDs. Only a finalized agreement can
+start a transfer.
 
 The transfer profile accepts only `HttpData-PULL`. On transfer start the
-provider sends its configured DSP `DataAddress`, whose HTTPS endpoint must equal
-the distribution access URL. The service manages the control plane only: it
+provider sends that dataset's configured DSP `DataAddress`, whose HTTPS endpoint
+must equal its distribution access URL. The service manages the control plane only: it
 does not implement the HTTP data endpoint, authorize it, issue access tokens,
 or define token lifetime.
 
@@ -80,5 +165,6 @@ deployment-independent DCAT-AP conformance.
 
 The connector intentionally excludes consumer-role callbacks, provider-started
 initial negotiation, DID/DCP/OAuth/VC identity, generic ODRL evaluation,
-multiple datasets, pagination/filter evaluation, persistence, push or streaming
-transfers, a generic RDF framework, and data-plane serving or protection.
+pagination/filter evaluation, live catalogue refresh, persistence, push or
+streaming transfers, a generic RDF framework, and data-plane serving or
+protection.

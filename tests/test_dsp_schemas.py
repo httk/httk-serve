@@ -118,6 +118,14 @@ def test_owned_dcat_context_makes_endpoint_an_iri() -> None:
     service = URIRef("https://example.invalid/service")
     endpoint = URIRef("https://example.invalid/dsp/2025-1")
     assert (service, dcat.endpointURL, endpoint) in owned_graph
+    optimade = URIRef("https://example.invalid/services/optimade")
+    dataset = URIRef("https://example.invalid/dataset")
+    standard = URIRef("https://schemas.optimade.org/defs/v1.3/standards/optimade")
+    description = URIRef("https://www.optimade.org/specification/latest/")
+    assert (optimade, dcat.endpointURL, URIRef("https://example.invalid/optimade/v1")) in owned_graph
+    assert (optimade, dcat.servesDataset, dataset) in owned_graph
+    assert (optimade, URIRef("http://purl.org/dc/terms/conformsTo"), standard) in owned_graph
+    assert (optimade, dcat.endpointDescription, description) in owned_graph
 
     official_context = json.loads((SCHEMAS / "context" / "dspace.jsonld").read_text(encoding="utf-8"))
     official = {

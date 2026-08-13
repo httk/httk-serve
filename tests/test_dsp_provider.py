@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 
 import pytest
-from test_dsp_config import config
+from test_dsp_config import config, multi_config, publication
 
 from httk.serve.dsp import DSP_CONTEXT, DSP_TRANSFER_FORMAT, DspProtocolError, DspProvider
 
@@ -215,6 +215,46 @@ def test_automatic_progression_finalizes_and_authorizes_pull_transfer() -> None:
         conflicting["callbackAddress"] = "https://other.example/callback"
         with pytest.raises(DspProtocolError, match="conflicting"):
             await service.request_transfer(conflicting)
+
+    asyncio.run(exercise())
+
+
+def test_negotiation_and_transfer_select_the_requested_dataset_publication() -> None:
+    """Agreement targets and pull addresses remain correlated in a multi-dataset catalogue."""
+
+    async def exercise() -> None:
+        sender = Sender()
+        service = DspProvider(
+            multi_config(publication("one"), publication("two"), automatic_progression=False),
+            callback_sender=sender,
+            uuid_factory=iter(["n2", "a2", "t2"]).__next__,
+            utc_clock=lambda: datetime(2026, 8, 13, tzinfo=UTC),
+        )
+        request = negotiation_request("consumer-two")
+        request["offer"] = {
+            "@id": "https://provider.example/offers/two",
+            "@type": "Offer",
+            "target": "https://provider.example/datasets/two",
+            "permission": [{"action": "use"}],
+        }
+        negotiation = await service.request_negotiation(request)
+        negotiation_pid = str(negotiation["providerPid"])
+        await service.send_agreement(negotiation_pid)
+        agreement = sender.calls[-1][1]["agreement"]
+        assert agreement["target"] == "https://provider.example/datasets/two"
+        await service.verify_agreement(
+            negotiation_pid,
+            process_message(
+                "ContractAgreementVerificationMessage",
+                negotiation_pid,
+                "consumer-two",
+            ),
+        )
+        await service.finalize_negotiation(negotiation_pid)
+        transfer = await service.request_transfer(transfer_request(agreement_id="urn:uuid:a2"))
+        await service.start_transfer(str(transfer["providerPid"]))
+
+        assert sender.calls[-1][1]["dataAddress"]["endpoint"] == "https://provider.example/data/two"
 
     asyncio.run(exercise())
 

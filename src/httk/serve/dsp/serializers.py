@@ -1,4 +1,4 @@
-"""JSON projections for the fixed DSP catalogue and its process records."""
+"""JSON projections for the DSP/DCAT catalogue and its process records."""
 
 from copy import deepcopy
 from typing import Final
@@ -8,6 +8,8 @@ from .models import (
     AgreementRecord,
     CatalogueProfile,
     DataServiceProfile,
+    DatasetProfile,
+    DcatDataServiceProfile,
     DistributionProfile,
     JsonValue,
     NegotiationRecord,
@@ -35,6 +37,9 @@ _DCAT_CONTEXT: Final[dict[str, JsonValue]] = {
     "accessURL": {"@id": "dcat:accessURL", "@type": "@id"},
     "accessService": {"@id": "dcat:accessService", "@type": "@id"},
     "endpointURL": {"@id": "dcat:endpointURL", "@type": "@id"},
+    "endpointDescription": {"@id": "dcat:endpointDescription", "@type": "@id"},
+    "servesDataset": {"@id": "dcat:servesDataset", "@type": "@id", "@container": "@set"},
+    "conformsTo": {"@id": "dct:conformsTo", "@type": "@id", "@container": "@set"},
     "format": {"@id": "dct:format", "@type": "@id"},
     "permission": {"@id": "odrl:permission", "@container": "@set"},
     "action": {"@id": "odrl:action", "@type": "@vocab"},
@@ -98,8 +103,8 @@ def serialize_distribution(distribution: DistributionProfile) -> dict[str, JsonV
     }
 
 
-def serialize_dsp_dataset(profile: CatalogueProfile) -> dict[str, JsonValue]:
-    """Serialize the sole dataset in its DSP catalogue projection.
+def serialize_dsp_dataset(profile: DatasetProfile) -> dict[str, JsonValue]:
+    """Serialize one dataset in its DSP catalogue projection.
 
     :param profile: Fixed provider catalogue profile.
     :return: Fresh DSP dataset object.
@@ -129,18 +134,33 @@ def serialize_dsp_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
         "participantId": profile.participant_id,
         "dct:title": profile.title,
         "dct:description": profile.description,
-        "dataset": [serialize_dsp_dataset(profile)],
+        "dataset": [serialize_dsp_dataset(dataset) for dataset in profile.datasets],
     }
 
 
-def serialize_dsp_dataset_document(profile: CatalogueProfile) -> dict[str, JsonValue]:
-    """Serialize the sole dataset as a DSP root response document.
+def serialize_dsp_dataset_document(profile: DatasetProfile) -> dict[str, JsonValue]:
+    """Serialize one dataset as a DSP root response document.
 
     :param profile: Fixed provider catalogue profile.
     :return: Fresh DSP dataset document.
     """
     document = serialize_dsp_dataset(profile)
     document["@context"] = _dsp_context()
+    return document
+
+
+def _serialize_dcat_data_service(service: DcatDataServiceProfile) -> dict[str, JsonValue]:
+    """Serialize one non-DSP public API in the owned DCAT projection."""
+    document: dict[str, JsonValue] = {
+        "@id": service.id,
+        "@type": "DataService",
+        "title": service.title,
+        "endpointURL": {"@id": service.endpoint_url},
+        "servesDataset": [{"@id": dataset_id} for dataset_id in service.serves_dataset_ids],
+        "conformsTo": [{"@id": standard, "@type": "dct:Standard"} for standard in service.conforms_to],
+    }
+    if service.endpoint_description is not None:
+        document["endpointDescription"] = {"@id": service.endpoint_description}
     return document
 
 
@@ -154,44 +174,46 @@ def serialize_dcat_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
     :param profile: Fixed provider catalogue profile.
     :return: Fresh DCAT-AP-compatible JSON-LD catalogue document.
     """
-    dataset = profile.dataset
-    distribution = profile.distribution
-    service = profile.data_service
-    policy = offer_policy(profile.offer, include_target=False)
+    first = profile.datasets[0].dataset
+    services = tuple({item.data_service.id: item.data_service for item in profile.datasets}.values())
+    dcat_services: list[JsonValue] = [
+        {
+            "@id": service.id,
+            "@type": "DataService",
+            "title": service.title,
+            "endpointURL": {"@id": service.endpoint_url},
+        }
+        for service in services
+    ]
+    dcat_services.extend(_serialize_dcat_data_service(service) for service in profile.dcat_data_services)
     return {
         "@context": _dcat_context(),
         "@id": profile.id,
         "@type": "Catalog",
         "title": profile.title,
         "description": profile.description,
-        "dct:publisher": {"@id": dataset.publisher_id, "@type": "Agent", "foaf:name": dataset.publisher_name},
+        "dct:publisher": {"@id": first.publisher_id, "@type": "Agent", "foaf:name": first.publisher_name},
         "dcat:dataset": [
             {
-                "@id": dataset.id,
+                "@id": item.dataset.id,
                 "@type": "Dataset",
-                "title": dataset.title,
-                "description": dataset.description,
-                "dct:publisher": {"@id": dataset.publisher_id},
-                "odrl:hasPolicy": [policy],
+                "title": item.dataset.title,
+                "description": item.dataset.description,
+                "dct:publisher": {"@id": item.dataset.publisher_id},
+                "odrl:hasPolicy": [offer_policy(item.offer, include_target=False)],
                 "dcat:distribution": [
                     {
-                        "@id": distribution.id,
+                        "@id": item.distribution.id,
                         "@type": "Distribution",
                         "format": {"@id": DCAT_FILE_FORMAT, "@type": "dct:MediaTypeOrExtent"},
-                        "accessURL": {"@id": distribution.access_url},
-                        "accessService": {"@id": service.id},
+                        "accessURL": {"@id": item.distribution.access_url},
+                        "accessService": {"@id": item.data_service.id},
                     }
                 ],
             }
+            for item in profile.datasets
         ],
-        "dcat:service": [
-            {
-                "@id": service.id,
-                "@type": "DataService",
-                "title": service.title,
-                "endpointURL": {"@id": service.endpoint_url},
-            }
-        ],
+        "dcat:service": dcat_services,
     }
 
 

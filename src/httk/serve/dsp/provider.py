@@ -11,11 +11,13 @@ from uuid import UUID, uuid4
 from httk.core import Dataset
 
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
-from .config import DSP_CONTEXT, DSP_TRANSFER_FORMAT, DspProviderConfig, _https_url
+from .config import DSP_CONTEXT, DSP_TRANSFER_FORMAT, DspDatasetPublication, DspProviderConfig, _https_url
 from .models import (
     AgreementRecord,
     CatalogueProfile,
     DataServiceProfile,
+    DatasetProfile,
+    DcatDataServiceProfile,
     DistributionProfile,
     DspProtocolError,
     ErrorKind,
@@ -57,20 +59,102 @@ class _AutomaticBatch:
 
 
 def _profile_from_config(config: DspProviderConfig) -> CatalogueProfile:
-    """Build the immutable fixed catalogue profile from validated configuration."""
-    dataset = Dataset.create(config.dataset)
-    data_service = DataServiceProfile(config.data_service_id, config.data_service_title, config.service_endpoint_url)
-    distribution = DistributionProfile(config.distribution_id, DSP_TRANSFER_FORMAT, config.access_url, data_service)
-    offer = OfferProfile(config.offer_id, dataset.id)
+    """Build and cross-validate the immutable catalogue snapshot."""
+    if config.dataset_source is not None:
+        declarations = tuple(
+            DspDatasetPublication.create(publication) for publication in config.dataset_source.publications()
+        )
+    elif config.datasets:
+        declarations = config.datasets
+    else:
+        assert config.dataset is not None
+        assert config.offer_id is not None
+        assert config.distribution_id is not None
+        assert config.data_service_id is not None
+        assert config.data_service_title is not None
+        assert config.access_url is not None
+        assert config.data_address is not None
+        declarations = (
+            DspDatasetPublication(
+                dataset=Dataset.create(config.dataset),
+                offer_id=config.offer_id,
+                distribution_id=config.distribution_id,
+                data_service_id=config.data_service_id,
+                data_service_title=config.data_service_title,
+                access_url=config.access_url,
+                data_address=config.data_address,
+            ),
+        )
+    if not declarations:
+        raise ValueError("dataset_source must provide at least one dataset publication")
+    first_publisher = (declarations[0].dataset.publisher_id, declarations[0].dataset.publisher_name)
+    if any(
+        (publication.dataset.publisher_id, publication.dataset.publisher_name) != first_publisher
+        for publication in declarations[1:]
+    ):
+        raise ValueError("all datasets in one catalogue must have the same publisher identifier and name")
+    for attribute in ("id", "offer_id", "distribution_id"):
+        values = [
+            publication.dataset.id if attribute == "id" else getattr(publication, attribute)
+            for publication in declarations
+        ]
+        if len(values) != len(set(values)):
+            label = "dataset IDs" if attribute == "id" else attribute.replace("_", " ") + "s"
+            raise ValueError(f"{label} must be unique within the catalogue")
+    service_titles: dict[str, str] = {}
+    for publication in declarations:
+        previous = service_titles.setdefault(publication.data_service_id, publication.data_service_title)
+        if previous != publication.data_service_title:
+            raise ValueError("a shared data service ID must use one consistent title")
+    datasets: list[DatasetProfile] = []
+    for publication in declarations:
+        data_service = DataServiceProfile(
+            publication.data_service_id,
+            publication.data_service_title,
+            config.service_endpoint_url,
+        )
+        distribution = DistributionProfile(
+            publication.distribution_id,
+            DSP_TRANSFER_FORMAT,
+            publication.access_url,
+            data_service,
+        )
+        datasets.append(
+            DatasetProfile(
+                publication.dataset,
+                OfferProfile(publication.offer_id, publication.dataset.id),
+                distribution,
+                data_service,
+                publication.data_address,
+            )
+        )
+    dataset_ids = tuple(item.dataset.id for item in datasets)
+    dsp_service_ids = {item.data_service.id for item in datasets}
+    dcat_services: list[DcatDataServiceProfile] = []
+    for service in config.dcat_data_services:
+        if service.id in dsp_service_ids:
+            raise ValueError("a DCAT companion service must have an ID distinct from every DSP access service")
+        served_ids = dataset_ids if service.serves_dataset_ids is None else service.serves_dataset_ids
+        unknown = sorted(set(served_ids).difference(dataset_ids))
+        if unknown:
+            raise ValueError(f"DCAT data service references unknown dataset IDs: {', '.join(unknown)}")
+        dcat_services.append(
+            DcatDataServiceProfile(
+                service.id,
+                service.title,
+                service.endpoint_url,
+                service.conforms_to,
+                served_ids,
+                service.endpoint_description,
+            )
+        )
     return CatalogueProfile(
         config.catalog_id,
         config.catalog_title,
         config.catalog_description,
         config.participant_id,
-        dataset,
-        offer,
-        distribution,
-        data_service,
+        tuple(datasets),
+        tuple(dcat_services),
     )
 
 
@@ -114,7 +198,7 @@ def _https_callback(value: object, kind: ErrorKind) -> str:
 
 
 class DspProvider:
-    """Serve one static catalogue and manage its non-durable DSP processes.
+    """Serve an immutable dataset catalogue and manage non-durable DSP processes.
 
     Business methods accept and return only ordinary JSON dictionaries; a thin
     HTTP adapter is responsible for route and response-code presentation. All
@@ -144,6 +228,8 @@ class DspProvider:
             raise TypeError("utc_clock must be callable")
         self.config = config
         self.profile = _profile_from_config(config)
+        self._datasets_by_id = {profile.dataset.id: profile for profile in self.profile.datasets}
+        self._datasets_by_offer = {profile.offer.id: profile for profile in self.profile.datasets}
         self._state = DspState()
         self._sender = callback_sender if callback_sender is not None else DefaultCallbackSender()
         self._uuid_factory = uuid_factory
@@ -201,7 +287,7 @@ class DspProvider:
         return version_document(self.config.service_id)
 
     def dsp_catalogue(self, request: dict[str, object]) -> dict[str, JsonValue]:
-        """Return the fixed DSP catalogue for an empty catalogue filter.
+        """Return the DSP catalogue snapshot for an empty catalogue filter.
 
         :param request: Catalog request message JSON.
         :return: Plain DSP catalogue document.
@@ -215,15 +301,15 @@ class DspProvider:
         return serialize_dsp_catalogue(self.profile)
 
     def dsp_dataset(self, dataset_id: str) -> dict[str, JsonValue]:
-        """Return the sole DSP dataset only when its ID exactly matches.
+        """Return one DSP dataset only when its ID exactly matches.
 
         :param dataset_id: Requested dataset identifier.
         :return: Plain DSP dataset document.
         :raises httk.serve.dsp.models.DspProtocolError: If the identifier is absent or unknown.
         """
-        if not isinstance(dataset_id, str) or dataset_id != self.profile.dataset.id:
+        if not isinstance(dataset_id, str) or dataset_id not in self._datasets_by_id:
             raise DspProtocolError("catalog", 404, "dataset was not found", code="not-found")
-        return serialize_dsp_dataset_document(self.profile)
+        return serialize_dsp_dataset_document(self._datasets_by_id[dataset_id])
 
     def dcat_catalogue(self) -> dict[str, JsonValue]:
         """Return the separate strict owned-context DCAT-AP projection.
@@ -292,7 +378,14 @@ class DspProvider:
         _validate_common_message(request, "ContractRequestMessage", "negotiation")
         record = await self._negotiation(provider_pid)
         self._assert_process_pids(record.provider_pid, record.consumer_pid, provider_pid, request, "negotiation")
-        self._validate_offer(request.get("offer"), "negotiation")
+        policy = self._validate_offer(request.get("offer"), "negotiation")
+        if policy != record.policy:
+            raise DspProtocolError(
+                "negotiation",
+                400,
+                "counter-request offer must match the negotiation's selected offer",
+                code="invalid-offer",
+            )
         await self._receive_negotiation(provider_pid, frozenset({"OFFERED"}), "REQUESTED")
 
     async def negotiation_event(self, provider_pid: str, message: dict[str, object]) -> None:
@@ -391,11 +484,11 @@ class DspProvider:
         if agreement_with_state is None:
             raise DspProtocolError("transfer", 404, "agreement was not found", code="not-found")
         agreement, agreement_state = agreement_with_state
-        if agreement_state != "FINALIZED" or agreement.target != self.profile.dataset.id:
+        if agreement_state != "FINALIZED" or agreement.target not in self._datasets_by_id:
             raise DspProtocolError(
                 "transfer",
                 400,
-                "a finalized agreement for the configured dataset is required",
+                "a finalized agreement for a catalogue dataset is required",
                 code="invalid-agreement",
             )
         try:
@@ -587,7 +680,17 @@ class DspProvider:
         :param provider_pid: Provider transfer-process identifier.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
         """
-        data_address = thaw_json(self.config.data_address)
+        transfer = await self._transfer(provider_pid)
+        agreement_with_state = await self._state.agreement(transfer.agreement_id)
+        if agreement_with_state is None:
+            raise DspProtocolError("transfer", 404, "agreement was not found", code="not-found")
+        agreement, agreement_state = agreement_with_state
+        publication = self._datasets_by_id.get(agreement.target)
+        if agreement_state != "FINALIZED" or publication is None:
+            raise DspProtocolError(
+                "transfer", 400, "a finalized agreement for a catalogue dataset is required", code="invalid-agreement"
+            )
+        data_address = thaw_json(publication.data_address)
         if not isinstance(data_address, dict):
             raise TypeError("configured data_address must be a JSON object")
         await self._send_transfer(
@@ -875,10 +978,14 @@ class DspProvider:
         policy = thaw_json(frozen)
         if not isinstance(policy, dict):
             raise DspProtocolError(kind, 400, "offer must be a JSON object", code="invalid-offer")
-        if policy.get("target") != self.profile.dataset.id:
-            raise DspProtocolError(kind, 400, "offer target must be the configured dataset", code="invalid-target")
+        offer_id = policy.get("@id")
+        profile = self._datasets_by_offer.get(offer_id) if isinstance(offer_id, str) else None
+        if profile is None:
+            raise DspProtocolError(kind, 400, "offer is not advertised by this catalogue", code="invalid-offer")
+        if policy.get("target") != profile.dataset.id:
+            raise DspProtocolError(kind, 400, "offer target must match its catalogue dataset", code="invalid-target")
         self._reject_contained_targets(policy)
-        expected = offer_policy(self.profile.offer, include_target=True)
+        expected = offer_policy(profile.offer, include_target=True)
         if policy != expected:
             raise DspProtocolError(
                 kind, 400, "offer does not exactly match the advertised policy", code="invalid-offer"
@@ -909,7 +1016,10 @@ class DspProvider:
             raise TypeError("negotiation policy must be a JSON object")
         policy["@id"] = self._new_agreement_id()
         policy["@type"] = "Agreement"
-        policy["target"] = self.profile.dataset.id
+        target = policy.get("target")
+        if not isinstance(target, str) or target not in self._datasets_by_id:
+            raise TypeError("negotiation policy must target a catalogue dataset")
+        policy["target"] = target
         policy["assigner"] = self.config.participant_id
         policy["assignee"] = record.consumer_pid
         policy["timestamp"] = self._utc_timestamp()
@@ -923,7 +1033,7 @@ class DspProvider:
         return AgreementRecord(
             id=agreement_id,
             policy=frozen,
-            target=self.profile.dataset.id,
+            target=target,
             assigner=self.config.participant_id,
             assignee=record.consumer_pid,
             timestamp=timestamp,

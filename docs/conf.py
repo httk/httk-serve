@@ -162,7 +162,11 @@ copybutton_prompt_is_regexp = True
 # namespace, so it is not among the source trees AutoAPI parses here. There is no
 # source-level remedy (consuming the httk-core contract is the intended design),
 # so this specific subtype is suppressed while all reference checking stays strict.
-suppress_warnings = ["myst.xref_missing", "autoapi.python_import_resolution"]
+# AutoAPI renders type-alias members by their short imported name. Public root
+# re-exports intentionally give those objects two valid targets, which Sphinx
+# reports as an ambiguous Python-domain reference even though either link is
+# correct.
+suppress_warnings = ["myst.xref_missing", "autoapi.python_import_resolution", "ref.python"]
 
 def skip_member(app, what, name, obj, skip, options):
     # Skip private members (those starting with _)
