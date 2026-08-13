@@ -133,6 +133,20 @@ nitpick_ignore = [
     # StoredEntrySource is new in the sibling httk-store workspace; the
     # committed release inventory cannot name it until httk-store is released.
     ("py:class", "httk.store.db.StoredEntrySource"),
+    # DSP is being added alongside the unreleased httk-core Dataset contract,
+    # while AutoAPI shortens a few callable/type-alias annotations beyond what
+    # the committed external inventories can resolve.
+    ("py:class", "httk.core.Dataset"),
+    ("py:class", "DspProvider"),
+    ("py:class", "JsonScalar"),
+    ("py:class", "UUID"),
+    ("py:class", "datetime"),
+    ("py:class", "referencing.Registry"),
+    # Private DSP adapter seams appear in callable signatures but are excluded
+    # from AutoAPI's public object inventory.
+    ("py:class", "_Resolver"),
+    ("py:class", "_Connector"),
+    ("py:class", "_AutomaticBatch"),
     # The client deliberately keeps its backend variable private; AutoAPI
     # excludes it but still renders public-method annotations that mention it.
     ("py:class", "_RemoteVariable"),

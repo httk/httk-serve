@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json",
+  "title": "httk strict one-dataset DCAT-AP projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["@context", "@id", "@type", "title", "description", "dct:publisher", "dcat:dataset", "dcat:service"],
+  "properties": {
+    "@context": {"type": "object"},
+    "@id": {"$ref": "#/$defs/iri"},
+    "@type": {"const": "Catalog"},
+    "title": {"$ref": "#/$defs/text"},
+    "description": {"$ref": "#/$defs/text"},
+    "dct:publisher": {"$ref": "#/$defs/publisher"},
+    "dcat:dataset": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/dataset"}},
+    "dcat:service": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/service"}}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "iri": {"type": "string", "format": "uri"},
+    "iriObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@id"],
+      "properties": {"@id": {"$ref": "#/$defs/iri"}}
+    },
+    "publisher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@id", "@type", "foaf:name"],
+      "properties": {
+        "@id": {"$ref": "#/$defs/iri"},
+        "@type": {"const": "Agent"},
+        "foaf:name": {"$ref": "#/$defs/text"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@id", "@type", "permission"],
+      "properties": {
+        "@id": {"$ref": "#/$defs/iri"},
+        "@type": {"const": "Offer"},
+        "permission": {
+          "type": "array", "minItems": 1, "maxItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["action"], "properties": {"action": {"const": "use"}}
+          }
+        }
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@id", "@type", "format", "accessURL", "accessService"],
+      "properties": {
+        "@id": {"$ref": "#/$defs/iri"},
+        "@type": {"const": "Distribution"},
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["@id", "@type"],
+          "properties": {
+            "@id": {"const": "http://publications.europa.eu/resource/authority/file-type/JSON_LD"},
+            "@type": {"const": "dct:MediaTypeOrExtent"}
+          }
+        },
+        "accessURL": {"$ref": "#/$defs/iriObject"},
+        "accessService": {"$ref": "#/$defs/iriObject"}
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@id", "@type", "title", "description", "dct:publisher", "odrl:hasPolicy", "dcat:distribution"],
+      "properties": {
+        "@id": {"$ref": "#/$defs/iri"},
+        "@type": {"const": "Dataset"},
+        "title": {"$ref": "#/$defs/text"},
+        "description": {"$ref": "#/$defs/text"},
+        "dct:publisher": {"$ref": "#/$defs/iriObject"},
+        "odrl:hasPolicy": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/policy"}},
+        "dcat:distribution": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/distribution"}}
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@id", "@type", "title", "endpointURL"],
+      "properties": {
+        "@id": {"$ref": "#/$defs/iri"},
+        "@type": {"const": "DataService"},
+        "title": {"$ref": "#/$defs/text"},
+        "endpointURL": {"$ref": "#/$defs/iriObject"}
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.httk.org/dsp/2025-1/http-pull-profile.json",
+  "title": "HTTK fixed HttpData-PULL DataAddress configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "dataAddress"],
+  "properties": {
+    "format": {"const": "HttpData-PULL"},
+    "dataAddress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@type", "endpointType", "endpoint"],
+      "properties": {
+        "@type": {"const": "DataAddress"},
+        "endpointType": {"const": "https://w3id.org/idsa/v4.1/HTTP"},
+        "endpoint": {"type": "string", "format": "uri", "pattern": "^https://"}
+      }
+    }
+  }
+}

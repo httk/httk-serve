@@ -1,0 +1,8 @@
+{
+  "format": "HttpData-PULL",
+  "dataAddress": {
+    "@type": "DataAddress",
+    "endpointType": "https://w3id.org/idsa/v4.1/HTTP",
+    "endpoint": "https://example.invalid/data.jsonld"
+  }
+}

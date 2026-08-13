@@ -1,0 +1,283 @@
+openapi: 3.1.0
+info:
+  title: httk DSP provider control plane
+  version: 2025-1
+  description: Provider-side DSP 2025-1 control-plane subset and local DCAT-AP projection.
+paths:
+  /.well-known/dspace-version:
+    get:
+      operationId: version_discovery
+      responses:
+        '200':
+          description: Supported protocol versions.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/common/protocol-version-schema.json
+  /2025-1/catalog/request:
+    post:
+      operationId: catalog_request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/catalog/catalog-request-message-schema.json
+      responses:
+        '200':
+          description: The configured DSP catalogue.
+          headers:
+            Link:
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/catalog/catalog-schema.json
+        '400':
+          description: Invalid or unsupported catalogue request.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/catalog/catalog-error-schema.json
+  /2025-1/catalog/datasets/{id}:
+    get:
+      operationId: dataset_request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: The requested DSP dataset.
+          headers:
+            Link:
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/catalog/dataset-schema.json
+        '404':
+          description: Unknown dataset.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/catalog/catalog-error-schema.json
+  /2025-1/catalog:
+    get:
+      operationId: dcat_catalog
+      responses:
+        '200':
+          description: Strict local DCAT-AP JSON-LD projection.
+          content:
+            'application/ld+json; profile="https://semiceu.github.io/DCAT-AP/releases/3.0.1/"':
+              schema:
+                $ref: https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json
+  /2025-1/negotiations/{providerPid}:
+    get:
+      operationId: negotiation_state
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      responses:
+        '200':
+          description: Current negotiation state.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/negotiation/contract-negotiation-schema.json
+        '404':
+          $ref: '#/components/responses/NegotiationError'
+  /2025-1/negotiations/request:
+    post:
+      operationId: negotiation_request
+      requestBody:
+        $ref: '#/components/requestBodies/ContractRequest'
+      responses:
+        '201':
+          description: Negotiation created.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/negotiation/contract-negotiation-schema.json
+        '400':
+          $ref: '#/components/responses/NegotiationError'
+        '502':
+          $ref: '#/components/responses/NegotiationError'
+  /2025-1/negotiations/{providerPid}/request:
+    post:
+      operationId: negotiation_counter_request
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        $ref: '#/components/requestBodies/ContractRequest'
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/NegotiationError'}
+        '404': {$ref: '#/components/responses/NegotiationError'}
+  /2025-1/negotiations/{providerPid}/events:
+    post:
+      operationId: negotiation_event
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/negotiation/contract-negotiation-event-message-schema.json
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/NegotiationError'}
+        '404': {$ref: '#/components/responses/NegotiationError'}
+  /2025-1/negotiations/{providerPid}/agreement/verification:
+    post:
+      operationId: agreement_verification
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/negotiation/contract-agreement-verification-message-schema.json
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/NegotiationError'}
+        '404': {$ref: '#/components/responses/NegotiationError'}
+        '502': {$ref: '#/components/responses/NegotiationError'}
+  /2025-1/negotiations/{providerPid}/termination:
+    post:
+      operationId: negotiation_termination
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/negotiation/contract-negotiation-termination-message-schema.json
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/NegotiationError'}
+        '404': {$ref: '#/components/responses/NegotiationError'}
+  /2025-1/transfers/{providerPid}:
+    get:
+      operationId: transfer_state
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      responses:
+        '200':
+          description: Current transfer state.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/transfer/transfer-process-schema.json
+        '404': {$ref: '#/components/responses/TransferError'}
+  /2025-1/transfers/request:
+    post:
+      operationId: transfer_request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/transfer/transfer-request-message-schema.json
+      responses:
+        '201':
+          description: Transfer process created.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/transfer/transfer-process-schema.json
+        '400': {$ref: '#/components/responses/TransferError'}
+        '404': {$ref: '#/components/responses/TransferError'}
+        '502': {$ref: '#/components/responses/TransferError'}
+  /2025-1/transfers/{providerPid}/start:
+    post:
+      operationId: transfer_start
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/transfer/transfer-start-message-schema.json
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/TransferError'}
+        '404': {$ref: '#/components/responses/TransferError'}
+  /2025-1/transfers/{providerPid}/suspension:
+    post:
+      operationId: transfer_suspension
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/transfer/transfer-suspension-message-schema.json
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/TransferError'}
+        '404': {$ref: '#/components/responses/TransferError'}
+  /2025-1/transfers/{providerPid}/completion:
+    post:
+      operationId: transfer_completion
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/transfer/transfer-completion-message-schema.json
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/TransferError'}
+        '404': {$ref: '#/components/responses/TransferError'}
+  /2025-1/transfers/{providerPid}/termination:
+    post:
+      operationId: transfer_termination
+      parameters:
+        - $ref: '#/components/parameters/ProviderPid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://w3id.org/dspace/2025/1/transfer/transfer-termination-message-schema.json
+      responses:
+        '200': {$ref: '#/components/responses/EmptyOk'}
+        '400': {$ref: '#/components/responses/TransferError'}
+        '404': {$ref: '#/components/responses/TransferError'}
+components:
+  parameters:
+    ProviderPid:
+      name: providerPid
+      in: path
+      required: true
+      schema: {type: string}
+  requestBodies:
+    ContractRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: https://w3id.org/dspace/2025/1/negotiation/contract-request-message-schema.json
+  responses:
+    EmptyOk:
+      description: Transition accepted.
+    NegotiationError:
+      description: Contract negotiation error.
+      content:
+        application/json:
+          schema:
+            $ref: https://w3id.org/dspace/2025/1/negotiation/contract-negotiation-error-schema.json
+    TransferError:
+      description: Transfer process error.
+      content:
+        application/json:
+          schema:
+            $ref: https://w3id.org/dspace/2025/1/transfer/transfer-error-schema.json

@@ -1,0 +1,40 @@
+{
+  "protocolVersions": [
+    {
+      "version": "2025-1",
+      "path": "/some/path/2025-1",
+      "binding": "HTTPS",
+      "serviceId": "service-asdf",
+      "identifierType": "did:web"
+    },
+    {
+      "version": "2024-1",
+      "path": "/some/path/2024-1",
+      "binding": "HTTPS",
+      "auth": {
+        "protocol": "OAuth",
+        "version": "2",
+        "profile": [
+          "authorization_code",
+          "refresh_token"
+        ]
+      },
+      "serviceId": "service-asdf",
+      "identifierType": "D-U-N-S"
+
+    },
+    {
+      "version": "2025-1",
+      "path": "/different/path/2025-1",
+      "binding": "HTTPS",
+      "auth": {
+        "protocol": "DCP",
+        "version": "1.0",
+        "profile": [
+          "vc11-sl2021/jwt"
+        ]
+      },
+      "serviceId": "service-qwerty"
+    }
+  ]
+}

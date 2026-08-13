@@ -48,6 +48,7 @@ to running service.
 ```{toctree}
 :maxdepth: 2
 
+dsp
 web/index
 optimade/index
 reference/index

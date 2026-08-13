@@ -1,0 +1,27 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "@protected": true,
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "dct": "http://purl.org/dc/terms/",
+    "foaf": "http://xmlns.com/foaf/0.1/",
+    "odrl": "http://www.w3.org/ns/odrl/2/",
+    "Catalog": "dcat:Catalog",
+    "Dataset": "dcat:Dataset",
+    "Distribution": "dcat:Distribution",
+    "DataService": "dcat:DataService",
+    "Agent": "foaf:Agent",
+    "Offer": "odrl:Offer",
+    "permission": "odrl:permission",
+    "action": {"@id": "odrl:action", "@type": "@vocab"},
+    "use": "odrl:use",
+    "title": "dct:title",
+    "description": "dct:description",
+    "publisher": {"@id": "dct:publisher", "@type": "@id"},
+    "dataset": {"@id": "dcat:dataset", "@container": "@set"},
+    "accessURL": {"@id": "dcat:accessURL", "@type": "@id"},
+    "accessService": {"@id": "dcat:accessService", "@type": "@id"},
+    "endpointURL": {"@id": "dcat:endpointURL", "@type": "@id"},
+    "format": {"@id": "dct:format", "@type": "@id"}
+  }
+}
