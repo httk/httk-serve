@@ -2,7 +2,7 @@
 
 from httk.core.optimade import ParserError, ParserSyntaxError, parse_optimade_filter
 
-from .api import create_asgi_app, serve
+from .api import create_asgi_app, create_index_asgi_app, serve
 from .backend import (
     BackendAdapter,
     EntrySource,
@@ -28,6 +28,7 @@ from .model import (
     EndpointResponse,
     OptimadeConfig,
     OptimadeError,
+    OptimadeIndexConfig,
     RawRequest,
     TranslatorError,
     ValidatedParameters,
@@ -55,6 +56,7 @@ __all__ = [
     "OptimadeError",
     "OptimadeErrorDocumentError",
     "OptimadeHTTPError",
+    "OptimadeIndexConfig",
     "OptimadePaginationError",
     "OptimadeResponseError",
     "OptimadeStore",
@@ -74,6 +76,7 @@ __all__ = [
     "adapter_from_providers",
     "adapter_from_stores",
     "create_asgi_app",
+    "create_index_asgi_app",
     "parse_optimade_filter",
     "process",
     "process_init",

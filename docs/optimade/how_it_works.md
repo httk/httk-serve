@@ -136,8 +136,33 @@ Optional parts of the specification that are not implemented: cross-source sort
 merging, filtering on relationship paths nested deeper than one level
 (`references.structures.x`), on relationship `meta`
 (`.description`/`.role`), and dotted `LENGTH` filters, the sparse JSON Lines
-layout, index meta-databases, transaction mechanisms, and rejection of
-unrecognized query parameters.
+layout, transaction mechanisms, and rejection of unrecognized query parameters.
+
+## Index meta-databases and composition
+
+An index is configured separately from a normal backend-backed OPTIMADE
+service. Its links contain one `root` and any `child`, `external`, or
+`providers` entries; `default_link_id` optionally selects a child:
+
+```python
+from httk.serve import ASGIAppMount, compose_asgi_apps
+from httk.serve.optimade import OptimadeIndexConfig, create_index_asgi_app
+
+index = create_index_asgi_app(
+    OptimadeIndexConfig(links=[root_link, amdb_link], default_link_id="amdb"),
+    baseurl="https://example.org/optimade/index/",
+)
+app = compose_asgi_apps(
+    [ASGIAppMount("/optimade/index", index), ASGIAppMount("/optimade/amdb", amdb_app)],
+    root=ASGIAppMount("/", website_app),
+)
+```
+
+`compose_asgi_apps` orders nested mounts from most specific to least specific
+and coordinates the Starlette lifespan of every child. The index has no
+backend adapter: its `/info`, `/links`, and unversioned `/versions` responses
+are produced by the same request, version, rendering, reporting, and CORS
+pipeline as an ordinary service.
 
 ## Serving additional entry types
 

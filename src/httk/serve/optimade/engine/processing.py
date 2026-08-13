@@ -21,7 +21,7 @@ from ..endpoints.info import (
     generate_versions_endpoint_reply,
 )
 from ..endpoints.partial_data import generate_partial_data_reply
-from ..model.config import OptimadeConfig
+from ..model.config import OptimadeConfig, OptimadeIndexConfig
 from ..model.errors import OptimadeError, TranslatorError
 from ..model.request import EndpointResponse, RawRequest
 from ..model.results import QueryFunction
@@ -147,6 +147,9 @@ def process(
             validated_parameters,
             extra={"context": "optimade"},
         )
+
+    if endpoint == '' and isinstance(config, OptimadeIndexConfig):
+        raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
 
     if endpoint == '':
         content = generate_base_endpoint_reply(validated_request, config)

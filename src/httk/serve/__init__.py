@@ -1,3 +1,5 @@
-"""Provide unified httk web-serving and OPTIMADE capabilities."""
+"""Provide unified web-serving, application-composition, and OPTIMADE capabilities."""
 
-__all__: list[str] = []
+from .composition import ASGIAppMount, compose_asgi_apps
+
+__all__ = ["ASGIAppMount", "compose_asgi_apps"]

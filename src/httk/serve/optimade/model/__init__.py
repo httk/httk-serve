@@ -1,6 +1,6 @@
 """Public request, response, configuration, and result models."""
 
-from .config import OptimadeConfig
+from .config import OptimadeConfig, OptimadeIndexConfig
 from .errors import OptimadeError, TranslatorError
 from .request import (
     EndpointResponse,
@@ -16,6 +16,7 @@ __all__ = [
     "OptimadeAdapter",
     "OptimadeConfig",
     "OptimadeError",
+    "OptimadeIndexConfig",
     "QueryFunction",
     "QueryResults",
     "RawRequest",

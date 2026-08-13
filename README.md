@@ -8,9 +8,21 @@ relationships with the `include` query parameter, per-property metadata, the par
 protocol (JSON Lines format and `dimension_slices`) with the compact list representation,
 and the `license`/`available_licenses`/warnings meta and base-info fields. Optional parts
 that remain unimplemented: cross-source sort merging, filtering on relationship
-`.target.*`/`.description`/`.role` properties, the sparse JSON Lines layout, index
-meta-databases, and rejection of unrecognized query parameters. See
+`.target.*`/`.description`/`.role` properties, the sparse JSON Lines layout, and
+rejection of unrecognized query parameters. See
 `docs/optimade/how_it_works.md` for the protocol architecture and backend/web seams.
+
+Multiple Starlette services can be composed at explicit paths. For example, an
+OPTIMADE index and database can share a parent application without coupling
+their URL configuration:
+
+```python
+from httk.serve import ASGIAppMount, compose_asgi_apps
+from httk.serve.optimade import OptimadeIndexConfig, create_index_asgi_app
+
+index = create_index_asgi_app(OptimadeIndexConfig(links=[...]), baseurl="https://example.org/optimade/index/")
+app = compose_asgi_apps([ASGIAppMount("/optimade/index", index)], root=ASGIAppMount("/", website_app))
+```
 
 The implementation was ported from the OPTIMADE server in httk v1 (which served OPTIMADE
 v1.0.0) and then upgraded to v1.3.0. The legacy client-side `validation/` subpackage has

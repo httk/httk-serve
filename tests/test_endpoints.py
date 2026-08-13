@@ -119,6 +119,7 @@ def test_links_endpoint_reply() -> None:
     assert entry["attributes"]["name"] == "test index"
     assert "id" not in entry["attributes"]
     assert reply["data"][1]["id"] == "optimade"
+    assert reply["meta"]["data_returned"] == 2
 
 
 def test_entry_endpoint_reply() -> None:

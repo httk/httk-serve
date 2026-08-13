@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from ..model.config import OptimadeConfig
+from ..model.config import OptimadeConfig, OptimadeIndexConfig
 from ..model.request import ValidatedRequest
 from ..model.versions import optimade_supported_versions
 from ..schema.served import ServedSchema
@@ -31,6 +31,8 @@ def generate_info_endpoint_reply(
     for ver in optimade_supported_versions:
         available_api_versions += [{'version': optimade_supported_versions[ver], 'url': baseurl + ver}]
 
+    index_config = config if isinstance(config, OptimadeIndexConfig) else None
+    is_index = index_config is not None
     attributes: dict[str, Any] = {
         "api_version": request.version,
         "available_api_versions": available_api_versions,
@@ -41,7 +43,7 @@ def generate_info_endpoint_reply(
             "json": list(schema.all_entries),
         },
         "available_endpoints": ["info", "links"] + list(schema.all_entries),
-        "is_index": False,
+        "is_index": is_index,
     }
     if config.license is not None:
         attributes["license"] = config.license
@@ -50,11 +52,20 @@ def generate_info_endpoint_reply(
     if config.available_licenses_for_entries is not None:
         attributes["available_licenses_for_entries"] = config.available_licenses_for_entries
 
+    data: dict[str, Any] = {
+        "id": "/",
+        "type": "info",
+        "attributes": attributes,
+    }
+    if is_index:
+        default_data: dict[str, str] | None = None
+        if index_config is not None and index_config.default_link_id is not None:
+            default_data = {"type": "links", "id": index_config.default_link_id}
+        data["relationships"] = {"default": {"data": default_data}}
+
     response = {
         "data": {
-            "id": "/",
-            "type": "info",
-            "attributes": attributes,
+            **data,
         },
         "meta": generate_meta(
             representation=request.representation,
@@ -172,7 +183,7 @@ def generate_links_endpoint_reply(request: ValidatedRequest, config: OptimadeCon
             representation=request.representation,
             api_version=request.version,
             config=config,
-            data_count=len(links),
+            data_count=len(links) + 1,
             more_data_available=False,
             warnings=request.warnings or None,
         ),
