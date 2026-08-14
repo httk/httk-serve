@@ -2,6 +2,13 @@
 
 from .api import create_dsp_app
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
+from .catalogue import (
+    DCAT_MEDIA_TYPE,
+    DCAT_PROFILE,
+    DspCataloguePolicy,
+    DspCatalogueRepresentation,
+    MinimalDspCataloguePolicy,
+)
 from .config import (
     DCAT_AP_3_0_1_PROFILE,
     DCAT_AP_MINIMAL_CONTENT_NEGOTIATION,
@@ -30,6 +37,7 @@ from .models import (
     DeliveryStatus,
     DistributionProfile,
     DspProtocolError,
+    JsonValue,
     NegotiationRecord,
     OfferProfile,
     TransferRecord,
@@ -40,6 +48,8 @@ __all__ = [
     "DCAT_AP_3_0_1_PROFILE",
     "DCAT_AP_MINIMAL_CONTENT_NEGOTIATION",
     "DCAT_AP_MINIMAL_PROFILE",
+    "DCAT_MEDIA_TYPE",
+    "DCAT_PROFILE",
     "DSP_2025_1_SPECIFICATION",
     "DSP_CONTEXT",
     "DSP_MINIMAL_PROFILE",
@@ -60,12 +70,16 @@ __all__ = [
     "DefaultCallbackSender",
     "DeliveryStatus",
     "DistributionProfile",
+    "DspCataloguePolicy",
+    "DspCatalogueRepresentation",
     "DspDatasetPublication",
     "DspProtocolError",
     "DspProvider",
     "DspProviderConfig",
     "DspPublicationEntry",
     "DspPublicationRecord",
+    "JsonValue",
+    "MinimalDspCataloguePolicy",
     "NegotiationRecord",
     "OfferProfile",
     "TransferRecord",

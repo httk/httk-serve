@@ -11,11 +11,13 @@ from uuid import UUID, uuid4
 from httk.store import EntryStore
 
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
+from .catalogue import (
+    DspCataloguePolicy,
+    DspCatalogueRepresentation,
+    MinimalDspCataloguePolicy,
+)
 from .config import (
-    DCAT_AP_3_0_1_PROFILE,
-    DSP_2025_1_SPECIFICATION,
     DSP_CONTEXT,
-    HTTP_ENDPOINT_TYPE,
     DspProviderConfig,
     DspPublicationEntry,
     DspPublicationRecord,
@@ -24,26 +26,18 @@ from .config import (
 from .models import (
     AgreementRecord,
     CatalogueProfile,
-    DataServiceProfile,
     DatasetProfile,
-    DcatDataServiceProfile,
-    DistributionProfile,
     DspProtocolError,
     ErrorKind,
     FrozenJsonValue,
     JsonValue,
     NegotiationRecord,
-    OfferProfile,
     TransferRecord,
     freeze_json,
     thaw_json,
 )
 from .serializers import (
-    offer_policy,
     serialize_agreement,
-    serialize_dcat_catalogue,
-    serialize_dsp_catalogue,
-    serialize_dsp_dataset_document,
     serialize_negotiation,
     serialize_transfer,
     version_document,
@@ -65,119 +59,6 @@ class _AutomaticBatch:
     """Hold callback actions reserved for one response's post-send hook."""
 
     actions: list[_AutomaticCallback] = field(default_factory=list)
-
-
-def _profile_from_declarations(
-    config: DspProviderConfig,
-    publications: tuple[DspPublicationRecord, ...],
-) -> CatalogueProfile:
-    """Build and cross-validate the immutable catalogue snapshot."""
-    declarations = tuple(item.dataset for item in publications if item.dataset is not None)
-    services = tuple(item.service for item in publications if item.service is not None)
-    if not declarations:
-        raise ValueError("the DSP publication source contains no dataset publications")
-    first_publisher = (declarations[0].dataset.publisher_id, declarations[0].dataset.publisher_name)
-    if any(
-        (publication.dataset.publisher_id, publication.dataset.publisher_name) != first_publisher
-        for publication in declarations[1:]
-    ):
-        raise ValueError("all datasets in one catalogue must have the same publisher identifier and name")
-    for attribute in ("id", "offer_id", "distribution_id"):
-        values = [
-            publication.dataset.id if attribute == "id" else getattr(publication, attribute)
-            for publication in declarations
-        ]
-        if len(values) != len(set(values)):
-            label = "dataset IDs" if attribute == "id" else attribute.replace("_", " ") + "s"
-            raise ValueError(f"{label} must be unique within the catalogue")
-    dataset_ids = tuple(publication.dataset.id for publication in declarations)
-    service_conformance = [config.dsp_profile, DSP_2025_1_SPECIFICATION]
-    if config.dcat_ap_content_negotiation:
-        service_conformance.extend((config.dcat_ap_content_negotiation_profile, DCAT_AP_3_0_1_PROFILE))
-    data_service = DataServiceProfile(
-        config.service_id,
-        config.service_title,
-        config.service_endpoint_url,
-        tuple(service_conformance),
-        dataset_ids,
-    )
-    datasets: list[DatasetProfile] = []
-    for publication in declarations:
-        assert publication.file_format is not None
-        assert publication.media_type is not None
-        assert publication.offer_id is not None
-        assert publication.distribution_id is not None
-        access_url = config.resolve_access_url(publication.access_url)
-        distribution = DistributionProfile(
-            publication.distribution_id,
-            publication.file_format,
-            publication.file_format,
-            publication.media_type,
-            access_url,
-            data_service,
-            publication.byte_size,
-            publication.sha256,
-        )
-        datasets.append(
-            DatasetProfile(
-                publication.dataset,
-                OfferProfile(publication.offer_id, publication.dataset.id),
-                distribution,
-                data_service,
-                {
-                    "@type": "DataAddress",
-                    "endpointType": HTTP_ENDPOINT_TYPE,
-                    "endpoint": access_url,
-                },
-            )
-        )
-    dsp_service_ids = {item.data_service.id for item in datasets}
-    dcat_services: list[DcatDataServiceProfile] = []
-    service_ids = [service.id for service in services]
-    if len(service_ids) != len(set(service_ids)):
-        raise ValueError("catalogue service IDs must be unique")
-    if config.service_id in service_ids:
-        raise ValueError("a catalogue service must have an ID distinct from the global DSP access service")
-    dataset_id_set = set(dataset_ids)
-    qualifying_service = False
-    for service in services:
-        try:
-            endpoint_url = _https_url("service endpoint_url", service.endpoint_url, reject_query=True)
-        except ValueError as error:
-            raise ValueError("catalogue service endpoint_url must be an absolute HTTPS URL") from error
-        served_ids = dataset_ids if service.serves_dataset_ids is None else service.serves_dataset_ids
-        unknown = sorted(set(served_ids).difference(dataset_id_set))
-        if unknown:
-            raise ValueError(f"catalogue service references unknown dataset IDs: {', '.join(unknown)}")
-        if (
-            config.dcat_ap_profile in service.conforms_to
-            and DCAT_AP_3_0_1_PROFILE in service.conforms_to
-            and set(served_ids) == dataset_id_set
-        ):
-            qualifying_service = True
-        if service.id in dsp_service_ids:
-            raise ValueError("a catalogue service must have an ID distinct from every DSP access service")
-        dcat_services.append(
-            DcatDataServiceProfile(
-                service.id,
-                service.title,
-                endpoint_url,
-                service.conforms_to,
-                served_ids,
-                service.endpoint_description,
-            )
-        )
-    if config.dcat_ap_content_negotiation and not qualifying_service:
-        raise ValueError("dcat_ap_content_negotiation requires a qualifying published catalogue service")
-    return CatalogueProfile(
-        config.catalog_id,
-        config.catalog_title,
-        config.catalog_description,
-        config.participant_id,
-        config.dcat_ap_profile,
-        tuple(datasets),
-        tuple(dcat_services),
-    )
 
 
 def _message_object(message: object, kind: ErrorKind) -> dict[str, object]:
@@ -232,6 +113,8 @@ class DspProvider:
         family. Exactly one of ``store`` and ``publications`` is required.
     :param publications: Inline dataset and service publication envelopes.
         Exactly one of ``publications`` and ``store`` is required.
+    :param catalogue_policy: Optional replaceable catalogue requirements and
+        serialization policy. The built-in minimal policy is used by default.
     :param callback_sender: Optional asynchronous callback transport. Supplying
         one bypasses default network policy and is useful for deterministic tests.
     :param uuid_factory: Optional source for provider and agreement identifiers.
@@ -244,6 +127,7 @@ class DspProvider:
         *,
         store: EntryStore | None = None,
         publications: Iterable[DspPublicationRecord] | None = None,
+        catalogue_policy: DspCataloguePolicy | None = None,
         callback_sender: CallbackSender | None = None,
         uuid_factory: UuidFactory = uuid4,
         utc_clock: UtcClock | None = None,
@@ -254,6 +138,8 @@ class DspProvider:
             raise TypeError("uuid_factory must be callable")
         if utc_clock is not None and not callable(utc_clock):
             raise TypeError("utc_clock must be callable")
+        if catalogue_policy is not None and not isinstance(catalogue_policy, DspCataloguePolicy):
+            raise TypeError("catalogue_policy must implement DspCataloguePolicy")
         if (store is None) == (publications is None):
             raise ValueError("configure exactly one publication source: store or publications")
         if store is not None:
@@ -272,6 +158,7 @@ class DspProvider:
         else:
             inline = None
         self.config = config
+        self.catalogue_policy = MinimalDspCataloguePolicy() if catalogue_policy is None else catalogue_policy
         self._store = store
         self._inline_publications = inline
         self._state = DspState()
@@ -293,7 +180,7 @@ class DspProvider:
     @property
     def profile(self) -> CatalogueProfile:
         """Return a freshly validated catalogue snapshot."""
-        return _profile_from_declarations(self.config, self._publications())
+        return self.catalogue_policy.build_profile(self.config, self._publications())
 
     def _dataset_maps(self) -> tuple[CatalogueProfile, dict[str, DatasetProfile], dict[str, DatasetProfile]]:
         profile = self.profile
@@ -361,15 +248,35 @@ class DspProvider:
         :raises httk.serve.dsp.models.DspProtocolError: If the request is malformed or filters are unsupported.
         """
         self.validate_catalogue_request(request)
-        return serialize_dsp_catalogue(self.profile)
+        return self.catalogue_policy.serialize_catalogue(self.profile, alternate=False)
+
+    def catalogue(
+        self,
+        request: dict[str, object],
+        representation: DspCatalogueRepresentation,
+    ) -> dict[str, JsonValue]:
+        """Return a catalogue in a representation selected by the policy.
+
+        :param request: Catalog request message JSON.
+        :param representation: Value returned by :meth:`select_catalogue_representation`.
+        :return: Plain catalogue document.
+        """
+        self.validate_catalogue_request(request)
+        return self.catalogue_policy.serialize_catalogue(self.profile, alternate=representation.alternate)
+
+    def select_catalogue_representation(self, accept: str | None) -> DspCatalogueRepresentation:
+        """Select a catalogue response representation through the active policy.
+
+        :param accept: Raw HTTP ``Accept`` field, or ``None`` when absent.
+        :return: Selected representation metadata.
+        """
+        return self.catalogue_policy.select_catalogue_representation(self.config, accept)
 
     def validate_catalogue_request(self, request: dict[str, object]) -> None:
         """Validate the one unfiltered catalogue request supported by DSP minimal."""
         message = _message_object(request, "catalog")
         _validate_common_message(message, "CatalogRequestMessage", "catalog")
-        filter_value = message.get("filter")
-        if filter_value not in (None, [], ""):
-            raise DspProtocolError("catalog", 400, "catalog filters are not supported", code="unsupported-filter")
+        self.catalogue_policy.validate_catalogue_request(self.config, message)
 
     def dsp_dataset(self, dataset_id: str) -> dict[str, JsonValue]:
         """Return one DSP dataset only when its ID exactly matches.
@@ -381,14 +288,14 @@ class DspProvider:
         _profile, datasets_by_id, _datasets_by_offer = self._dataset_maps()
         if not isinstance(dataset_id, str) or dataset_id not in datasets_by_id:
             raise DspProtocolError("catalog", 404, "dataset was not found", code="not-found")
-        return serialize_dsp_dataset_document(datasets_by_id[dataset_id])
+        return self.catalogue_policy.serialize_dataset(datasets_by_id[dataset_id])
 
     def dcat_catalogue(self) -> dict[str, JsonValue]:
         """Return the separate strict owned-context DCAT-AP projection.
 
         :return: Plain DCAT-AP-compatible JSON-LD catalogue document.
         """
-        return serialize_dcat_catalogue(self.profile)
+        return self.catalogue_policy.serialize_catalogue(self.profile, alternate=True)
 
     async def get_negotiation(self, provider_pid: str) -> dict[str, JsonValue]:
         """Return one acknowledged negotiation process.
@@ -1062,7 +969,7 @@ class DspProvider:
         if policy.get("target") != profile.dataset.id:
             raise DspProtocolError(kind, 400, "offer target must match its catalogue dataset", code="invalid-target")
         self._reject_contained_targets(policy)
-        expected = offer_policy(profile.offer, include_target=True)
+        expected = self.catalogue_policy.serialize_offer(profile.offer, include_target=True)
         if policy != expected:
             raise DspProtocolError(
                 kind, 400, "offer does not exactly match the advertised policy", code="invalid-offer"

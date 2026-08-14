@@ -80,6 +80,36 @@ publishers are rejected when a snapshot is built. For fixed declarations, use
 `DspProvider(config, publications=(DspPublicationRecord(dataset=publication),))`;
 exactly one source is required.
 
+## Replaceable catalogue policy
+
+`DspProvider` keeps storage access, DSP message validation, negotiation and
+transfer state, callbacks, and data-address handling fixed. Applications that
+are developing a stricter publication profile can replace only the catalogue
+requirements and projections through the public `DspCataloguePolicy` contract:
+
+```python
+provider = DspProvider(
+    config,
+    store=store,
+    catalogue_policy=ProjectCataloguePolicy(),
+)
+```
+
+The policy receives the current `DspPublicationRecord` values whenever a live
+snapshot is requested. It builds the public `CatalogueProfile`, validates
+profile-specific catalogue-request constraints, serializes catalogues,
+datasets, and offers, and selects the ordinary or alternate catalogue
+representation. `DspCatalogueRepresentation` carries the selected media type,
+projection flag, and additional HTTP headers. The media type must correspond
+to a response declared by the packaged DSP OpenAPI contract.
+
+`MinimalDspCataloguePolicy` is the default and preserves the feature set
+described on this page. A standards prototype should implement the protocol
+independently rather than subclassing this default, so its normative decisions
+remain visible and cannot change when the built-in minimal profile evolves.
+The lower-level policy does not replace DSP routing, schemas, error documents,
+or process state machines.
+
 ## Representations
 
 Every DSP Distribution uses its full EU File Type IRI as both its DSP transfer
