@@ -5,7 +5,7 @@ import os
 import socket
 
 import pytest
-from test_dsp_config import config
+from test_dsp_config import config, publication
 
 from httk.serve.dsp import CallbackTransportError, DspProvider, callback_url
 from httk.serve.dsp.callbacks import DefaultCallbackSender, _CallbackTarget, _ResolvedAddress, _validate_callback_url
@@ -58,7 +58,7 @@ def test_provider_rejects_callback_bases_with_query_components() -> None:
     """Inbound callback bases cannot carry a query that would absorb callback paths."""
 
     async def exercise() -> None:
-        provider = DspProvider(config(automatic_progression=False))
+        provider = DspProvider(config(automatic_progression=False), datasets=(publication(),))
         message = request()
         message["callbackAddress"] = "https://consumer.example/callback?token=secret"
         with pytest.raises(Exception, match="HTTPS URL"):
@@ -314,7 +314,10 @@ def test_callback_failure_retries_then_acknowledges_termination_only() -> None:
             return next(responses)
 
         provider = DspProvider(
-            config(automatic_progression=False), callback_sender=sender, uuid_factory=iter(["negotiation"]).__next__
+            config(automatic_progression=False),
+            datasets=(publication(),),
+            callback_sender=sender,
+            uuid_factory=iter(["negotiation"]).__next__,
         )
         created = await provider.request_negotiation(request())
         with pytest.raises(Exception, match="callback delivery failed"):
@@ -345,7 +348,10 @@ def test_injected_sender_can_raise_transport_error() -> None:
             raise CallbackTransportError("offline")
 
         provider = DspProvider(
-            config(automatic_progression=False), callback_sender=sender, uuid_factory=iter(["negotiation"]).__next__
+            config(automatic_progression=False),
+            datasets=(publication(),),
+            callback_sender=sender,
+            uuid_factory=iter(["negotiation"]).__next__,
         )
         created = await provider.request_negotiation(request())
         with pytest.raises(Exception, match="callback delivery failed"):

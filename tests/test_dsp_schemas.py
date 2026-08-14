@@ -154,7 +154,8 @@ def test_dcat_graph_conforms_to_pinned_mandatory_range_and_vocabulary_profiles()
     """Run the generated profile fixture through all pinned DCAT-AP constraints."""
     document = json.loads((SCHEMAS / "profile" / "example-catalogue.json").read_text(encoding="utf-8"))
     data = Graph().parse(data=json.dumps(document), format="json-ld")
-    data += Graph().parse(SCHEMAS / "dcat-ap" / "eu-file-type-json-ld.rdf", format="xml")
+    for fixture in ("eu-file-type-csv.rdf", "eu-file-type-json.rdf", "spdx-2.3-ontology.owl.xml"):
+        data += Graph().parse(SCHEMAS / "dcat-ap" / fixture, format="xml")
     profiles = (
         ("dcat-ap-SHACL.ttl",),
         ("dcat-ap-SHACL.ttl", "dcat-ap-ranges.ttl"),
@@ -184,7 +185,7 @@ def test_schema_files_are_parseable_data() -> None:
             yaml.safe_load(path.read_text(encoding="utf-8"))
         elif path.suffix == ".ttl":
             Graph().parse(path, format="turtle")
-        elif path.suffix == ".rdf":
+        elif path.suffix == ".rdf" or path.name.endswith(".owl.xml"):
             Graph().parse(path, format="xml")
 
 

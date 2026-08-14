@@ -20,6 +20,7 @@ from .validation import DspSchemaError, validate_document
 
 DCAT_PROFILE = "https://semiceu.github.io/DCAT-AP/releases/3.0.1/"
 DCAT_MEDIA_TYPE = f'application/ld+json; profile="{DCAT_PROFILE}"'
+DCAT_GENERIC_MEDIA_TYPE = "application/ld+json"
 
 type HandlerResult = dict[str, Any] | None
 
@@ -39,7 +40,7 @@ class OpenAPIOperation:
     path: str
     operation_id: str
     request_schema: str | None
-    responses: Mapping[int, tuple[str | None, str | None]]
+    responses: Mapping[int, tuple[tuple[str | None, str | None], ...]]
 
 
 def openapi_document() -> dict[str, Any]:
@@ -79,18 +80,20 @@ def _schema_ref(value: object) -> str:
     return reference
 
 
-def _body_contract(document: Mapping[str, Any], body: object) -> tuple[str, str]:
-    """Extract the one supported media type and external schema reference."""
+def _body_contracts(document: Mapping[str, Any], body: object) -> tuple[tuple[str, str], ...]:
+    """Extract supported media types and their external schema references."""
     body = _local_ref(document, body)
     if not isinstance(body, Mapping):
         raise RuntimeError("OpenAPI request/response body must be an object")
     content = body.get("content")
-    if not isinstance(content, Mapping) or len(content) != 1:
-        raise RuntimeError("OpenAPI bodies must declare exactly one media type")
-    media_type, media = next(iter(content.items()))
-    if not isinstance(media_type, str) or not isinstance(media, Mapping):
-        raise RuntimeError("invalid OpenAPI media-type declaration")
-    return media_type, _schema_ref(media.get("schema"))
+    if not isinstance(content, Mapping) or not content:
+        raise RuntimeError("OpenAPI bodies must declare at least one media type")
+    contracts = []
+    for media_type, media in content.items():
+        if not isinstance(media_type, str) or not isinstance(media, Mapping):
+            raise RuntimeError("invalid OpenAPI media-type declaration")
+        contracts.append((media_type, _schema_ref(media.get("schema"))))
+    return tuple(contracts)
 
 
 def openapi_operations() -> tuple[OpenAPIOperation, ...]:
@@ -152,13 +155,16 @@ def openapi_operations() -> tuple[OpenAPIOperation, ...]:
                 request_body = _local_ref(document, operation["requestBody"])
                 if not isinstance(request_body, Mapping) or request_body.get("required") is not True:
                     raise RuntimeError(f"request body for {operation_id} must be required")
-                media_type, request_schema = _body_contract(document, request_body)
+                request_contracts = _body_contracts(document, request_body)
+                if len(request_contracts) != 1:
+                    raise RuntimeError(f"DSP request body for {operation_id} must declare one media type")
+                media_type, request_schema = request_contracts[0]
                 if media_type != "application/json":
                     raise RuntimeError(f"DSP request body for {operation_id} must use application/json")
             declared_responses = operation.get("responses")
             if not isinstance(declared_responses, Mapping) or not declared_responses:
                 raise RuntimeError(f"responses for {operation_id} must be declared")
-            responses: dict[int, tuple[str | None, str | None]] = {}
+            responses: dict[int, tuple[tuple[str | None, str | None], ...]] = {}
             for status_text, response in declared_responses.items():
                 if not isinstance(status_text, str) or not status_text.isdigit():
                     raise RuntimeError(f"only exact numeric response codes are supported in {operation_id}")
@@ -166,9 +172,9 @@ def openapi_operations() -> tuple[OpenAPIOperation, ...]:
                 if not isinstance(response, Mapping):
                     raise RuntimeError(f"response {status_text} for {operation_id} must be an object")
                 if "content" in response:
-                    responses[int(status_text)] = _body_contract(document, response)
+                    responses[int(status_text)] = _body_contracts(document, response)
                 else:
-                    responses[int(status_text)] = (None, None)
+                    responses[int(status_text)] = ((None, None),)
             operations.append(OpenAPIOperation(method, path, operation_id, request_schema, responses))
     return tuple(operations)
 
@@ -305,16 +311,33 @@ def _route_endpoint(provider: DspProvider, operation: OpenAPIOperation) -> Calla
             if result is None:
                 response = Response(status_code=status)
             else:
-                media_type, schema = operation.responses[status]
+                contracts = operation.responses[status]
+                if operation.operation_id == "dcat_catalog":
+                    selected_media = (
+                        DCAT_MEDIA_TYPE
+                        if provider.config.catalogue_profile == "dcat-ap-3.0.1"
+                        else DCAT_GENERIC_MEDIA_TYPE
+                    )
+                    selected = next((contract for contract in contracts if contract[0] == selected_media), None)
+                    if selected is None:
+                        raise RuntimeError(f"OpenAPI has no {selected_media} response for dcat_catalog")
+                    media_type, schema = selected
+                else:
+                    if len(contracts) != 1:
+                        raise RuntimeError(f"OpenAPI response for {operation.operation_id} is ambiguous")
+                    media_type, schema = contracts[0]
                 if schema is None or media_type is None:
                     raise RuntimeError(f"OpenAPI success response for {operation.operation_id} has no body contract")
                 validate_document(schema, result)
                 headers = None
                 if operation.operation_id in {"catalog_request", "dataset_request"}:
                     alternate = f"{provider.config.connector_root_url}/2025-1/catalog"
-                    headers = {
-                        "Link": f'<{alternate}>; rel="alternate"; type="application/ld+json"; profile="{DCAT_PROFILE}"'
-                    }
+                    link_type = (
+                        f'type="application/ld+json"; profile="{DCAT_PROFILE}"'
+                        if provider.config.catalogue_profile == "dcat-ap-3.0.1"
+                        else 'type="application/ld+json"'
+                    )
+                    headers = {"Link": f'<{alternate}>; rel="alternate"; {link_type}'}
                 response = JSONResponse(result, status_code=status, media_type=media_type, headers=headers)
             if provider.has_automatic_actions(automatic_batch):
                 response.background = BackgroundTask(provider.release_automatic, automatic_batch)
@@ -326,7 +349,9 @@ def _route_endpoint(provider: DspProvider, operation: OpenAPIOperation) -> Calla
                 raise RuntimeError(
                     f"OpenAPI does not declare {error.status_code} for {operation.operation_id}"
                 ) from error
-            media_type, schema = contract
+            if len(contract) != 1:
+                raise RuntimeError(f"OpenAPI error response for {operation.operation_id} is ambiguous")
+            media_type, schema = contract[0]
             if media_type is None or schema is None:
                 raise RuntimeError(
                     f"OpenAPI error response for {operation.operation_id} has no body contract"
@@ -371,6 +396,7 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
 
 
 __all__ = [
+    "DCAT_GENERIC_MEDIA_TYPE",
     "DCAT_MEDIA_TYPE",
     "DCAT_PROFILE",
     "OpenAPIOperation",

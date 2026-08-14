@@ -126,8 +126,12 @@ class DistributionProfile:
 
     id: str
     format: str
+    file_format: str
+    media_type: str
     access_url: str
     data_service: DataServiceProfile
+    byte_size: int | None = None
+    sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +168,7 @@ class CatalogueProfile:
     title: str
     description: str
     participant_id: str
+    catalogue_profile: Literal["dcat-ap-3.0.1", "dcat"]
     datasets: tuple[DatasetProfile, ...]
     dcat_data_services: tuple[DcatDataServiceProfile, ...]
 

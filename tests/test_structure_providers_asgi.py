@@ -8,16 +8,18 @@ import pytest
 from httk.atomistic import (
     Assembly,
     Species,
-    UnitcellStructure,
     StructureEntry,
     StructureEntryProvider,
+    UnitcellStructure,
     UnitcellStructureRecord,
     UnitcellStructureView,
 )
+from httk.core import Dataset
 from httk.store.db import Database, SqlStore, StoredEntrySource
 from starlette.testclient import TestClient
 
-from httk.serve.optimade import adapter_from_providers, adapter_from_stores, create_asgi_app
+from httk.serve.dsp import DspDatasetPublication, DspPublicationEntry
+from httk.serve.optimade import adapter_from_providers, adapter_from_store, adapter_from_stores, create_asgi_app
 
 STANDARD_STRUCTURE_PROPERTIES = {
     "id",
@@ -51,6 +53,39 @@ STANDARD_STRUCTURE_PROPERTIES = {
     "structure_features",
     "optimization_type",
 }
+
+
+def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -> None:
+    entries = tuple(_entries().values())
+    store = SqlStore(
+        Database.sqlite(),
+        entry_records={
+            StructureEntry: UnitcellStructureRecord,
+            DspPublicationEntry: DspDatasetPublication,
+        },
+    )
+    store.save(
+        DspDatasetPublication(
+            Dataset(
+                "https://provider.example/datasets/one",
+                "Dataset",
+                "Description",
+                "https://provider.example/publisher",
+                "Publisher",
+            ),
+            "/files/one.csv",
+        )
+    )
+    store.save(entries[0])
+    adapter = adapter_from_store(store)
+    assert set(adapter.schema.all_entries) == {"structures"}
+    app = create_asgi_app(store, baseurl="http://testserver")
+
+    with TestClient(app, base_url="http://testserver") as client:
+        assert client.get("/structures").json()["meta"]["data_available"] == 1
+        assert client.get("/dsp-publications").status_code == 404
+        store.save(entries[1])
+        assert client.get("/structures").json()["meta"]["data_available"] == 2
 
 
 def _entries() -> dict[str, UnitcellStructure]:

@@ -8,10 +8,18 @@ from datetime import UTC, datetime
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
-from httk.core import Dataset
+from httk.store import EntryStore
 
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
-from .config import DSP_CONTEXT, DSP_TRANSFER_FORMAT, DspDatasetPublication, DspProviderConfig, _https_url
+from .config import (
+    DSP_CONTEXT,
+    HTTP_ENDPOINT_TYPE,
+    HTTP_PULL_PROFILE,
+    DspDatasetPublication,
+    DspProviderConfig,
+    DspPublicationEntry,
+    _https_url,
+)
 from .models import (
     AgreementRecord,
     CatalogueProfile,
@@ -58,35 +66,13 @@ class _AutomaticBatch:
     actions: list[_AutomaticCallback] = field(default_factory=list)
 
 
-def _profile_from_config(config: DspProviderConfig) -> CatalogueProfile:
+def _profile_from_declarations(
+    config: DspProviderConfig,
+    declarations: tuple[DspDatasetPublication, ...],
+) -> CatalogueProfile:
     """Build and cross-validate the immutable catalogue snapshot."""
-    if config.dataset_source is not None:
-        declarations = tuple(
-            DspDatasetPublication.create(publication) for publication in config.dataset_source.publications()
-        )
-    elif config.datasets:
-        declarations = config.datasets
-    else:
-        assert config.dataset is not None
-        assert config.offer_id is not None
-        assert config.distribution_id is not None
-        assert config.data_service_id is not None
-        assert config.data_service_title is not None
-        assert config.access_url is not None
-        assert config.data_address is not None
-        declarations = (
-            DspDatasetPublication(
-                dataset=Dataset.create(config.dataset),
-                offer_id=config.offer_id,
-                distribution_id=config.distribution_id,
-                data_service_id=config.data_service_id,
-                data_service_title=config.data_service_title,
-                access_url=config.access_url,
-                data_address=config.data_address,
-            ),
-        )
     if not declarations:
-        raise ValueError("dataset_source must provide at least one dataset publication")
+        raise ValueError("the DSP publication source contains no dataset publications")
     first_publisher = (declarations[0].dataset.publisher_id, declarations[0].dataset.publisher_name)
     if any(
         (publication.dataset.publisher_id, publication.dataset.publisher_name) != first_publisher
@@ -101,23 +87,28 @@ def _profile_from_config(config: DspProviderConfig) -> CatalogueProfile:
         if len(values) != len(set(values)):
             label = "dataset IDs" if attribute == "id" else attribute.replace("_", " ") + "s"
             raise ValueError(f"{label} must be unique within the catalogue")
-    service_titles: dict[str, str] = {}
-    for publication in declarations:
-        previous = service_titles.setdefault(publication.data_service_id, publication.data_service_title)
-        if previous != publication.data_service_title:
-            raise ValueError("a shared data service ID must use one consistent title")
     datasets: list[DatasetProfile] = []
     for publication in declarations:
+        assert publication.file_format is not None
+        assert publication.media_type is not None
+        assert publication.offer_id is not None
+        assert publication.distribution_id is not None
         data_service = DataServiceProfile(
-            publication.data_service_id,
-            publication.data_service_title,
+            config.service_id,
+            config.service_title,
             config.service_endpoint_url,
         )
+        access_url = config.resolve_access_url(publication.access_url)
+        transfer_format = publication.file_format if config.catalogue_profile == "dcat-ap-3.0.1" else HTTP_PULL_PROFILE
         distribution = DistributionProfile(
             publication.distribution_id,
-            DSP_TRANSFER_FORMAT,
-            publication.access_url,
+            transfer_format,
+            publication.file_format,
+            publication.media_type,
+            access_url,
             data_service,
+            publication.byte_size,
+            publication.sha256,
         )
         datasets.append(
             DatasetProfile(
@@ -125,7 +116,11 @@ def _profile_from_config(config: DspProviderConfig) -> CatalogueProfile:
                 OfferProfile(publication.offer_id, publication.dataset.id),
                 distribution,
                 data_service,
-                publication.data_address,
+                {
+                    "@type": "DataAddress",
+                    "endpointType": HTTP_ENDPOINT_TYPE,
+                    "endpoint": access_url,
+                },
             )
         )
     dataset_ids = tuple(item.dataset.id for item in datasets)
@@ -153,6 +148,7 @@ def _profile_from_config(config: DspProviderConfig) -> CatalogueProfile:
         config.catalog_title,
         config.catalog_description,
         config.participant_id,
+        config.catalogue_profile,
         tuple(datasets),
         tuple(dcat_services),
     )
@@ -198,7 +194,7 @@ def _https_callback(value: object, kind: ErrorKind) -> str:
 
 
 class DspProvider:
-    """Serve an immutable dataset catalogue and manage non-durable DSP processes.
+    """Serve a live dataset catalogue and manage non-durable DSP processes.
 
     Business methods accept and return only ordinary JSON dictionaries; a thin
     HTTP adapter is responsible for route and response-code presentation. All
@@ -206,6 +202,10 @@ class DspProvider:
     never committed until a peer acknowledges a 2xx response.
 
     :param config: Validated fixed provider configuration.
+    :param store: Caller-owned entry store containing the DSP publication
+        family. Exactly one of ``store`` and ``datasets`` is required.
+    :param datasets: Inline publication declarations. Exactly one of
+        ``datasets`` and ``store`` is required.
     :param callback_sender: Optional asynchronous callback transport. Supplying
         one bypasses default network policy and is useful for deterministic tests.
     :param uuid_factory: Optional source for provider and agreement identifiers.
@@ -216,6 +216,8 @@ class DspProvider:
         self,
         config: DspProviderConfig,
         *,
+        store: EntryStore | None = None,
+        datasets: tuple[DspDatasetPublication, ...] | None = None,
         callback_sender: CallbackSender | None = None,
         uuid_factory: UuidFactory = uuid4,
         utc_clock: UtcClock | None = None,
@@ -226,15 +228,56 @@ class DspProvider:
             raise TypeError("uuid_factory must be callable")
         if utc_clock is not None and not callable(utc_clock):
             raise TypeError("utc_clock must be callable")
+        if (store is None) == (datasets is None):
+            raise ValueError("configure exactly one publication source: store or datasets")
+        if store is not None:
+            if not isinstance(store, EntryStore):
+                raise TypeError("store must implement EntryStore")
+            layout = next((item for item in store.entry_layout if item.family is DspPublicationEntry), None)
+            if layout is None:
+                raise ValueError("store is not configured with DspPublicationEntry")
+            if DspDatasetPublication not in layout.records:
+                raise ValueError("DspPublicationEntry is not mapped to DspDatasetPublication in this store")
+        if datasets is not None:
+            try:
+                inline = tuple(DspDatasetPublication.create(item) for item in datasets)
+            except TypeError as error:
+                raise TypeError("datasets must be an iterable of DspDatasetPublication values") from error
+            if not inline:
+                raise ValueError("datasets must contain at least one publication")
+        else:
+            inline = None
         self.config = config
-        self.profile = _profile_from_config(config)
-        self._datasets_by_id = {profile.dataset.id: profile for profile in self.profile.datasets}
-        self._datasets_by_offer = {profile.offer.id: profile for profile in self.profile.datasets}
+        self._store = store
+        self._inline_datasets = inline
         self._state = DspState()
         self._sender = callback_sender if callback_sender is not None else DefaultCallbackSender()
         self._uuid_factory = uuid_factory
         self._utc_clock = utc_clock if utc_clock is not None else lambda: datetime.now(UTC)
         self._automatic_tasks: set[asyncio.Task[None]] = set()
+
+    def _publications(self) -> tuple[DspDatasetPublication, ...]:
+        """Read the current publication source without taking ownership of it."""
+        if self._inline_datasets is not None:
+            return self._inline_datasets
+        assert self._store is not None
+        searcher = self._store.searcher()
+        publication = searcher.variable(DspDatasetPublication)
+        searcher.output(publication, "publication")
+        return tuple(DspDatasetPublication.create(row.values[0]) for row in searcher)
+
+    @property
+    def profile(self) -> CatalogueProfile:
+        """Return a freshly validated catalogue snapshot."""
+        return _profile_from_declarations(self.config, self._publications())
+
+    def _dataset_maps(self) -> tuple[CatalogueProfile, dict[str, DatasetProfile], dict[str, DatasetProfile]]:
+        profile = self.profile
+        return (
+            profile,
+            {item.dataset.id: item for item in profile.datasets},
+            {item.offer.id: item for item in profile.datasets},
+        )
 
     def automatic_batch(self) -> _AutomaticBatch:
         """Create a response-local holder for automatic callback actions.
@@ -307,9 +350,10 @@ class DspProvider:
         :return: Plain DSP dataset document.
         :raises httk.serve.dsp.models.DspProtocolError: If the identifier is absent or unknown.
         """
-        if not isinstance(dataset_id, str) or dataset_id not in self._datasets_by_id:
+        _profile, datasets_by_id, _datasets_by_offer = self._dataset_maps()
+        if not isinstance(dataset_id, str) or dataset_id not in datasets_by_id:
             raise DspProtocolError("catalog", 404, "dataset was not found", code="not-found")
-        return serialize_dsp_dataset_document(self._datasets_by_id[dataset_id])
+        return serialize_dsp_dataset_document(datasets_by_id[dataset_id])
 
     def dcat_catalogue(self) -> dict[str, JsonValue]:
         """Return the separate strict owned-context DCAT-AP projection.
@@ -474,8 +518,6 @@ class DspProvider:
         consumer_pid = _required_string(request, "consumerPid", "transfer")
         callback = _https_callback(request.get("callbackAddress"), "transfer")
         agreement_id = _required_string(request, "agreementId", "transfer")
-        if request.get("format") != DSP_TRANSFER_FORMAT:
-            raise DspProtocolError("transfer", 400, "transfer format is not supported", code="unsupported-format")
         if "dataAddress" in request:
             raise DspProtocolError(
                 "transfer", 400, "consumer dataAddress is not accepted for HttpData-PULL", code="invalid-data-address"
@@ -484,13 +526,18 @@ class DspProvider:
         if agreement_with_state is None:
             raise DspProtocolError("transfer", 404, "agreement was not found", code="not-found")
         agreement, agreement_state = agreement_with_state
-        if agreement_state != "FINALIZED" or agreement.target not in self._datasets_by_id:
+        _profile, datasets_by_id, _datasets_by_offer = self._dataset_maps()
+        publication = datasets_by_id.get(agreement.target)
+        if agreement_state != "FINALIZED" or publication is None:
             raise DspProtocolError(
                 "transfer",
                 400,
                 "a finalized agreement for a catalogue dataset is required",
                 code="invalid-agreement",
             )
+        requested_format = request.get("format")
+        if requested_format != publication.distribution.format:
+            raise DspProtocolError("transfer", 400, "transfer format is not supported", code="unsupported-format")
         try:
             stored, created = await self._state.get_or_create_transfer_for_consumer(
                 consumer_pid,
@@ -499,7 +546,7 @@ class DspProvider:
                     consumer_pid=consumer_pid,
                     callback_address=callback,
                     agreement_id=agreement_id,
-                    format=DSP_TRANSFER_FORMAT,
+                    format=publication.distribution.format,
                     state="REQUESTED",
                 ),
             )
@@ -509,7 +556,7 @@ class DspProvider:
             if (
                 stored.callback_address != callback
                 or stored.agreement_id != agreement_id
-                or stored.format != DSP_TRANSFER_FORMAT
+                or stored.format != publication.distribution.format
             ):
                 raise DspProtocolError(
                     "transfer", 400, "consumerPid is already used by a conflicting transfer", code="duplicate-process"
@@ -685,7 +732,8 @@ class DspProvider:
         if agreement_with_state is None:
             raise DspProtocolError("transfer", 404, "agreement was not found", code="not-found")
         agreement, agreement_state = agreement_with_state
-        publication = self._datasets_by_id.get(agreement.target)
+        _profile, datasets_by_id, _datasets_by_offer = self._dataset_maps()
+        publication = datasets_by_id.get(agreement.target)
         if agreement_state != "FINALIZED" or publication is None:
             raise DspProtocolError(
                 "transfer", 400, "a finalized agreement for a catalogue dataset is required", code="invalid-agreement"
@@ -979,7 +1027,8 @@ class DspProvider:
         if not isinstance(policy, dict):
             raise DspProtocolError(kind, 400, "offer must be a JSON object", code="invalid-offer")
         offer_id = policy.get("@id")
-        profile = self._datasets_by_offer.get(offer_id) if isinstance(offer_id, str) else None
+        _catalogue, _datasets_by_id, datasets_by_offer = self._dataset_maps()
+        profile = datasets_by_offer.get(offer_id) if isinstance(offer_id, str) else None
         if profile is None:
             raise DspProtocolError(kind, 400, "offer is not advertised by this catalogue", code="invalid-offer")
         if policy.get("target") != profile.dataset.id:
@@ -1017,7 +1066,8 @@ class DspProvider:
         policy["@id"] = self._new_agreement_id()
         policy["@type"] = "Agreement"
         target = policy.get("target")
-        if not isinstance(target, str) or target not in self._datasets_by_id:
+        _profile, datasets_by_id, _datasets_by_offer = self._dataset_maps()
+        if not isinstance(target, str) or target not in datasets_by_id:
             raise TypeError("negotiation policy must target a catalogue dataset")
         policy["target"] = target
         policy["assigner"] = self.config.participant_id

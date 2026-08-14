@@ -4,6 +4,7 @@ import logging
 from collections.abc import Mapping
 
 from httk.core.report import configure_reporting
+from httk.store import EntryStore
 from starlette.applications import Starlette
 
 from .model.config import OptimadeConfig, OptimadeIndexConfig
@@ -14,7 +15,7 @@ from .schema.served import build_served_schema
 
 
 def create_asgi_app(
-    adapter: OptimadeAdapter,
+    adapter: OptimadeAdapter | EntryStore,
     config: OptimadeConfig | None = None,
     *,
     baseurl: str | None = None,
@@ -35,6 +36,10 @@ def create_asgi_app(
     :param report_context_levels: Context-specific report levels.
     :return: Configured Starlette ASGI application.
     """
+    if isinstance(adapter, EntryStore):
+        from .backend.stores import adapter_from_store
+
+        adapter = adapter_from_store(adapter)
     if config is None:
         config = OptimadeConfig()
     if isinstance(config, OptimadeIndexConfig):

@@ -4,6 +4,7 @@
 :maxdepth: 1
 
 widgets
+static_files
 deployment_apache
 deployment_nginx
 migration_legacy_to_jinja2

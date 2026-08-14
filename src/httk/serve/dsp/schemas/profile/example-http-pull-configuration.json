@@ -1,5 +1,5 @@
 {
-  "format": "HttpData-PULL",
+  "format": "https://schemas.httk.org/dsp/2025-1/transfer/HttpData-PULL",
   "dataAddress": {
     "@type": "DataAddress",
     "endpointType": "https://w3id.org/idsa/v4.1/HTTP",

@@ -1,25 +1,20 @@
-"""Run a Tier 1 DSP provider advertising a public OPTIMADE API.
+"""Run a small inline DSP provider advertising two public datasets.
 
-For database-backed records, wrap an ``httk.store.db.StoreEntryProvider`` with
-``DspEntryProviderDatasetSource`` as shown in ``provider_from_store`` below.
-The advertised OPTIMADE application can be mounted at ``/optimade`` beside
-this DSP application or deployed independently at the configured public URL.
+For a durable, live catalogue backed by ``SqlStore``, see
+``examples/dsp_store_catalogue/server.py``.
 """
 
-from collections.abc import Mapping
-from typing import Any
-
-from httk.core import Dataset, EntryProvider
+from httk.core import Dataset
 
 from httk.serve.dsp import (
-    HTTP_ENDPOINT_TYPE,
     DcatDataService,
     DspDatasetPublication,
-    DspEntryProviderDatasetSource,
     DspProvider,
     DspProviderConfig,
     create_dsp_app,
 )
+
+PUBLISHER_ID = "https://provider.example/participants/provider"
 
 PUBLIC_OPTIMADE_SERVICE = DcatDataService(
     id="https://provider.example/services/optimade",
@@ -31,88 +26,36 @@ PUBLIC_OPTIMADE_SERVICE = DcatDataService(
 
 
 def publication(slug: str, title: str) -> DspDatasetPublication:
-    """Build one publication from inline metadata."""
-    access_url = f"https://provider.example/data/{slug}"
+    """Build one inline JSON publication."""
     return DspDatasetPublication(
         dataset=Dataset(
             id=f"https://provider.example/datasets/{slug}",
             title=title,
             description=f"The {title.lower()} demonstration dataset.",
-            publisher_id="https://provider.example/participants/provider",
+            publisher_id=PUBLISHER_ID,
             publisher_name="Example Provider",
         ),
-        offer_id=f"https://provider.example/offers/{slug}",
-        distribution_id=f"https://provider.example/distributions/{slug}-jsonld",
-        data_service_id="https://provider.example/dsp/services/materials",
-        data_service_title="Example DSP data service",
-        access_url=access_url,
-        data_address={
-            "@type": "DataAddress",
-            "endpointType": HTTP_ENDPOINT_TYPE,
-            "endpoint": access_url,
-        },
+        access_url=f"https://provider.example/data/{slug}.json",
     )
 
 
-def provider_config(
-    *,
-    datasets: tuple[DspDatasetPublication, ...] = (),
-    dataset_source: DspEntryProviderDatasetSource | None = None,
-) -> DspProviderConfig:
-    """Build catalogue-level configuration around inline or stored data."""
-    return DspProviderConfig(
-        connector_root_url="https://provider.example/dsp",
-        service_id="https://provider.example/dsp/services/example",
-        participant_id="https://provider.example/participants/provider",
-        catalog_id="https://provider.example/catalogs/example",
-        catalog_title="Example materials catalogue",
-        catalog_description="Two example JSON-LD datasets.",
-        datasets=datasets,
-        dataset_source=dataset_source,
-        dcat_data_services=(PUBLIC_OPTIMADE_SERVICE,),
-    )
+config = DspProviderConfig(
+    public_base_url="https://provider.example",
+    service_id="https://provider.example/dsp/services/example",
+    service_title="Example DSP data service",
+    participant_id=PUBLISHER_ID,
+    catalog_id="https://provider.example/catalogs/example",
+    catalog_title="Example materials catalogue",
+    catalog_description="Two example JSON datasets.",
+    catalogue_profile="dcat-ap-3.0.1",
+    dcat_data_services=(PUBLIC_OPTIMADE_SERVICE,),
+)
 
-
-def provider_from_store(store_entries: EntryProvider) -> DspProvider:
-    """Create the same server from a store-backed entry provider.
-
-    The example entry type is expected to expose ``id``, ``title``, and
-    ``description`` record keys. Real applications can map any stored shape.
-    """
-
-    def from_record(record: Mapping[str, Any]) -> DspDatasetPublication:
-        slug = str(record["id"])
-        access_url = f"https://provider.example/data/{slug}"
-        return DspDatasetPublication(
-            dataset=Dataset(
-                id=f"https://provider.example/datasets/{slug}",
-                title=str(record["title"]),
-                description=str(record["description"]),
-                publisher_id="https://provider.example/participants/provider",
-                publisher_name="Example Provider",
-            ),
-            offer_id=f"https://provider.example/offers/{slug}",
-            distribution_id=f"https://provider.example/distributions/{slug}-jsonld",
-            data_service_id="https://provider.example/dsp/services/materials",
-            data_service_title="Example DSP data service",
-            access_url=access_url,
-            data_address={
-                "@type": "DataAddress",
-                "endpointType": HTTP_ENDPOINT_TYPE,
-                "endpoint": access_url,
-            },
-        )
-
-    source = DspEntryProviderDatasetSource(store_entries, "published_datasets", from_record)
-    return DspProvider(provider_config(dataset_source=source))
-
-
-config = provider_config(
+provider = DspProvider(
+    config,
     datasets=(
         publication("structures", "Crystal structures"),
         publication("calculations", "Example calculations"),
-    )
+    ),
 )
-
-provider = DspProvider(config)
 app = create_dsp_app(provider)

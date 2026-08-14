@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.httk.org/dsp/2025-1/http-pull-profile.json",
-  "title": "HTTK fixed HttpData-PULL DataAddress configuration",
+  "title": "HTTK HTTPS-pull DataAddress configuration",
   "type": "object",
   "additionalProperties": false,
   "required": ["format", "dataAddress"],
   "properties": {
-    "format": {"const": "HttpData-PULL"},
+    "format": {"const": "https://schemas.httk.org/dsp/2025-1/transfer/HttpData-PULL"},
     "dataAddress": {
       "type": "object",
       "additionalProperties": false,

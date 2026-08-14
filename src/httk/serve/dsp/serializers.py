@@ -3,7 +3,7 @@
 from copy import deepcopy
 from typing import Final
 
-from .config import DCAT_FILE_FORMAT, DSP_CONTEXT, DSP_TRANSFER_FORMAT, DSP_VERSION
+from .config import DSP_CONTEXT, DSP_VERSION, SPDX_SHA256
 from .models import (
     AgreementRecord,
     CatalogueProfile,
@@ -25,6 +25,8 @@ _DCAT_CONTEXT: Final[dict[str, JsonValue]] = {
     "dct": "http://purl.org/dc/terms/",
     "foaf": "http://xmlns.com/foaf/0.1/",
     "odrl": "http://www.w3.org/ns/odrl/2/",
+    "spdx": "http://spdx.org/rdf/terms#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
     "Catalog": "dcat:Catalog",
     "Dataset": "dcat:Dataset",
     "Distribution": "dcat:Distribution",
@@ -35,6 +37,12 @@ _DCAT_CONTEXT: Final[dict[str, JsonValue]] = {
     "description": "dct:description",
     "publisher": {"@id": "dct:publisher", "@type": "@id"},
     "accessURL": {"@id": "dcat:accessURL", "@type": "@id"},
+    "downloadURL": {"@id": "dcat:downloadURL", "@type": "@id"},
+    "mediaType": {"@id": "dcat:mediaType", "@type": "@id"},
+    "byteSize": {"@id": "dcat:byteSize", "@type": "xsd:nonNegativeInteger"},
+    "checksum": {"@id": "spdx:checksum"},
+    "algorithm": {"@id": "spdx:algorithm", "@type": "@id"},
+    "checksumValue": {"@id": "spdx:checksumValue", "@type": "xsd:hexBinary"},
     "accessService": {"@id": "dcat:accessService", "@type": "@id"},
     "endpointURL": {"@id": "dcat:endpointURL", "@type": "@id"},
     "endpointDescription": {"@id": "dcat:endpointDescription", "@type": "@id"},
@@ -97,7 +105,7 @@ def serialize_distribution(distribution: DistributionProfile) -> dict[str, JsonV
     return {
         "@id": distribution.id,
         "@type": "Distribution",
-        "format": DSP_TRANSFER_FORMAT,
+        "format": distribution.format,
         "dcat:accessURL": {"@id": distribution.access_url},
         "accessService": serialize_data_service(distribution.data_service),
     }
@@ -186,7 +194,7 @@ def serialize_dcat_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
         for service in services
     ]
     dcat_services.extend(_serialize_dcat_data_service(service) for service in profile.dcat_data_services)
-    return {
+    document: dict[str, JsonValue] = {
         "@context": _dcat_context(),
         "@id": profile.id,
         "@type": "Catalog",
@@ -205,9 +213,25 @@ def serialize_dcat_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
                     {
                         "@id": item.distribution.id,
                         "@type": "Distribution",
-                        "format": {"@id": DCAT_FILE_FORMAT, "@type": "dct:MediaTypeOrExtent"},
+                        "format": {"@id": item.distribution.format, "@type": "dct:MediaTypeOrExtent"},
+                        "mediaType": {"@id": item.distribution.media_type, "@type": "dct:MediaType"},
                         "accessURL": {"@id": item.distribution.access_url},
+                        "downloadURL": {"@id": item.distribution.access_url},
                         "accessService": {"@id": item.data_service.id},
+                        **(
+                            {"byteSize": item.distribution.byte_size} if item.distribution.byte_size is not None else {}
+                        ),
+                        **(
+                            {
+                                "checksum": {
+                                    "@type": "spdx:Checksum",
+                                    "algorithm": {"@id": SPDX_SHA256, "@type": "spdx:ChecksumAlgorithm"},
+                                    "checksumValue": item.distribution.sha256,
+                                }
+                            }
+                            if item.distribution.sha256 is not None
+                            else {}
+                        ),
                     }
                 ],
             }
@@ -215,6 +239,7 @@ def serialize_dcat_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
         ],
         "dcat:service": dcat_services,
     }
+    return document
 
 
 def serialize_agreement(agreement: AgreementRecord) -> dict[str, JsonValue]:

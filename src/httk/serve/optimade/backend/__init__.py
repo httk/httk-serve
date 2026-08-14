@@ -16,7 +16,7 @@ from .memory_store import InMemoryStore
 from .partial import PartialDimension, PartialValue
 from .protocols import QueryFunction, QueryResults
 from .providers import adapter_from_providers, providers_from_registry
-from .stores import StoredBackendAdapter, adapter_from_stores
+from .stores import StoredBackendAdapter, adapter_from_store, adapter_from_stores
 from .translation import translate_filter, translate_filter_node
 
 __all__ = [
@@ -36,6 +36,7 @@ __all__ = [
     "StoreResults",
     "StoredBackendAdapter",
     "adapter_from_providers",
+    "adapter_from_store",
     "adapter_from_stores",
     "execute_query",
     "providers_from_registry",

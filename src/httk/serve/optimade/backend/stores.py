@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, NoReturn, cast
 from httk.core import EntryTypeDefinition
 from httk.core.optimade import FilterAst
 from httk.core.storage import stored_property_projections
-from httk.store import FilterTranslationError
+from httk.store import EntryStore, FilterTranslationError
 
 from ..model.errors import OptimadeError, TranslatorError, translator_error_from
 from ..model.results import QueryFunction, QueryResults, ResultRow
@@ -307,3 +307,31 @@ def adapter_from_stores(
         entry_type: StoredEntryFederation(tuple(entry_sources)) for entry_type, entry_sources in grouped.items()
     }
     return StoredBackendAdapter(federations, schema)
+
+
+def adapter_from_store(store: EntryStore, **options: Any) -> StoredBackendAdapter:
+    """Build a lazy OPTIMADE adapter from every described family in one store.
+
+    Families registered without an entry-type definition are deliberately
+    ignored.  This lets application-specific records, such as DSP publication
+    declarations, coexist with OPTIMADE records in one durable layout.
+
+    :param store: Entry store whose configured layout is discovered.
+    :param **options: Schema options forwarded to :func:`adapter_from_stores`.
+    :return: Lazy adapter over all configured OPTIMADE families.
+    :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
+    :raises ValueError: If the store contains no OPTIMADE-described family.
+    """
+    from httk.core.register import entry_family_info
+    from httk.store.db import StoredEntrySource
+
+    if not isinstance(store, EntryStore):
+        raise TypeError("adapter_from_store requires an EntryStore")
+    sources = tuple(
+        StoredEntrySource(store, layout.family, layout.name)
+        for layout in store.entry_layout
+        if entry_family_info(layout.name)[1] is not None
+    )
+    if not sources:
+        raise ValueError("store has no configured entry family with an OPTIMADE definition")
+    return adapter_from_stores(sources, **options)

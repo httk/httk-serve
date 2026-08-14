@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<rdf:RDF
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+	xmlns:owl="http://www.w3.org/2002/07/owl#"
+	xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+	xmlns:dcterms="http://purl.org/dc/terms/"
+	xmlns:ns5="http://lemon-model.net/lemon#"
+	xmlns:ns6="http://publications.europa.eu/ontology/euvoc#"
+	xmlns:ns7="http://www.w3.org/2008/05/skos-xl#"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:ns9="http://publications.europa.eu/ontology/authority/"
+	xmlns:ns10="http://publications.europa.eu/resource/authority/" >
+  <rdf:Description rdf:about="http://publications.europa.eu/resource/authority/file-type/JSON">
+    <rdf:type rdf:resource="http://www.w3.org/2004/02/skos/core#Concept" />
+    <rdf:type rdf:resource="http://publications.europa.eu/ontology/euvoc#FileType" />
+    <owl:versionInfo>20260715-0</owl:versionInfo>
+    <skos:prefLabel xml:lang="et">JSON</skos:prefLabel>
+    <skos:prefLabel xml:lang="en">JSON</skos:prefLabel>
+    <dcterms:created rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2013-10-02</dcterms:created>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-02-11</dcterms:modified>
+    <skos:inScheme rdf:resource="http://publications.europa.eu/resource/authority/file-type" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/ODP" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/DCAT_AP" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/IMMC" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/CELLAR" />
+    <ns6:startDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2006-07-01</ns6:startDate>
+    <ns7:altLabel rdf:resource="http://publications.europa.eu/resource/authority/file-type/cafa754ee677da2e34f328ed8d2136f8" />
+    <ns7:prefLabel rdf:resource="http://publications.europa.eu/resource/authority/file-type/38dd991ef5a06466816c06fa52260c03" />
+    <ns7:prefLabel rdf:resource="http://publications.europa.eu/resource/authority/file-type/80425326cfb5c6e6a82fc987dec080f9" />
+    <dc:identifier>JSON</dc:identifier>
+    <skos:altLabel xml:lang="en">JavaScript Object Notation</skos:altLabel>
+    <skos:definition xml:lang="en">JSON is an open-standard file format that uses human-readable text to transmit data objects consisting of attribute–value pairs and array data types (or any other serializable value). It is a very common data format used for asynchronous browser/server communication.</skos:definition>
+    <skos:notation rdf:datatype="http://publications.europa.eu/ontology/euvoc#IANA_MT">application/json</skos:notation>
+    <skos:notation rdf:datatype="http://publications.europa.eu/ontology/euvoc#FILE_EXT">.json</skos:notation>
+    <skos:topConceptOf rdf:resource="http://publications.europa.eu/resource/authority/file-type" />
+    <ns9:authority-code>JSON</ns9:authority-code>
+    <ns9:deprecated>false</ns9:deprecated>
+    <ns9:op-code>JSON</ns9:op-code>
+    <ns9:op-mapped-code rdf:nodeID="b7249949" />
+    <ns9:op-mapped-code rdf:nodeID="b7249813" />
+    <ns9:op-mapped-code rdf:nodeID="b7250066" />
+    <ns9:start.use>2006-07-01</ns9:start.use>
+    <ns10:op-code>JSON</ns10:op-code>
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/CELLAR" />
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/DCAT_AP" />
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/ODP" />
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/IMMC" />
+    <ns6:status rdf:resource="http://publications.europa.eu/resource/authority/concept-status/CURRENT" />
+    <ns6:xlDefinition rdf:resource="http://publications.europa.eu/resource/authority/file-type/70ec7285ad3b0ec17fe740a8b2186187" />
+    <ns6:xlNotation rdf:resource="http://publications.europa.eu/resource/authority/file-type/2558de75fe2554d20c9b1cabe27997de" />
+    <ns6:xlNotation rdf:resource="http://publications.europa.eu/resource/authority/file-type/a839f9b3c9de4ba8413d5df99bd7fe8f" />
+    <ns6:isStructuredFormat rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ns6:isStructuredFormat>
+    <ns6:machineReadable rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ns6:machineReadable>
+    <ns6:nonPropExt rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ns6:nonPropExt>
+    <dcterms:conformsTo rdf:datatype="http://purl.org/dc/terms/URI">https://www.iana.org/assignments/media-types/application/json</dcterms:conformsTo>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://publications.europa.eu/resource/authority/file-type">
+    <skos:hasTopConcept rdf:resource="http://publications.europa.eu/resource/authority/file-type/JSON" />
+  </rdf:Description>
+</rdf:RDF>

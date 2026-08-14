@@ -9,6 +9,7 @@ from .backend import (
     InMemoryStore,
     StoredBackendAdapter,
     adapter_from_providers,
+    adapter_from_store,
     adapter_from_stores,
     providers_from_registry,
 )
@@ -74,6 +75,7 @@ __all__ = [
     "ValidatedParameters",
     "ValidatedRequest",
     "adapter_from_providers",
+    "adapter_from_store",
     "adapter_from_stores",
     "create_asgi_app",
     "create_index_asgi_app",

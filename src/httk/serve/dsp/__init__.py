@@ -3,16 +3,20 @@
 from .api import create_dsp_app
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
 from .config import (
-    DCAT_FILE_FORMAT,
     DSP_CONTEXT,
     DSP_TRANSFER_FORMAT,
     DSP_VERSION,
+    EU_FILE_TYPE_CSV,
+    EU_FILE_TYPE_JSON,
     HTTP_ENDPOINT_TYPE,
+    HTTP_PULL_PROFILE,
+    IANA_MEDIA_TYPE_CSV,
+    IANA_MEDIA_TYPE_JSON,
+    SPDX_SHA256,
     DcatDataService,
     DspDatasetPublication,
-    DspDatasetSource,
     DspProviderConfig,
-    InlineDspDatasetSource,
+    DspPublicationEntry,
 )
 from .models import (
     AgreementRecord,
@@ -28,14 +32,18 @@ from .models import (
     TransferRecord,
 )
 from .provider import DspProvider, UtcClock, UuidFactory
-from .sources import DspEntryProviderDatasetSource, DspPublicationFactory
 
 __all__ = [
-    "DCAT_FILE_FORMAT",
     "DSP_CONTEXT",
     "DSP_TRANSFER_FORMAT",
     "DSP_VERSION",
+    "EU_FILE_TYPE_CSV",
+    "EU_FILE_TYPE_JSON",
     "HTTP_ENDPOINT_TYPE",
+    "HTTP_PULL_PROFILE",
+    "IANA_MEDIA_TYPE_CSV",
+    "IANA_MEDIA_TYPE_JSON",
+    "SPDX_SHA256",
     "AgreementRecord",
     "CallbackSender",
     "CallbackTransportError",
@@ -48,13 +56,10 @@ __all__ = [
     "DeliveryStatus",
     "DistributionProfile",
     "DspDatasetPublication",
-    "DspDatasetSource",
-    "DspEntryProviderDatasetSource",
     "DspProtocolError",
     "DspProvider",
     "DspProviderConfig",
-    "DspPublicationFactory",
-    "InlineDspDatasetSource",
+    "DspPublicationEntry",
     "NegotiationRecord",
     "OfferProfile",
     "TransferRecord",

@@ -22,7 +22,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["@id"],
-      "properties": {"@id": {"$ref": "#/$defs/iri"}}
+      "properties": {"@id": {"$ref": "#/$defs/iri"}, "@type": {"type": "string"}}
     },
     "publisher": {
       "type": "object",
@@ -53,7 +53,7 @@
     "distribution": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["@id", "@type", "format", "accessURL", "accessService"],
+      "required": ["@id", "@type", "format", "mediaType", "accessURL", "downloadURL", "accessService"],
       "properties": {
         "@id": {"$ref": "#/$defs/iri"},
         "@type": {"const": "Distribution"},
@@ -62,11 +62,32 @@
           "additionalProperties": false,
           "required": ["@id", "@type"],
           "properties": {
-            "@id": {"const": "http://publications.europa.eu/resource/authority/file-type/JSON_LD"},
+            "@id": {"$ref": "#/$defs/iri"},
             "@type": {"const": "dct:MediaTypeOrExtent"}
           }
         },
+        "mediaType": {"$ref": "#/$defs/iriObject"},
         "accessURL": {"$ref": "#/$defs/iriObject"},
+        "downloadURL": {"$ref": "#/$defs/iriObject"},
+        "byteSize": {"type": "integer", "minimum": 0},
+        "checksum": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["@type", "algorithm", "checksumValue"],
+          "properties": {
+            "@type": {"const": "spdx:Checksum"},
+            "algorithm": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["@id", "@type"],
+              "properties": {
+                "@id": {"const": "https://spdx.org/rdf/terms#checksumAlgorithm_sha256"},
+                "@type": {"const": "spdx:ChecksumAlgorithm"}
+              }
+            },
+            "checksumValue": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
         "accessService": {"$ref": "#/$defs/iriObject"}
       }
     },

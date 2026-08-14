@@ -1,8 +1,58 @@
 """Expose high-level helpers for serving and publishing web sites."""
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import FileResponse, Response
+from starlette.routing import Route
+
+
+def create_file_map_app(files: Mapping[str, str | Path], *, debug: bool = False) -> Starlette:
+    """Create an application exposing only explicitly mapped files.
+
+    A fresh :class:`starlette.responses.FileResponse` is constructed for every
+    request.  File metadata and contents are therefore read at request time,
+    and replacing or removing a mapped file takes effect without rebuilding
+    the application.
+
+    :param files: Root-relative URL paths mapped to filesystem paths.
+    :param debug: Whether Starlette debug responses are enabled.
+    :return: A mountable application serving the declared files.
+    """
+    if not isinstance(files, Mapping):
+        raise TypeError("files must be a mapping of URL paths to filesystem paths")
+    routes: list[Route] = []
+    seen: set[str] = set()
+    for url_path, file_path in files.items():
+        if (
+            not isinstance(url_path, str)
+            or not url_path.startswith("/")
+            or url_path == "/"
+            or url_path.endswith("/")
+            or "?" in url_path
+            or "#" in url_path
+            or "//" in url_path
+            or any(part in {".", ".."} for part in url_path.split("/"))
+        ):
+            raise ValueError("file-map URL paths must be canonical root-relative file paths")
+        if url_path in seen:
+            raise ValueError(f"duplicate file-map URL path: {url_path!r}")
+        if not isinstance(file_path, str | Path):
+            raise TypeError("file-map values must be str or Path filesystem paths")
+        target = Path(file_path)
+
+        async def mapped_file(_request: Request, *, path: Path = target) -> Response:
+            if not path.is_file():
+                return Response("Not Found", status_code=404, media_type="text/plain")
+            return FileResponse(path)
+
+        mapped_file.__name__ = f"mapped_file_{len(routes)}"
+        routes.append(Route(url_path, mapped_file, methods=["GET"]))
+        seen.add(url_path)
+    return Starlette(debug=debug, routes=routes)
+
 
 from .engine.site_engine import SiteEngine
 from .model.config import SiteConfig

@@ -58,6 +58,7 @@ where = ["src"]
 "httk.serve.optimade" = ["py.typed"]
 "httk.serve.dsp" = ["py.typed", "schemas/**/*"]
 "httk.registry.cli.serve" = ["py.typed"]
+"httk.registry.entries.serve" = ["py.typed"]
 
 [project.optional-dependencies]
 dev = [

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<rdf:RDF
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+	xmlns:owl="http://www.w3.org/2002/07/owl#"
+	xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+	xmlns:dcterms="http://purl.org/dc/terms/"
+	xmlns:ns5="http://lemon-model.net/lemon#"
+	xmlns:ns6="http://publications.europa.eu/ontology/euvoc#"
+	xmlns:ns7="http://www.w3.org/2008/05/skos-xl#"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:ns9="http://publications.europa.eu/ontology/authority/"
+	xmlns:ns10="http://publications.europa.eu/resource/authority/" >
+  <rdf:Description rdf:about="http://publications.europa.eu/resource/authority/file-type/CSV">
+    <rdf:type rdf:resource="http://www.w3.org/2004/02/skos/core#Concept" />
+    <rdf:type rdf:resource="http://publications.europa.eu/ontology/euvoc#FileType" />
+    <owl:versionInfo>20260715-0</owl:versionInfo>
+    <skos:prefLabel xml:lang="et">CSV</skos:prefLabel>
+    <skos:prefLabel xml:lang="en">CSV</skos:prefLabel>
+    <dcterms:created rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2013-05-21</dcterms:created>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-02-11</dcterms:modified>
+    <skos:inScheme rdf:resource="http://publications.europa.eu/resource/authority/file-type" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/CELLAR" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/DCAT_AP" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/IMMC" />
+    <ns5:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/ODP" />
+    <ns6:startDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2013-05-21</ns6:startDate>
+    <ns7:altLabel rdf:resource="http://publications.europa.eu/resource/authority/file-type/982b88f231ed1aef2b4998e3d0a82189" />
+    <ns7:prefLabel rdf:resource="http://publications.europa.eu/resource/authority/file-type/43bf0a99326c34dccbe709d2cb43cbf2" />
+    <ns7:prefLabel rdf:resource="http://publications.europa.eu/resource/authority/file-type/a89a84b0abd2ba8cfaa3261fd2b4b287" />
+    <dc:identifier>CSV</dc:identifier>
+    <dcterms:dateAccepted rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2013-09-26</dcterms:dateAccepted>
+    <dcterms:dateSubmitted rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2013-09-26</dcterms:dateSubmitted>
+    <skos:altLabel xml:lang="en">Comma-Separated Values</skos:altLabel>
+    <skos:definition xml:lang="en">CSV – comma-separated values – files store tabular data (numbers and text) in plain text. Each line of the file is a data record. Each record consists of one or more fields, separated by commas.</skos:definition>
+    <skos:notation rdf:datatype="http://publications.europa.eu/ontology/euvoc#IANA_MT">text/csv</skos:notation>
+    <skos:notation rdf:datatype="http://publications.europa.eu/ontology/euvoc#FILE_EXT">.csv</skos:notation>
+    <skos:notation rdf:datatype="http://publications.europa.eu/ontology/euvoc#CELLAR_MT">text/csv</skos:notation>
+    <skos:notation rdf:datatype="http://publications.europa.eu/ontology/euvoc#CELLAR_MANIFT">csv</skos:notation>
+    <skos:topConceptOf rdf:resource="http://publications.europa.eu/resource/authority/file-type" />
+    <ns9:authority-code>CSV</ns9:authority-code>
+    <ns9:deprecated>false</ns9:deprecated>
+    <ns9:op-code>CSV</ns9:op-code>
+    <ns9:op-mapped-code rdf:nodeID="b7249939" />
+    <ns9:op-mapped-code rdf:nodeID="b7250091" />
+    <ns9:op-mapped-code rdf:nodeID="b7249564" />
+    <ns9:op-mapped-code rdf:nodeID="b7250087" />
+    <ns9:op-mapped-code rdf:nodeID="b7249777" />
+    <ns9:op-mapped-code rdf:nodeID="b7250052" />
+    <ns9:op-mapped-code rdf:nodeID="b7249523" />
+    <ns9:start.use>2013-05-21</ns9:start.use>
+    <ns10:op-code>CSV</ns10:op-code>
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/DCAT_AP" />
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/ODP" />
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/IMMC" />
+    <ns6:context rdf:resource="http://publications.europa.eu/resource/authority/use-context/CELLAR" />
+    <ns6:order rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">90</ns6:order>
+    <ns6:status rdf:resource="http://publications.europa.eu/resource/authority/concept-status/CURRENT" />
+    <ns6:xlDefinition rdf:resource="http://publications.europa.eu/resource/authority/file-type/7253d129329894cc29a7ac9ca7094691" />
+    <ns6:xlNotation rdf:resource="http://publications.europa.eu/resource/authority/file-type/662eb3c15e5bea7cd7d4dc0e4701128e" />
+    <ns6:xlNotation rdf:resource="http://publications.europa.eu/resource/authority/file-type/82cf1bcf364f759f50c82a66f7c0f986" />
+    <ns6:xlNotation rdf:resource="http://publications.europa.eu/resource/authority/file-type/77921e2b47dd258c5ba5d8668932bb18" />
+    <ns6:xlNotation rdf:resource="http://publications.europa.eu/resource/authority/file-type/c0ffda30925b1475e4fc936e808f028a" />
+    <ns6:isTabularFormat rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ns6:isTabularFormat>
+    <ns6:isTextual rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ns6:isTextual>
+    <ns6:machineReadable rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ns6:machineReadable>
+    <ns6:nonPropExt rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ns6:nonPropExt>
+    <dcterms:conformsTo rdf:datatype="http://purl.org/dc/terms/URI">https://www.iana.org/assignments/media-types/text/csv</dcterms:conformsTo>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://publications.europa.eu/resource/authority/file-type">
+    <skos:hasTopConcept rdf:resource="http://publications.europa.eu/resource/authority/file-type/CSV" />
+  </rdf:Description>
+</rdf:RDF>
