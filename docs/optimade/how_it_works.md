@@ -57,13 +57,13 @@ callback. The standard implementation is provided by `BackendAdapter`:
   one generically from a property-key map and the entry's property types. When a
   `BackendAdapter` is given no handlers, it derives them from its schema.
 
-*httk-serve* is a generic implementation of the OPTIMADE *protocol*: it
-carries no materials-science knowledge of its own. The served entry types,
-their properties, and their records are supplied from outside — see
-[Entry providers](#entry-providers). A backend can also plug in at the lower
-level by implementing the store protocols directly; the repository's
-`examples/optimade/demo_server/` shows a complete in-memory implementation serving
-several entry types.
+*httk-serve* is a generic implementation of the OPTIMADE *protocol*: it carries
+no materials-science knowledge of its own. In a durable deployment, configured
+entry families are discovered from `EntryStore` and queried lazily through
+`adapter_from_store`; see [Serving directly from an entry
+store](serving_stores.md). A record saved after application construction is
+visible without rebuilding an adapter. `EntryProvider` is the separate
+in-memory ingestion path for generated and compatibility datasets.
 
 (entry-providers)=
 ## Entry providers
@@ -88,6 +88,13 @@ providers into a fully wired `BackendAdapter` over an in-memory store: it builds
 the `ServedSchema` from the definitions (validating each served property
 against the definition), the filter handlers from the property keys, and the
 response-field extractors from the property keys, then loads the records.
+
+`adapter_from_store(store)` (`backend/stores.py`) instead reads the store's
+declared entry layout, ignores families without an OPTIMADE definition, and
+builds a `StoredBackendAdapter`. Its query callback delegates filtering,
+sorting, counting, pagination, and record hydration to durable entry
+federations. It never calls `EntryProvider.records()` and never copies the
+database into an `InMemoryStore`.
 
 The materials provider itself lives in *httk-atomistic*
 (`httk.atomistic.entries.structures.StructureEntryProvider`), which serves

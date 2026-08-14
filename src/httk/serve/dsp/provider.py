@@ -12,9 +12,10 @@ from httk.store import EntryStore
 
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
 from .config import (
+    DCAT_AP_3_0_1_PROFILE,
+    DSP_2025_1_SPECIFICATION,
     DSP_CONTEXT,
     HTTP_ENDPOINT_TYPE,
-    HTTP_PULL_PROFILE,
     DspDatasetPublication,
     DspProviderConfig,
     DspPublicationEntry,
@@ -87,22 +88,27 @@ def _profile_from_declarations(
         if len(values) != len(set(values)):
             label = "dataset IDs" if attribute == "id" else attribute.replace("_", " ") + "s"
             raise ValueError(f"{label} must be unique within the catalogue")
+    dataset_ids = tuple(publication.dataset.id for publication in declarations)
+    service_conformance = [config.dsp_profile, DSP_2025_1_SPECIFICATION]
+    if config.dcat_ap_content_negotiation:
+        service_conformance.extend((config.dcat_ap_content_negotiation_profile, DCAT_AP_3_0_1_PROFILE))
+    data_service = DataServiceProfile(
+        config.service_id,
+        config.service_title,
+        config.service_endpoint_url,
+        tuple(service_conformance),
+        dataset_ids,
+    )
     datasets: list[DatasetProfile] = []
     for publication in declarations:
         assert publication.file_format is not None
         assert publication.media_type is not None
         assert publication.offer_id is not None
         assert publication.distribution_id is not None
-        data_service = DataServiceProfile(
-            config.service_id,
-            config.service_title,
-            config.service_endpoint_url,
-        )
         access_url = config.resolve_access_url(publication.access_url)
-        transfer_format = publication.file_format if config.catalogue_profile == "dcat-ap-3.0.1" else HTTP_PULL_PROFILE
         distribution = DistributionProfile(
             publication.distribution_id,
-            transfer_format,
+            publication.file_format,
             publication.file_format,
             publication.media_type,
             access_url,
@@ -123,10 +129,9 @@ def _profile_from_declarations(
                 },
             )
         )
-    dataset_ids = tuple(item.dataset.id for item in datasets)
     dsp_service_ids = {item.data_service.id for item in datasets}
     dcat_services: list[DcatDataServiceProfile] = []
-    for service in config.dcat_data_services:
+    for service in () if config.dcat_ap_service is None else (config.dcat_ap_service,):
         if service.id in dsp_service_ids:
             raise ValueError("a DCAT companion service must have an ID distinct from every DSP access service")
         served_ids = dataset_ids if service.serves_dataset_ids is None else service.serves_dataset_ids
@@ -148,7 +153,6 @@ def _profile_from_declarations(
         config.catalog_title,
         config.catalog_description,
         config.participant_id,
-        config.catalogue_profile,
         tuple(datasets),
         tuple(dcat_services),
     )
@@ -336,12 +340,16 @@ class DspProvider:
         :return: Plain DSP catalogue document.
         :raises httk.serve.dsp.models.DspProtocolError: If the request is malformed or filters are unsupported.
         """
+        self.validate_catalogue_request(request)
+        return serialize_dsp_catalogue(self.profile)
+
+    def validate_catalogue_request(self, request: dict[str, object]) -> None:
+        """Validate the one unfiltered catalogue request supported by DSP minimal."""
         message = _message_object(request, "catalog")
         _validate_common_message(message, "CatalogRequestMessage", "catalog")
         filter_value = message.get("filter")
         if filter_value not in (None, [], ""):
             raise DspProtocolError("catalog", 400, "catalog filters are not supported", code="unsupported-filter")
-        return serialize_dsp_catalogue(self.profile)
 
     def dsp_dataset(self, dataset_id: str) -> dict[str, JsonValue]:
         """Return one DSP dataset only when its ID exactly matches.

@@ -1,136 +1,96 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json",
-  "title": "httk strict DCAT-AP catalogue projection",
+  "title": "DCAT-AP minimal context-substituted catalogue",
   "type": "object",
-  "additionalProperties": false,
-  "required": ["@context", "@id", "@type", "title", "description", "dct:publisher", "dcat:dataset", "dcat:service"],
+  "required": ["@context", "@id", "@type"],
+  "anyOf": [
+    {"required": ["participantId", "dct:title", "dct:description", "dct:publisher", "dataset", "service"]},
+    {"required": ["title", "description", "dct:publisher", "dcat:dataset", "dcat:service"]}
+  ],
   "properties": {
     "@context": {"type": "object"},
     "@id": {"$ref": "#/$defs/iri"},
     "@type": {"const": "Catalog"},
+    "participantId": {"$ref": "#/$defs/iri"},
+    "dct:title": {"$ref": "#/$defs/text"},
+    "dct:description": {"$ref": "#/$defs/text"},
     "title": {"$ref": "#/$defs/text"},
     "description": {"$ref": "#/$defs/text"},
     "dct:publisher": {"$ref": "#/$defs/publisher"},
-    "dcat:dataset": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/dataset"}},
-    "dcat:service": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/service"}}
+    "dataset": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/dataset"}},
+    "service": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/service"}},
+    "dcat:dataset": {"type": "array", "minItems": 1},
+    "dcat:service": {"type": "array", "minItems": 1}
   },
   "$defs": {
     "text": {"type": "string", "minLength": 1, "pattern": "\\S"},
     "iri": {"type": "string", "format": "uri"},
     "iriObject": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["@id"],
+      "type": "object", "required": ["@id"],
       "properties": {"@id": {"$ref": "#/$defs/iri"}, "@type": {"type": "string"}}
+    },
+    "standard": {
+      "type": "object", "required": ["@id", "@type"],
+      "properties": {"@id": {"$ref": "#/$defs/iri"}, "@type": {"const": "dct:Standard"}}
     },
     "publisher": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["@id", "@type", "foaf:name"],
+      "required": ["@id", "@type"],
       "properties": {
         "@id": {"$ref": "#/$defs/iri"},
-        "@type": {"const": "Agent"},
-        "foaf:name": {"$ref": "#/$defs/text"}
-      }
-    },
-    "policy": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["@id", "@type", "permission"],
-      "properties": {
-        "@id": {"$ref": "#/$defs/iri"},
-        "@type": {"const": "Offer"},
-        "permission": {
-          "type": "array", "minItems": 1, "maxItems": 1,
-          "items": {
-            "type": "object", "additionalProperties": false,
-            "required": ["action"], "properties": {"action": {"const": "use"}}
-          }
-        }
+        "@type": {"enum": ["Agent", "http://xmlns.com/foaf/0.1/Agent"]},
+        "foaf:name": {"$ref": "#/$defs/text"},
+        "http://xmlns.com/foaf/0.1/name": {"$ref": "#/$defs/text"}
       }
     },
     "distribution": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["@id", "@type", "format", "mediaType", "accessURL", "downloadURL", "accessService"],
+      "required": [
+        "@id", "@type", "format", "dct:format", "dcat:accessURL",
+        "dcat:downloadURL", "dcat:mediaType", "accessService"
+      ],
       "properties": {
         "@id": {"$ref": "#/$defs/iri"},
         "@type": {"const": "Distribution"},
-        "format": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["@id", "@type"],
+        "format": {"$ref": "#/$defs/iri"},
+        "dct:format": {"$ref": "#/$defs/iriObject"},
+        "dcat:accessURL": {"$ref": "#/$defs/iriObject"},
+        "dcat:downloadURL": {"$ref": "#/$defs/iriObject"},
+        "dcat:mediaType": {"$ref": "#/$defs/iriObject"},
+        "accessService": {"$ref": "#/$defs/service"},
+        "dcat:byteSize": {
+          "type": "object", "required": ["@value", "@type"],
           "properties": {
-            "@id": {"$ref": "#/$defs/iri"},
-            "@type": {"const": "dct:MediaTypeOrExtent"}
+            "@value": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+            "@type": {"const": "http://www.w3.org/2001/XMLSchema#nonNegativeInteger"}
           }
-        },
-        "mediaType": {"$ref": "#/$defs/iriObject"},
-        "accessURL": {"$ref": "#/$defs/iriObject"},
-        "downloadURL": {"$ref": "#/$defs/iriObject"},
-        "byteSize": {"type": "integer", "minimum": 0},
-        "checksum": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["@type", "algorithm", "checksumValue"],
-          "properties": {
-            "@type": {"const": "spdx:Checksum"},
-            "algorithm": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["@id", "@type"],
-              "properties": {
-                "@id": {"const": "https://spdx.org/rdf/terms#checksumAlgorithm_sha256"},
-                "@type": {"const": "spdx:ChecksumAlgorithm"}
-              }
-            },
-            "checksumValue": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-          }
-        },
-        "accessService": {"$ref": "#/$defs/iriObject"}
+        }
       }
     },
     "dataset": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["@id", "@type", "title", "description", "dct:publisher", "odrl:hasPolicy", "dcat:distribution"],
+      "required": ["@id", "@type", "dct:title", "dct:description", "dct:publisher", "hasPolicy", "distribution"],
       "properties": {
         "@id": {"$ref": "#/$defs/iri"},
         "@type": {"const": "Dataset"},
-        "title": {"$ref": "#/$defs/text"},
-        "description": {"$ref": "#/$defs/text"},
-        "dct:publisher": {"$ref": "#/$defs/iriObject"},
-        "odrl:hasPolicy": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/policy"}},
-        "dcat:distribution": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/distribution"}}
+        "dct:title": {"$ref": "#/$defs/text"},
+        "dct:description": {"$ref": "#/$defs/text"},
+        "dct:publisher": {"$ref": "#/$defs/publisher"},
+        "hasPolicy": {"type": "array", "minItems": 1, "maxItems": 1},
+        "distribution": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/distribution"}}
       }
     },
     "service": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["@id", "@type", "title", "endpointURL"],
+      "required": ["@id", "@type", "dct:title", "endpointURL", "dct:conformsTo", "dcat:servesDataset"],
       "properties": {
         "@id": {"$ref": "#/$defs/iri"},
         "@type": {"const": "DataService"},
-        "title": {"$ref": "#/$defs/text"},
-        "endpointURL": {"$ref": "#/$defs/iriObject"},
-        "endpointDescription": {"$ref": "#/$defs/iriObject"},
-        "servesDataset": {
-          "type": "array", "minItems": 1, "uniqueItems": true,
-          "items": {"$ref": "#/$defs/iriObject"}
-        },
-        "conformsTo": {
-          "type": "array", "minItems": 1, "uniqueItems": true,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["@id", "@type"],
-            "properties": {
-              "@id": {"$ref": "#/$defs/iri"},
-              "@type": {"const": "dct:Standard"}
-            }
-          }
-        }
+        "dct:title": {"$ref": "#/$defs/text"},
+        "endpointURL": {"$ref": "#/$defs/iri"},
+        "dct:conformsTo": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/standard"}},
+        "dcat:servesDataset": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/iriObject"}}
       }
     }
   }

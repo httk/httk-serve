@@ -11,10 +11,13 @@ from pathlib import Path
 import uvicorn
 from httk.core import Dataset
 from httk.store.db import Database, SqlStore
-from starlette.applications import Starlette
-from starlette.routing import Mount
 
+from httk.serve import ASGIAppMount, compose_asgi_apps
+from httk.serve.dcat_ap import create_dcat_ap_app
 from httk.serve.dsp import (
+    DCAT_AP_3_0_1_PROFILE,
+    DCAT_AP_MINIMAL_PROFILE,
+    DcatDataService,
     DspDatasetPublication,
     DspProvider,
     DspProviderConfig,
@@ -80,16 +83,25 @@ config = DspProviderConfig(
     catalog_id="https://provider.example/catalogues/example",
     catalog_title="Example datasets",
     catalog_description="Two files served by a store-native DSP catalogue.",
-    catalogue_profile="dcat-ap-3.0.1",
+    dcat_ap_service=DcatDataService(
+        id="https://provider.example/services/dcat-ap",
+        title="Public DCAT-AP catalogue",
+        endpoint_url="https://provider.example/dcat-ap/catalogue/",
+        conforms_to=(DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
+    ),
+    dcat_ap_content_negotiation=True,
 )
 
-# Strict DSP + DCAT-AP uses the representation's EU file-type IRI as each
-# transfer value, so CSV and JSON negotiate different values.  Selecting
-# catalogue_profile="dcat" instead gives every distribution the shared httk
-# HttpData-PULL profile, at the cost of making no DCAT-AP conformance claim.
+# DSP minimal uses the representation's EU file-type IRI as each transfer value, so
+# CSV and JSON deliberately negotiate different values.
 files_app = create_file_map_app({"/dataset1.csv": DATASET1, "/dataset2.json": DATASET2})
-dsp_app = create_dsp_app(DspProvider(config, store=store))
-app = Starlette(routes=[Mount("/files", app=files_app), Mount("/dsp", app=dsp_app)])
+provider = DspProvider(config, store=store)
+dsp_app = create_dsp_app(provider)
+dcat_ap_app = create_dcat_ap_app(provider)
+app = compose_asgi_apps(
+    [ASGIAppMount("/files", files_app), ASGIAppMount("/dsp", dsp_app)],
+    root=ASGIAppMount("/", dcat_ap_app),
+)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8080)

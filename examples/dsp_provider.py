@@ -7,7 +7,6 @@ For a durable, live catalogue backed by ``SqlStore``, see
 from httk.core import Dataset
 
 from httk.serve.dsp import (
-    DcatDataService,
     DspDatasetPublication,
     DspProvider,
     DspProviderConfig,
@@ -15,14 +14,6 @@ from httk.serve.dsp import (
 )
 
 PUBLISHER_ID = "https://provider.example/participants/provider"
-
-PUBLIC_OPTIMADE_SERVICE = DcatDataService(
-    id="https://provider.example/services/optimade",
-    title="Public materials OPTIMADE API",
-    endpoint_url="https://provider.example/optimade/v1",
-    conforms_to=("https://schemas.optimade.org/defs/v1.3/standards/optimade",),
-    endpoint_description="https://www.optimade.org/specification/latest/",
-)
 
 
 def publication(slug: str, title: str) -> DspDatasetPublication:
@@ -47,8 +38,6 @@ config = DspProviderConfig(
     catalog_id="https://provider.example/catalogs/example",
     catalog_title="Example materials catalogue",
     catalog_description="Two example JSON datasets.",
-    catalogue_profile="dcat-ap-3.0.1",
-    dcat_data_services=(PUBLIC_OPTIMADE_SERVICE,),
 )
 
 provider = DspProvider(

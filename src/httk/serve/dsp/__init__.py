@@ -1,15 +1,18 @@
-"""Serve the constrained Data Space Protocol 2025-1 provider profile."""
+"""Serve the DSP 2025-1 minimal public-catalogue profile."""
 
 from .api import create_dsp_app
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
 from .config import (
+    DCAT_AP_3_0_1_PROFILE,
+    DCAT_AP_MINIMAL_CONTENT_NEGOTIATION,
+    DCAT_AP_MINIMAL_PROFILE,
+    DSP_2025_1_SPECIFICATION,
     DSP_CONTEXT,
-    DSP_TRANSFER_FORMAT,
+    DSP_MINIMAL_PROFILE,
     DSP_VERSION,
     EU_FILE_TYPE_CSV,
     EU_FILE_TYPE_JSON,
     HTTP_ENDPOINT_TYPE,
-    HTTP_PULL_PROFILE,
     IANA_MEDIA_TYPE_CSV,
     IANA_MEDIA_TYPE_JSON,
     SPDX_SHA256,
@@ -34,13 +37,16 @@ from .models import (
 from .provider import DspProvider, UtcClock, UuidFactory
 
 __all__ = [
+    "DCAT_AP_3_0_1_PROFILE",
+    "DCAT_AP_MINIMAL_CONTENT_NEGOTIATION",
+    "DCAT_AP_MINIMAL_PROFILE",
+    "DSP_2025_1_SPECIFICATION",
     "DSP_CONTEXT",
-    "DSP_TRANSFER_FORMAT",
+    "DSP_MINIMAL_PROFILE",
     "DSP_VERSION",
     "EU_FILE_TYPE_CSV",
     "EU_FILE_TYPE_JSON",
     "HTTP_ENDPOINT_TYPE",
-    "HTTP_PULL_PROFILE",
     "IANA_MEDIA_TYPE_CSV",
     "IANA_MEDIA_TYPE_JSON",
     "SPDX_SHA256",

@@ -20,7 +20,6 @@ from .validation import DspSchemaError, validate_document
 
 DCAT_PROFILE = "https://semiceu.github.io/DCAT-AP/releases/3.0.1/"
 DCAT_MEDIA_TYPE = f'application/ld+json; profile="{DCAT_PROFILE}"'
-DCAT_GENERIC_MEDIA_TYPE = "application/ld+json"
 
 type HandlerResult = dict[str, Any] | None
 
@@ -185,16 +184,18 @@ async def _dispatch(
     path: Mapping[str, str],
     body: dict[str, object] | None,
     automatic_batch: _AutomaticBatch | None = None,
+    dcat_ap_catalogue: bool = False,
 ) -> HandlerResult:
     """Dispatch one validated operation to its provider business method."""
     if operation_id == "version_discovery":
         return provider.version_document()
     elif operation_id == "catalog_request":
+        if dcat_ap_catalogue:
+            provider.validate_catalogue_request(body or {})
+            return provider.dcat_catalogue()
         return provider.dsp_catalogue(body or {})
     elif operation_id == "dataset_request":
         return provider.dsp_dataset(path["id"])
-    elif operation_id == "dcat_catalog":
-        return provider.dcat_catalogue()
     elif operation_id == "negotiation_state":
         return await provider.get_negotiation(path["providerPid"])
     elif operation_id == "negotiation_request":
@@ -276,6 +277,44 @@ def _success_status(operation_id: str) -> int:
     return 200
 
 
+def _catalogue_media_type(provider: DspProvider, accept: str | None) -> str:
+    """Select the ordinary DSP or explicitly requested DCAT-AP representation."""
+    if accept is None or not accept.strip():
+        return "application/json"
+    ranges = [part.strip() for part in accept.split(",") if part.strip()]
+    if len(ranges) == 1:
+        parts = [part.strip() for part in ranges[0].split(";")]
+        if parts[0].lower() == "application/ld+json":
+            parameters: dict[str, str] = {}
+            for part in parts[1:]:
+                if "=" not in part:
+                    break
+                name, value = part.split("=", 1)
+                parameters[name.strip().lower()] = value.strip().strip('"')
+            else:
+                if (
+                    set(parameters) <= {"profile", "q"}
+                    and parameters.get("profile", DCAT_PROFILE) == DCAT_PROFILE
+                    and parameters.get("q", "1") in {"1", "1.0", "1.00", "1.000"}
+                ):
+                    if provider.config.dcat_ap_content_negotiation:
+                        return DCAT_MEDIA_TYPE
+                    raise DspProtocolError(
+                        "catalog",
+                        406,
+                        "the DCAT-AP catalogue representation is not available",
+                        code="not-acceptable",
+                    )
+    ordinary_allowed = any(
+        item.split(";", 1)[0].strip().lower() in {"application/json", "*/*", "application/*"}
+        and "q=0" not in item.replace(" ", "").lower()
+        for item in ranges
+    )
+    if ordinary_allowed:
+        return "application/json"
+    raise DspProtocolError("catalog", 406, "no acceptable catalogue representation is available", code="not-acceptable")
+
+
 def _route_endpoint(provider: DspProvider, operation: OpenAPIOperation) -> Callable[[Request], Awaitable[Response]]:
     """Build one request adapter closure from an OpenAPI operation."""
 
@@ -284,6 +323,11 @@ def _route_endpoint(provider: DspProvider, operation: OpenAPIOperation) -> Calla
         path = {name: str(value) for name, value in request.path_params.items()}
         automatic_batch = provider.automatic_batch()
         try:
+            selected_catalogue_media = (
+                _catalogue_media_type(provider, request.headers.get("accept"))
+                if operation.operation_id == "catalog_request"
+                else None
+            )
             if operation.request_schema is not None:
                 content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
                 if content_type != "application/json":
@@ -306,21 +350,25 @@ def _route_endpoint(provider: DspProvider, operation: OpenAPIOperation) -> Calla
                     validate_document(operation.request_schema, body)
                 except DspSchemaError as error:
                     raise _schema_error(operation.operation_id, str(error), path, body) from error
-            result = await _dispatch(provider, operation.operation_id, path, body, automatic_batch)
+            result = await _dispatch(
+                provider,
+                operation.operation_id,
+                path,
+                body,
+                automatic_batch,
+                dcat_ap_catalogue=selected_catalogue_media == DCAT_MEDIA_TYPE,
+            )
             status = _success_status(operation.operation_id)
             if result is None:
                 response = Response(status_code=status)
             else:
                 contracts = operation.responses[status]
-                if operation.operation_id == "dcat_catalog":
-                    selected_media = (
-                        DCAT_MEDIA_TYPE
-                        if provider.config.catalogue_profile == "dcat-ap-3.0.1"
-                        else DCAT_GENERIC_MEDIA_TYPE
+                if operation.operation_id == "catalog_request":
+                    selected = next(
+                        (contract for contract in contracts if contract[0] == selected_catalogue_media), None
                     )
-                    selected = next((contract for contract in contracts if contract[0] == selected_media), None)
                     if selected is None:
-                        raise RuntimeError(f"OpenAPI has no {selected_media} response for dcat_catalog")
+                        raise RuntimeError(f"OpenAPI has no {selected_catalogue_media} response for catalog_request")
                     media_type, schema = selected
                 else:
                     if len(contracts) != 1:
@@ -330,14 +378,10 @@ def _route_endpoint(provider: DspProvider, operation: OpenAPIOperation) -> Calla
                     raise RuntimeError(f"OpenAPI success response for {operation.operation_id} has no body contract")
                 validate_document(schema, result)
                 headers = None
-                if operation.operation_id in {"catalog_request", "dataset_request"}:
-                    alternate = f"{provider.config.connector_root_url}/2025-1/catalog"
-                    link_type = (
-                        f'type="application/ld+json"; profile="{DCAT_PROFILE}"'
-                        if provider.config.catalogue_profile == "dcat-ap-3.0.1"
-                        else 'type="application/ld+json"'
-                    )
-                    headers = {"Link": f'<{alternate}>; rel="alternate"; {link_type}'}
+                if operation.operation_id == "catalog_request" and provider.config.dcat_ap_content_negotiation:
+                    headers = {"Vary": "Accept"}
+                    if selected_catalogue_media == DCAT_MEDIA_TYPE:
+                        headers["Link"] = f'<{provider.config.dcat_ap_profile}>; rel="profile"'
                 response = JSONResponse(result, status_code=status, media_type=media_type, headers=headers)
             if provider.has_automatic_actions(automatic_batch):
                 response.background = BackgroundTask(provider.release_automatic, automatic_batch)
@@ -396,7 +440,6 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
 
 
 __all__ = [
-    "DCAT_GENERIC_MEDIA_TYPE",
     "DCAT_MEDIA_TYPE",
     "DCAT_PROFILE",
     "OpenAPIOperation",

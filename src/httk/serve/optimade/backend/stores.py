@@ -317,7 +317,7 @@ def adapter_from_store(store: EntryStore, **options: Any) -> StoredBackendAdapte
     declarations, coexist with OPTIMADE records in one durable layout.
 
     :param store: Entry store whose configured layout is discovered.
-    :param **options: Schema options forwarded to :func:`adapter_from_stores`.
+    :param \\*\\*options: Schema options forwarded to :func:`adapter_from_stores`.
     :return: Lazy adapter over all configured OPTIMADE families.
     :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
     :raises ValueError: If the store contains no OPTIMADE-described family.

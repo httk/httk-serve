@@ -92,6 +92,8 @@ class DataServiceProfile:
     id: str
     title: str
     endpoint_url: str
+    conforms_to: tuple[str, ...]
+    serves_dataset_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +170,6 @@ class CatalogueProfile:
     title: str
     description: str
     participant_id: str
-    catalogue_profile: Literal["dcat-ap-3.0.1", "dcat"]
     datasets: tuple[DatasetProfile, ...]
     dcat_data_services: tuple[DcatDataServiceProfile, ...]
 

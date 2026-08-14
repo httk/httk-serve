@@ -1,5 +1,13 @@
 # Serving entry providers
 
+:::{note}
+If the records already live in an `EntryStore`, do not build a provider that
+enumerates and copies them. Pass the store directly to `create_asgi_app`; see
+[Serving directly from an entry store](serving_stores.md). The provider path on
+this page is intentionally the in-memory path for generated or compatibility
+datasets.
+:::
+
 *httk-serve* is a generic implementation of the OPTIMADE protocol: it carries
 no knowledge of what it serves. Everything served — entry types, their
 properties, and the records — is supplied through the neutral
@@ -69,8 +77,8 @@ definition with `EntryTypeDefinition.extended({...})`.
 ## Serve it
 
 `adapter_from_providers` turns one or more providers into a fully wired
-backend adapter; `serve` runs a development server (or use `create_asgi_app`
-with any ASGI server):
+in-memory backend adapter; `serve` runs a development server (or use
+`create_asgi_app` with any ASGI server):
 
 ```python
 from httk.serve.optimade import adapter_from_providers, serve

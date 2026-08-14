@@ -3,7 +3,13 @@
 import pytest
 from httk.core import Dataset
 
-from httk.serve.dsp import DspDatasetPublication, DspProviderConfig
+from httk.serve.dsp import (
+    DCAT_AP_3_0_1_PROFILE,
+    DCAT_AP_MINIMAL_PROFILE,
+    DcatDataService,
+    DspDatasetPublication,
+    DspProviderConfig,
+)
 
 
 def publication(name: str = "one") -> DspDatasetPublication:
@@ -35,7 +41,6 @@ def config(**changes: object) -> DspProviderConfig:
         "catalog_id": "https://provider.example/catalog",
         "catalog_title": "A catalogue",
         "catalog_description": "A useful catalogue",
-        "catalogue_profile": "dcat-ap-3.0.1",
     }
     values.update(changes)
     return DspProviderConfig(**values)  # type: ignore[arg-type]
@@ -52,9 +57,20 @@ def test_config_derives_connector_and_version_urls() -> None:
     assert value.service_endpoint_url == "https://provider.example/connector/2025-1"
 
 
-@pytest.mark.parametrize("profile", ["dcat-ap-3.0.1", "dcat"])
-def test_config_accepts_both_catalogue_profiles(profile: str) -> None:
-    assert config(catalogue_profile=profile).catalogue_profile == profile
+def companion() -> DcatDataService:
+    return DcatDataService(
+        "https://provider.example/services/dcat-ap",
+        "DCAT-AP catalogue",
+        "https://provider.example/dcat-ap/catalogue/",
+        (DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
+    )
+
+
+def test_content_negotiation_requires_a_conforming_companion() -> None:
+    with pytest.raises(ValueError, match="requires dcat_ap_service"):
+        config(dcat_ap_content_negotiation=True)
+    value = config(dcat_ap_service=companion(), dcat_ap_content_negotiation=True)
+    assert value.dcat_ap_service == companion()
 
 
 def test_publication_defaults_ids_and_validates_file_metadata() -> None:

@@ -23,12 +23,13 @@ def create_asgi_app(
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
 ) -> Starlette:
-    """Create an ASGI application serving an OPTIMADE API for a backend.
+    """Create an ASGI application serving an OPTIMADE API for a backend or store.
 
     An absent ``baseurl`` makes the application derive a mount-aware URL from
     the request. An explicit value is authoritative.
 
-    :param adapter: Backend providing the explicit served schema and query callback.
+    :param adapter: Backend providing the served schema/query callback, or an
+        entry store whose configured OPTIMADE families are discovered lazily.
     :param config: Optional service configuration.
     :param baseurl: Public API base URL, or ``None`` for request-based derivation.
     :param debug: Enable application and backend diagnostics.
@@ -99,7 +100,7 @@ def create_index_asgi_app(
 
 
 def serve(
-    adapter: OptimadeAdapter,
+    adapter: OptimadeAdapter | EntryStore,
     config: OptimadeConfig | None = None,
     *,
     host: str = "127.0.0.1",
@@ -109,9 +110,10 @@ def serve(
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
 ) -> None:
-    """Serve an OPTIMADE API for a backend with a development web server.
+    """Serve an OPTIMADE API for a backend or entry store with a development server.
 
-    :param adapter: Backend providing the explicit served schema and query callback.
+    :param adapter: Backend providing the served schema/query callback, or an
+        entry store whose configured OPTIMADE families are discovered lazily.
     :param config: Optional service configuration.
     :param host: Interface or hostname to bind.
     :param port: TCP port to bind.

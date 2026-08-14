@@ -3,7 +3,7 @@
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import MISSING, dataclass, fields
-from typing import Any, ClassVar, Literal, Self
+from typing import Any, ClassVar, Self
 from urllib.parse import urlsplit
 
 from httk.core import Dataset, StorageInfo
@@ -16,19 +16,17 @@ DSP_VERSION = "2025-1"
 HTTP_ENDPOINT_TYPE = "https://w3id.org/idsa/v4.1/HTTP"
 """Official DSP endpoint type used by HTTPS-pull data addresses."""
 
-HTTP_PULL_PROFILE = "https://schemas.httk.org/dsp/2025-1/transfer/HttpData-PULL"
-"""Stable generic-DCAT DSP transfer profile IRI."""
-
-DSP_TRANSFER_FORMAT = HTTP_PULL_PROFILE
-"""Generic-DCAT transfer profile (retained as the public convenience name)."""
+DSP_2025_1_SPECIFICATION = "https://eclipse-dataspace-protocol-base.github.io/DataspaceProtocol/2025-1-err1/"
+DCAT_AP_3_0_1_PROFILE = "https://semiceu.github.io/DCAT-AP/releases/3.0.1/"
+DSP_MINIMAL_PROFILE = "https://schemas.httk.org/profiles/dsp/2025-1/minimal"
+DCAT_AP_MINIMAL_PROFILE = "https://schemas.httk.org/profiles/dcat-ap/3.0.1/minimal"
+DCAT_AP_MINIMAL_CONTENT_NEGOTIATION = f"{DSP_MINIMAL_PROFILE}#dcat-ap-content-negotiation"
 
 EU_FILE_TYPE_CSV = "http://publications.europa.eu/resource/authority/file-type/CSV"
 EU_FILE_TYPE_JSON = "http://publications.europa.eu/resource/authority/file-type/JSON"
 IANA_MEDIA_TYPE_CSV = "https://www.iana.org/assignments/media-types/text/csv"
 IANA_MEDIA_TYPE_JSON = "https://www.iana.org/assignments/media-types/application/json"
 SPDX_SHA256 = "https://spdx.org/rdf/terms#checksumAlgorithm_sha256"
-
-type CatalogueProfileName = Literal["dcat-ap-3.0.1", "dcat"]
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -242,7 +240,7 @@ class DcatDataService:
     def __post_init__(self) -> None:
         object.__setattr__(self, "id", _absolute_iri("id", self.id))
         object.__setattr__(self, "title", _nonempty("title", self.title))
-        object.__setattr__(self, "endpoint_url", _https_url("endpoint_url", self.endpoint_url))
+        object.__setattr__(self, "endpoint_url", _https_url("endpoint_url", self.endpoint_url, reject_query=True))
         conforms_to = _iri_sequence("conforms_to", self.conforms_to)
         if not conforms_to:
             raise ValueError("conforms_to must contain at least one technical-standard IRI")
@@ -285,7 +283,7 @@ def _iri_sequence(field_name: str, value: object) -> tuple[str, ...]:
 
 @dataclass(frozen=True, slots=True)
 class DspProviderConfig:
-    """Configure global DSP service and catalogue metadata."""
+    """Configure global DSP minimal service and catalogue metadata."""
 
     public_base_url: str
     service_id: str
@@ -294,10 +292,13 @@ class DspProviderConfig:
     catalog_id: str
     catalog_title: str
     catalog_description: str
-    catalogue_profile: CatalogueProfileName
     dsp_mount: str = "/dsp"
     automatic_progression: bool = True
-    dcat_data_services: tuple[DcatDataService, ...] = ()
+    dcat_ap_service: DcatDataService | None = None
+    dcat_ap_content_negotiation: bool = False
+    dsp_profile: str = DSP_MINIMAL_PROFILE
+    dcat_ap_profile: str = DCAT_AP_MINIMAL_PROFILE
+    dcat_ap_content_negotiation_profile: str = DCAT_AP_MINIMAL_CONTENT_NEGOTIATION
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "public_base_url", _https_origin("public_base_url", self.public_base_url))
@@ -306,17 +307,22 @@ class DspProviderConfig:
             object.__setattr__(self, name, _absolute_iri(name, getattr(self, name)))
         for name in ("service_title", "catalog_title", "catalog_description"):
             object.__setattr__(self, name, _nonempty(name, getattr(self, name)))
-        if self.catalogue_profile not in {"dcat-ap-3.0.1", "dcat"}:
-            raise ValueError("catalogue_profile must be 'dcat-ap-3.0.1' or 'dcat'")
+        for name in ("dsp_profile", "dcat_ap_profile", "dcat_ap_content_negotiation_profile"):
+            object.__setattr__(self, name, _absolute_iri(name, getattr(self, name)))
         if not isinstance(self.automatic_progression, bool):
             raise TypeError("automatic_progression must be a bool")
-        try:
-            services = tuple(DcatDataService.create(value) for value in self.dcat_data_services)
-        except TypeError as error:
-            raise TypeError("dcat_data_services must be an iterable of DCAT data services") from error
-        if len({service.id for service in services}) != len(services):
-            raise ValueError("dcat_data_services must have unique identifiers")
-        object.__setattr__(self, "dcat_data_services", services)
+        if not isinstance(self.dcat_ap_content_negotiation, bool):
+            raise TypeError("dcat_ap_content_negotiation must be a bool")
+        if self.dcat_ap_service is not None:
+            service = DcatDataService.create(self.dcat_ap_service)
+            required = {self.dcat_ap_profile, DCAT_AP_3_0_1_PROFILE}
+            if not required.issubset(service.conforms_to):
+                raise ValueError("dcat_ap_service must declare both configured minimal and DCAT-AP 3.0.1 conformance")
+            if urlsplit(service.endpoint_url).netloc != urlsplit(self.public_base_url).netloc:
+                raise ValueError("dcat_ap_service endpoint must use the configured public HTTPS origin")
+            object.__setattr__(self, "dcat_ap_service", service)
+        if self.dcat_ap_content_negotiation and self.dcat_ap_service is None:
+            raise ValueError("dcat_ap_content_negotiation requires dcat_ap_service")
 
     @property
     def connector_root_url(self) -> str:
@@ -335,17 +341,19 @@ class DspProviderConfig:
 
 
 __all__ = [
+    "DCAT_AP_3_0_1_PROFILE",
+    "DCAT_AP_MINIMAL_CONTENT_NEGOTIATION",
+    "DCAT_AP_MINIMAL_PROFILE",
+    "DSP_2025_1_SPECIFICATION",
     "DSP_CONTEXT",
-    "DSP_TRANSFER_FORMAT",
+    "DSP_MINIMAL_PROFILE",
     "DSP_VERSION",
     "EU_FILE_TYPE_CSV",
     "EU_FILE_TYPE_JSON",
     "HTTP_ENDPOINT_TYPE",
-    "HTTP_PULL_PROFILE",
     "IANA_MEDIA_TYPE_CSV",
     "IANA_MEDIA_TYPE_JSON",
     "SPDX_SHA256",
-    "CatalogueProfileName",
     "DcatDataService",
     "DspDatasetPublication",
     "DspProviderConfig",

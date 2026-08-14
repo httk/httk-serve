@@ -5,26 +5,36 @@ from dataclasses import replace
 import pytest
 from test_dsp_config import config, publication
 
-from httk.serve.dsp import DSP_CONTEXT, DcatDataService, DspProvider
+from httk.serve.dsp import (
+    DCAT_AP_3_0_1_PROFILE,
+    DCAT_AP_MINIMAL_PROFILE,
+    DSP_CONTEXT,
+    DcatDataService,
+    DspProvider,
+)
 
 
 def request() -> dict[str, object]:
     return {"@context": [DSP_CONTEXT], "@type": "CatalogRequestMessage"}
 
 
-def test_companion_dcat_service_is_not_added_to_dsp_catalogue() -> None:
+def test_companion_dcat_service_is_advertised_in_both_catalogues() -> None:
     companion = DcatDataService(
-        id="https://provider.example/services/optimade",
-        title="OPTIMADE",
-        endpoint_url="https://provider.example/optimade/v1",
-        conforms_to=("https://schemas.optimade.org/defs/v1.3/standards/optimade",),
+        id="https://provider.example/services/dcat-ap",
+        title="DCAT-AP",
+        endpoint_url="https://provider.example/dcat-ap/catalogue/",
+        conforms_to=(DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
     )
     publications = (publication("one"), publication("two"))
-    provider = DspProvider(config(dcat_data_services=(companion,)), datasets=publications)
+    provider = DspProvider(config(dcat_ap_service=companion), datasets=publications)
 
-    assert "dcat:service" not in provider.dsp_catalogue(request())
-    services = {item["@id"] for item in provider.dcat_catalogue()["dcat:service"]}
+    dsp = provider.dsp_catalogue(request())
+    services = {item["@id"] for item in dsp["service"]}
     assert services == {config().service_id, companion.id}
+    dcat = provider.dcat_catalogue()
+    assert {key: value for key, value in dsp.items() if key != "@context"} == {
+        key: value for key, value in dcat.items() if key != "@context"
+    }
 
 
 def test_snapshot_rejects_duplicate_ids_and_mixed_publishers() -> None:

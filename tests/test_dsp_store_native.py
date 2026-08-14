@@ -12,7 +12,6 @@ from httk.serve.dsp import (
     EU_FILE_TYPE_CSV,
     EU_FILE_TYPE_JSON,
     HTTP_ENDPOINT_TYPE,
-    HTTP_PULL_PROFILE,
     IANA_MEDIA_TYPE_CSV,
     IANA_MEDIA_TYPE_JSON,
     DspDatasetPublication,
@@ -21,7 +20,6 @@ from httk.serve.dsp import (
     DspPublicationEntry,
     create_dsp_app,
 )
-from httk.serve.dsp.api import DCAT_MEDIA_TYPE
 
 
 def publication(name: str, suffix: str = ".csv", **changes: object) -> DspDatasetPublication:
@@ -39,7 +37,7 @@ def publication(name: str, suffix: str = ".csv", **changes: object) -> DspDatase
     return DspDatasetPublication(**values)  # type: ignore[arg-type]
 
 
-def config(profile: str = "dcat-ap-3.0.1", **changes: object) -> DspProviderConfig:
+def config(**changes: object) -> DspProviderConfig:
     values: dict[str, object] = {
         "public_base_url": "https://provider.example",
         "service_id": "https://provider.example/services/download",
@@ -48,7 +46,6 @@ def config(profile: str = "dcat-ap-3.0.1", **changes: object) -> DspProviderConf
         "catalog_id": "https://provider.example/catalog",
         "catalog_title": "Catalogue",
         "catalog_description": "Description",
-        "catalogue_profile": profile,
     }
     values.update(changes)
     return DspProviderConfig(**values)  # type: ignore[arg-type]
@@ -105,7 +102,7 @@ def test_store_catalogue_is_live_and_store_is_caller_owned() -> None:
     assert len(provider.dsp_catalogue(request())["dataset"]) == 2
 
     with TestClient(create_dsp_app(provider), base_url="https://provider.example") as client:
-        assert client.get("/2025-1/catalog").status_code == 200
+        assert client.get("/.well-known/dspace-version").status_code == 200
     store.save(publication("three"))
     assert len(provider.dsp_catalogue(request())["dataset"]) == 3
 
@@ -123,33 +120,28 @@ def test_store_source_requires_publication_family_and_revalidates_duplicates() -
         DspProvider(config(), store=store).dsp_catalogue(request())
 
 
-def test_strict_and_generic_catalogue_profiles() -> None:
+def test_minimal_catalogue_uses_per_distribution_file_formats() -> None:
     csv = publication("one", byte_size=12, sha256="b" * 64)
     json = publication("two", ".json")
-    strict = DspProvider(config(), datasets=(csv, json))
-    dsp = strict.dsp_catalogue(request())
+    provider = DspProvider(config(), datasets=(csv, json))
+    dsp = provider.dsp_catalogue(request())
     assert [item["distribution"][0]["format"] for item in dsp["dataset"]] == [
         EU_FILE_TYPE_CSV,
         EU_FILE_TYPE_JSON,
     ]
-    distribution = strict.dcat_catalogue()["dcat:dataset"][0]["dcat:distribution"][0]
-    assert distribution["mediaType"] == {"@id": IANA_MEDIA_TYPE_CSV, "@type": "dct:MediaType"}
-    assert distribution["downloadURL"] == {"@id": "https://provider.example/files/one.csv"}
-    assert distribution["byteSize"] == 12
-    assert distribution["checksum"]["checksumValue"] == "b" * 64
-
-    generic = DspProvider(config("dcat"), datasets=(csv, json))
-    generic_dsp = generic.dsp_catalogue(request())
-    assert {item["distribution"][0]["format"] for item in generic_dsp["dataset"]} == {HTTP_PULL_PROFILE}
-    assert generic.profile.datasets[0].data_address == {
+    distribution = provider.dcat_catalogue()["dataset"][0]["distribution"][0]
+    assert distribution["dcat:mediaType"] == {"@id": IANA_MEDIA_TYPE_CSV, "@type": "dct:MediaType"}
+    assert distribution["dcat:downloadURL"] == {"@id": "https://provider.example/files/one.csv"}
+    assert distribution["dcat:byteSize"] == {
+        "@value": "12",
+        "@type": "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+    }
+    assert (
+        distribution["http://spdx.org/rdf/terms#checksum"]["http://spdx.org/rdf/terms#checksumValue"]["@value"]
+        == "b" * 64
+    )
+    assert provider.profile.datasets[0].data_address == {
         "@type": "DataAddress",
         "endpointType": HTTP_ENDPOINT_TYPE,
         "endpoint": "https://provider.example/files/one.csv",
     }
-
-    with TestClient(create_dsp_app(strict), base_url="https://provider.example") as client:
-        assert client.get("/2025-1/catalog").headers["content-type"] == DCAT_MEDIA_TYPE
-    with TestClient(create_dsp_app(generic), base_url="https://provider.example") as client:
-        response = client.get("/2025-1/catalog")
-        assert response.headers["content-type"] == "application/ld+json"
-        assert "profile=" not in response.headers["content-type"]

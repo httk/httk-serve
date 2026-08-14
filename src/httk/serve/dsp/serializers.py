@@ -27,22 +27,18 @@ _DCAT_CONTEXT: Final[dict[str, JsonValue]] = {
     "odrl": "http://www.w3.org/ns/odrl/2/",
     "spdx": "http://spdx.org/rdf/terms#",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "dspace": "https://w3id.org/dspace/2025/1/",
     "Catalog": "dcat:Catalog",
     "Dataset": "dcat:Dataset",
     "Distribution": "dcat:Distribution",
     "DataService": "dcat:DataService",
     "Agent": "foaf:Agent",
     "Offer": "odrl:Offer",
-    "title": "dct:title",
-    "description": "dct:description",
-    "publisher": {"@id": "dct:publisher", "@type": "@id"},
-    "accessURL": {"@id": "dcat:accessURL", "@type": "@id"},
-    "downloadURL": {"@id": "dcat:downloadURL", "@type": "@id"},
-    "mediaType": {"@id": "dcat:mediaType", "@type": "@id"},
-    "byteSize": {"@id": "dcat:byteSize", "@type": "xsd:nonNegativeInteger"},
-    "checksum": {"@id": "spdx:checksum"},
-    "algorithm": {"@id": "spdx:algorithm", "@type": "@id"},
-    "checksumValue": {"@id": "spdx:checksumValue", "@type": "xsd:hexBinary"},
+    "participantId": {"@id": "dspace:participantId", "@type": "@id"},
+    "dataset": {"@id": "dcat:dataset", "@container": "@set"},
+    "distribution": {"@id": "dcat:distribution", "@container": "@set"},
+    "service": {"@id": "dcat:service", "@container": "@set"},
+    "hasPolicy": {"@id": "odrl:hasPolicy", "@container": "@set"},
     "accessService": {"@id": "dcat:accessService", "@type": "@id"},
     "endpointURL": {"@id": "dcat:endpointURL", "@type": "@id"},
     "endpointDescription": {"@id": "dcat:endpointDescription", "@type": "@id"},
@@ -93,6 +89,8 @@ def serialize_data_service(service: DataServiceProfile) -> dict[str, JsonValue]:
         "@type": "DataService",
         "dct:title": service.title,
         "endpointURL": service.endpoint_url,
+        "dct:conformsTo": [{"@id": standard, "@type": "dct:Standard"} for standard in service.conforms_to],
+        "dcat:servesDataset": [{"@id": dataset_id} for dataset_id in service.serves_dataset_ids],
     }
 
 
@@ -102,13 +100,31 @@ def serialize_distribution(distribution: DistributionProfile) -> dict[str, JsonV
     :param distribution: Distribution profile to serialize.
     :return: Fresh DSP distribution object.
     """
-    return {
+    document: dict[str, JsonValue] = {
         "@id": distribution.id,
         "@type": "Distribution",
         "format": distribution.format,
+        "dct:format": {"@id": distribution.file_format, "@type": "dct:MediaTypeOrExtent"},
         "dcat:accessURL": {"@id": distribution.access_url},
+        "dcat:downloadURL": {"@id": distribution.access_url},
+        "dcat:mediaType": {"@id": distribution.media_type, "@type": "dct:MediaType"},
         "accessService": serialize_data_service(distribution.data_service),
     }
+    if distribution.byte_size is not None:
+        document["dcat:byteSize"] = {
+            "@value": str(distribution.byte_size),
+            "@type": "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+        }
+    if distribution.sha256 is not None:
+        document["http://spdx.org/rdf/terms#checksum"] = {
+            "@type": "http://spdx.org/rdf/terms#Checksum",
+            "http://spdx.org/rdf/terms#algorithm": {"@id": SPDX_SHA256},
+            "http://spdx.org/rdf/terms#checksumValue": {
+                "@value": distribution.sha256,
+                "@type": "http://www.w3.org/2001/XMLSchema#hexBinary",
+            },
+        }
+    return document
 
 
 def serialize_dsp_dataset(profile: DatasetProfile) -> dict[str, JsonValue]:
@@ -123,7 +139,11 @@ def serialize_dsp_dataset(profile: DatasetProfile) -> dict[str, JsonValue]:
         "@type": "Dataset",
         "dct:title": dataset.title,
         "dct:description": dataset.description,
-        "dct:publisher": {"@id": dataset.publisher_id, "foaf:name": dataset.publisher_name},
+        "dct:publisher": {
+            "@id": dataset.publisher_id,
+            "@type": "http://xmlns.com/foaf/0.1/Agent",
+            "http://xmlns.com/foaf/0.1/name": dataset.publisher_name,
+        },
         "hasPolicy": [offer_policy(profile.offer, include_target=False)],
         "distribution": [serialize_distribution(profile.distribution)],
     }
@@ -135,6 +155,11 @@ def serialize_dsp_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
     :param profile: Fixed provider catalogue profile.
     :return: Fresh DSP catalogue document.
     """
+    first = profile.datasets[0].dataset
+    services: list[JsonValue] = [serialize_data_service(profile.datasets[0].data_service)]
+    services.extend(
+        _serialize_dcat_data_service(service, endpoint_as_iri=False) for service in profile.dcat_data_services
+    )
     return {
         "@context": _dsp_context(),
         "@id": profile.id,
@@ -142,7 +167,13 @@ def serialize_dsp_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
         "participantId": profile.participant_id,
         "dct:title": profile.title,
         "dct:description": profile.description,
+        "dct:publisher": {
+            "@id": first.publisher_id,
+            "@type": "http://xmlns.com/foaf/0.1/Agent",
+            "http://xmlns.com/foaf/0.1/name": first.publisher_name,
+        },
         "dataset": [serialize_dsp_dataset(dataset) for dataset in profile.datasets],
+        "service": services,
     }
 
 
@@ -157,15 +188,15 @@ def serialize_dsp_dataset_document(profile: DatasetProfile) -> dict[str, JsonVal
     return document
 
 
-def _serialize_dcat_data_service(service: DcatDataServiceProfile) -> dict[str, JsonValue]:
-    """Serialize one non-DSP public API in the owned DCAT projection."""
+def _serialize_dcat_data_service(service: DcatDataServiceProfile, *, endpoint_as_iri: bool) -> dict[str, JsonValue]:
+    """Serialize one companion public API in a catalogue projection."""
     document: dict[str, JsonValue] = {
         "@id": service.id,
         "@type": "DataService",
-        "title": service.title,
-        "endpointURL": {"@id": service.endpoint_url},
-        "servesDataset": [{"@id": dataset_id} for dataset_id in service.serves_dataset_ids],
-        "conformsTo": [{"@id": standard, "@type": "dct:Standard"} for standard in service.conforms_to],
+        "dct:title": service.title,
+        "endpointURL": {"@id": service.endpoint_url} if endpoint_as_iri else service.endpoint_url,
+        "dcat:servesDataset": [{"@id": dataset_id} for dataset_id in service.serves_dataset_ids],
+        "dct:conformsTo": [{"@id": standard, "@type": "dct:Standard"} for standard in service.conforms_to],
     }
     if service.endpoint_description is not None:
         document["endpointDescription"] = {"@id": service.endpoint_description}
@@ -173,72 +204,17 @@ def _serialize_dcat_data_service(service: DcatDataServiceProfile) -> dict[str, J
 
 
 def serialize_dcat_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
-    """Serialize the strict, owned-context DCAT-AP projection.
+    """Serialize the context-substituted DCAT-AP projection.
 
-    The DCAT projection is intentionally distinct from DSP: its distribution
-    advertises the EU JSON-LD file-type IRI, and every IRI-valued endpoint,
-    service, publisher, access URL, and format is an ``@id`` object.
+    The common catalogue value is byte-for-byte derived from the DSP value;
+    only the top-level context is replaced. The owned context changes every
+    ``endpointURL`` string from an RDF literal to an RDF IRI.
 
     :param profile: Fixed provider catalogue profile.
     :return: Fresh DCAT-AP-compatible JSON-LD catalogue document.
     """
-    first = profile.datasets[0].dataset
-    services = tuple({item.data_service.id: item.data_service for item in profile.datasets}.values())
-    dcat_services: list[JsonValue] = [
-        {
-            "@id": service.id,
-            "@type": "DataService",
-            "title": service.title,
-            "endpointURL": {"@id": service.endpoint_url},
-        }
-        for service in services
-    ]
-    dcat_services.extend(_serialize_dcat_data_service(service) for service in profile.dcat_data_services)
-    document: dict[str, JsonValue] = {
-        "@context": _dcat_context(),
-        "@id": profile.id,
-        "@type": "Catalog",
-        "title": profile.title,
-        "description": profile.description,
-        "dct:publisher": {"@id": first.publisher_id, "@type": "Agent", "foaf:name": first.publisher_name},
-        "dcat:dataset": [
-            {
-                "@id": item.dataset.id,
-                "@type": "Dataset",
-                "title": item.dataset.title,
-                "description": item.dataset.description,
-                "dct:publisher": {"@id": item.dataset.publisher_id},
-                "odrl:hasPolicy": [offer_policy(item.offer, include_target=False)],
-                "dcat:distribution": [
-                    {
-                        "@id": item.distribution.id,
-                        "@type": "Distribution",
-                        "format": {"@id": item.distribution.format, "@type": "dct:MediaTypeOrExtent"},
-                        "mediaType": {"@id": item.distribution.media_type, "@type": "dct:MediaType"},
-                        "accessURL": {"@id": item.distribution.access_url},
-                        "downloadURL": {"@id": item.distribution.access_url},
-                        "accessService": {"@id": item.data_service.id},
-                        **(
-                            {"byteSize": item.distribution.byte_size} if item.distribution.byte_size is not None else {}
-                        ),
-                        **(
-                            {
-                                "checksum": {
-                                    "@type": "spdx:Checksum",
-                                    "algorithm": {"@id": SPDX_SHA256, "@type": "spdx:ChecksumAlgorithm"},
-                                    "checksumValue": item.distribution.sha256,
-                                }
-                            }
-                            if item.distribution.sha256 is not None
-                            else {}
-                        ),
-                    }
-                ],
-            }
-            for item in profile.datasets
-        ],
-        "dcat:service": dcat_services,
-    }
+    document = serialize_dsp_catalogue(profile)
+    document["@context"] = _dcat_context()
     return document
 
 

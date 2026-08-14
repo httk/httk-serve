@@ -33,8 +33,17 @@ paths:
             application/json:
               schema:
                 $ref: https://w3id.org/dspace/2025/1/catalog/catalog-schema.json
+            'application/ld+json; profile="https://semiceu.github.io/DCAT-AP/releases/3.0.1/"':
+              schema:
+                $ref: https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json
         '400':
           description: Invalid or unsupported catalogue request.
+          content:
+            application/json:
+              schema:
+                $ref: https://w3id.org/dspace/2025/1/catalog/catalog-error-schema.json
+        '406':
+          description: No acceptable catalogue representation.
           content:
             application/json:
               schema:
@@ -63,19 +72,6 @@ paths:
             application/json:
               schema:
                 $ref: https://w3id.org/dspace/2025/1/catalog/catalog-error-schema.json
-  /2025-1/catalog:
-    get:
-      operationId: dcat_catalog
-      responses:
-        '200':
-          description: Strict local DCAT-AP JSON-LD projection.
-          content:
-            'application/ld+json; profile="https://semiceu.github.io/DCAT-AP/releases/3.0.1/"':
-              schema:
-                $ref: https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json
-            application/ld+json:
-              schema:
-                $ref: https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json
   /2025-1/negotiations/{providerPid}:
     get:
       operationId: negotiation_state
