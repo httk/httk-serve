@@ -23,7 +23,7 @@ from httk.serve.dsp import (
     DspPublicationRecord,
     create_dsp_app,
 )
-from httk.serve.web import create_file_map_app, jsonld_http_get_app
+from httk.serve.http import create_file_map_app, jsonld_get_app
 
 HERE = Path(__file__).parent
 DATASET1 = HERE / "dataset1.csv"
@@ -108,7 +108,7 @@ config = DspProviderConfig(
 files_app = create_file_map_app({"/dataset1.csv": DATASET1, "/dataset2.json": DATASET2})
 provider = DspProvider(config, store=store)
 dsp_app = create_dsp_app(provider)
-dcat_ap_app = jsonld_http_get_app(
+dcat_ap_app = jsonld_get_app(
     provider.dcat_catalogue,
     media_type=f'application/ld+json; profile="{DCAT_AP_3_0_1_PROFILE}"',
     profile=config.dcat_ap_profile,

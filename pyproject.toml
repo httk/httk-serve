@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "httk-serve"
 version = "0.2.0"
-description = "Web and OPTIMADE serving tooling for httk₂"
+description = "HTTP, web, DSP, and OPTIMADE serving tooling for httk₂"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
@@ -55,6 +55,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "httk.serve.web" = ["py.typed", "assets/*.css", "assets/*.js", "assets/*.mjs"]
+"httk.serve.http" = ["py.typed"]
 "httk.serve.openapi" = ["py.typed"]
 "httk.serve.optimade" = ["py.typed"]
 "httk.serve.dsp" = ["py.typed", "schemas/**/*"]

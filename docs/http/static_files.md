@@ -5,7 +5,7 @@ without a website source tree:
 
 ```python
 from pathlib import Path
-from httk.serve.web import create_file_map_app
+from httk.serve.http import create_file_map_app
 
 app = create_file_map_app({
     "/dataset.csv": Path("dataset.csv"),

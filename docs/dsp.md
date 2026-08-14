@@ -15,7 +15,7 @@ POST /dsp/2025-1/catalog/request
 
 `GET /dsp/2025-1/catalog` is intentionally not implemented: it is not a DSP
 2025-1 endpoint. A caller that also publishes a JSON-LD representation can
-mount the vocabulary-neutral `httk.serve.web.jsonld_http_get_app`; discovery
+mount the vocabulary-neutral `httk.serve.http.jsonld_get_app`; discovery
 and protocol-specific validation belong to that caller.
 
 ## Store-native catalogue

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
 
-from httk.serve.web import create_file_map_app
+from httk.serve.http import create_file_map_app
 
 
 def test_file_map_is_allowlisted_and_supports_file_response_semantics(tmp_path: Path) -> None:

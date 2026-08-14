@@ -30,6 +30,13 @@ intentionally not been ported; use the official
 [`optimade-validator`](https://github.com/Materials-Consortia/optimade-python-tools) tool
 to check conformance of a running server.
 
+## HTTP helpers
+
+`httk.serve.http` provides lightweight, mountable JSON, JSON-LD, and explicit
+file-map applications without requiring a website source tree. Protocol-owned
+schemas, vocabulary rules, and discovery document construction remain with
+the caller.
+
 ## Web tooling
 
 `httk.serve.web` provides Jinja2 rendering, legacy `.httkweb` compatibility,
