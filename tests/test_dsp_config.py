@@ -111,6 +111,21 @@ def test_public_constructors_accept_neutral_dataset_and_service_values() -> None
     assert isinstance(service_publication.service, ServiceRecord)
 
 
+def test_publication_accepts_a_root_relative_distribution_url() -> None:
+    """Publication URLs may be resolved against the configured public origin later."""
+    publication_value = DspDatasetPublication(
+        Dataset(
+            "https://example.test/datasets/relative",
+            "Relative",
+            "Root-relative distribution URL",
+            "https://example.test/publishers/one",
+            "Publisher",
+            (DatasetDistribution(access_url="/files/relative.csv"),),
+        )
+    )
+    assert publication_value.access_url == "/files/relative.csv"
+
+
 def test_publication_defaults_ids_and_validates_file_metadata() -> None:
     value = DspDatasetPublication(
         Dataset(

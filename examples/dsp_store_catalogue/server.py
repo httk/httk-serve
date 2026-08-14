@@ -49,7 +49,7 @@ publications = (
             "Example publisher",
             (
                 DatasetDistribution(
-                    access_url="https://provider.example/files/dataset1.csv",
+                    access_url="/files/dataset1.csv",
                     byte_size=size1,
                     sha256=sha1,
                 ),
@@ -65,7 +65,7 @@ publications = (
             "Example publisher",
             (
                 DatasetDistribution(
-                    access_url="https://provider.example/files/dataset2.json",
+                    access_url="/files/dataset2.json",
                     byte_size=size2,
                     sha256=sha2,
                 ),

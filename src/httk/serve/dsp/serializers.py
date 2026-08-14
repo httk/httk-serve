@@ -118,7 +118,10 @@ def serialize_distribution(distribution: DistributionProfile) -> dict[str, JsonV
     if distribution.sha256 is not None:
         document["http://spdx.org/rdf/terms#checksum"] = {
             "@type": "http://spdx.org/rdf/terms#Checksum",
-            "http://spdx.org/rdf/terms#algorithm": {"@id": SPDX_SHA256},
+            "http://spdx.org/rdf/terms#algorithm": {
+                "@id": SPDX_SHA256,
+                "@type": "http://spdx.org/rdf/terms#ChecksumAlgorithm",
+            },
             "http://spdx.org/rdf/terms#checksumValue": {
                 "@value": distribution.sha256,
                 "@type": "http://www.w3.org/2001/XMLSchema#hexBinary",

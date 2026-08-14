@@ -163,10 +163,7 @@ class DspDatasetPublication:
         distribution = self.dataset.distributions[0]
         if distribution.access_url is None:
             raise ValueError("DSP minimal dataset distributions require an access_url")
-        try:
-            _https_url("dataset distribution access_url", distribution.access_url)
-        except ValueError as error:
-            raise ValueError("DSP minimal dataset distributions require an absolute HTTPS access_url") from error
+        _publication_url(distribution.access_url)
         suffix = urlsplit(distribution.access_url).path.lower()
         inferred = (
             (EU_FILE_TYPE_CSV, IANA_MEDIA_TYPE_CSV)

@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import socket
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,7 @@ from pyshacl import validate as validate_shacl
 from rdflib import Graph, Namespace, URIRef
 from test_dsp_config import companion, config, publication
 
-from httk.serve.dsp import DspProvider, DspPublicationRecord
+from httk.serve.dsp import DspDatasetPublication, DspProvider, DspPublicationRecord
 from httk.serve.dsp.api import openapi_document
 from httk.serve.dsp.validation import DspSchemaError, schema_document, schema_registry, validate_document
 
@@ -154,10 +155,15 @@ def _usable_dcat_shapes(*filenames: str) -> Graph:
 
 def test_dcat_graph_conforms_to_pinned_mandatory_range_and_vocabulary_profiles() -> None:
     """Run an actual generated minimal catalogue through all pinned constraints."""
+    csv = publication("csv")
+    csv_distribution = replace(csv.distribution, byte_size=7, sha256="0" * 64)
+    csv = DspDatasetPublication(
+        replace(csv.dataset, distributions=(csv_distribution,)), offer_id=csv.offer_id
+    )
     provider = DspProvider(
         config(dcat_ap_content_negotiation=True),
         publications=(
-            DspPublicationRecord(dataset=publication("csv")),
+            DspPublicationRecord(dataset=csv),
             DspPublicationRecord(dataset=publication("json")),
             DspPublicationRecord(service=companion()),
         ),
