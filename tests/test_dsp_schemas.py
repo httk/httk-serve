@@ -14,7 +14,7 @@ from pyshacl import validate as validate_shacl
 from rdflib import Graph, Namespace, URIRef
 from test_dsp_config import companion, config, publication
 
-from httk.serve.dsp import DspProvider
+from httk.serve.dsp import DspProvider, DspPublicationRecord
 from httk.serve.dsp.api import openapi_document
 from httk.serve.dsp.validation import DspSchemaError, schema_document, schema_registry, validate_document
 
@@ -155,8 +155,12 @@ def _usable_dcat_shapes(*filenames: str) -> Graph:
 def test_dcat_graph_conforms_to_pinned_mandatory_range_and_vocabulary_profiles() -> None:
     """Run an actual generated minimal catalogue through all pinned constraints."""
     provider = DspProvider(
-        config(dcat_ap_service=companion(), dcat_ap_content_negotiation=True),
-        datasets=(publication("csv"), publication("json")),
+        config(dcat_ap_content_negotiation=True),
+        publications=(
+            DspPublicationRecord(dataset=publication("csv")),
+            DspPublicationRecord(dataset=publication("json")),
+            DspPublicationRecord(service=companion()),
+        ),
     )
     document = provider.dcat_catalogue()
     data = Graph().parse(data=json.dumps(document), format="json-ld")

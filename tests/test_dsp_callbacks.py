@@ -7,7 +7,7 @@ import socket
 import pytest
 from test_dsp_config import config, publication
 
-from httk.serve.dsp import CallbackTransportError, DspProvider, callback_url
+from httk.serve.dsp import CallbackTransportError, DspProvider, DspPublicationRecord, callback_url
 from httk.serve.dsp.callbacks import DefaultCallbackSender, _CallbackTarget, _ResolvedAddress, _validate_callback_url
 
 
@@ -58,7 +58,10 @@ def test_provider_rejects_callback_bases_with_query_components() -> None:
     """Inbound callback bases cannot carry a query that would absorb callback paths."""
 
     async def exercise() -> None:
-        provider = DspProvider(config(automatic_progression=False), datasets=(publication(),))
+        provider = DspProvider(
+            config(automatic_progression=False),
+            publications=(DspPublicationRecord(dataset=publication()),),
+        )
         message = request()
         message["callbackAddress"] = "https://consumer.example/callback?token=secret"
         with pytest.raises(Exception, match="HTTPS URL"):
@@ -315,7 +318,7 @@ def test_callback_failure_retries_then_acknowledges_termination_only() -> None:
 
         provider = DspProvider(
             config(automatic_progression=False),
-            datasets=(publication(),),
+            publications=(DspPublicationRecord(dataset=publication()),),
             callback_sender=sender,
             uuid_factory=iter(["negotiation"]).__next__,
         )
@@ -349,7 +352,7 @@ def test_injected_sender_can_raise_transport_error() -> None:
 
         provider = DspProvider(
             config(automatic_progression=False),
-            datasets=(publication(),),
+            publications=(DspPublicationRecord(dataset=publication()),),
             callback_sender=sender,
             uuid_factory=iter(["negotiation"]).__next__,
         )

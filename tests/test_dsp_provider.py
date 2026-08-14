@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 from test_dsp_config import config, publication
 
-from httk.serve.dsp import DSP_CONTEXT, DspProtocolError, DspProvider
+from httk.serve.dsp import DSP_CONTEXT, DspProtocolError, DspProvider, DspPublicationRecord
 
 
 class Sender:
@@ -37,7 +37,7 @@ def test_negotiation_selects_current_publication_and_requires_its_transfer_forma
         sender = Sender()
         provider = DspProvider(
             config(automatic_progression=False),
-            datasets=(first, second),
+            publications=tuple(DspPublicationRecord(dataset=item) for item in (first, second)),
             callback_sender=sender,
             uuid_factory=iter(["negotiation", "agreement", "transfer"]).__next__,
             utc_clock=lambda: datetime(2026, 8, 14, tzinfo=UTC),

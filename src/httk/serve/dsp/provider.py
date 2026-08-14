@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from urllib.parse import quote
@@ -16,9 +16,9 @@ from .config import (
     DSP_2025_1_SPECIFICATION,
     DSP_CONTEXT,
     HTTP_ENDPOINT_TYPE,
-    DspDatasetPublication,
     DspProviderConfig,
     DspPublicationEntry,
+    DspPublicationRecord,
     _https_url,
 )
 from .models import (
@@ -69,9 +69,11 @@ class _AutomaticBatch:
 
 def _profile_from_declarations(
     config: DspProviderConfig,
-    declarations: tuple[DspDatasetPublication, ...],
+    publications: tuple[DspPublicationRecord, ...],
 ) -> CatalogueProfile:
     """Build and cross-validate the immutable catalogue snapshot."""
+    declarations = tuple(item.dataset for item in publications if item.dataset is not None)
+    services = tuple(item.service for item in publications if item.service is not None)
     if not declarations:
         raise ValueError("the DSP publication source contains no dataset publications")
     first_publisher = (declarations[0].dataset.publisher_id, declarations[0].dataset.publisher_name)
@@ -131,28 +133,48 @@ def _profile_from_declarations(
         )
     dsp_service_ids = {item.data_service.id for item in datasets}
     dcat_services: list[DcatDataServiceProfile] = []
-    for service in () if config.dcat_ap_service is None else (config.dcat_ap_service,):
-        if service.id in dsp_service_ids:
-            raise ValueError("a DCAT companion service must have an ID distinct from every DSP access service")
+    service_ids = [service.id for service in services]
+    if len(service_ids) != len(set(service_ids)):
+        raise ValueError("catalogue service IDs must be unique")
+    if config.service_id in service_ids:
+        raise ValueError("a catalogue service must have an ID distinct from the global DSP access service")
+    dataset_id_set = set(dataset_ids)
+    qualifying_service = False
+    for service in services:
+        try:
+            endpoint_url = _https_url("service endpoint_url", service.endpoint_url, reject_query=True)
+        except ValueError as error:
+            raise ValueError("catalogue service endpoint_url must be an absolute HTTPS URL") from error
         served_ids = dataset_ids if service.serves_dataset_ids is None else service.serves_dataset_ids
-        unknown = sorted(set(served_ids).difference(dataset_ids))
+        unknown = sorted(set(served_ids).difference(dataset_id_set))
         if unknown:
-            raise ValueError(f"DCAT data service references unknown dataset IDs: {', '.join(unknown)}")
+            raise ValueError(f"catalogue service references unknown dataset IDs: {', '.join(unknown)}")
+        if (
+            config.dcat_ap_profile in service.conforms_to
+            and DCAT_AP_3_0_1_PROFILE in service.conforms_to
+            and set(served_ids) == dataset_id_set
+        ):
+            qualifying_service = True
+        if service.id in dsp_service_ids:
+            raise ValueError("a catalogue service must have an ID distinct from every DSP access service")
         dcat_services.append(
             DcatDataServiceProfile(
                 service.id,
                 service.title,
-                service.endpoint_url,
+                endpoint_url,
                 service.conforms_to,
                 served_ids,
                 service.endpoint_description,
             )
         )
+    if config.dcat_ap_content_negotiation and not qualifying_service:
+        raise ValueError("dcat_ap_content_negotiation requires a qualifying published catalogue service")
     return CatalogueProfile(
         config.catalog_id,
         config.catalog_title,
         config.catalog_description,
         config.participant_id,
+        config.dcat_ap_profile,
         tuple(datasets),
         tuple(dcat_services),
     )
@@ -207,9 +229,9 @@ class DspProvider:
 
     :param config: Validated fixed provider configuration.
     :param store: Caller-owned entry store containing the DSP publication
-        family. Exactly one of ``store`` and ``datasets`` is required.
-    :param datasets: Inline publication declarations. Exactly one of
-        ``datasets`` and ``store`` is required.
+        family. Exactly one of ``store`` and ``publications`` is required.
+    :param publications: Inline dataset and service publication envelopes.
+        Exactly one of ``publications`` and ``store`` is required.
     :param callback_sender: Optional asynchronous callback transport. Supplying
         one bypasses default network policy and is useful for deterministic tests.
     :param uuid_factory: Optional source for provider and agreement identifiers.
@@ -221,7 +243,7 @@ class DspProvider:
         config: DspProviderConfig,
         *,
         store: EntryStore | None = None,
-        datasets: tuple[DspDatasetPublication, ...] | None = None,
+        publications: Iterable[DspPublicationRecord] | None = None,
         callback_sender: CallbackSender | None = None,
         uuid_factory: UuidFactory = uuid4,
         utc_clock: UtcClock | None = None,
@@ -232,43 +254,41 @@ class DspProvider:
             raise TypeError("uuid_factory must be callable")
         if utc_clock is not None and not callable(utc_clock):
             raise TypeError("utc_clock must be callable")
-        if (store is None) == (datasets is None):
-            raise ValueError("configure exactly one publication source: store or datasets")
+        if (store is None) == (publications is None):
+            raise ValueError("configure exactly one publication source: store or publications")
         if store is not None:
             if not isinstance(store, EntryStore):
                 raise TypeError("store must implement EntryStore")
             layout = next((item for item in store.entry_layout if item.family is DspPublicationEntry), None)
             if layout is None:
                 raise ValueError("store is not configured with DspPublicationEntry")
-            if DspDatasetPublication not in layout.records:
-                raise ValueError("DspPublicationEntry is not mapped to DspDatasetPublication in this store")
-        if datasets is not None:
+            if layout.records != (DspPublicationRecord,):
+                raise ValueError("DspPublicationEntry must be mapped solely to DspPublicationRecord in this store")
+        if publications is not None:
             try:
-                inline = tuple(DspDatasetPublication.create(item) for item in datasets)
+                inline = tuple(DspPublicationRecord.create(item) for item in publications)
             except TypeError as error:
-                raise TypeError("datasets must be an iterable of DspDatasetPublication values") from error
-            if not inline:
-                raise ValueError("datasets must contain at least one publication")
+                raise TypeError("publications must be an iterable of DspPublicationRecord values") from error
         else:
             inline = None
         self.config = config
         self._store = store
-        self._inline_datasets = inline
+        self._inline_publications = inline
         self._state = DspState()
         self._sender = callback_sender if callback_sender is not None else DefaultCallbackSender()
         self._uuid_factory = uuid_factory
         self._utc_clock = utc_clock if utc_clock is not None else lambda: datetime.now(UTC)
         self._automatic_tasks: set[asyncio.Task[None]] = set()
 
-    def _publications(self) -> tuple[DspDatasetPublication, ...]:
+    def _publications(self) -> tuple[DspPublicationRecord, ...]:
         """Read the current publication source without taking ownership of it."""
-        if self._inline_datasets is not None:
-            return self._inline_datasets
+        if self._inline_publications is not None:
+            return self._inline_publications
         assert self._store is not None
         searcher = self._store.searcher()
-        publication = searcher.variable(DspDatasetPublication)
+        publication = searcher.variable(DspPublicationRecord)
         searcher.output(publication, "publication")
-        return tuple(DspDatasetPublication.create(row.values[0]) for row in searcher)
+        return tuple(DspPublicationRecord.create(row.values[0]) for row in searcher)
 
     @property
     def profile(self) -> CatalogueProfile:

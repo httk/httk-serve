@@ -8,6 +8,6 @@ register_entry_family(
 )
 register_entry_record(
     name="serve-dsp-publication",
-    record="httk.serve.dsp.config:DspDatasetPublication",
+    record="httk.serve.dsp.config:DspPublicationRecord",
     family="dsp-publications",
 )

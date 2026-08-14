@@ -16,10 +16,10 @@ from .config import (
     IANA_MEDIA_TYPE_CSV,
     IANA_MEDIA_TYPE_JSON,
     SPDX_SHA256,
-    DcatDataService,
     DspDatasetPublication,
     DspProviderConfig,
     DspPublicationEntry,
+    DspPublicationRecord,
 )
 from .models import (
     AgreementRecord,
@@ -56,7 +56,6 @@ __all__ = [
     "CatalogueProfile",
     "DataServiceProfile",
     "DatasetProfile",
-    "DcatDataService",
     "DcatDataServiceProfile",
     "DefaultCallbackSender",
     "DeliveryStatus",
@@ -66,6 +65,7 @@ __all__ = [
     "DspProvider",
     "DspProviderConfig",
     "DspPublicationEntry",
+    "DspPublicationRecord",
     "NegotiationRecord",
     "OfferProfile",
     "TransferRecord",

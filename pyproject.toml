@@ -57,7 +57,6 @@ where = ["src"]
 "httk.serve.web" = ["py.typed", "assets/*.css", "assets/*.js", "assets/*.mjs"]
 "httk.serve.optimade" = ["py.typed"]
 "httk.serve.dsp" = ["py.typed", "schemas/**/*"]
-"httk.serve.dcat_ap" = ["py.typed"]
 "httk.registry.cli.serve" = ["py.typed"]
 "httk.registry.entries.serve" = ["py.typed"]
 

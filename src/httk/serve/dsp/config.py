@@ -1,12 +1,12 @@
 """Validated configuration and durable publication records for DSP serving."""
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import MISSING, dataclass, fields
 from typing import Any, ClassVar, Self
 from urllib.parse import urlsplit
 
-from httk.core import Dataset, StorageInfo
+from httk.core import Dataset, Service, StorageInfo
 
 from .models import DSP_CONTEXT
 
@@ -216,44 +216,25 @@ class DspDatasetPublication:
         return cls(**{name: obj[name] for name in names if name in obj})
 
 
-class DspPublicationEntry:
-    """Non-OPTIMADE logical family for durable DSP publication records."""
+@dataclass(frozen=True)
+class DspPublicationRecord:
+    """Store exactly one dataset publication or catalogue service envelope."""
 
-    type = "dsp-publications"
-    definition_id = None
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
+        storage_name="serve_dsp_publication_envelope_v1",
+        identity_name="serve_dsp_publication_envelope_v1",
+    )
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
-        raise TypeError("DspPublicationEntry is a logical entry family; store DspDatasetPublication directly")
-
-
-@dataclass(frozen=True, slots=True)
-class DcatDataService:
-    """Describe an additional public API included in the DCAT projection."""
-
-    id: str
-    title: str
-    endpoint_url: str
-    conforms_to: tuple[str, ...]
-    serves_dataset_ids: tuple[str, ...] | None = None
-    endpoint_description: str | None = None
+    dataset: DspDatasetPublication | None = None
+    service: Service | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "id", _absolute_iri("id", self.id))
-        object.__setattr__(self, "title", _nonempty("title", self.title))
-        object.__setattr__(self, "endpoint_url", _https_url("endpoint_url", self.endpoint_url, reject_query=True))
-        conforms_to = _iri_sequence("conforms_to", self.conforms_to)
-        if not conforms_to:
-            raise ValueError("conforms_to must contain at least one technical-standard IRI")
-        object.__setattr__(self, "conforms_to", conforms_to)
-        if self.serves_dataset_ids is not None:
-            served = _iri_sequence("serves_dataset_ids", self.serves_dataset_ids)
-            if not served:
-                raise ValueError("serves_dataset_ids must contain at least one dataset IRI or be None")
-            object.__setattr__(self, "serves_dataset_ids", served)
-        if self.endpoint_description is not None:
-            object.__setattr__(
-                self, "endpoint_description", _absolute_iri("endpoint_description", self.endpoint_description)
-            )
+        if (self.dataset is None) == (self.service is None):
+            raise ValueError("DspPublicationRecord must contain exactly one of dataset or service")
+        if self.dataset is not None:
+            object.__setattr__(self, "dataset", DspDatasetPublication.create(self.dataset))
+        if self.service is not None:
+            object.__setattr__(self, "service", Service.create(self.service))
 
     @classmethod
     def create(cls, obj: Self | Mapping[str, Any]) -> Self:
@@ -261,24 +242,23 @@ class DcatDataService:
             return obj
         if not isinstance(obj, Mapping):
             raise TypeError(f"expected {cls.__name__} or a mapping")
-        required = {"id", "title", "endpoint_url", "conforms_to"}
-        optional = {"serves_dataset_ids", "endpoint_description"}
-        missing = required.difference(obj)
-        unknown = set(obj).difference(required | optional)
-        if missing or unknown:
-            raise ValueError(f"invalid data-service fields; missing={sorted(missing)}, unknown={sorted(unknown)}")
-        return cls(**{name: obj[name] for name in required | optional if name in obj})
+        if any(not isinstance(name, str) for name in obj):
+            raise ValueError("publication envelope mapping keys must be strings")
+        names = {field.name for field in fields(cls)}
+        unknown = set(obj).difference(names)
+        if unknown:
+            raise ValueError(f"unknown fields: {', '.join(sorted(unknown))}")
+        return cls(**{name: obj[name] for name in names if name in obj})
 
 
-def _iri_sequence(field_name: str, value: object) -> tuple[str, ...]:
-    if isinstance(value, str):
-        raise TypeError(f"{field_name} must be an iterable of IRIs, not one string")
-    if not isinstance(value, Iterable):
-        raise TypeError(f"{field_name} must be an iterable of IRIs")
-    normalized = tuple(_absolute_iri(field_name, item) for item in value)
-    if len(normalized) != len(set(normalized)):
-        raise ValueError(f"{field_name} must not contain duplicate IRIs")
-    return normalized
+class DspPublicationEntry:
+    """Non-OPTIMADE logical family for durable DSP publication records."""
+
+    type = "dsp-publications"
+    definition_id = None
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
+        raise TypeError("DspPublicationEntry is a logical entry family; store DspPublicationRecord directly")
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,7 +274,6 @@ class DspProviderConfig:
     catalog_description: str
     dsp_mount: str = "/dsp"
     automatic_progression: bool = True
-    dcat_ap_service: DcatDataService | None = None
     dcat_ap_content_negotiation: bool = False
     dsp_profile: str = DSP_MINIMAL_PROFILE
     dcat_ap_profile: str = DCAT_AP_MINIMAL_PROFILE
@@ -313,16 +292,6 @@ class DspProviderConfig:
             raise TypeError("automatic_progression must be a bool")
         if not isinstance(self.dcat_ap_content_negotiation, bool):
             raise TypeError("dcat_ap_content_negotiation must be a bool")
-        if self.dcat_ap_service is not None:
-            service = DcatDataService.create(self.dcat_ap_service)
-            required = {self.dcat_ap_profile, DCAT_AP_3_0_1_PROFILE}
-            if not required.issubset(service.conforms_to):
-                raise ValueError("dcat_ap_service must declare both configured minimal and DCAT-AP 3.0.1 conformance")
-            if urlsplit(service.endpoint_url).netloc != urlsplit(self.public_base_url).netloc:
-                raise ValueError("dcat_ap_service endpoint must use the configured public HTTPS origin")
-            object.__setattr__(self, "dcat_ap_service", service)
-        if self.dcat_ap_content_negotiation and self.dcat_ap_service is None:
-            raise ValueError("dcat_ap_content_negotiation requires dcat_ap_service")
 
     @property
     def connector_root_url(self) -> str:
@@ -354,8 +323,8 @@ __all__ = [
     "IANA_MEDIA_TYPE_CSV",
     "IANA_MEDIA_TYPE_JSON",
     "SPDX_SHA256",
-    "DcatDataService",
     "DspDatasetPublication",
     "DspProviderConfig",
     "DspPublicationEntry",
+    "DspPublicationRecord",
 ]

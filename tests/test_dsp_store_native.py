@@ -3,11 +3,13 @@
 from dataclasses import replace
 
 import pytest
-from httk.core import Dataset
+from httk.core import Dataset, Service
 from httk.store.db import Database, SqlStore
 from starlette.testclient import TestClient
 
 from httk.serve.dsp import (
+    DCAT_AP_3_0_1_PROFILE,
+    DCAT_AP_MINIMAL_PROFILE,
     DSP_CONTEXT,
     EU_FILE_TYPE_CSV,
     EU_FILE_TYPE_JSON,
@@ -18,6 +20,7 @@ from httk.serve.dsp import (
     DspProvider,
     DspProviderConfig,
     DspPublicationEntry,
+    DspPublicationRecord,
     create_dsp_app,
 )
 
@@ -93,18 +96,44 @@ def test_config_rejects_noncanonical_mounts(mount: str) -> None:
 
 def test_store_catalogue_is_live_and_store_is_caller_owned() -> None:
     database = Database.sqlite()
-    store = SqlStore(database, entry_records={DspPublicationEntry: DspDatasetPublication})
-    store.save(publication("one"))
+    store = SqlStore(database, entry_records={DspPublicationEntry: DspPublicationRecord})
+    store.save(DspPublicationRecord(dataset=publication("one")))
     provider = DspProvider(config(), store=store)
 
     assert len(provider.dsp_catalogue(request())["dataset"]) == 1
-    store.save(publication("two", ".json"))
+    store.save(DspPublicationRecord(dataset=publication("two", ".json")))
     assert len(provider.dsp_catalogue(request())["dataset"]) == 2
 
     with TestClient(create_dsp_app(provider), base_url="https://provider.example") as client:
         assert client.get("/.well-known/dspace-version").status_code == 200
-    store.save(publication("three"))
+    store.save(DspPublicationRecord(dataset=publication("three")))
     assert len(provider.dsp_catalogue(request())["dataset"]) == 3
+
+
+def test_store_hydrates_dataset_and_service_envelopes_and_validates_services_live() -> None:
+    store = SqlStore(Database.sqlite(), entry_records={DspPublicationEntry: DspPublicationRecord})
+    store.save(DspPublicationRecord(dataset=publication("one")))
+    provider = DspProvider(config(dcat_ap_content_negotiation=True), store=store)
+    with pytest.raises(ValueError, match="qualifying published"):
+        provider.dsp_catalogue(request())
+
+    service = Service(
+        "https://catalogue.example/services/dcat-ap",
+        "DCAT-AP",
+        "https://catalogue.example/api",
+        (DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
+    )
+    store.save(DspPublicationRecord(service=service))
+    profile = provider.profile
+    assert profile.dcat_data_services[0].id == service.id
+    assert profile.dcat_data_services[0].serves_dataset_ids == (publication("one").dataset.id,)
+
+    searcher = store.searcher()
+    envelope = searcher.variable(DspPublicationRecord)
+    searcher.output(envelope, "envelope")
+    values = tuple(row.values[0] for row in searcher)
+    assert values[0].dataset == publication("one")
+    assert values[1].service == service
 
 
 def test_store_source_requires_publication_family_and_revalidates_duplicates() -> None:
@@ -112,10 +141,10 @@ def test_store_source_requires_publication_family_and_revalidates_duplicates() -
     with pytest.raises(ValueError, match="DspPublicationEntry"):
         DspProvider(config(), store=missing)
 
-    store = SqlStore(Database.sqlite(), entry_records={DspPublicationEntry: DspDatasetPublication})
+    store = SqlStore(Database.sqlite(), entry_records={DspPublicationEntry: DspPublicationRecord})
     first = publication("same")
-    store.save(first)
-    store.save(replace(first, access_url="/files/replacement.csv"))
+    store.save(DspPublicationRecord(dataset=first))
+    store.save(DspPublicationRecord(dataset=replace(first, access_url="/files/replacement.csv")))
     with pytest.raises(ValueError, match="dataset IDs"):
         DspProvider(config(), store=store).dsp_catalogue(request())
 
@@ -123,7 +152,10 @@ def test_store_source_requires_publication_family_and_revalidates_duplicates() -
 def test_minimal_catalogue_uses_per_distribution_file_formats() -> None:
     csv = publication("one", byte_size=12, sha256="b" * 64)
     json = publication("two", ".json")
-    provider = DspProvider(config(), datasets=(csv, json))
+    provider = DspProvider(
+        config(),
+        publications=(DspPublicationRecord(dataset=csv), DspPublicationRecord(dataset=json)),
+    )
     dsp = provider.dsp_catalogue(request())
     assert [item["distribution"][0]["format"] for item in dsp["dataset"]] == [
         EU_FILE_TYPE_CSV,

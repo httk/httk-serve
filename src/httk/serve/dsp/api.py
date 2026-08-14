@@ -1,6 +1,7 @@
 """Adapt the bundled DSP OpenAPI contract to a Starlette application."""
 
 import json
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from .validation import DspSchemaError, validate_document
 
 DCAT_PROFILE = "https://semiceu.github.io/DCAT-AP/releases/3.0.1/"
 DCAT_MEDIA_TYPE = f'application/ld+json; profile="{DCAT_PROFILE}"'
+_QVALUE = re.compile(r"(?:0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)\Z")
 
 type HandlerResult = dict[str, Any] | None
 
@@ -40,6 +42,136 @@ class OpenAPIOperation:
     operation_id: str
     request_schema: str | None
     responses: Mapping[int, tuple[tuple[str | None, str | None], ...]]
+
+
+@dataclass(frozen=True, slots=True)
+class _AcceptRange:
+    """One valid media range from an HTTP ``Accept`` header."""
+
+    major: str
+    minor: str
+    parameters: tuple[tuple[str, str], ...]
+    quality: float
+
+
+def _split_quoted(value: str, delimiter: str) -> tuple[str, ...] | None:
+    """Split an HTTP field outside quoted strings, rejecting broken quoting."""
+    parts: list[str] = []
+    current: list[str] = []
+    quoted = False
+    escaped = False
+    for character in value:
+        if escaped:
+            current.append(character)
+            escaped = False
+        elif quoted and character == "\\":
+            current.append(character)
+            escaped = True
+        elif character == '"':
+            current.append(character)
+            quoted = not quoted
+        elif character == delimiter and not quoted:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(character)
+    if quoted or escaped:
+        return None
+    parts.append("".join(current))
+    return tuple(parts)
+
+
+def _parameter_value(value: str) -> str | None:
+    """Decode one token or quoted-string parameter value."""
+    value = value.strip()
+    if not value:
+        return None
+    if not value.startswith('"'):
+        return None if '"' in value else value
+    if len(value) < 2 or not value.endswith('"'):
+        return None
+    decoded: list[str] = []
+    escaped = False
+    for character in value[1:-1]:
+        if escaped:
+            decoded.append(character)
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == '"':
+            return None
+        else:
+            decoded.append(character)
+    if escaped:
+        return None
+    return "".join(decoded)
+
+
+def _parse_accept_ranges(header: str) -> tuple[_AcceptRange, ...]:
+    """Parse valid media ranges, discarding malformed ranges and q-values."""
+    ranges: list[_AcceptRange] = []
+    items = _split_quoted(header, ",")
+    if items is None:
+        return ()
+    for item in items:
+        split_parts = _split_quoted(item, ";")
+        if split_parts is None:
+            continue
+        parts = [part.strip() for part in split_parts]
+        media_type = parts[0].lower()
+        if media_type.count("/") != 1:
+            continue
+        major, minor = media_type.split("/", 1)
+        if not major or not minor or (major == "*" and minor != "*") or ("*" in minor and minor != "*"):
+            continue
+        parameters: list[tuple[str, str]] = []
+        quality = 1.0
+        seen_names: set[str] = set()
+        valid = True
+        for parameter in parts[1:]:
+            if "=" not in parameter:
+                valid = False
+                break
+            name, raw_value = parameter.split("=", 1)
+            name = name.strip().lower()
+            value = _parameter_value(raw_value)
+            if not name or value is None or name in seen_names:
+                valid = False
+                break
+            seen_names.add(name)
+            if name == "q":
+                if _QVALUE.fullmatch(value) is None:
+                    valid = False
+                    break
+                quality = float(value)
+            else:
+                parameters.append((name, value))
+        if valid:
+            ranges.append(_AcceptRange(major, minor, tuple(parameters), quality))
+    return tuple(ranges)
+
+
+def _range_quality(
+    ranges: tuple[_AcceptRange, ...],
+    major: str,
+    minor: str,
+    parameters: tuple[tuple[str, str], ...],
+) -> tuple[float, tuple[int, int]] | None:
+    """Return the quality of the most-specific range matching one response."""
+    best: tuple[float, tuple[int, int]] | None = None
+    candidate_parameters = dict(parameters)
+    for item in ranges:
+        if item.major not in {"*", major} or item.minor not in {"*", minor}:
+            continue
+        if any(candidate_parameters.get(name) != value for name, value in item.parameters):
+            continue
+        specificity = (
+            2 if item.major == major and item.minor == minor else 1 if item.major == major else 0,
+            len(item.parameters),
+        )
+        if best is None or specificity > best[1]:
+            best = (item.quality, specificity)
+    return best
 
 
 def openapi_document() -> dict[str, Any]:
@@ -281,36 +413,27 @@ def _catalogue_media_type(provider: DspProvider, accept: str | None) -> str:
     """Select the ordinary DSP or explicitly requested DCAT-AP representation."""
     if accept is None or not accept.strip():
         return "application/json"
-    ranges = [part.strip() for part in accept.split(",") if part.strip()]
-    if len(ranges) == 1:
-        parts = [part.strip() for part in ranges[0].split(";")]
-        if parts[0].lower() == "application/ld+json":
-            parameters: dict[str, str] = {}
-            for part in parts[1:]:
-                if "=" not in part:
-                    break
-                name, value = part.split("=", 1)
-                parameters[name.strip().lower()] = value.strip().strip('"')
-            else:
-                if (
-                    set(parameters) <= {"profile", "q"}
-                    and parameters.get("profile", DCAT_PROFILE) == DCAT_PROFILE
-                    and parameters.get("q", "1") in {"1", "1.0", "1.00", "1.000"}
-                ):
-                    if provider.config.dcat_ap_content_negotiation:
-                        return DCAT_MEDIA_TYPE
-                    raise DspProtocolError(
-                        "catalog",
-                        406,
-                        "the DCAT-AP catalogue representation is not available",
-                        code="not-acceptable",
-                    )
-    ordinary_allowed = any(
-        item.split(";", 1)[0].strip().lower() in {"application/json", "*/*", "application/*"}
-        and "q=0" not in item.replace(" ", "").lower()
-        for item in ranges
-    )
-    if ordinary_allowed:
+    split_ranges = _split_quoted(accept, ",")
+    raw_ranges = () if split_ranges is None else tuple(item for item in split_ranges if item.strip())
+    ranges = _parse_accept_ranges(accept)
+    if len(raw_ranges) == 1 and len(ranges) == 1:
+        explicit = ranges[0]
+        if (
+            explicit.major == "application"
+            and explicit.minor == "ld+json"
+            and explicit.quality == 1.0
+            and dict(explicit.parameters) in ({}, {"profile": DCAT_PROFILE})
+        ):
+            if provider.config.dcat_ap_content_negotiation:
+                return DCAT_MEDIA_TYPE
+            raise DspProtocolError(
+                "catalog",
+                406,
+                "the DCAT-AP catalogue representation is not available",
+                code="not-acceptable",
+            )
+    ordinary = _range_quality(ranges, "application", "json", ())
+    if ordinary is not None and ordinary[0] > 0:
         return "application/json"
     raise DspProtocolError("catalog", 406, "no acceptable catalogue representation is available", code="not-acceptable")
 

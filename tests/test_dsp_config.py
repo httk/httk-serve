@@ -1,14 +1,14 @@
 """Shared fixtures and focused tests for the current DSP configuration API."""
 
 import pytest
-from httk.core import Dataset
+from httk.core import Dataset, Service
 
 from httk.serve.dsp import (
     DCAT_AP_3_0_1_PROFILE,
     DCAT_AP_MINIMAL_PROFILE,
-    DcatDataService,
     DspDatasetPublication,
     DspProviderConfig,
+    DspPublicationRecord,
 )
 
 
@@ -57,8 +57,8 @@ def test_config_derives_connector_and_version_urls() -> None:
     assert value.service_endpoint_url == "https://provider.example/connector/2025-1"
 
 
-def companion() -> DcatDataService:
-    return DcatDataService(
+def companion() -> Service:
+    return Service(
         "https://provider.example/services/dcat-ap",
         "DCAT-AP catalogue",
         "https://provider.example/dcat-ap/catalogue/",
@@ -66,11 +66,21 @@ def companion() -> DcatDataService:
     )
 
 
-def test_content_negotiation_requires_a_conforming_companion() -> None:
-    with pytest.raises(ValueError, match="requires dcat_ap_service"):
-        config(dcat_ap_content_negotiation=True)
-    value = config(dcat_ap_service=companion(), dcat_ap_content_negotiation=True)
-    assert value.dcat_ap_service == companion()
+def test_content_negotiation_is_validated_against_live_publications() -> None:
+    value = config(dcat_ap_content_negotiation=True)
+    assert value.dcat_ap_content_negotiation
+
+
+def test_publication_envelope_requires_exactly_one_link_and_normalizes_mappings() -> None:
+    with pytest.raises(ValueError, match="exactly one"):
+        DspPublicationRecord()
+    with pytest.raises(ValueError, match="exactly one"):
+        DspPublicationRecord(dataset=publication(), service=companion())
+    value = DspPublicationRecord.create({"dataset": publication()})
+    assert value.dataset == publication()
+    assert value.service is None
+    service = DspPublicationRecord.create({"service": companion()})
+    assert service.service == companion()
 
 
 def test_publication_defaults_ids_and_validates_file_metadata() -> None:

@@ -18,7 +18,7 @@ from httk.core import Dataset
 from httk.store.db import Database, SqlStore, StoredEntrySource
 from starlette.testclient import TestClient
 
-from httk.serve.dsp import DspDatasetPublication, DspPublicationEntry
+from httk.serve.dsp import DspDatasetPublication, DspPublicationEntry, DspPublicationRecord
 from httk.serve.optimade import adapter_from_providers, adapter_from_store, adapter_from_stores, create_asgi_app
 
 STANDARD_STRUCTURE_PROPERTIES = {
@@ -61,19 +61,21 @@ def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -
         Database.sqlite(),
         entry_records={
             StructureEntry: UnitcellStructureRecord,
-            DspPublicationEntry: DspDatasetPublication,
+            DspPublicationEntry: DspPublicationRecord,
         },
     )
     store.save(
-        DspDatasetPublication(
-            Dataset(
-                "https://provider.example/datasets/one",
-                "Dataset",
-                "Description",
-                "https://provider.example/publisher",
-                "Publisher",
-            ),
-            "/files/one.csv",
+        DspPublicationRecord(
+            dataset=DspDatasetPublication(
+                Dataset(
+                    "https://provider.example/datasets/one",
+                    "Dataset",
+                    "Description",
+                    "https://provider.example/publisher",
+                    "Publisher",
+                ),
+                "/files/one.csv",
+            )
         )
     )
     store.save(entries[0])

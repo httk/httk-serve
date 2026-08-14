@@ -162,6 +162,7 @@ class CatalogueProfile:
     :param title: Human-readable catalogue title.
     :param description: Human-readable catalogue description.
     :param participant_id: Provider participant identifier.
+    :param dcat_ap_profile: Configured minimal DCAT-AP profile IRI.
     :param datasets: Dataset publication profiles in stable declaration order.
     :param dcat_data_services: Additional public APIs for the DCAT projection.
     """
@@ -170,6 +171,7 @@ class CatalogueProfile:
     title: str
     description: str
     participant_id: str
+    dcat_ap_profile: str
     datasets: tuple[DatasetProfile, ...]
     dcat_data_services: tuple[DcatDataServiceProfile, ...]
 

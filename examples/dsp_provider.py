@@ -10,6 +10,7 @@ from httk.serve.dsp import (
     DspDatasetPublication,
     DspProvider,
     DspProviderConfig,
+    DspPublicationRecord,
     create_dsp_app,
 )
 
@@ -42,9 +43,9 @@ config = DspProviderConfig(
 
 provider = DspProvider(
     config,
-    datasets=(
-        publication("structures", "Crystal structures"),
-        publication("calculations", "Example calculations"),
+    publications=(
+        DspPublicationRecord(dataset=publication("structures", "Crystal structures")),
+        DspPublicationRecord(dataset=publication("calculations", "Example calculations")),
     ),
 )
 app = create_dsp_app(provider)

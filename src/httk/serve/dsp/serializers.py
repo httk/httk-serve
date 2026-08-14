@@ -3,7 +3,7 @@
 from copy import deepcopy
 from typing import Final
 
-from .config import DSP_CONTEXT, DSP_VERSION, SPDX_SHA256
+from .config import DCAT_AP_3_0_1_PROFILE, DSP_CONTEXT, DSP_VERSION, SPDX_SHA256
 from .models import (
     AgreementRecord,
     CatalogueProfile,
@@ -167,6 +167,10 @@ def serialize_dsp_catalogue(profile: CatalogueProfile) -> dict[str, JsonValue]:
         "participantId": profile.participant_id,
         "dct:title": profile.title,
         "dct:description": profile.description,
+        "dct:conformsTo": [
+            {"@id": profile.dcat_ap_profile, "@type": "dct:Standard"},
+            {"@id": DCAT_AP_3_0_1_PROFILE, "@type": "dct:Standard"},
+        ],
         "dct:publisher": {
             "@id": first.publisher_id,
             "@type": "http://xmlns.com/foaf/0.1/Agent",

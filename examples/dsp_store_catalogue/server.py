@@ -9,22 +9,21 @@ import hashlib
 from pathlib import Path
 
 import uvicorn
-from httk.core import Dataset
+from httk.core import Dataset, Service
 from httk.store.db import Database, SqlStore
 
 from httk.serve import ASGIAppMount, compose_asgi_apps
-from httk.serve.dcat_ap import create_dcat_ap_app
 from httk.serve.dsp import (
     DCAT_AP_3_0_1_PROFILE,
     DCAT_AP_MINIMAL_PROFILE,
-    DcatDataService,
     DspDatasetPublication,
     DspProvider,
     DspProviderConfig,
     DspPublicationEntry,
+    DspPublicationRecord,
     create_dsp_app,
 )
-from httk.serve.web import create_file_map_app
+from httk.serve.web import create_file_map_app, jsonld_http_get_app
 
 HERE = Path(__file__).parent
 DATASET1 = HERE / "dataset1.csv"
@@ -69,10 +68,20 @@ publications = (
 
 store = SqlStore(
     Database.sqlite(),
-    entry_records={DspPublicationEntry: DspDatasetPublication},
+    entry_records={DspPublicationEntry: DspPublicationRecord},
 )
 for publication in publications:
-    store.save(publication)
+    store.save(DspPublicationRecord(dataset=publication))
+store.save(
+    DspPublicationRecord(
+        service=Service(
+            id="https://provider.example/services/dcat-ap",
+            title="Public DCAT-AP catalogue",
+            endpoint_url="https://provider.example/dcat-ap/catalogue/",
+            conforms_to=(DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
+        )
+    )
+)
 
 config = DspProviderConfig(
     public_base_url="https://provider.example",
@@ -83,12 +92,6 @@ config = DspProviderConfig(
     catalog_id="https://provider.example/catalogues/example",
     catalog_title="Example datasets",
     catalog_description="Two files served by a store-native DSP catalogue.",
-    dcat_ap_service=DcatDataService(
-        id="https://provider.example/services/dcat-ap",
-        title="Public DCAT-AP catalogue",
-        endpoint_url="https://provider.example/dcat-ap/catalogue/",
-        conforms_to=(DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
-    ),
     dcat_ap_content_negotiation=True,
 )
 
@@ -97,10 +100,17 @@ config = DspProviderConfig(
 files_app = create_file_map_app({"/dataset1.csv": DATASET1, "/dataset2.json": DATASET2})
 provider = DspProvider(config, store=store)
 dsp_app = create_dsp_app(provider)
-dcat_ap_app = create_dcat_ap_app(provider)
+dcat_ap_app = jsonld_http_get_app(
+    provider.dcat_catalogue,
+    media_type=f'application/ld+json; profile="{DCAT_AP_3_0_1_PROFILE}"',
+    profile=config.dcat_ap_profile,
+)
 app = compose_asgi_apps(
-    [ASGIAppMount("/files", files_app), ASGIAppMount("/dsp", dsp_app)],
-    root=ASGIAppMount("/", dcat_ap_app),
+    [
+        ASGIAppMount("/files", files_app),
+        ASGIAppMount("/dsp", dsp_app),
+        ASGIAppMount("/dcat-ap/catalogue", dcat_ap_app),
+    ],
 )
 
 if __name__ == "__main__":

@@ -14,8 +14,9 @@ POST /dsp/2025-1/catalog/request
 ```
 
 `GET /dsp/2025-1/catalog` is intentionally not implemented: it is not a DSP
-2025-1 endpoint. The independent DCAT-AP minimal GET application is created
-with `httk.serve.dcat_ap.create_dcat_ap_app`.
+2025-1 endpoint. A caller that also publishes a JSON-LD representation can
+mount the vocabulary-neutral `httk.serve.web.jsonld_http_get_app`; discovery
+and protocol-specific validation belong to that caller.
 
 ## Store-native catalogue
 
@@ -25,12 +26,13 @@ from httk.store.db import Database, SqlStore
 from httk.serve.dsp import (
     DCAT_AP_3_0_1_PROFILE,
     DCAT_AP_MINIMAL_PROFILE,
-    DcatDataService,
     DspDatasetPublication,
     DspProvider,
     DspProviderConfig,
     DspPublicationEntry,
+    DspPublicationRecord,
 )
+from httk.core import Service
 
 publication = DspDatasetPublication(
     dataset=Dataset(
@@ -46,9 +48,15 @@ publication = DspDatasetPublication(
 )
 store = SqlStore(
     Database.sqlite(),
-    entry_records={DspPublicationEntry: DspDatasetPublication},
+    entry_records={DspPublicationEntry: DspPublicationRecord},
 )
-store.save(publication)
+store.save(DspPublicationRecord(dataset=publication))
+store.save(DspPublicationRecord(service=Service(
+    id="https://catalogue.example/services/dcat-ap",
+    title="Public DCAT-AP catalogue",
+    endpoint_url="https://catalogue.example/dcat-ap",
+    conforms_to=(DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
+)))
 
 config = DspProviderConfig(
     public_base_url="https://provider.example",
@@ -59,22 +67,18 @@ config = DspProviderConfig(
     catalog_id="https://provider.example/catalogues/main",
     catalog_title="Main catalogue",
     catalog_description="Published datasets.",
-    dcat_ap_service=DcatDataService(
-        id="https://provider.example/services/dcat-ap",
-        title="Public DCAT-AP catalogue",
-        endpoint_url="https://provider.example/dcat-ap/catalogue/",
-        conforms_to=(DCAT_AP_MINIMAL_PROFILE, DCAT_AP_3_0_1_PROFILE),
-    ),
     dcat_ap_content_negotiation=True,
 )
 provider = DspProvider(config, store=store)
 ```
 
-The store must declare `DspPublicationEntry`; neither application closes the
-store or database. Later `save()` calls become visible without rebuilding the
+The store must declare `DspPublicationEntry` mapped solely to
+`DspPublicationRecord`; neither application closes the store or database. Later
+dataset or service envelope saves become visible without rebuilding the
 provider. Duplicate dataset, offer, or distribution IDs and inconsistent
 publishers are rejected when a snapshot is built. For fixed declarations, use
-`DspProvider(config, datasets=(publication,))`; exactly one source is required.
+`DspProvider(config, publications=(DspPublicationRecord(dataset=publication),))`;
+exactly one source is required.
 
 ## Representations
 
@@ -86,11 +90,11 @@ typed byte size, and SPDX SHA-256 metadata are included in the common payload.
 Ordinary catalogue requests use `application/json` and the protected DSP
 context. When `dcat_ap_content_negotiation=True`, an explicit
 `Accept: application/ld+json` on the same POST returns the same common JSON
-value with an owned context and the profiled DCAT-AP media type. The companion
-GET application returns that same DCAT-AP representation and exposes
-`/.well-known/dcat-ap-minimal` discovery by default. Both profile identifiers
-and the discovery path are configurable, so an external standard can apply its
-own identity without being built into this package.
+value with an owned context and the profiled DCAT-AP media type. A generic
+JSON-LD GET application can expose that same live document independently. It
+handles GET/HEAD, JSON-LD content acceptance, ETags, caching, CORS, and an
+optional profile link, but does not define discovery or claim conformance to a
+retrieval protocol.
 
 `DspDatasetPublication` never opens, measures, or hashes a local file. Size
 and digest are publisher-supplied metadata. `.csv` and `.json` infer the
