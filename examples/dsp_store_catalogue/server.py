@@ -9,7 +9,7 @@ import hashlib
 from pathlib import Path
 
 import uvicorn
-from httk.core import Dataset, Service
+from httk.core import Dataset, DatasetDistribution, Service
 from httk.store.db import Database, SqlStore
 
 from httk.serve import ASGIAppMount, compose_asgi_apps
@@ -47,10 +47,14 @@ publications = (
             "A small CSV dataset.",
             publisher_id,
             "Example publisher",
+            (
+                DatasetDistribution(
+                    access_url="https://provider.example/files/dataset1.csv",
+                    byte_size=size1,
+                    sha256=sha1,
+                ),
+            ),
         ),
-        "/files/dataset1.csv",
-        byte_size=size1,
-        sha256=sha1,
     ),
     DspDatasetPublication(
         Dataset(
@@ -59,10 +63,14 @@ publications = (
             "A small JSON dataset.",
             publisher_id,
             "Example publisher",
+            (
+                DatasetDistribution(
+                    access_url="https://provider.example/files/dataset2.json",
+                    byte_size=size2,
+                    sha256=sha2,
+                ),
+            ),
         ),
-        "/files/dataset2.json",
-        byte_size=size2,
-        sha256=sha2,
     ),
 )
 

@@ -55,6 +55,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "httk.serve.web" = ["py.typed", "assets/*.css", "assets/*.js", "assets/*.mjs"]
+"httk.serve.openapi" = ["py.typed"]
 "httk.serve.optimade" = ["py.typed"]
 "httk.serve.dsp" = ["py.typed", "schemas/**/*"]
 "httk.registry.cli.serve" = ["py.typed"]

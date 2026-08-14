@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import pytest
-from httk.core import Dataset, Service
+from httk.core import Dataset, DatasetDistribution, DatasetRecord, Service, ServiceRecord
 from httk.store.db import Database, SqlStore
 from starlette.testclient import TestClient
 
@@ -25,19 +25,36 @@ from httk.serve.dsp import (
 )
 
 
-def publication(name: str, suffix: str = ".csv", **changes: object) -> DspDatasetPublication:
-    values: dict[str, object] = {
-        "dataset": Dataset(
+def publication(
+    name: str,
+    suffix: str = ".csv",
+    *,
+    distribution_id: str | None = None,
+    format_iri: str | None = None,
+    media_type_iri: str | None = None,
+    byte_size: int | None = None,
+    sha256: str | None = None,
+    offer_id: str | None = None,
+) -> DspDatasetPublication:
+    distribution = DatasetDistribution(
+        id=distribution_id,
+        access_url=f"https://provider.example/files/{name}{suffix}",
+        format_iri=format_iri,
+        media_type_iri=media_type_iri,
+        byte_size=byte_size,
+        sha256=sha256,
+    )
+    return DspDatasetPublication(
+        Dataset(
             f"https://provider.example/datasets/{name}",
             f"Dataset {name}",
             f"Description {name}",
             "https://provider.example/publisher",
             "Publisher",
+            (distribution,),
         ),
-        "access_url": f"/files/{name}{suffix}",
-    }
-    values.update(changes)
-    return DspDatasetPublication(**values)  # type: ignore[arg-type]
+        offer_id=offer_id,
+    )
 
 
 def config(**changes: object) -> DspProviderConfig:
@@ -74,8 +91,8 @@ def test_publication_inference_defaults_and_explicit_metadata() -> None:
     custom = publication(
         "other",
         ".zip",
-        file_format="https://example.test/file-types/zip",
-        media_type="https://www.iana.org/assignments/media-types/application/zip",
+        format_iri="https://example.test/file-types/zip",
+        media_type_iri="https://www.iana.org/assignments/media-types/application/zip",
     )
     assert custom.file_format.endswith("/zip")
     with pytest.raises(ValueError, match="lowercase"):
@@ -133,7 +150,8 @@ def test_store_hydrates_dataset_and_service_envelopes_and_validates_services_liv
     searcher.output(envelope, "envelope")
     values = tuple(row.values[0] for row in searcher)
     assert values[0].dataset == publication("one")
-    assert values[1].service == service
+    assert isinstance(values[0].dataset.dataset, DatasetRecord)
+    assert values[1].service == ServiceRecord.create(service)
 
 
 def test_store_source_requires_publication_family_and_revalidates_duplicates() -> None:
@@ -144,7 +162,12 @@ def test_store_source_requires_publication_family_and_revalidates_duplicates() -
     store = SqlStore(Database.sqlite(), entry_records={DspPublicationEntry: DspPublicationRecord})
     first = publication("same")
     store.save(DspPublicationRecord(dataset=first))
-    store.save(DspPublicationRecord(dataset=replace(first, access_url="/files/replacement.csv")))
+    replacement_distribution = replace(first.distribution, access_url="https://provider.example/files/replacement.csv")
+    store.save(
+        DspPublicationRecord(
+            dataset=replace(first, dataset=replace(first.dataset, distributions=(replacement_distribution,)))
+        )
+    )
     with pytest.raises(ValueError, match="dataset IDs"):
         DspProvider(config(), store=store).dsp_catalogue(request())
 

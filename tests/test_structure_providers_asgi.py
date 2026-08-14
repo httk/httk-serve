@@ -14,7 +14,7 @@ from httk.atomistic import (
     UnitcellStructureRecord,
     UnitcellStructureView,
 )
-from httk.core import Dataset
+from httk.core import Dataset, DatasetDistribution
 from httk.store.db import Database, SqlStore, StoredEntrySource
 from starlette.testclient import TestClient
 
@@ -73,8 +73,8 @@ def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -
                     "Description",
                     "https://provider.example/publisher",
                     "Publisher",
+                    (DatasetDistribution(access_url="https://provider.example/files/one.csv"),),
                 ),
-                "/files/one.csv",
             )
         )
     )

@@ -138,11 +138,14 @@ nitpick_ignore = [
     # Starlette's published inventory does not expose this response class even
     # though it is part of the runtime API used by create_file_map_app.
     ("py:class", "starlette.responses.FileResponse"),
+    ("py:class", "starlette.background.BackgroundTask"),
     # DSP is being added alongside the unreleased httk-core Dataset and Service contracts,
     # while AutoAPI shortens a few callable/type-alias annotations beyond what
     # the committed external inventories can resolve.
     ("py:class", "httk.core.Dataset"),
+    ("py:class", "httk.core.DatasetDistribution"),
     ("py:class", "httk.core.Service"),
+    ("py:class", "httk.core.ServiceRecord"),
     ("py:class", "DspProvider"),
     ("py:class", "JsonScalar"),
     ("py:class", "UUID"),

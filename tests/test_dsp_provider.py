@@ -85,7 +85,7 @@ def test_negotiation_selects_current_publication_and_requires_its_transfer_forma
         assert sender.calls[-1][1]["dataAddress"] == {
             "@type": "DataAddress",
             "endpointType": "https://w3id.org/idsa/v4.1/HTTP",
-            "endpoint": "https://provider.example/data/two",
+            "endpoint": "https://provider.example/data/two.json",
         }
 
     asyncio.run(exercise())

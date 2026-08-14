@@ -19,6 +19,8 @@ protocol.
 - **How the OPTIMADE side works**: {doc}`optimade/how_it_works`
 - **Build and deploy the website**: {doc}`web/index` — widgets, templates,
   Apache/nginx deployment
+- **Serve a small protocol contract**: {doc}`openapi` — caller-owned schemas
+  and operation handlers
 - **API reference**: {doc}`reference/index`
 ```
 
@@ -49,6 +51,7 @@ to running service.
 :maxdepth: 2
 
 dsp
+openapi
 web/index
 optimade/index
 reference/index

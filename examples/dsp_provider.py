@@ -4,7 +4,7 @@ For a durable, live catalogue backed by ``SqlStore``, see
 ``examples/dsp_store_catalogue/server.py``.
 """
 
-from httk.core import Dataset
+from httk.core import Dataset, DatasetDistribution
 
 from httk.serve.dsp import (
     DspDatasetPublication,
@@ -26,8 +26,8 @@ def publication(slug: str, title: str) -> DspDatasetPublication:
             description=f"The {title.lower()} demonstration dataset.",
             publisher_id=PUBLISHER_ID,
             publisher_name="Example Provider",
+            distributions=(DatasetDistribution(access_url=f"https://provider.example/data/{slug}.json"),),
         ),
-        access_url=f"https://provider.example/data/{slug}.json",
     )
 
 

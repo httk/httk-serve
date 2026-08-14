@@ -21,7 +21,7 @@ and protocol-specific validation belong to that caller.
 ## Store-native catalogue
 
 ```python
-from httk.core import Dataset
+from httk.core import Dataset, DatasetDistribution
 from httk.store.db import Database, SqlStore
 from httk.serve.dsp import (
     DCAT_AP_3_0_1_PROFILE,
@@ -41,10 +41,14 @@ publication = DspDatasetPublication(
         description="An example dataset.",
         publisher_id="https://provider.example/participants/provider",
         publisher_name="Provider",
+        distributions=(
+            DatasetDistribution(
+                access_url="https://provider.example/files/dataset.csv",
+                byte_size=123,
+                sha256="…publisher-computed lowercase SHA-256…",
+            ),
+        ),
     ),
-    access_url="/files/dataset.csv",
-    byte_size=123,
-    sha256="…publisher-computed lowercase SHA-256…",
 )
 store = SqlStore(
     Database.sqlite(),
@@ -126,10 +130,13 @@ handles GET/HEAD, JSON-LD content acceptance, ETags, caching, CORS, and an
 optional profile link, but does not define discovery or claim conformance to a
 retrieval protocol.
 
-`DspDatasetPublication` never opens, measures, or hashes a local file. Size
-and digest are publisher-supplied metadata. `.csv` and `.json` infer the
-authoritative EU File Type and IANA media-type IRIs; other representations
-require both IRIs explicitly.
+`DspDatasetPublication` is the DSP offer envelope around one neutral
+`Dataset`. The dataset must contain exactly one `DatasetDistribution` with an
+absolute HTTPS access URL. It never opens, measures, or hashes a local file.
+Size and digest are publisher-supplied distribution metadata. `.csv` and
+`.json` infer the authoritative EU File Type and IANA media-type IRIs; other
+representations require `format_iri` and `media_type_iri` explicitly on the
+distribution.
 
 The package vendors pinned DSP schemas, DCAT-AP 3.0.1 SHACL material, EU
 CSV/JSON vocabulary concepts, and the SPDX ontology with provenance and

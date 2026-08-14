@@ -1,43 +1,29 @@
-"""Adapt the bundled DSP OpenAPI contract to a Starlette application."""
+"""Adapt the bundled DSP OpenAPI contract through the public OpenAPI adapter."""
 
-import json
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from importlib.resources import files
 from typing import Any
 
 import yaml
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
+
+from httk.serve.openapi import (
+    OpenAPIOperation,
+    OpenAPIRequest,
+    OpenAPIRequestError,
+    OpenAPIResponse,
+    create_openapi_app,
+    parse_openapi_operations,
+)
 
 from .catalogue import DCAT_MEDIA_TYPE, DCAT_PROFILE, DspCatalogueRepresentation
 from .models import DspProtocolError, ErrorKind
 from .provider import DspProvider, _AutomaticBatch
-from .validation import DspSchemaError, validate_document
+from .validation import schema_registry
 
 type HandlerResult = dict[str, Any] | None
-
-
-@dataclass(frozen=True, slots=True)
-class OpenAPIOperation:
-    """Describe one supported operation extracted from the bundled contract.
-
-    :param method: Lower-case HTTP method.
-    :param path: OpenAPI path template.
-    :param operation_id: Unique business-dispatch identifier.
-    :param request_schema: Optional canonical request schema identifier.
-    :param responses: Status-to-media-type-and-schema response contract.
-    """
-
-    method: str
-    path: str
-    operation_id: str
-    request_schema: str | None
-    responses: Mapping[int, tuple[tuple[str | None, str | None], ...]]
 
 
 def openapi_document() -> dict[str, Any]:
@@ -52,128 +38,13 @@ def openapi_document() -> dict[str, Any]:
     return document
 
 
-def _local_ref(document: Mapping[str, Any], value: object) -> object:
-    """Resolve the deliberately supported local OpenAPI reference form."""
-    while isinstance(value, Mapping) and set(value) == {"$ref"}:
-        reference = value["$ref"]
-        if not isinstance(reference, str) or not reference.startswith("#/"):
-            break
-        current: object = document
-        for part in reference[2:].split("/"):
-            if not isinstance(current, Mapping) or part not in current:
-                raise RuntimeError(f"unresolvable local OpenAPI reference: {reference}")
-            current = current[part]
-        value = current
-    return value
-
-
-def _schema_ref(value: object) -> str:
-    """Return the sole supported external schema reference."""
-    if not isinstance(value, Mapping) or set(value) != {"$ref"}:
-        raise RuntimeError("OpenAPI body schemas must be single external $ref objects")
-    reference = value["$ref"]
-    if not isinstance(reference, str) or reference.startswith("#"):
-        raise RuntimeError("OpenAPI body schemas must reference a canonical bundled schema")
-    return reference
-
-
-def _body_contracts(document: Mapping[str, Any], body: object) -> tuple[tuple[str, str], ...]:
-    """Extract supported media types and their external schema references."""
-    body = _local_ref(document, body)
-    if not isinstance(body, Mapping):
-        raise RuntimeError("OpenAPI request/response body must be an object")
-    content = body.get("content")
-    if not isinstance(content, Mapping) or not content:
-        raise RuntimeError("OpenAPI bodies must declare at least one media type")
-    contracts = []
-    for media_type, media in content.items():
-        if not isinstance(media_type, str) or not isinstance(media, Mapping):
-            raise RuntimeError("invalid OpenAPI media-type declaration")
-        contracts.append((media_type, _schema_ref(media.get("schema"))))
-    return tuple(contracts)
-
-
 def openapi_operations() -> tuple[OpenAPIOperation, ...]:
     """Parse and validate the supported subset of the bundled OpenAPI contract.
 
     :return: Operations in document order.
     :raises RuntimeError: If the document uses an unsupported construct.
     """
-    document = openapi_document()
-    if document.get("openapi") != "3.1.0" or "webhooks" in document:
-        raise RuntimeError("the DSP adapter requires an OpenAPI 3.1.0 path contract")
-    paths = document.get("paths")
-    if not isinstance(paths, Mapping):
-        raise RuntimeError("OpenAPI paths must be an object")
-    operations: list[OpenAPIOperation] = []
-    identifiers: set[str] = set()
-    for path, path_item in paths.items():
-        if not isinstance(path, str) or not path.startswith("/") or not isinstance(path_item, Mapping):
-            raise RuntimeError("OpenAPI path entries must be absolute path objects")
-        unsupported = set(path_item) - {"get", "post"}
-        if unsupported:
-            raise RuntimeError(f"unsupported OpenAPI path constructs at {path}: {sorted(unsupported)}")
-        for method, operation in path_item.items():
-            if not isinstance(operation, Mapping):
-                raise RuntimeError(f"OpenAPI operation {method} {path} must be an object")
-            unknown_operation_fields = set(operation) - {
-                "description",
-                "operationId",
-                "parameters",
-                "requestBody",
-                "responses",
-                "summary",
-                "tags",
-            }
-            if unknown_operation_fields:
-                raise RuntimeError(
-                    f"unsupported OpenAPI constructs in operation at {method} {path}: "
-                    f"{sorted(unknown_operation_fields)}"
-                )
-            operation_id = operation.get("operationId")
-            if not isinstance(operation_id, str) or not operation_id or operation_id in identifiers:
-                raise RuntimeError("OpenAPI operationId values must be non-empty and unique")
-            identifiers.add(operation_id)
-            if "callbacks" in operation or "security" in operation or "servers" in operation:
-                raise RuntimeError(f"unsupported OpenAPI construct in operation {operation_id}")
-            parameters = operation.get("parameters", [])
-            if not isinstance(parameters, list):
-                raise RuntimeError(f"parameters for {operation_id} must be an array")
-            for parameter in parameters:
-                parameter = _local_ref(document, parameter)
-                if (
-                    not isinstance(parameter, Mapping)
-                    or parameter.get("in") != "path"
-                    or parameter.get("required") is not True
-                ):
-                    raise RuntimeError(f"only required path parameters are supported in {operation_id}")
-            request_schema = None
-            if "requestBody" in operation:
-                request_body = _local_ref(document, operation["requestBody"])
-                if not isinstance(request_body, Mapping) or request_body.get("required") is not True:
-                    raise RuntimeError(f"request body for {operation_id} must be required")
-                request_contracts = _body_contracts(document, request_body)
-                if len(request_contracts) != 1:
-                    raise RuntimeError(f"DSP request body for {operation_id} must declare one media type")
-                media_type, request_schema = request_contracts[0]
-                if media_type != "application/json":
-                    raise RuntimeError(f"DSP request body for {operation_id} must use application/json")
-            declared_responses = operation.get("responses")
-            if not isinstance(declared_responses, Mapping) or not declared_responses:
-                raise RuntimeError(f"responses for {operation_id} must be declared")
-            responses: dict[int, tuple[tuple[str | None, str | None], ...]] = {}
-            for status_text, response in declared_responses.items():
-                if not isinstance(status_text, str) or not status_text.isdigit():
-                    raise RuntimeError(f"only exact numeric response codes are supported in {operation_id}")
-                response = _local_ref(document, response)
-                if not isinstance(response, Mapping):
-                    raise RuntimeError(f"response {status_text} for {operation_id} must be an object")
-                if "content" in response:
-                    responses[int(status_text)] = _body_contracts(document, response)
-                else:
-                    responses[int(status_text)] = ((None, None),)
-            operations.append(OpenAPIOperation(method, path, operation_id, request_schema, responses))
-    return tuple(operations)
+    return parse_openapi_operations(openapi_document())
 
 
 async def _dispatch(
@@ -274,98 +145,65 @@ def _success_status(operation_id: str) -> int:
     return 200
 
 
-def _route_endpoint(provider: DspProvider, operation: OpenAPIOperation) -> Callable[[Request], Awaitable[Response]]:
-    """Build one request adapter closure from an OpenAPI operation."""
+def _handler(provider: DspProvider, operation_id: str) -> Callable[[OpenAPIRequest], Awaitable[OpenAPIResponse]]:
+    """Build one DSP business handler for the neutral request contract."""
 
-    async def endpoint(request: Request) -> Response:
-        body: dict[str, object] | None = None
-        path = {name: str(value) for name, value in request.path_params.items()}
+    async def handler(request: OpenAPIRequest) -> OpenAPIResponse:
+        if request.body is not None and not isinstance(request.body, dict):
+            raise _schema_error(operation_id, "request body must be a JSON object", request.path_params, request.body)
         automatic_batch = provider.automatic_batch()
-        try:
-            catalogue_representation = (
-                provider.select_catalogue_representation(request.headers.get("accept"))
-                if operation.operation_id == "catalog_request"
-                else None
-            )
-            if operation.request_schema is not None:
-                content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-                if content_type != "application/json":
-                    raise _schema_error(operation.operation_id, "Content-Type must be application/json", path, None)
-                try:
-                    parsed = json.loads(
-                        (await request.body()).decode("utf-8"),
-                        parse_constant=lambda value: (_ for _ in ()).throw(
-                            ValueError(f"invalid JSON constant {value}")
-                        ),
-                    )
-                except ValueError as error:
-                    raise _schema_error(
-                        operation.operation_id, "request body must be valid UTF-8 JSON", path, None
-                    ) from error
-                if not isinstance(parsed, dict):
-                    raise _schema_error(operation.operation_id, "request body must be a JSON object", path, parsed)
-                body = parsed
-                try:
-                    validate_document(operation.request_schema, body)
-                except DspSchemaError as error:
-                    raise _schema_error(operation.operation_id, str(error), path, body) from error
-            result = await _dispatch(
-                provider,
-                operation.operation_id,
-                path,
-                body,
-                automatic_batch,
-                catalogue_representation=catalogue_representation,
-            )
-            status = _success_status(operation.operation_id)
-            if result is None:
-                response = Response(status_code=status)
-            else:
-                contracts = operation.responses[status]
-                if operation.operation_id == "catalog_request":
-                    assert catalogue_representation is not None
-                    selected = next(
-                        (contract for contract in contracts if contract[0] == catalogue_representation.media_type),
-                        None,
-                    )
-                    if selected is None:
-                        raise RuntimeError(
-                            f"OpenAPI has no {catalogue_representation.media_type} response for catalog_request"
-                        )
-                    media_type, schema = selected
-                else:
-                    if len(contracts) != 1:
-                        raise RuntimeError(f"OpenAPI response for {operation.operation_id} is ambiguous")
-                    media_type, schema = contracts[0]
-                if schema is None or media_type is None:
-                    raise RuntimeError(f"OpenAPI success response for {operation.operation_id} has no body contract")
-                validate_document(schema, result)
-                headers = None
-                if operation.operation_id == "catalog_request" and catalogue_representation is not None:
-                    headers = dict(catalogue_representation.headers) or None
-                response = JSONResponse(result, status_code=status, media_type=media_type, headers=headers)
-            if provider.has_automatic_actions(automatic_batch):
-                response.background = BackgroundTask(provider.release_automatic, automatic_batch)
-            return response
-        except DspProtocolError as error:
-            document = _complete_error_document(error, path, body)
-            contract = operation.responses.get(error.status_code)
-            if contract is None:
-                raise RuntimeError(
-                    f"OpenAPI does not declare {error.status_code} for {operation.operation_id}"
-                ) from error
-            if len(contract) != 1:
-                raise RuntimeError(f"OpenAPI error response for {operation.operation_id} is ambiguous")
-            media_type, schema = contract[0]
-            if media_type is None or schema is None:
-                raise RuntimeError(
-                    f"OpenAPI error response for {operation.operation_id} has no body contract"
-                ) from error
-            validate_document(schema, document)
-            return JSONResponse(document, status_code=error.status_code, media_type=media_type)
+        catalogue_representation = (
+            provider.select_catalogue_representation(request.header("accept"))
+            if operation_id == "catalog_request"
+            else None
+        )
+        result = await _dispatch(
+            provider,
+            operation_id,
+            request.path_params,
+            request.body,
+            automatic_batch,
+            catalogue_representation=catalogue_representation,
+        )
+        background = (
+            BackgroundTask(provider.release_automatic, automatic_batch)
+            if provider.has_automatic_actions(automatic_batch)
+            else None
+        )
+        if result is None:
+            return OpenAPIResponse(_success_status(operation_id), background=background)
+        media_type = catalogue_representation.media_type if catalogue_representation is not None else None
+        headers = dict(catalogue_representation.headers) if catalogue_representation is not None else {}
+        return OpenAPIResponse(
+            _success_status(operation_id), result, media_type=media_type, headers=headers, background=background
+        )
 
-    endpoint.__name__ = operation.operation_id
-    return endpoint
+    handler.__name__ = operation_id
+    return handler
+
+
+def _request_error(error: OpenAPIRequestError) -> OpenAPIResponse:
+    """Convert neutral request failures to DSP's schema-validated error response."""
+    protocol_error = _schema_error(
+        error.operation.operation_id, error.detail, error.request.path_params, error.request.body
+    )
+    return _protocol_error(protocol_error, error.request)
+
+
+def _protocol_error(error: DspProtocolError, request: OpenAPIRequest) -> OpenAPIResponse:
+    """Convert a DSP protocol exception to the neutral response contract."""
+    return OpenAPIResponse(
+        error.status_code,
+        _complete_error_document(error, request.path_params, request.body),
+        media_type="application/json",
+    )
+
+
+def _adapt_protocol_error(error: Exception, request: OpenAPIRequest) -> OpenAPIResponse:
+    """Narrow the generic exception hook to DSP protocol exceptions."""
+    if not isinstance(error, DspProtocolError):
+        raise TypeError("DSP exception adapter received a non-DSP exception")
+    return _protocol_error(error, request)
 
 
 def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
@@ -383,10 +221,6 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
     """
     if not isinstance(provider, DspProvider):
         raise TypeError("provider must be a DspProvider")
-    routes = []
-    for operation in openapi_operations():
-        route_path = operation.path.replace("{id}", "{id:path}")
-        routes.append(Route(route_path, _route_endpoint(provider, operation), methods=[operation.method.upper()]))
 
     @asynccontextmanager
     async def lifespan(_app: Starlette):
@@ -395,7 +229,20 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
         finally:
             await provider.cancel_automatic()
 
-    app = Starlette(debug=debug, routes=routes, lifespan=lifespan)
+    operations = openapi_operations()
+    exception_handlers: Mapping[type[Exception], Callable[[Exception, OpenAPIRequest], OpenAPIResponse]] = {
+        DspProtocolError: _adapt_protocol_error
+    }
+    app = create_openapi_app(
+        openapi_document(),
+        {operation.operation_id: _handler(provider, operation.operation_id) for operation in operations},
+        schemas=schema_registry(),
+        request_error_handler=_request_error,
+        exception_handlers=exception_handlers,
+        lifespan=lifespan,
+        debug=debug,
+        path_converters={"id": "path"},
+    )
     app.state.dsp_provider = provider
     return app
 

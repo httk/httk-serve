@@ -1,12 +1,11 @@
 """Validated configuration and durable publication records for DSP serving."""
 
-import re
 from collections.abc import Mapping
 from dataclasses import MISSING, dataclass, fields
 from typing import Any, ClassVar, Self
 from urllib.parse import urlsplit
 
-from httk.core import Dataset, Service, StorageInfo
+from httk.core import Dataset, DatasetDistribution, DatasetRecord, Service, ServiceRecord, StorageInfo
 
 from .models import DSP_CONTEXT
 
@@ -27,8 +26,6 @@ EU_FILE_TYPE_JSON = "http://publications.europa.eu/resource/authority/file-type/
 IANA_MEDIA_TYPE_CSV = "https://www.iana.org/assignments/media-types/text/csv"
 IANA_MEDIA_TYPE_JSON = "https://www.iana.org/assignments/media-types/application/json"
 SPDX_SHA256 = "https://spdx.org/rdf/terms#checksumAlgorithm_sha256"
-
-_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 def _nonempty(field_name: str, value: object) -> str:
@@ -135,13 +132,15 @@ def _publication_url(value: object) -> str:
     return _https_url("access_url", text)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class DspDatasetPublication:
-    """Store one dataset's transport-independent DSP publication declaration.
+    """Attach the one DSP-specific offer identifier to a neutral dataset.
 
-    ``file_format`` and ``media_type`` are inferred for ``.csv`` and ``.json``
-    access paths.  Other representations must declare both as absolute IRIs.
-    No file is opened and no metadata is computed by this record.
+    The dataset owns its distribution metadata.  The minimal DSP profile
+    accepts exactly one downloadable distribution and infers its CSV or JSON
+    format/media-type IRIs only when either is absent.  Other representations
+    must provide both IRIs in the neutral distribution.  No file is opened,
+    measured, or hashed by this envelope.
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
@@ -149,19 +148,26 @@ class DspDatasetPublication:
         identity_name="serve_dsp_publication_v1",
     )
 
-    dataset: Dataset
-    access_url: str
-    file_format: str | None = None
-    media_type: str | None = None
-    byte_size: int | None = None
-    sha256: str | None = None
+    dataset: DatasetRecord
     offer_id: str | None = None
-    distribution_id: str | None = None
+
+    def __init__(self, dataset: Dataset | DatasetRecord, offer_id: str | None = None) -> None:
+        object.__setattr__(self, "dataset", DatasetRecord.create(dataset))
+        object.__setattr__(self, "offer_id", offer_id)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "dataset", Dataset.create(self.dataset))
-        object.__setattr__(self, "access_url", _publication_url(self.access_url))
-        suffix = urlsplit(self.access_url).path.lower()
+        object.__setattr__(self, "dataset", DatasetRecord.create(self.dataset))
+        if len(self.dataset.distributions) != 1:
+            raise ValueError("DSP minimal publications must contain exactly one dataset distribution")
+        distribution = self.dataset.distributions[0]
+        if distribution.access_url is None:
+            raise ValueError("DSP minimal dataset distributions require an access_url")
+        try:
+            _https_url("dataset distribution access_url", distribution.access_url)
+        except ValueError as error:
+            raise ValueError("DSP minimal dataset distributions require an absolute HTTPS access_url") from error
+        suffix = urlsplit(distribution.access_url).path.lower()
         inferred = (
             (EU_FILE_TYPE_CSV, IANA_MEDIA_TYPE_CSV)
             if suffix.endswith(".csv")
@@ -169,28 +175,60 @@ class DspDatasetPublication:
             if suffix.endswith(".json")
             else None
         )
-        if inferred is None and (self.file_format is None or self.media_type is None):
-            raise ValueError("non-CSV/JSON publications require explicit file_format and media_type IRIs")
-        file_format = inferred[0] if self.file_format is None and inferred is not None else self.file_format
-        media_type = inferred[1] if self.media_type is None and inferred is not None else self.media_type
-        object.__setattr__(self, "file_format", _absolute_iri("file_format", file_format))
-        object.__setattr__(self, "media_type", _absolute_iri("media_type", media_type))
-        if self.byte_size is not None and (
-            isinstance(self.byte_size, bool) or not isinstance(self.byte_size, int) or self.byte_size < 0
-        ):
-            raise ValueError("byte_size must be a non-negative integer or None")
-        if self.sha256 is not None and (not isinstance(self.sha256, str) or _SHA256.fullmatch(self.sha256) is None):
-            raise ValueError("sha256 must be a lowercase 64-character hexadecimal digest or None")
+        if inferred is None and (distribution.format_iri is None or distribution.media_type_iri is None):
+            raise ValueError("non-CSV/JSON distributions require explicit format_iri and media_type_iri")
         object.__setattr__(
             self,
             "offer_id",
             _absolute_iri("offer_id", self.offer_id or f"{self.dataset.id}#offer"),
         )
-        object.__setattr__(
-            self,
-            "distribution_id",
-            _absolute_iri("distribution_id", self.distribution_id or f"{self.dataset.id}#distribution"),
-        )
+
+    @property
+    def distribution(self) -> DatasetDistribution:
+        """Return the sole neutral distribution accepted by this profile."""
+
+        return self.dataset.distributions[0]
+
+    @property
+    def distribution_id(self) -> str:
+        """Return the declared distribution IRI or the profile default."""
+
+        return self.distribution.id or f"{self.dataset.id}#distribution"
+
+    @property
+    def file_format(self) -> str:
+        """Return the explicit or CSV/JSON-inferred EU file-type IRI."""
+
+        if self.distribution.format_iri is not None:
+            return self.distribution.format_iri
+        return EU_FILE_TYPE_CSV if urlsplit(self.access_url).path.lower().endswith(".csv") else EU_FILE_TYPE_JSON
+
+    @property
+    def media_type(self) -> str:
+        """Return the explicit or CSV/JSON-inferred IANA media-type IRI."""
+
+        if self.distribution.media_type_iri is not None:
+            return self.distribution.media_type_iri
+        return IANA_MEDIA_TYPE_CSV if urlsplit(self.access_url).path.lower().endswith(".csv") else IANA_MEDIA_TYPE_JSON
+
+    @property
+    def access_url(self) -> str:
+        """Return the sole distribution's validated HTTPS access URL."""
+
+        assert self.distribution.access_url is not None
+        return self.distribution.access_url
+
+    @property
+    def byte_size(self) -> int | None:
+        """Return publisher-supplied size metadata from the distribution."""
+
+        return self.distribution.byte_size
+
+    @property
+    def sha256(self) -> str | None:
+        """Return publisher-supplied checksum metadata from the distribution."""
+
+        return self.distribution.sha256
 
     @classmethod
     def create(cls, obj: Self | Mapping[str, Any]) -> Self:
@@ -216,7 +254,7 @@ class DspDatasetPublication:
         return cls(**{name: obj[name] for name in names if name in obj})
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class DspPublicationRecord:
     """Store exactly one dataset publication or catalogue service envelope."""
 
@@ -226,7 +264,16 @@ class DspPublicationRecord:
     )
 
     dataset: DspDatasetPublication | None = None
-    service: Service | None = None
+    service: ServiceRecord | None = None
+
+    def __init__(
+        self,
+        dataset: DspDatasetPublication | None = None,
+        service: Service | ServiceRecord | None = None,
+    ) -> None:
+        object.__setattr__(self, "dataset", dataset)
+        object.__setattr__(self, "service", service)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         if (self.dataset is None) == (self.service is None):
@@ -234,7 +281,7 @@ class DspPublicationRecord:
         if self.dataset is not None:
             object.__setattr__(self, "dataset", DspDatasetPublication.create(self.dataset))
         if self.service is not None:
-            object.__setattr__(self, "service", Service.create(self.service))
+            object.__setattr__(self, "service", ServiceRecord.create(self.service))
 
     @classmethod
     def create(cls, obj: Self | Mapping[str, Any]) -> Self:

@@ -55,10 +55,18 @@ def test_companion_dcat_service_is_advertised_in_both_catalogues() -> None:
 def test_snapshot_rejects_duplicate_ids_and_mixed_publishers() -> None:
     duplicate = publication("one")
     with pytest.raises(ValueError, match="dataset IDs"):
+        replacement_distribution = replace(
+            duplicate.distribution,
+            access_url="https://provider.example/files/other.csv",
+        )
+        replacement = replace(
+            duplicate,
+            dataset=replace(duplicate.dataset, distributions=(replacement_distribution,)),
+        )
         _ = DspProvider(
             config(),
             publications=tuple(
-                DspPublicationRecord(dataset=item) for item in (duplicate, replace(duplicate, access_url="/other.csv"))
+                DspPublicationRecord(dataset=item) for item in (duplicate, replacement)
             ),
         ).profile
 
