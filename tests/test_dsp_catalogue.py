@@ -196,7 +196,16 @@ def test_empty_and_service_only_sources_fail_at_snapshot() -> None:
 
 def test_provider_rejects_wrong_publication_record_layout() -> None:
     class WrongLayoutStore:
-        entry_layout = (EntryFamilyLayout("dsp-publications", DspPublicationEntry, ("old",), (DspDatasetPublication,)),)
+        entry_layout = (
+            EntryFamilyLayout(
+                name="dsp-publications",
+                family=DspPublicationEntry,
+                definition_id=None,
+                record_names=("old",),
+                records=(DspDatasetPublication,),
+                record_definition_ids=(None,),
+            ),
+        )
 
         def searcher(self, **_kwargs: object) -> object:
             raise AssertionError("wrong layout should be rejected before querying")

@@ -15,6 +15,7 @@ from httk.atomistic import (
     UnitcellStructureView,
 )
 from httk.core import Dataset, DatasetDistribution
+from httk.store import EntryFamilyDeclaration, EntryRecordDeclaration
 from httk.store.db import Database, SqlStore, StoredEntrySource
 from starlette.testclient import TestClient
 
@@ -88,6 +89,29 @@ def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -
         assert client.get("/dsp-publications").status_code == 404
         store.save(entries[1])
         assert client.get("/structures").json()["meta"]["data_available"] == 2
+
+
+def test_adapter_discovers_an_application_owned_optimade_family_from_layout() -> None:
+    entries = tuple(_entries().values())
+    declaration = EntryFamilyDeclaration(
+        name="application-structures",
+        family=StructureEntry,
+        definition_id=StructureEntry.definition_id,
+        records=(
+            EntryRecordDeclaration(
+                name="application-unitcell-structure",
+                record=UnitcellStructureRecord,
+            ),
+        ),
+    )
+    store = SqlStore(Database.sqlite(), entry_families=(declaration,))
+    store.save(entries[0])
+
+    adapter = adapter_from_store(store)
+
+    assert set(adapter.schema.all_entries) == {"structures"}
+    with TestClient(create_asgi_app(store, baseurl="http://testserver"), base_url="http://testserver") as client:
+        assert client.get("/structures").json()["meta"]["data_available"] == 1
 
 
 def _entries() -> dict[str, UnitcellStructure]:
