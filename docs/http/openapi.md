@@ -13,38 +13,82 @@ must exactly match the variables in their path template. Formats, defaults,
 coercion, and other parameter constraints are intentionally rejected.
 
 The protocol or prototype owns its OpenAPI document and JSON Schema documents.
-Build an `OpenAPISchemaRegistry` from those documents, then map every
-`operationId` to a handler. The adapter rejects missing or unknown handlers
-when the application is constructed.
+The adapter derives everything it can from them, and rejects missing or unknown
+handlers when the application is constructed rather than when a request
+arrives.
+
+## Packaged contracts
+
+A protocol that ships its contract and schemas as package data loads both
+through one object. `OpenAPIContract.from_package` parses the OpenAPI document,
+builds an offline `OpenAPISchemaRegistry` over every bundled `*.json` schema,
+and caches the result, so repeated application construction does not re-parse
+or re-validate the package data.
 
 ```python
 from httk.serve.http.openapi import (
+    OpenAPIContract,
     OpenAPIRequest,
     OpenAPIResponse,
-    OpenAPISchemaRegistry,
     create_openapi_app,
 )
 
-schemas = OpenAPISchemaRegistry(prototype_schema_documents)
+CONTRACT = OpenAPIContract.from_package("prototype_protocol")
 
 async def create_thing(request: OpenAPIRequest) -> OpenAPIResponse:
     thing = await service.create(request.body)
-    return OpenAPIResponse(201, thing, media_type="application/json")
+    return OpenAPIResponse(body=thing)
 
 app = create_openapi_app(
-    prototype_openapi_document,
+    CONTRACT,
     {"create_thing": create_thing},
-    schemas=schemas,
     request_error_handler=prototype_request_error,
 )
 ```
 
+By default the contract is read from `schemas/openapi.yaml` and the schemas
+from `schemas/` below the package; both are configurable. `schema_transform`
+applies a per-document fix-up to each bundled **JSON Schema** document before
+it is registered — for correcting pinned upstream defects — and is never
+applied to the OpenAPI document itself.
+
+`contract.document()` returns an independent deep copy of the parsed OpenAPI
+document, `contract.operations` the parsed operations, `contract.operation(id)`
+one of them by `operationId`, and `contract.schemas` the offline registry.
+
+A caller that assembles its document and schemas some other way can still pass
+a plain mapping together with an explicit `schemas=` registry. Supplying both a
+contract and `schemas=`, or a mapping without one, is a contract error.
+
+## Responses derived from the contract
+
+Each operation exposes the status and body contracts the document declares:
+
+- `operation.success_status` — the single declared 2xx status, or `None` when
+  the operation declares zero or several. A contract declaring more than one
+  2xx status is still accepted; only the derivation is withheld.
+- `operation.success_contracts` — the `(media type, schema id)` pairs declared
+  for that status.
+- `operation.response_contracts(status)` — the same for any one status.
+
+A handler therefore does not restate the status the document already declares.
+`OpenAPIResponse(body=thing)` responds with the operation's declared success
+status, and a bodyless `OpenAPIResponse()` does the same for an operation whose
+success response has no body. State a status explicitly when an operation
+declares several 2xx statuses, or to select a declared non-success status.
+
 Handlers receive immutable normalized path parameters, query parameters,
-lowercase headers, and a JSON body validated through the supplied registry.
-They return an `OpenAPIResponse`, including the exact declared status and,
-when a status has multiple body media types, its exact media type. A unique
-body media type is inferred. Response values are schema validated before they
-are serialized.
+lowercase headers, and a JSON body validated through the contract's registry.
+They return an `OpenAPIResponse`, including its exact media type when a status
+declares more than one; a unique body media type is inferred. Response values
+are schema validated before they are serialized.
+
+These accessors also let an implementation be tested against its own contract,
+so that facts written in Python — which error document an operation produces,
+which media types it can return — cannot silently drift from the document that
+declares them. `httk.serve.dsp` does this in `tests/test_dsp_contract_agreement.py`.
+
+## Errors
 
 Use `exception_handlers` only for deliberate protocol exception types, such as
 a protocol's declared error object. Unexpected handler exceptions are left to
