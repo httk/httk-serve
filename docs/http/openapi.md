@@ -1,156 +1,90 @@
-# Constrained OpenAPI applications
+# Serving an OpenAPI contract
 
-`httk.serve.http.openapi` turns a caller-owned OpenAPI 3.1 path contract into a
-Starlette application. It deliberately implements a small, offline subset:
-`GET` and `POST` paths, local references for path and operation pieces,
-required JSON request bodies whose schemas are external `$ref` values, exact
-numeric responses, JSON response media types, and bodyless responses. It is
-not a general OpenAPI implementation.
+`httk.serve.http.openapi` turns a caller-owned **OpenAPI 3.1** document into a
+running HTTP application. You own the contract — the OpenAPI document and its
+JSON Schemas — and supply one function per operation; the adapter derives the
+routes, methods, status codes, media types, and request/response validation
+from the contract. Whatever cannot be derived is checked when the application is
+**constructed**, not when a request arrives, so a handler that does not match
+its contract fails at startup rather than in production.
 
-Path, query, and header parameters are supported only as simple strings, with
-an optional string `enum`; required parameters are enforced. Path declarations
-must exactly match the variables in their path template. Formats, defaults,
-coercion, and other parameter constraints are intentionally rejected.
+It implements a deliberately small, offline subset of OpenAPI — `GET`/`POST`,
+JSON request/response bodies, and string path/query/header parameters. It is not
+a general OpenAPI implementation; the exact boundaries are in
+{doc}`openapi-details`.
 
-The protocol or prototype owns its OpenAPI document and JSON Schema documents.
-The adapter derives everything it can from them — routes, methods, statuses,
-media types, request and response validation, and how each handler's arguments
-are filled — so an implementation supplies the functions that implement its API
-and little else. Whatever cannot be derived is checked when the application is
-constructed rather than when a request arrives.
+## From schema to server
 
-## Packaged contracts
+Four steps take an OpenAPI contract to a live application:
 
-A protocol that ships its contract and schemas as package data loads both
-through one object. `OpenAPIContract.from_package` parses the OpenAPI document,
-builds an offline `OpenAPISchemaRegistry` over every bundled `*.json` file that
-decodes to a mapping carrying a `$schema` key — other `*.json` files below the
-schema root are silently skipped — and caches the result, so repeated
-application construction does not re-parse or re-validate the package data.
+1. **Ship the contract** — the OpenAPI document and its `*.json` schemas as
+   package data (conventionally `schemas/openapi.yaml` alongside `schemas/`).
+2. **Load it** into an `OpenAPIContract`.
+3. **Write handlers** — one callable per `operationId`, returning plain JSON
+   values. Parameters are filled **by name** from the contract.
+4. **Build the app** with `create_openapi_app`, then mount or run it.
 
 ```python
-from httk.serve.http.openapi import OpenAPIContract, create_openapi_app
+from httk.serve.http.openapi import OpenAPIContract, create_openapi_app, operation
 
+# 1-2. Load the packaged OpenAPI document + JSON Schemas (parsed and validated
+#      once, then cached).
 CONTRACT = OpenAPIContract.from_package("prototype_protocol")
 
+# 3. One handler per operationId. Each parameter is filled by name from a
+#    declared path/query/header parameter or the request body; the return value
+#    is validated against the operation's declared response before it is sent.
 async def create_thing(body):
-    return await service.create(body)
+    return await service.create(body)            # -> the declared 2xx body
 
+async def get_thing(thing_id):
+    return await service.get(thing_id)
+
+# 4. Build the application. It returns a ServeApp (a mountable ASGI
+#    application) — no Starlette import required.
 app = create_openapi_app(
     CONTRACT,
-    {"create_thing": create_thing},
+    {
+        "create_thing": create_thing,
+        # `operation()` adjusts how a handler binds to its contract, e.g. when a
+        # wire parameter name should map to a different Python parameter.
+        "get_thing": operation(get_thing, aliases={"id": "thing_id"}),
+    },
     request_error_handler=prototype_request_error,
 )
 ```
 
-By default the contract is read from `schemas/openapi.yaml` and the schemas
-from `schemas/` below the package; both are configurable. `schema_transform`
-applies a per-document fix-up to each bundled **JSON Schema** document before
-it is registered — for correcting pinned upstream defects — and is never
-applied to the OpenAPI document itself.
-
-`contract.document()` returns an independent deep copy of the parsed OpenAPI
-document, `contract.operations` the parsed operations, `contract.operation(id)`
-one of them by `operationId`, and `contract.schemas` the offline registry.
-
-A caller that assembles its document and schemas some other way can still pass
-a plain mapping together with an explicit `schemas=` registry. Supplying both a
-contract and `schemas=`, or a mapping without one, is a contract error.
-
-## Responses derived from the contract
-
-Each operation exposes the status and body contracts the document declares:
-
-- `operation.success_status` — the single declared 2xx status, or `None` when
-  the operation declares zero or several. A contract declaring more than one
-  2xx status is still accepted; only the derivation is withheld.
-- `operation.success_contracts` — the `(media type, schema id)` pairs declared
-  for that status.
-- `operation.response_contracts(status)` — the same for any one status.
-
-A handler therefore does not restate the status the document already declares. It
-may simply return a value:
-
-- `None` — the declared bodyless success response;
-- a mapping or list — the declared success status with that body;
-- an explicit `OpenAPIResponse` — when the handler needs a non-success status, a
-  specific media type because the status declares several, or extra headers.
-
-Response values are schema validated before they are serialized.
-
-These accessors also let an implementation be tested against its own contract,
-so that facts written in Python — which error document an operation produces,
-which media types it can return — cannot silently drift from the document that
-declares them. `httk.serve.dsp` does this in `tests/test_dsp_contract_agreement.py`.
-
-## Binding handler parameters
-
-Handler parameters are filled **by name**, never by position, so reordering the
-`parameters:` array in the contract can never silently swap two arguments:
-
-| Handler parameter | Bound from |
-|---|---|
-| the normalized name of a declared path, query or header parameter | that value |
-| `body` | the validated request body |
-| a parameter annotated `OpenAPIRequest` | the whole request |
-| a name the request scope supplies | that extra |
-
-Normalization turns a wire name into a Python identifier — `-` becomes `_`,
-camelCase and ACRONYMCase split on case boundaries, and the result is lowercased:
-`providerPid` → `provider_pid`, `X-Request-ID` → `x_request_id`.
-
-An optional parameter that the request omits is not passed at all, so the
-handler's own default applies. Where a wire name cannot or should not drive the
-Python name, `operation()` declares an alias:
+Serve `app` with any ASGI server:
 
 ```python
-{
-    "dataset_request": operation(Provider.dataset, aliases={"id": "dataset_id"}),
-    "create_thing": operation(Provider.create, aliases={"body": "message"}),
-}
+import uvicorn
+
+uvicorn.run(app, host="127.0.0.1", port=8080)
 ```
 
-Everything is checked once, when the application is constructed: every required
-declared parameter must reach a handler parameter, every handler parameter
-without a default must be satisfied, two declared parameters may not normalize
-onto the same handler parameter, and `*args`, `**kwargs` and positional-only
-parameters are rejected because they cannot be bound by name.
+The only required argument beyond the contract and operations is
+`request_error_handler`, which turns a malformed request into your protocol's
+own error response. Everything else — a per-request scope, deliberate protocol
+exception handlers, route converters — is optional and covered in the details.
 
-Passing `implementation=` resolves entries that name unbound methods against
-that object with `getattr`, so subclass overrides are honoured.
+## A worked, real-world example
 
-## Per-request scope
+`httk.serve.dsp` is a complete implementation of this pattern: it ships a DSP
+OpenAPI contract as package data, binds each operation to a provider method, and
+builds the app with `create_openapi_app` (see `httk/serve/dsp/api.py`). Because
+the contract accessors let an implementation be tested against its own document,
+`httk.serve.dsp` checks that the errors and media types written in Python cannot
+drift from the contract (`tests/test_dsp_contract_agreement.py`).
 
-`request_scope` supplies values a handler cannot get from the contract, and
-contributes response metadata. It is an async context manager returning an
-`OperationContext`, entered around the handler call:
+## Details
 
-```python
-@asynccontextmanager
-async def scope(request):
-    context = OperationContext(extras={"session": open_session()})
-    yield context
-    context.background = BackgroundTask(flush, context.extras["session"])
+```{toctree}
+:maxdepth: 1
+
+openapi-details
 ```
 
-Names a handler wants are declared per operation with `operation(..., extras=(...))`
-and listed in `scope_names=`; both are verified at construction, so a renamed
-extra fails loudly instead of silently arriving as a default.
-
-The context's `media_type`, `headers` and `background` are folded into the
-response **only when the handler returns normally** — an adapted error response
-never inherits them. Statements after the `yield` are skipped when the handler
-raises, so deferred work is not released after a failed request.
-
-These accessors also let an implementation be tested against its own contract,
-so that facts written in Python — which error document an operation produces,
-which media types it can return — cannot silently drift from the document that
-declares them. `httk.serve.dsp` does this in `tests/test_dsp_contract_agreement.py`.
-
-## Errors
-
-Use `exception_handlers` only for deliberate protocol exception types, such as
-a protocol's declared error object. Unexpected handler exceptions are left to
-Starlette; the adapter does not mask programmer errors. `path_converters`
-provides a transparent mapping from OpenAPI parameter name to Starlette route
-converter, for example `{"id": "path"}`.
+The details page covers packaged contracts and the plain-mapping alternative,
+the response contracts derived from each operation, how handler parameters are
+bound by name, the per-request scope (and post-response callbacks), and error
+handling.
