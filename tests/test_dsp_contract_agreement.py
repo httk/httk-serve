@@ -77,21 +77,30 @@ def test_success_status_pins_the_dsp_mandated_201_and_200_statuses() -> None:
     """DSP mandates ``201 Created`` for the two process-creation operations.
 
     ``OpenAPIOperation.success_status`` is the only thing that checks this
-    against the contract, so pin the whole derived mapping, not just the two
-    201 exceptions, so a change to any operation's declared success status
-    (a 200 silently replacing the mandated 201, or vice versa) fails here.
+    against the contract, so pin one explicit operation-to-status mapping. A
+    count plus a value set would miss one operation being swapped for another,
+    and a mapping derived from the contract's own keys could not detect an
+    operation being added or removed at all.
     """
     contract = dsp_contract()
     statuses = {operation.operation_id: operation.success_status for operation in contract.operations}
-    assert statuses["negotiation_request"] == 201
-    assert statuses["transfer_request"] == 201
-    others = {
-        operation_id: status
-        for operation_id, status in statuses.items()
-        if operation_id not in {"negotiation_request", "transfer_request"}
+    assert statuses == {
+        "version_discovery": 200,
+        "catalog_request": 200,
+        "dataset_request": 200,
+        "negotiation_state": 200,
+        "negotiation_request": 201,
+        "negotiation_counter_request": 200,
+        "negotiation_event": 200,
+        "agreement_verification": 200,
+        "negotiation_termination": 200,
+        "transfer_state": 200,
+        "transfer_request": 201,
+        "transfer_start": 200,
+        "transfer_suspension": 200,
+        "transfer_completion": 200,
+        "transfer_termination": 200,
     }
-    assert len(others) == 13
-    assert set(others.values()) == {200}
 
 
 def test_catalogue_policy_media_types_and_406_are_declared_by_the_contract() -> None:
@@ -120,16 +129,38 @@ def _dsp_package_dir() -> Path:
     return Path(dsp_package.__file__).parent
 
 
+def _literal_argument[T](node: ast.Call, position: int, keyword: str, kind: type[T]) -> T | None:
+    """Read one call argument positionally or by keyword when it is a literal.
+
+    :param node: The call being inspected.
+    :param position: Positional index the argument may occupy.
+    :param keyword: Keyword name the argument may be passed under instead.
+    :param kind: Python type the literal must have.
+    :return: The literal value, or ``None`` when it is absent or not a literal.
+    """
+    if len(node.args) > position:
+        argument = node.args[position]
+    else:
+        argument = next((item.value for item in node.keywords if item.arg == keyword), None)
+    if isinstance(argument, ast.Constant) and isinstance(argument.value, kind):
+        return argument.value
+    return None
+
+
 def _protocol_error_call_sites(source: str) -> tuple[list[tuple[str, int]], list[int], int]:
     """Statically classify ``DspProtocolError(...)`` calls in one module.
 
-    A call is fully literal when both its ``kind`` and ``status`` positional
+    A call is fully literal when both its ``kind`` and ``status_code``
     arguments are literal constants. Many call sites pass a *runtime* ``kind``
     variable (the enclosing method's own error kind) alongside a *literal*
-    ``status`` -- those are still checkable against the union of statuses the
+    status -- those are still checkable against the union of statuses the
     contract declares anywhere, even though the specific kind is unknown
     statically. Only a call whose status itself cannot be read statically is
     genuinely unchecked.
+
+    Both arguments are read positionally or by keyword, so a call written as
+    ``DspProtocolError(kind="catalog", status_code=400, ...)`` is checked
+    exactly like the positional form rather than counted as unchecked.
 
     :param source: Python source to scan.
     :return: Fully literal ``(kind, status)`` pairs; literal statuses from
@@ -152,15 +183,14 @@ def _protocol_error_call_sites(source: str) -> tuple[list[tuple[str, int]], list
             continue
         if name != "DspProtocolError":
             continue
-        args = node.args
-        kind_literal = len(args) >= 1 and isinstance(args[0], ast.Constant) and isinstance(args[0].value, str)
-        status_literal = len(args) >= 2 and isinstance(args[1], ast.Constant) and isinstance(args[1].value, int)
-        if kind_literal and status_literal:
-            pairs.append((args[0].value, args[1].value))
-        elif status_literal:
-            status_only.append(args[1].value)
-        else:
+        kind = _literal_argument(node, 0, "kind", str)
+        status = _literal_argument(node, 1, "status_code", int)
+        if status is None:
             fully_skipped += 1
+        elif kind is None:
+            status_only.append(status)
+        else:
+            pairs.append((kind, status))
     return pairs, status_only, fully_skipped
 
 
@@ -179,9 +209,7 @@ def test_every_raisable_protocol_error_pair_is_declared_except_the_known_409_gap
     status_only: list[int] = []
     fully_skipped = 0
     for path in sorted(_dsp_package_dir().rglob("*.py")):
-        file_pairs, file_status_only, file_fully_skipped = _protocol_error_call_sites(
-            path.read_text(encoding="utf-8")
-        )
+        file_pairs, file_status_only, file_fully_skipped = _protocol_error_call_sites(path.read_text(encoding="utf-8"))
         pairs += file_pairs
         status_only += file_status_only
         fully_skipped += file_fully_skipped
