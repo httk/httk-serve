@@ -10,6 +10,9 @@ from uuid import UUID, uuid4
 
 from httk.store import EntryStore
 
+from httk.serve.http.identifiers import is_json_encodable_text, urn_uuid, xsd_utc_timestamp
+from httk.serve.http.webhook import deliver_with_retries
+
 from .callbacks import CallbackSender, CallbackTransportError, DefaultCallbackSender, callback_url
 from .catalogue import (
     DspCataloguePolicy,
@@ -73,11 +76,7 @@ def _message_object(message: object, kind: ErrorKind) -> dict[str, object]:
 def _required_string(message: Mapping[str, object], name: str, kind: ErrorKind) -> str:
     """Read one non-empty string message field or raise a classified error."""
     value = message.get(name)
-    if (
-        not isinstance(value, str)
-        or not value.strip()
-        or any(0xD800 <= ord(character) <= 0xDFFF for character in value)
-    ):
+    if not isinstance(value, str) or not value.strip() or not is_json_encodable_text(value):
         raise DspProtocolError(kind, 400, f"{name} must be a non-empty string", code="invalid-message")
     return value
 
@@ -166,6 +165,22 @@ class DspProvider:
         self._uuid_factory = uuid_factory
         self._utc_clock = utc_clock if utc_clock is not None else lambda: datetime.now(UTC)
         self._automatic_tasks: set[asyncio.Task[None]] = set()
+
+    def _next_identifier(self) -> str:
+        """Render the next process identifier, restating the DSP factory contract on failure."""
+        try:
+            return urn_uuid(self._uuid_factory())
+        except RuntimeError as error:
+            raise RuntimeError("uuid_factory returned an invalid identifier") from error
+
+    def _agreement_timestamp(self) -> str:
+        """Render the agreement timestamp, restating the DSP clock contract on failure."""
+        try:
+            return xsd_utc_timestamp(self._utc_clock())
+        except TypeError as error:
+            raise TypeError("utc_clock must return a datetime") from error
+        except ValueError as error:
+            raise ValueError("utc_clock must return a timezone-aware UTC datetime") from error
 
     def _publications(self) -> tuple[DspPublicationRecord, ...]:
         """Read the current publication source without taking ownership of it."""
@@ -332,7 +347,7 @@ class DspProvider:
         callback = _https_callback(request.get("callbackAddress"), "negotiation")
         policy = self._validate_offer(request.get("offer"), "negotiation")
         record = NegotiationRecord(
-            provider_pid=self._new_process_id(),
+            provider_pid=self._next_identifier(),
             consumer_pid=consumer_pid,
             callback_address=callback,
             state="REQUESTED",
@@ -477,7 +492,7 @@ class DspProvider:
             stored, created = await self._state.get_or_create_transfer_for_consumer(
                 consumer_pid,
                 lambda: TransferRecord(
-                    provider_pid=self._new_process_id(),
+                    provider_pid=self._next_identifier(),
                     consumer_pid=consumer_pid,
                     callback_address=callback,
                     agreement_id=agreement_id,
@@ -796,7 +811,8 @@ class DspProvider:
         except RuntimeError as error:
             raise self._transition_error("negotiation", provider_pid, error) from error
         try:
-            await self._deliver(
+            await deliver_with_retries(
+                self._sender,
                 callback_url(
                     record.callback_address, f"/negotiations/{quote(record.consumer_pid, safe='')}/{path_part}"
                 ),
@@ -843,7 +859,8 @@ class DspProvider:
         except RuntimeError as error:
             raise self._transition_error("transfer", provider_pid, error) from error
         try:
-            await self._deliver(
+            await deliver_with_retries(
+                self._sender,
                 callback_url(record.callback_address, f"/transfers/{quote(record.consumer_pid, safe='')}/{path_part}"),
                 build(record),
             )
@@ -895,26 +912,6 @@ class DspProvider:
             return
         except Exception:
             _LOGGER.exception("unexpected automatic DSP callback failure")
-
-    async def _deliver(self, url: str, document: dict[str, JsonValue]) -> None:
-        """Deliver a callback at most twice and require a 2xx acknowledgement."""
-        last_detail = "callback delivery was not attempted"
-        for _attempt in range(2):
-            try:
-                status = await self._sender(url, document)
-            except CallbackTransportError as error:
-                last_detail = error.detail
-                continue
-            except Exception as error:
-                last_detail = f"callback transport failed: {error.__class__.__name__}"
-                continue
-            if isinstance(status, bool) or not isinstance(status, int):
-                last_detail = "callback sender did not return an HTTP status code"
-                continue
-            if 200 <= status < 300:
-                return
-            last_detail = f"callback returned HTTP {status}"
-        raise CallbackTransportError(last_detail)
 
     async def _negotiation(self, provider_pid: str) -> NegotiationRecord:
         """Resolve one negotiation or raise the adapter-facing missing error."""
@@ -998,7 +995,7 @@ class DspProvider:
         policy = thaw_json(record.policy)
         if not isinstance(policy, dict):
             raise TypeError("negotiation policy must be a JSON object")
-        policy["@id"] = self._new_agreement_id()
+        policy["@id"] = self._next_identifier()
         policy["@type"] = "Agreement"
         target = policy.get("target")
         _profile, datasets_by_id, _datasets_by_offer = self._dataset_maps()
@@ -1007,7 +1004,7 @@ class DspProvider:
         policy["target"] = target
         policy["assigner"] = self.config.participant_id
         policy["assignee"] = record.consumer_pid
-        policy["timestamp"] = self._utc_timestamp()
+        policy["timestamp"] = self._agreement_timestamp()
         agreement_id = policy["@id"]
         timestamp = policy["timestamp"]
         if not isinstance(agreement_id, str) or not isinstance(timestamp, str):
@@ -1023,29 +1020,6 @@ class DspProvider:
             assignee=record.consumer_pid,
             timestamp=timestamp,
         )
-
-    def _new_process_id(self) -> str:
-        """Create a provider process identifier in the required ``urn:uuid:`` form."""
-        value = str(self._uuid_factory())
-        if not value.strip() or any(0xD800 <= ord(character) <= 0xDFFF for character in value):
-            raise RuntimeError("uuid_factory returned an invalid identifier")
-        return value if value.startswith("urn:uuid:") else f"urn:uuid:{value}"
-
-    def _new_agreement_id(self) -> str:
-        """Create a unique agreement identifier in the required ``urn:uuid:`` form."""
-        value = str(self._uuid_factory())
-        if not value.strip() or any(0xD800 <= ord(character) <= 0xDFFF for character in value):
-            raise RuntimeError("uuid_factory returned an invalid identifier")
-        return value if value.startswith("urn:uuid:") else f"urn:uuid:{value}"
-
-    def _utc_timestamp(self) -> str:
-        """Render the injected clock value as a UTC XML Schema date-time."""
-        value = self._utc_clock()
-        if not isinstance(value, datetime):
-            raise TypeError("utc_clock must return a datetime")
-        if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("utc_clock must return a timezone-aware UTC datetime")
-        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
     @staticmethod
     def _assert_process_pids(

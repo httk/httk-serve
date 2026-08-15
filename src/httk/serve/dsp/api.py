@@ -2,10 +2,8 @@
 
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
-from importlib.resources import files
 from typing import Any
 
-import yaml
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 
@@ -15,6 +13,7 @@ from httk.serve.openapi import (
     OpenAPIRequestError,
     OpenAPIResponse,
     create_openapi_app,
+    load_packaged_contract,
     parse_openapi_operations,
 )
 
@@ -31,11 +30,7 @@ def openapi_document() -> dict[str, Any]:
 
     :return: Parsed OpenAPI mapping.
     """
-    resource = files("httk.serve.dsp").joinpath("schemas", "openapi.yaml")
-    document = yaml.safe_load(resource.read_text(encoding="utf-8"))
-    if not isinstance(document, dict):
-        raise RuntimeError("bundled OpenAPI document must be an object")
-    return document
+    return load_packaged_contract("httk.serve.dsp", "schemas", "openapi.yaml")
 
 
 def openapi_operations() -> tuple[OpenAPIOperation, ...]:

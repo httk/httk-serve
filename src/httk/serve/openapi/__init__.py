@@ -13,6 +13,7 @@ from .app import (
     create_openapi_app,
     parse_openapi_operations,
 )
+from .resources import load_packaged_contract, packaged_schema_documents, packaged_schema_registry
 from .schemas import OpenAPISchemaError, OpenAPISchemaRegistry
 
 __all__ = [
@@ -28,5 +29,8 @@ __all__ = [
     "OpenAPISchemaRegistry",
     "RequestErrorHandler",
     "create_openapi_app",
+    "load_packaged_contract",
+    "packaged_schema_documents",
+    "packaged_schema_registry",
     "parse_openapi_operations",
 ]

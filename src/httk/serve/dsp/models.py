@@ -2,56 +2,16 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from math import isfinite
-from types import MappingProxyType
 from typing import Literal
 
 from httk.core import Dataset
 
-type JsonScalar = str | int | float | bool | None
-type JsonValue = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
-type FrozenJsonValue = JsonScalar | tuple["FrozenJsonValue", ...] | Mapping[str, "FrozenJsonValue"]
+from ..jsondata import FrozenJsonValue, JsonScalar, JsonValue, freeze_json, thaw_json
+
 type ErrorKind = Literal["catalog", "negotiation", "transfer"]
 
 DSP_CONTEXT = "https://w3id.org/dspace/2025/1/context.jsonld"
 """Protected official DSP JSON-LD context required by the 2025-1 schemas."""
-
-
-def freeze_json(value: object) -> FrozenJsonValue:
-    """Freeze a JSON-compatible value without retaining caller-owned containers.
-
-    :param value: JSON-compatible value to copy into an immutable representation.
-    :return: An immutable JSON-compatible value.
-    :raises TypeError: If ``value`` is not JSON-compatible.
-    :raises ValueError: If a floating-point value is non-finite.
-    """
-    if isinstance(value, float) and not isfinite(value):
-        raise ValueError("JSON floats must be finite")
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, Mapping):
-        frozen: dict[str, FrozenJsonValue] = {}
-        for key, child in value.items():
-            if not isinstance(key, str):
-                raise TypeError("JSON object keys must be strings")
-            frozen[key] = freeze_json(child)
-        return MappingProxyType(frozen)
-    if isinstance(value, list | tuple):
-        return tuple(freeze_json(child) for child in value)
-    raise TypeError(f"Expected a JSON-compatible value, got {type(value).__name__}")
-
-
-def thaw_json(value: FrozenJsonValue) -> JsonValue:
-    """Return an independent ordinary JSON value from an immutable snapshot.
-
-    :param value: Immutable JSON-compatible value to copy.
-    :return: Plain JSON-compatible lists and dictionaries.
-    """
-    if isinstance(value, Mapping):
-        return {key: thaw_json(child) for key, child in value.items()}
-    if isinstance(value, tuple):
-        return [thaw_json(child) for child in value]
-    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -308,6 +268,7 @@ __all__ = [
     "DspProtocolError",
     "ErrorKind",
     "FrozenJsonValue",
+    "JsonScalar",
     "JsonValue",
     "NegotiationRecord",
     "OfferProfile",

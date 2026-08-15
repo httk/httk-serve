@@ -87,7 +87,10 @@ exactly one source is required.
 ## Replaceable catalogue policy
 
 `DspProvider` keeps storage access, DSP message validation, negotiation and
-transfer state, callbacks, and data-address handling fixed. Applications that
+transfer state, callbacks, and data-address handling fixed. The outbound
+callback transport is the generic `httk.serve.http.webhook` implementation
+(`PinnedHttpsJsonPoster` and `deliver_with_retries`), retained under the
+DSP-facing names `DefaultCallbackSender` and `callback_url`. Applications that
 are developing a stricter publication profile can replace only the catalogue
 requirements and projections through the public `DspCataloguePolicy` contract:
 

@@ -3,9 +3,7 @@
 import hashlib
 import inspect
 import json
-import re
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
 from pathlib import Path
 
 from starlette.applications import Starlette
@@ -13,73 +11,10 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 from starlette.routing import Route
 
+from .accept import best_quality_matching_parameters, parse_accept, parse_media_type
+
 type JsonDocument = Mapping[str, object]
 type JsonDocumentFactory = Callable[[], JsonDocument | Awaitable[JsonDocument]]
-
-_QVALUE = re.compile(r"(?:0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)\Z")
-
-
-@dataclass(frozen=True, slots=True)
-class _AcceptRange:
-    """One valid media range from an HTTP ``Accept`` header."""
-
-    major: str
-    minor: str
-    parameters: tuple[tuple[str, str], ...]
-    quality: float
-
-
-def _split_quoted(value: str, delimiter: str) -> tuple[str, ...] | None:
-    """Split an HTTP field outside quoted strings, rejecting broken quoting."""
-    parts: list[str] = []
-    current: list[str] = []
-    quoted = False
-    escaped = False
-    for character in value:
-        if escaped:
-            current.append(character)
-            escaped = False
-        elif quoted and character == "\\":
-            current.append(character)
-            escaped = True
-        elif character == '"':
-            current.append(character)
-            quoted = not quoted
-        elif character == delimiter and not quoted:
-            parts.append("".join(current))
-            current = []
-        else:
-            current.append(character)
-    if quoted or escaped:
-        return None
-    parts.append("".join(current))
-    return tuple(parts)
-
-
-def _parameter_value(value: str) -> str | None:
-    """Decode one token or quoted-string parameter value."""
-    value = value.strip()
-    if not value:
-        return None
-    if not value.startswith('"'):
-        return None if '"' in value else value
-    if len(value) < 2 or not value.endswith('"'):
-        return None
-    decoded: list[str] = []
-    escaped = False
-    for character in value[1:-1]:
-        if escaped:
-            decoded.append(character)
-            escaped = False
-        elif character == "\\":
-            escaped = True
-        elif character == '"':
-            return None
-        else:
-            decoded.append(character)
-    if escaped:
-        return None
-    return "".join(decoded)
 
 
 def _canonical_get_path(path: object) -> str:
@@ -97,92 +32,13 @@ def _canonical_get_path(path: object) -> str:
     return path
 
 
-def _parsed_media_type(value: object) -> tuple[str, str, dict[str, str]]:
-    if not isinstance(value, str):
-        raise ValueError("media_type must be a JSON media type")
-    split_value = _split_quoted(value, ";")
-    if split_value is None:
-        raise ValueError("media_type must be a JSON media type")
-    parts = [part.strip() for part in split_value]
-    if parts[0].count("/") != 1:
-        raise ValueError("media_type must be a JSON media type")
-    major, minor = parts[0].lower().split("/", 1)
-    if major != "application" or (minor != "json" and not minor.endswith("+json")):
-        raise ValueError("media_type must be application/json or an application/*+json type")
-    parameters: dict[str, str] = {}
-    for parameter in parts[1:]:
-        if "=" not in parameter:
-            raise ValueError("media_type parameters must be name=value pairs")
-        name, raw_value = parameter.split("=", 1)
-        name = name.strip().lower()
-        decoded = _parameter_value(raw_value)
-        if not name or decoded is None or name in parameters:
-            raise ValueError("media_type parameters must have unique non-empty names and values")
-        parameters[name] = decoded
-    return major, minor, parameters
-
-
 def _accepts_media_type(header: str | None, response_media_type: str) -> bool:
     if header is None or not header.strip():
         return True
-    response_major, response_minor, response_parameters = _parsed_media_type(response_media_type)
-    ranges: list[_AcceptRange] = []
-    items = _split_quoted(header, ",")
-    if items is None:
-        return False
-    for header_item in items:
-        split_parts = _split_quoted(header_item, ";")
-        if split_parts is None:
-            continue
-        parts = [part.strip() for part in split_parts]
-        media_type = parts[0].lower()
-        if media_type.count("/") != 1:
-            continue
-        major, minor = media_type.split("/", 1)
-        if not major or not minor or (major == "*" and minor != "*") or ("*" in minor and minor != "*"):
-            continue
-        parameters: list[tuple[str, str]] = []
-        quality = 1.0
-        seen_names: set[str] = set()
-        valid = True
-        for parameter in parts[1:]:
-            if "=" not in parameter:
-                valid = False
-                break
-            name, raw_value = parameter.split("=", 1)
-            name = name.strip().lower()
-            decoded = _parameter_value(raw_value)
-            if not name or decoded is None or name in seen_names:
-                valid = False
-                break
-            seen_names.add(name)
-            if name == "q":
-                if _QVALUE.fullmatch(decoded) is None:
-                    valid = False
-                    break
-                quality = float(decoded)
-            else:
-                parameters.append((name, decoded))
-        if valid:
-            ranges.append(_AcceptRange(major, minor, tuple(parameters), quality))
-
-    best: tuple[float, tuple[int, int]] | None = None
-    for accept_range in ranges:
-        if accept_range.major not in {"*", response_major} or accept_range.minor not in {"*", response_minor}:
-            continue
-        if any(response_parameters.get(name) != value for name, value in accept_range.parameters):
-            continue
-        specificity = (
-            2
-            if accept_range.major == response_major and accept_range.minor == response_minor
-            else 1
-            if accept_range.major == response_major
-            else 0,
-            len(accept_range.parameters),
-        )
-        if best is None or specificity > best[1]:
-            best = (accept_range.quality, specificity)
-    return best is not None and best[0] > 0
+    response_major, response_minor, response_parameters = parse_media_type(response_media_type)
+    ranges = parse_accept(header)
+    quality = best_quality_matching_parameters(ranges, response_major, response_minor, response_parameters)
+    return quality is not None and quality > 0
 
 
 def _etag_matches(header: str | None, etag: str) -> bool:
@@ -215,7 +71,7 @@ def json_get_app(
     route_path = _canonical_get_path(path)
     if not isinstance(document, Mapping) and not callable(document):
         raise TypeError("document must be a mapping or zero-argument document factory")
-    _parsed_media_type(media_type)
+    parse_media_type(media_type)
     for name, value in (
         ("profile", profile),
         ("cache_control", cache_control),
@@ -274,7 +130,7 @@ def jsonld_get_app(
     :param debug: Whether Starlette debug responses are enabled.
     :return: A mountable application serving the declared JSON-LD resource.
     """
-    _major, minor, _parameters = _parsed_media_type(media_type)
+    _major, minor, _parameters = parse_media_type(media_type)
     if minor != "ld+json":
         raise ValueError("media_type must be application/ld+json, optionally with parameters")
     return json_get_app(

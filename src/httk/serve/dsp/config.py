@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Self
 from urllib.parse import urlsplit
 
 from httk.core import Dataset, DatasetDistribution, DatasetRecord, Service, ServiceRecord, StorageInfo
+from httk.core.validation.iris import is_absolute_iri, is_https_url
 
 from .models import DSP_CONTEXT
 
@@ -34,60 +35,16 @@ def _nonempty(field_name: str, value: object) -> str:
     return value
 
 
-def _plain_iri_characters(value: str) -> bool:
-    return not any(
-        character.isspace()
-        or ord(character) < 32
-        or 127 <= ord(character) <= 159
-        or 0xD800 <= ord(character) <= 0xDFFF
-        or character in '<>"{}|\\^`'
-        for character in value
-    )
-
-
-def _valid_percent_escapes(value: str) -> bool:
-    hexdigits = frozenset("0123456789abcdefABCDEF")
-    return all(
-        value[index] != "%"
-        or index + 2 < len(value)
-        and value[index + 1] in hexdigits
-        and value[index + 2] in hexdigits
-        for index in range(len(value))
-    )
-
-
 def _absolute_iri(field_name: str, value: object) -> str:
     text = _nonempty(field_name, value)
-    if not _plain_iri_characters(text) or not _valid_percent_escapes(text):
-        raise ValueError(f"{field_name} must be an absolute IRI")
-    try:
-        parsed = urlsplit(text)
-    except ValueError as error:
-        raise ValueError(f"{field_name} must be an absolute IRI") from error
-    if not parsed.scheme:
+    if not is_absolute_iri(text):
         raise ValueError(f"{field_name} must be an absolute IRI")
     return text
 
 
 def _https_url(field_name: str, value: object, *, reject_query: bool = False) -> str:
     text = _nonempty(field_name, value)
-    if not _plain_iri_characters(text):
-        raise ValueError(f"{field_name} must be an absolute HTTPS URL")
-    try:
-        parsed = urlsplit(text)
-        port = parsed.port
-    except ValueError as error:
-        raise ValueError(f"{field_name} must be an absolute HTTPS URL") from error
-    if (
-        parsed.scheme != "https"
-        or not parsed.hostname
-        or parsed.username is not None
-        or parsed.password is not None
-        or (reject_query and parsed.query)
-        or parsed.fragment
-        or (port is not None and not 1 <= port <= 65_535)
-        or not _valid_percent_escapes(text)
-    ):
+    if not is_https_url(text, allow_query=not reject_query):
         raise ValueError(f"{field_name} must be an absolute HTTPS URL")
     return text
 
@@ -119,13 +76,20 @@ def _mount_path(value: object) -> str:
 def _publication_url(value: object) -> str:
     text = _nonempty("access_url", value)
     if text.startswith("/"):
+        hexdigits = frozenset("0123456789abcdefABCDEF")
         parsed = urlsplit(text)
         if (
             parsed.scheme
             or parsed.netloc
             or parsed.fragment
             or text.startswith("//")
-            or not _valid_percent_escapes(text)
+            or not all(
+                text[index] != "%"
+                or index + 2 < len(text)
+                and text[index + 1] in hexdigits
+                and text[index + 2] in hexdigits
+                for index in range(len(text))
+            )
         ):
             raise ValueError("access_url must be root-relative or an absolute HTTPS URL")
         return text

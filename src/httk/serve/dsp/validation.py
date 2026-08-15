@@ -1,12 +1,10 @@
 """Load and validate the bundled DSP and local profile schemas offline."""
 
-import json
 from collections.abc import Mapping
 from functools import cache
-from importlib.resources import abc, files
 from typing import Any
 
-from httk.serve.openapi import OpenAPISchemaError, OpenAPISchemaRegistry
+from httk.serve.openapi import OpenAPISchemaError, OpenAPISchemaRegistry, packaged_schema_documents
 
 
 class DspSchemaError(ValueError):
@@ -24,30 +22,6 @@ def _normalized_references(value: Any) -> Any:
     return value
 
 
-def _walk(resource: abc.Traversable) -> tuple[abc.Traversable, ...]:
-    """Return files below an importlib resource in stable order."""
-    found: list[abc.Traversable] = []
-    for child in sorted(resource.iterdir(), key=lambda item: item.name):
-        if child.is_dir():
-            found.extend(_walk(child))
-        else:
-            found.append(child)
-    return tuple(found)
-
-
-def _schema_documents() -> tuple[dict[str, Any], ...]:
-    """Load every bundled JSON Schema document without network access."""
-    root = files("httk.serve.dsp").joinpath("schemas")
-    documents: list[dict[str, Any]] = []
-    for resource in _walk(root):
-        if not resource.name.endswith(".json"):
-            continue
-        document = _normalized_references(json.loads(resource.read_text(encoding="utf-8")))
-        if isinstance(document, dict) and "$schema" in document:
-            documents.append(document)
-    return tuple(documents)
-
-
 @cache
 def schema_registry() -> OpenAPISchemaRegistry:
     """Return the immutable registry of bundled JSON Schemas.
@@ -55,8 +29,11 @@ def schema_registry() -> OpenAPISchemaRegistry:
     :return: Registry whose resources are resolved exclusively from package
         data.
     """
+    documents = [
+        _normalized_references(document) for document in packaged_schema_documents("httk.serve.dsp", "schemas")
+    ]
     try:
-        return OpenAPISchemaRegistry(_schema_documents())
+        return OpenAPISchemaRegistry(documents)
     except OpenAPISchemaError as error:
         raise DspSchemaError(str(error)) from error
 
