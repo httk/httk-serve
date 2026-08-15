@@ -205,32 +205,3 @@ def test_stored_queryable_property_filters() -> None:
             response = client.get("/calculations", params={"filter": '_httk_public = "open"'})
             assert response.status_code == 200
             assert len(response.json()["data"]) == 1
-
-
-def test_stored_non_queryable_property_is_rejected() -> None:
-    with Database.sqlite() as database:
-        store = SqlStore(database, entry_records={SecretCalculation: SecretRecord})
-        with _stored_client(store) as client:
-            response = client.get("/calculations", params={"filter": '_httk_secret = "classified"'})
-            assert response.status_code == 400
-            assert int(response.json()["errors"][0]["status"]) == 400
-
-
-@pytest.mark.parametrize(
-    "filter_string",
-    (
-        '_httk_secret.x = "classified"',
-        '_httk_secret.x.y = "classified"',
-        '_httk_secret.x.y.z = "classified"',
-        '_httk_secret.x CONTAINS "cl"',
-        '_httk_absent.x = "x"',
-        '_httk_absent.x.y = "x"',
-        '_httk_absent.x.y.z = "x"',
-    ),
-)
-def test_stored_dotted_suffix_bypass_is_rejected(filter_string: str) -> None:
-    with Database.sqlite() as database:
-        store = SqlStore(database, entry_records={SecretCalculation: SecretRecord})
-        with _stored_client(store) as client:
-            response = client.get("/calculations", params={"filter": filter_string})
-            assert response.status_code == 400

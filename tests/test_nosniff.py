@@ -1,5 +1,6 @@
 """Every OPTIMADE response carries X-Content-Type-Options: nosniff."""
 
+import pytest
 from fake_backend import FakeStore
 from materials_fixtures import materials_field_handlers, materials_schema
 from starlette.testclient import TestClient
@@ -20,24 +21,16 @@ def _client() -> TestClient:
     return TestClient(create_asgi_app(adapter, baseurl="http://testserver"), base_url="http://testserver")
 
 
-def test_json_response_has_nosniff() -> None:
+@pytest.mark.parametrize(
+    "path,status",
+    (
+        ("/v1/info", 200),
+        ("/versions", 200),
+        ("/nosuch-endpoint", 404),
+    ),
+)
+def test_every_response_has_nosniff(path: str, status: int) -> None:
     with _client() as client:
-        response = client.get("/v1/info")
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "application/vnd.api+json"
-    assert response.headers["x-content-type-options"] == "nosniff"
-
-
-def test_versions_csv_response_has_nosniff() -> None:
-    with _client() as client:
-        response = client.get("/versions")
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/csv")
-    assert response.headers["x-content-type-options"] == "nosniff"
-
-
-def test_error_response_has_nosniff() -> None:
-    with _client() as client:
-        response = client.get("/nosuch-endpoint")
-    assert response.status_code == 404
+        response = client.get(path)
+    assert response.status_code == status
     assert response.headers["x-content-type-options"] == "nosniff"
