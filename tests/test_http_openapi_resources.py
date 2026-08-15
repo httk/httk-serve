@@ -2,7 +2,7 @@
 
 import pytest
 
-from httk.serve.openapi import (
+from httk.serve.http.openapi import (
     OpenAPISchemaRegistry,
     load_packaged_contract,
     packaged_schema_documents,

@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from httk.serve.openapi import (
+from httk.serve.http.openapi import (
     OpenAPIContractError,
     OpenAPIRequest,
     OpenAPIRequestError,

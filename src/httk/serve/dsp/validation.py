@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from functools import cache
 from typing import Any
 
-from httk.serve.openapi import OpenAPISchemaError, OpenAPISchemaRegistry, packaged_schema_documents
+from httk.serve.http.openapi import OpenAPISchemaError, OpenAPISchemaRegistry, packaged_schema_documents
 
 
 class DspSchemaError(ValueError):

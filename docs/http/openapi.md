@@ -1,6 +1,6 @@
 # Constrained OpenAPI applications
 
-`httk.serve.openapi` turns a caller-owned OpenAPI 3.1 path contract into a
+`httk.serve.http.openapi` turns a caller-owned OpenAPI 3.1 path contract into a
 Starlette application. It deliberately implements a small, offline subset:
 `GET` and `POST` paths, local references for path and operation pieces,
 required JSON request bodies whose schemas are external `$ref` values, exact
@@ -18,7 +18,7 @@ Build an `OpenAPISchemaRegistry` from those documents, then map every
 when the application is constructed.
 
 ```python
-from httk.serve.openapi import (
+from httk.serve.http.openapi import (
     OpenAPIRequest,
     OpenAPIResponse,
     OpenAPISchemaRegistry,

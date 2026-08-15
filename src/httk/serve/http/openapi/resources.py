@@ -26,7 +26,7 @@ def load_packaged_contract(package: str, *path: str) -> dict[str, Any]:
     The resource is read as UTF-8 and parsed according to its suffix:
     ``.yaml`` and ``.yml`` through ``yaml.safe_load``, ``.json`` through
     :func:`json.loads`. Both formats yield the same mapping shape that
-    :func:`httk.serve.openapi.create_openapi_app` consumes.
+    :func:`httk.serve.http.openapi.create_openapi_app` consumes.
 
     :param package: Importable package that ships the contract as package data.
     :param \\*path: Path segments joined below the package to reach the resource.
@@ -75,7 +75,7 @@ def packaged_schema_registry(package: str, *path: str) -> OpenAPISchemaRegistry:
     :param package: Importable package that ships the schema documents.
     :param \\*path: Path segments joined below the package to reach the schema root.
     :return: Registry over the bundled documents.
-    :raises httk.serve.openapi.OpenAPISchemaError: If any document is invalid.
+    :raises httk.serve.http.openapi.OpenAPISchemaError: If any document is invalid.
     """
     return OpenAPISchemaRegistry(packaged_schema_documents(package, *path))
 

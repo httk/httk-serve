@@ -4,6 +4,7 @@
 :maxdepth: 1
 
 json_get
+openapi
 static_files
 ```
 

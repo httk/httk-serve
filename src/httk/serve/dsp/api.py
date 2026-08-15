@@ -7,7 +7,7 @@ from typing import Any
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 
-from httk.serve.openapi import (
+from httk.serve.http.openapi import (
     OpenAPIOperation,
     OpenAPIRequest,
     OpenAPIRequestError,
