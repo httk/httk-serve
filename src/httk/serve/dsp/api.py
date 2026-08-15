@@ -1,7 +1,8 @@
 """Adapt the bundled DSP OpenAPI contract through the public OpenAPI adapter."""
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from contextlib import asynccontextmanager
+from functools import partial
 from typing import Any
 
 from starlette.applications import Starlette
@@ -12,15 +13,40 @@ from httk.serve.http.openapi import (
     OpenAPIRequest,
     OpenAPIRequestError,
     OpenAPIResponse,
+    OperationBinding,
+    OperationContext,
     create_openapi_app,
+    operation,
 )
 
-from .catalogue import DCAT_MEDIA_TYPE, DCAT_PROFILE, DspCatalogueRepresentation
+from .catalogue import DCAT_MEDIA_TYPE, DCAT_PROFILE
 from .models import DspProtocolError, ErrorKind
-from .provider import DspProvider, _AutomaticBatch
+from .provider import DspProvider
 from .validation import dsp_contract
 
-type HandlerResult = dict[str, Any] | None
+_OPERATIONS: Mapping[str, OperationBinding] = {
+    "version_discovery": operation(DspProvider.version_document),
+    "catalog_request": operation(DspProvider.catalogue, aliases={"body": "request"}, extras=("representation",)),
+    "dataset_request": operation(DspProvider.dsp_dataset, aliases={"id": "dataset_id"}),
+    "negotiation_state": operation(DspProvider.get_negotiation),
+    "negotiation_request": operation(
+        DspProvider.request_negotiation, aliases={"body": "message"}, extras=("_automatic_batch",)
+    ),
+    "negotiation_counter_request": operation(DspProvider.counter_request, aliases={"body": "message"}),
+    "negotiation_event": operation(DspProvider.negotiation_event, aliases={"body": "message"}),
+    "agreement_verification": operation(
+        DspProvider.verify_agreement, aliases={"body": "message"}, extras=("_automatic_batch",)
+    ),
+    "negotiation_termination": operation(DspProvider.receive_negotiation_termination, aliases={"body": "message"}),
+    "transfer_state": operation(DspProvider.get_transfer),
+    "transfer_request": operation(
+        DspProvider.request_transfer, aliases={"body": "message"}, extras=("_automatic_batch",)
+    ),
+    "transfer_start": operation(DspProvider.resume_transfer, aliases={"body": "message"}),
+    "transfer_suspension": operation(DspProvider.receive_transfer_suspension, aliases={"body": "message"}),
+    "transfer_completion": operation(DspProvider.receive_transfer_completion, aliases={"body": "message"}),
+    "transfer_termination": operation(DspProvider.receive_transfer_termination, aliases={"body": "message"}),
+}
 
 
 def openapi_document() -> dict[str, Any]:
@@ -38,59 +64,6 @@ def openapi_operations() -> tuple[OpenAPIOperation, ...]:
     :raises RuntimeError: If the document uses an unsupported construct.
     """
     return dsp_contract().operations
-
-
-async def _dispatch(
-    provider: DspProvider,
-    operation_id: str,
-    path: Mapping[str, str],
-    body: dict[str, object] | None,
-    automatic_batch: _AutomaticBatch | None = None,
-    catalogue_representation: DspCatalogueRepresentation | None = None,
-) -> HandlerResult:
-    """Dispatch one validated operation to its provider business method."""
-    if operation_id == "version_discovery":
-        return provider.version_document()
-    elif operation_id == "catalog_request":
-        if catalogue_representation is None:
-            raise RuntimeError("catalog_request requires a selected catalogue representation")
-        return provider.catalogue(body or {}, catalogue_representation)
-    elif operation_id == "dataset_request":
-        return provider.dsp_dataset(path["id"])
-    elif operation_id == "negotiation_state":
-        return await provider.get_negotiation(path["providerPid"])
-    elif operation_id == "negotiation_request":
-        return await provider.request_negotiation(body or {}, _automatic_batch=automatic_batch)
-    elif operation_id == "negotiation_counter_request":
-        await provider.counter_request(path["providerPid"], body or {})
-        return None
-    elif operation_id == "negotiation_event":
-        await provider.negotiation_event(path["providerPid"], body or {})
-        return None
-    elif operation_id == "agreement_verification":
-        await provider.verify_agreement(path["providerPid"], body or {}, _automatic_batch=automatic_batch)
-        return None
-    elif operation_id == "negotiation_termination":
-        await provider.receive_negotiation_termination(path["providerPid"], body or {})
-        return None
-    elif operation_id == "transfer_state":
-        return await provider.get_transfer(path["providerPid"])
-    elif operation_id == "transfer_request":
-        return await provider.request_transfer(body or {}, _automatic_batch=automatic_batch)
-    elif operation_id == "transfer_start":
-        await provider.resume_transfer(path["providerPid"], body or {})
-        return None
-    elif operation_id == "transfer_suspension":
-        await provider.receive_transfer_suspension(path["providerPid"], body or {})
-        return None
-    elif operation_id == "transfer_completion":
-        await provider.receive_transfer_completion(path["providerPid"], body or {})
-        return None
-    elif operation_id == "transfer_termination":
-        await provider.receive_transfer_termination(path["providerPid"], body or {})
-        return None
-    else:
-        raise RuntimeError(f"no DSP handler is registered for {operation_id}")
 
 
 def _error_kind(operation_id: str) -> ErrorKind:
@@ -131,39 +104,19 @@ def _complete_error_document(error: DspProtocolError, path: Mapping[str, str], b
     return document
 
 
-def _handler(provider: DspProvider, operation_id: str) -> Callable[[OpenAPIRequest], Awaitable[OpenAPIResponse]]:
-    """Build one DSP business handler for the neutral request contract."""
-
-    async def handler(request: OpenAPIRequest) -> OpenAPIResponse:
-        if request.body is not None and not isinstance(request.body, dict):
-            raise _schema_error(operation_id, "request body must be a JSON object", request.path_params, request.body)
-        automatic_batch = provider.automatic_batch()
-        catalogue_representation = (
-            provider.select_catalogue_representation(request.header("accept"))
-            if operation_id == "catalog_request"
-            else None
-        )
-        result = await _dispatch(
-            provider,
-            operation_id,
-            request.path_params,
-            request.body,
-            automatic_batch,
-            catalogue_representation=catalogue_representation,
-        )
-        background = (
-            BackgroundTask(provider.release_automatic, automatic_batch)
-            if provider.has_automatic_actions(automatic_batch)
-            else None
-        )
-        if result is None:
-            return OpenAPIResponse(background=background)
-        media_type = catalogue_representation.media_type if catalogue_representation is not None else None
-        headers = dict(catalogue_representation.headers) if catalogue_representation is not None else {}
-        return OpenAPIResponse(body=result, media_type=media_type, headers=headers, background=background)
-
-    handler.__name__ = operation_id
-    return handler
+@asynccontextmanager
+async def _scope(provider: DspProvider, request: OpenAPIRequest):
+    """Supply per-request DSP inputs and defer automatic callbacks past a clean response."""
+    batch = provider.automatic_batch()
+    context = OperationContext(extras={"_automatic_batch": batch})
+    if request.operation.operation_id == "catalog_request":
+        representation = provider.select_catalogue_representation(request.header("accept"))
+        context.extras["representation"] = representation
+        context.media_type = representation.media_type
+        context.headers = dict(representation.headers)
+    yield context
+    if provider.has_automatic_actions(batch):
+        context.background = BackgroundTask(provider.release_automatic, batch)
 
 
 def _request_error(error: OpenAPIRequestError) -> OpenAPIResponse:
@@ -214,15 +167,17 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
             await provider.cancel_automatic()
 
     contract = dsp_contract()
-    operations = contract.operations
     exception_handlers: Mapping[type[Exception], Callable[[Exception, OpenAPIRequest], OpenAPIResponse]] = {
         DspProtocolError: _adapt_protocol_error
     }
     app = create_openapi_app(
         contract,
-        {operation.operation_id: _handler(provider, operation.operation_id) for operation in operations},
+        _OPERATIONS,
+        implementation=provider,
         request_error_handler=_request_error,
         exception_handlers=exception_handlers,
+        request_scope=partial(_scope, provider),
+        scope_names=("_automatic_batch", "representation"),
         lifespan=lifespan,
         debug=debug,
         path_converters={"id": "path"},

@@ -1,9 +1,10 @@
 """The deliberately small OpenAPI 3.1-to-Starlette adapter."""
 
+import contextlib
 import inspect
 import json
 import re
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -21,11 +22,13 @@ if TYPE_CHECKING:
     # OpenAPIOperation, and parse_openapi_operations from this module at module level,
     # so this module must not import contract.py at module level in turn. The runtime
     # check in create_openapi_app uses a local import instead; this one is type-only.
+    # binding.py imports this module at module level, so it too is referenced type-only here.
+    from .binding import BoundOperation, OperationBinding, OperationContext
     from .contract import OpenAPIContract
 
-type Handler = Callable[["OpenAPIRequest"], "OpenAPIResponse | Awaitable[OpenAPIResponse]"]
 type RequestErrorHandler = Callable[["OpenAPIRequestError"], "OpenAPIResponse"]
 type ExceptionHandler = Callable[[Exception, "OpenAPIRequest"], "OpenAPIResponse | Awaitable[OpenAPIResponse]"]
+type RequestScope = Callable[["OpenAPIRequest"], contextlib.AbstractAsyncContextManager["OperationContext"]]
 
 
 class OpenAPIContractError(ValueError):
@@ -404,8 +407,8 @@ async def _read_request_body(operation: OpenAPIOperation, request: Request) -> O
     return _normal_request(operation, request, body)
 
 
-async def _call(handler: Handler | ExceptionHandler, *args: Any) -> OpenAPIResponse:
-    """Await a handler only when it returned an awaitable result."""
+async def _call(handler: ExceptionHandler, *args: Any) -> OpenAPIResponse:
+    """Await an exception adapter only when it returned an awaitable result."""
     result = handler(*args)
     if inspect.isawaitable(result):
         result = await result
@@ -480,69 +483,119 @@ def _preflight_schemas(operations: tuple[OpenAPIOperation, ...], schemas: OpenAP
                 ) from error
 
 
+def _merge_context(response: OpenAPIResponse, context: "OperationContext") -> OpenAPIResponse:
+    """Fold a request scope's response metadata into a successful handler response.
+
+    The handler wins on every field it set: its ``media_type`` when not ``None``,
+    its ``background`` when not ``None``, and its headers key-by-key. The scope
+    supplies whatever the handler left unset. A handler that returned a raw value
+    set none of these, so the scope becomes the sole source.
+
+    :param response: The converted handler response.
+    :param context: The request scope's populated per-request context.
+    :return: The response with the scope's metadata folded in.
+    """
+    return OpenAPIResponse(
+        status=response.status,
+        body=response.body,
+        media_type=response.media_type if response.media_type is not None else context.media_type,
+        headers={**context.headers, **response.headers},
+        background=response.background if response.background is not None else context.background,
+    )
+
+
 def create_openapi_app(
-    document: "OpenAPIContract | Mapping[str, Any]",
-    handlers: Mapping[str, Handler],
+    contract: "OpenAPIContract | Mapping[str, Any]",
+    operations: "Mapping[str, Callable[..., Any] | OperationBinding]",
     *,
+    implementation: object | None = None,
     schemas: OpenAPISchemaRegistry | None = None,
     request_error_handler: RequestErrorHandler,
     exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
+    request_scope: "RequestScope | None" = None,
+    scope_names: Sequence[str] = (),
     lifespan: Callable[[Starlette], Any] | None = None,
     debug: bool = False,
     path_converters: Mapping[str, str] | None = None,
 ) -> Starlette:
     """Create a Starlette app from a constrained OpenAPI 3.1 contract.
 
-    ``document`` accepts either an :class:`~httk.serve.http.openapi.OpenAPIContract`,
+    ``contract`` accepts either an :class:`~httk.serve.http.openapi.OpenAPIContract`,
     which already bundles its offline schema registry, or a plain OpenAPI document
     mapping paired with a separate ``schemas`` registry.
 
-    :param document: Parsed contract, or a caller-owned OpenAPI path document.
-    :param handlers: Operation-id-to-handler mapping.
+    Each ``operations`` entry is a bare handler callable or an
+    :class:`~httk.serve.http.openapi.OperationBinding`. The framework binds the
+    operation's declared path, query, and header parameters, the validated request
+    body, and any whole-request injection to the handler's parameters by name; see
+    :func:`~httk.serve.http.openapi.operation`.
+
+    :param contract: Parsed contract, or a caller-owned OpenAPI path document.
+    :param operations: Operation-id-to-handler mapping.
+    :param implementation: Object whose methods resolve class-defined function
+        entries; ``None`` uses each entry callable directly.
     :param schemas: Offline JSON Schema registry for external body references.
-        Required and used when ``document`` is a plain mapping; must not be
-        supplied when ``document`` is an
+        Required and used when ``contract`` is a plain mapping; must not be
+        supplied when ``contract`` is an
         :class:`~httk.serve.http.openapi.OpenAPIContract`.
     :param request_error_handler: Converts request parsing or schema errors to a response.
     :param exception_handlers: Exact protocol exception classes converted to responses.
+    :param request_scope: Optional per-request async context manager entered around
+        each handler call. It populates the :class:`~httk.serve.http.openapi.OperationContext`
+        extras before the handler runs and may set response metadata after it
+        returns; that metadata is folded into the response on normal completion
+        only, never onto an error or adapted-exception response.
+    :param scope_names: Names of the request-scope values the scope may supply,
+        against which each operation's declared extras are validated.
     :param lifespan: Optional Starlette lifespan callable.
     :param debug: Whether Starlette debug responses are enabled.
     :param path_converters: OpenAPI path parameter to Starlette converter mapping.
     :return: Mountable Starlette application.
-    :raises OpenAPIContractError: If handlers or the contract are incomplete or
-        unsupported, or if ``document`` and ``schemas`` disagree about which
-        schema registry to use.
+    :raises OpenAPIContractError: If the operations or the contract are incomplete
+        or unsupported, if a handler cannot satisfy an operation's declared inputs
+        by name, or if ``contract`` and ``schemas`` disagree about which schema
+        registry to use.
     """
+    from .binding import bind_operation  # local: see the TYPE_CHECKING import above
     from .contract import OpenAPIContract  # local: see the TYPE_CHECKING import above
 
-    if isinstance(document, OpenAPIContract):
+    if isinstance(contract, OpenAPIContract):
         if schemas is not None:
             raise OpenAPIContractError("schemas must not be supplied together with an OpenAPIContract")
-        operations = document.operations
-        schemas = document.schemas
+        parsed_operations = contract.operations
+        schemas = contract.schemas
     else:
         if schemas is None:
-            raise OpenAPIContractError("schemas is required when document is a plain OpenAPI mapping")
-        operations = parse_openapi_operations(document)
-    _preflight_schemas(operations, schemas)
-    expected = {operation.operation_id for operation in operations}
-    missing, unknown = expected - set(handlers), set(handlers) - expected
+            raise OpenAPIContractError("schemas is required when contract is a plain OpenAPI mapping")
+        parsed_operations = parse_openapi_operations(contract)
+    _preflight_schemas(parsed_operations, schemas)
+    expected = {operation.operation_id for operation in parsed_operations}
+    missing, unknown = expected - set(operations), set(operations) - expected
     if missing or unknown:
         detail = []
         if missing:
-            detail.append(f"missing handlers: {sorted(missing)}")
+            detail.append(f"missing operations: {sorted(missing)}")
         if unknown:
-            detail.append(f"unknown handlers: {sorted(unknown)}")
+            detail.append(f"unknown operations: {sorted(unknown)}")
         raise OpenAPIContractError("; ".join(detail))
+    bound_operations = {
+        operation.operation_id: bind_operation(
+            operation, operations[operation.operation_id], implementation=implementation, scope_names=scope_names
+        )
+        for operation in parsed_operations
+    }
     converters = path_converters or {}
     adapted_exceptions = exception_handlers or {}
     routes: list[Route] = []
-    for operation in operations:
+    for operation in parsed_operations:
         route_path = operation.path
         for name, converter in converters.items():
             route_path = route_path.replace("{" + name + "}", "{" + name + ":" + converter + "}")
+        invoke = bound_operations[operation.operation_id]
 
-        async def endpoint(request: Request, operation: OpenAPIOperation = operation) -> Response:
+        async def endpoint(
+            request: Request, operation: OpenAPIOperation = operation, invoke: "BoundOperation" = invoke
+        ) -> Response:
             normalized = _normal_request(operation, request)
             try:
                 _validate_parameters(normalized)
@@ -552,7 +605,12 @@ def create_openapi_app(
                         schemas.validate(operation.request_schema, normalized.body)
                     except OpenAPISchemaError as error:
                         raise OpenAPIRequestError(operation, str(error), normalized) from error
-                result = await _call(handlers[operation.operation_id], normalized)
+                if request_scope is None:
+                    result = await invoke(normalized)
+                else:
+                    async with request_scope(normalized) as context:
+                        result = await invoke(normalized, context.extras)
+                    result = _merge_context(result, context)
             except OpenAPIRequestError as error:
                 result = request_error_handler(error)
                 if not isinstance(result, OpenAPIResponse):
@@ -572,7 +630,6 @@ def create_openapi_app(
 
 __all__ = [
     "ExceptionHandler",
-    "Handler",
     "OpenAPIContractError",
     "OpenAPIOperation",
     "OpenAPIParameter",
@@ -580,6 +637,7 @@ __all__ = [
     "OpenAPIRequestError",
     "OpenAPIResponse",
     "RequestErrorHandler",
+    "RequestScope",
     "create_openapi_app",
     "parse_openapi_operations",
 ]

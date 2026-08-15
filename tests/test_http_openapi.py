@@ -7,7 +7,6 @@ from starlette.testclient import TestClient
 
 from httk.serve.http.openapi import (
     OpenAPIContractError,
-    OpenAPIRequest,
     OpenAPIRequestError,
     OpenAPIResponse,
     OpenAPISchemaError,
@@ -121,24 +120,24 @@ def test_schema_registry_rejects_invalid_schema_at_construction() -> None:
 
 def test_openapi_app_maps_operations_and_normalizes_request_values() -> None:
     """A handler sees normalized path, query, header, and schema-checked JSON values."""
-    seen: list[OpenAPIRequest] = []
+    seen: list[dict[str, Any]] = []
 
-    def item(request: OpenAPIRequest) -> OpenAPIResponse:
-        seen.append(request)
+    def item(item: str, view: str | None = None, x_trace: str | None = None, *, body: Any) -> OpenAPIResponse:
+        seen.append({"item": item, "view": view, "x_trace": x_trace, "value": body["value"]})
         return OpenAPIResponse(
             200,
             {
-                "path": request.path_params["item"],
-                "query": request.query["view"],
-                "header": request.header("x-trace") or "",
-                "value": request.body["value"],
+                "path": item,
+                "query": view or "",
+                "header": x_trace or "",
+                "value": body["value"],
             },
             media_type="application/vnd.example+json",
         )
 
     app = create_openapi_app(
         document(),
-        {"item": item, "delete": lambda _request: OpenAPIResponse(204)},
+        {"item": item, "delete": lambda path: OpenAPIResponse(204)},
         schemas=OpenAPISchemaRegistry(SCHEMAS),
         request_error_handler=error_response,
         path_converters={"path": "path"},
@@ -148,7 +147,7 @@ def test_openapi_app_maps_operations_and_normalizes_request_values() -> None:
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/vnd.example+json"
     assert response.json() == {"path": "one", "query": "full", "header": "trace", "value": "yes"}
-    assert seen[0].headers["x-trace"] == "trace"
+    assert seen[0]["x_trace"] == "trace"
 
 
 def test_openapi_app_enforces_required_and_enum_parameter_contracts() -> None:
@@ -163,21 +162,29 @@ def test_openapi_app_enforces_required_and_enum_parameter_contracts() -> None:
         )
     )
 
-    def item(request: OpenAPIRequest) -> OpenAPIResponse:
+    def item(
+        item: str,
+        view: str | None = None,
+        x_trace: str | None = None,
+        mode: str | None = None,
+        x_required: str | None = None,
+        *,
+        body: Any,
+    ) -> OpenAPIResponse:
         return OpenAPIResponse(
             200,
             {
-                "path": request.path_params["item"],
-                "query": request.query["view"],
-                "header": request.header("x-trace") or "",
-                "value": request.body["value"],
+                "path": item,
+                "query": view or "",
+                "header": x_trace or "",
+                "value": body["value"],
             },
             media_type="application/json",
         )
 
     app = create_openapi_app(
         contract,
-        {"item": item, "delete": lambda _request: OpenAPIResponse(204)},
+        {"item": item, "delete": lambda path: OpenAPIResponse(204)},
         schemas=OpenAPISchemaRegistry(SCHEMAS),
         request_error_handler=error_response,
         path_converters={"path": "path"},
@@ -209,8 +216,8 @@ def test_openapi_app_adapts_invalid_request_and_supports_bodyless_and_path_conve
     app = create_openapi_app(
         document(),
         {
-            "item": lambda _request: OpenAPIResponse(200, {"not": "the contract"}),
-            "delete": lambda request: OpenAPIResponse(204, headers={"X-Deleted": request.path_params["path"]}),
+            "item": lambda item, body: OpenAPIResponse(200, {"not": "the contract"}),
+            "delete": lambda path: OpenAPIResponse(204, headers={"X-Deleted": path}),
         },
         schemas=OpenAPISchemaRegistry(SCHEMAS),
         request_error_handler=error_response,
@@ -230,20 +237,20 @@ def test_openapi_app_adapts_invalid_request_and_supports_bodyless_and_path_conve
 def test_openapi_app_defaults_status_less_response_to_declared_success_status() -> None:
     """A handler returning ``OpenAPIResponse()`` gets the operation's declared status."""
 
-    def item(request: OpenAPIRequest) -> OpenAPIResponse:
+    def item(item: str, view: str | None = None, x_trace: str | None = None, *, body: Any) -> OpenAPIResponse:
         return OpenAPIResponse(
             body={
-                "path": request.path_params["item"],
-                "query": request.query["view"],
-                "header": request.header("x-trace") or "",
-                "value": request.body["value"],
+                "path": item,
+                "query": view or "",
+                "header": x_trace or "",
+                "value": body["value"],
             },
             media_type="application/json",
         )
 
     app = create_openapi_app(
         document(),
-        {"item": item, "delete": lambda _request: OpenAPIResponse()},
+        {"item": item, "delete": lambda path: OpenAPIResponse()},
         schemas=OpenAPISchemaRegistry(SCHEMAS),
         request_error_handler=error_response,
         path_converters={"path": "path"},
@@ -260,7 +267,7 @@ def test_openapi_app_raises_when_status_less_response_has_no_single_success_stat
     """A status-less response for an operation without exactly one 2xx status is rejected."""
     app = create_openapi_app(
         ambiguous_success_document(),
-        {"item": lambda _request: OpenAPIResponse(), "delete": lambda _request: OpenAPIResponse(204)},
+        {"item": lambda item, body: OpenAPIResponse(), "delete": lambda path: OpenAPIResponse(204)},
         schemas=OpenAPISchemaRegistry(SCHEMAS),
         request_error_handler=error_response,
         path_converters={"path": "path"},
@@ -275,10 +282,10 @@ def test_openapi_app_raises_when_status_less_response_has_no_single_success_stat
 def test_openapi_app_rejects_incomplete_handlers_and_unsupported_constructs() -> None:
     """Contract errors happen during application construction rather than at request time."""
     registry = OpenAPISchemaRegistry(SCHEMAS)
-    with pytest.raises(OpenAPIContractError, match="missing handlers"):
+    with pytest.raises(OpenAPIContractError, match="missing operations"):
         create_openapi_app(
             document(),
-            {"item": lambda _request: OpenAPIResponse(200)},
+            {"item": lambda item, body: OpenAPIResponse(200)},
             schemas=registry,
             request_error_handler=error_response,
         )
@@ -287,7 +294,7 @@ def test_openapi_app_rejects_incomplete_handlers_and_unsupported_constructs() ->
     with pytest.raises(OpenAPIContractError, match="unsupported"):
         create_openapi_app(
             unsupported,
-            {"item": lambda _request: OpenAPIResponse(200), "delete": lambda _request: OpenAPIResponse(204)},
+            {"item": lambda item, body: OpenAPIResponse(200), "delete": lambda path: OpenAPIResponse(204)},
             schemas=registry,
             request_error_handler=error_response,
         )
@@ -379,7 +386,7 @@ def test_openapi_parser_rejects_unsupported_security(extra: dict[str, object]) -
 def test_openapi_app_preflights_schema_references_and_response_media_types() -> None:
     """Unregistered schemas and non-JSON response bodies are construction errors."""
     registry = OpenAPISchemaRegistry(SCHEMAS)
-    handlers = {"item": lambda _request: OpenAPIResponse(200), "delete": lambda _request: OpenAPIResponse(204)}
+    handlers = {"item": lambda item, body: OpenAPIResponse(200), "delete": lambda path: OpenAPIResponse(204)}
     missing_request = document()
     missing_request["paths"]["/items/{item}"]["post"]["requestBody"]["content"]["application/json"]["schema"] = {
         "$ref": "https://example.test/missing"
@@ -403,7 +410,7 @@ def test_openapi_app_preflights_schema_references_and_response_media_types() -> 
     with pytest.raises(OpenAPIContractError, match="parameters"):
         create_openapi_app(
             malformed_parameters,
-            {"item": lambda _request: OpenAPIResponse(200), "delete": lambda _request: OpenAPIResponse(204)},
+            {"item": lambda item, body: OpenAPIResponse(200), "delete": lambda path: OpenAPIResponse(204)},
             schemas=registry,
             request_error_handler=error_response,
         )

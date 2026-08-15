@@ -13,9 +13,11 @@ must exactly match the variables in their path template. Formats, defaults,
 coercion, and other parameter constraints are intentionally rejected.
 
 The protocol or prototype owns its OpenAPI document and JSON Schema documents.
-The adapter derives everything it can from them, and rejects missing or unknown
-handlers when the application is constructed rather than when a request
-arrives.
+The adapter derives everything it can from them — routes, methods, statuses,
+media types, request and response validation, and how each handler's arguments
+are filled — so an implementation supplies the functions that implement its API
+and little else. Whatever cannot be derived is checked when the application is
+constructed rather than when a request arrives.
 
 ## Packaged contracts
 
@@ -27,18 +29,12 @@ schema root are silently skipped — and caches the result, so repeated
 application construction does not re-parse or re-validate the package data.
 
 ```python
-from httk.serve.http.openapi import (
-    OpenAPIContract,
-    OpenAPIRequest,
-    OpenAPIResponse,
-    create_openapi_app,
-)
+from httk.serve.http.openapi import OpenAPIContract, create_openapi_app
 
 CONTRACT = OpenAPIContract.from_package("prototype_protocol")
 
-async def create_thing(request: OpenAPIRequest) -> OpenAPIResponse:
-    thing = await service.create(request.body)
-    return OpenAPIResponse(body=thing)
+async def create_thing(body):
+    return await service.create(body)
 
 app = create_openapi_app(
     CONTRACT,
@@ -72,17 +68,79 @@ Each operation exposes the status and body contracts the document declares:
   for that status.
 - `operation.response_contracts(status)` — the same for any one status.
 
-A handler therefore does not restate the status the document already declares.
-`OpenAPIResponse(body=thing)` responds with the operation's declared success
-status, and a bodyless `OpenAPIResponse()` does the same for an operation whose
-success response has no body. State a status explicitly when an operation
-declares several 2xx statuses, or to select a declared non-success status.
+A handler therefore does not restate the status the document already declares. It
+may simply return a value:
 
-Handlers receive immutable normalized path parameters, query parameters,
-lowercase headers, and a JSON body validated through the contract's registry.
-They return an `OpenAPIResponse`, including its exact media type when a status
-declares more than one; a unique body media type is inferred. Response values
-are schema validated before they are serialized.
+- `None` — the declared bodyless success response;
+- a mapping or list — the declared success status with that body;
+- an explicit `OpenAPIResponse` — when the handler needs a non-success status, a
+  specific media type because the status declares several, or extra headers.
+
+Response values are schema validated before they are serialized.
+
+These accessors also let an implementation be tested against its own contract,
+so that facts written in Python — which error document an operation produces,
+which media types it can return — cannot silently drift from the document that
+declares them. `httk.serve.dsp` does this in `tests/test_dsp_contract_agreement.py`.
+
+## Binding handler parameters
+
+Handler parameters are filled **by name**, never by position, so reordering the
+`parameters:` array in the contract can never silently swap two arguments:
+
+| Handler parameter | Bound from |
+|---|---|
+| the normalized name of a declared path, query or header parameter | that value |
+| `body` | the validated request body |
+| a parameter annotated `OpenAPIRequest` | the whole request |
+| a name the request scope supplies | that extra |
+
+Normalization turns a wire name into a Python identifier — `-` becomes `_`,
+camelCase and ACRONYMCase split on case boundaries, and the result is lowercased:
+`providerPid` → `provider_pid`, `X-Request-ID` → `x_request_id`.
+
+An optional parameter that the request omits is not passed at all, so the
+handler's own default applies. Where a wire name cannot or should not drive the
+Python name, `operation()` declares an alias:
+
+```python
+{
+    "dataset_request": operation(Provider.dataset, aliases={"id": "dataset_id"}),
+    "create_thing": operation(Provider.create, aliases={"body": "message"}),
+}
+```
+
+Everything is checked once, when the application is constructed: every required
+declared parameter must reach a handler parameter, every handler parameter
+without a default must be satisfied, two declared parameters may not normalize
+onto the same handler parameter, and `*args`, `**kwargs` and positional-only
+parameters are rejected because they cannot be bound by name.
+
+Passing `implementation=` resolves entries that name unbound methods against
+that object with `getattr`, so subclass overrides are honoured.
+
+## Per-request scope
+
+`request_scope` supplies values a handler cannot get from the contract, and
+contributes response metadata. It is an async context manager returning an
+`OperationContext`, entered around the handler call:
+
+```python
+@asynccontextmanager
+async def scope(request):
+    context = OperationContext(extras={"session": open_session()})
+    yield context
+    context.background = BackgroundTask(flush, context.extras["session"])
+```
+
+Names a handler wants are declared per operation with `operation(..., extras=(...))`
+and listed in `scope_names=`; both are verified at construction, so a renamed
+extra fails loudly instead of silently arriving as a default.
+
+The context's `media_type`, `headers` and `background` are folded into the
+response **only when the handler returns normally** — an adapted error response
+never inherits them. Statements after the `yield` are skipped when the handler
+raises, so deferred work is not released after a failed request.
 
 These accessors also let an implementation be tested against its own contract,
 so that facts written in Python — which error document an operation produces,
