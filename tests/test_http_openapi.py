@@ -265,9 +265,11 @@ def test_openapi_app_raises_when_status_less_response_has_no_single_success_stat
         request_error_handler=error_response,
         path_converters={"path": "path"},
     )
-    with TestClient(app) as client:
-        with pytest.raises(OpenAPIContractError, match="does not declare exactly one 2xx status"):
-            client.post("/items/one?view=full", headers={"X-Trace": "trace"}, json={"value": "yes"})
+    with (
+        TestClient(app) as client,
+        pytest.raises(OpenAPIContractError, match="does not declare exactly one 2xx status"),
+    ):
+        client.post("/items/one?view=full", headers={"X-Trace": "trace"}, json={"value": "yes"})
 
 
 def test_openapi_app_rejects_incomplete_handlers_and_unsupported_constructs() -> None:
@@ -330,6 +332,33 @@ def test_openapi_parser_leaves_success_status_none_for_ambiguous_2xx() -> None:
     operations = parse_openapi_operations(ambiguous_success_document())
     item = next(operation for operation in operations if operation.operation_id == "item")
     assert item.success_status is None
+
+
+def test_operation_success_contracts_returns_the_declared_success_status_body_contracts() -> None:
+    """``success_contracts`` mirrors ``responses[success_status]``, empty when ambiguous."""
+    operations = parse_openapi_operations(document())
+    item = next(operation for operation in operations if operation.operation_id == "item")
+    delete = next(operation for operation in operations if operation.operation_id == "delete")
+    assert item.success_contracts == (
+        ("application/json", "https://example.test/response"),
+        ("application/vnd.example+json", "https://example.test/response"),
+    )
+    assert delete.success_contracts == ((None, None),)
+    ambiguous = parse_openapi_operations(ambiguous_success_document())
+    ambiguous_item = next(operation for operation in ambiguous if operation.operation_id == "item")
+    assert ambiguous_item.success_status is None
+    assert ambiguous_item.success_contracts == ()
+
+
+def test_operation_response_contracts_looks_up_one_declared_status() -> None:
+    """``response_contracts`` returns the declared body contracts for one status, else empty."""
+    operations = parse_openapi_operations(document())
+    item = next(operation for operation in operations if operation.operation_id == "item")
+    delete = next(operation for operation in operations if operation.operation_id == "delete")
+    assert item.response_contracts(400) == (("application/json", "https://example.test/error"),)
+    assert item.response_contracts(200) == item.success_contracts
+    assert item.response_contracts(999) == ()
+    assert delete.response_contracts(204) == ((None, None),)
 
 
 @pytest.mark.parametrize(

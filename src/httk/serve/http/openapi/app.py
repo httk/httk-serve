@@ -85,6 +85,27 @@ class OpenAPIOperation:
     responses: Mapping[int, tuple[tuple[str | None, str | None], ...]]
     success_status: int | None
 
+    @property
+    def success_contracts(self) -> tuple[tuple[str | None, str | None], ...]:
+        """Return the media type and schema contracts declared for the success status.
+
+        :return: The declared ``(media type, schema id)`` pairs for
+            :attr:`success_status`, or an empty tuple when there is no single
+            declared success status.
+        """
+        if self.success_status is None:
+            return ()
+        return self.responses[self.success_status]
+
+    def response_contracts(self, status: int) -> tuple[tuple[str | None, str | None], ...]:
+        """Return the media type and schema contracts declared for one status.
+
+        :param status: Exact HTTP status to look up.
+        :return: The declared ``(media type, schema id)`` pairs for ``status``,
+            or an empty tuple when the status is not declared.
+        """
+        return self.responses.get(status, ())
+
 
 @dataclass(frozen=True, slots=True)
 class OpenAPIRequest:
