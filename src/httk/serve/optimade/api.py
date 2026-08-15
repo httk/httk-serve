@@ -5,7 +5,8 @@ from collections.abc import Mapping
 
 from httk.core.report import configure_reporting
 from httk.store import EntryStore
-from starlette.applications import Starlette
+
+from httk.serve.http import ServeApp
 
 from .model.config import OptimadeConfig, OptimadeIndexConfig
 from .model.results import OptimadeAdapter
@@ -22,7 +23,7 @@ def create_asgi_app(
     debug: bool = False,
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
-) -> Starlette:
+) -> ServeApp:
     """Create an ASGI application serving an OPTIMADE API for a backend or store.
 
     An absent ``baseurl`` makes the application derive a mount-aware URL from
@@ -35,7 +36,7 @@ def create_asgi_app(
     :param debug: Enable application and backend diagnostics.
     :param report_level: Minimum report level collected per request.
     :param report_context_levels: Context-specific report levels.
-    :return: Configured Starlette ASGI application.
+    :return: Configured serving application.
     """
     if isinstance(adapter, EntryStore):
         from .backend.stores import adapter_from_store
@@ -64,7 +65,7 @@ def create_index_asgi_app(
     debug: bool = False,
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
-) -> Starlette:
+) -> ServeApp:
     """Create an ASGI application for an OPTIMADE index meta-database.
 
     The index serves only discovery, links, and unversioned version
@@ -78,7 +79,7 @@ def create_index_asgi_app(
     :param debug: Enable Starlette diagnostics.
     :param report_level: Minimum report level collected per request.
     :param report_context_levels: Context-specific report levels.
-    :return: Configured Starlette ASGI application.
+    :return: Configured serving application.
     :raises TypeError: If ``config`` is not an
         :class:`~httk.serve.optimade.model.config.OptimadeIndexConfig`.
     """

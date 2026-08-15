@@ -1,10 +1,11 @@
 """Development-server entry point for an OPTIMADE ASGI application."""
 
 import uvicorn
-from starlette.applications import Starlette
+
+from httk.serve.http import ServeApp
 
 
-def run_dev_server(*, app: Starlette, host: str, port: int) -> None:
+def run_dev_server(*, app: ServeApp, host: str, port: int) -> None:
     """Run an ASGI application with Uvicorn.
 
     :param app: ASGI application to serve.

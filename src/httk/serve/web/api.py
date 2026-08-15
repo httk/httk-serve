@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from starlette.applications import Starlette
+from httk.serve.http import ServeApp
 
 from .engine.site_engine import SiteEngine
 from .model.config import SiteConfig
@@ -20,7 +20,7 @@ def create_asgi_app(
     config_name: str = "config",
     debug: bool = False,
     table_token_secret: str | bytes | None = None,
-) -> Starlette:
+) -> ServeApp:
     """Create an ASGI application for a site source directory.
 
     :param srcdir: Site source directory.
@@ -29,7 +29,7 @@ def create_asgi_app(
     :param config_name: Configuration module name.
     :param debug: Whether to enable Starlette debug responses.
     :param table_token_secret: Secret used to authenticate table continuation tokens.
-    :return: Configured Starlette application.
+    :return: Configured serving application.
     """
     config = SiteConfig.from_srcdir(
         srcdir=srcdir,

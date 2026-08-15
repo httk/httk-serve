@@ -1,10 +1,11 @@
 """Run a development ASGI server for a site application."""
 
 import uvicorn
-from starlette.applications import Starlette
+
+from httk.serve.http import ServeApp
 
 
-def run_dev_server(*, app: Starlette, host: str, port: int) -> None:
+def run_dev_server(*, app: ServeApp, host: str, port: int) -> None:
     """Run an application with the configured development server.
 
     :param app: ASGI application to serve.

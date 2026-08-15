@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Protocol
 
 import uvicorn
-from starlette.applications import Starlette
+
+from httk.serve.http import ServeApp
 
 from .api import create_asgi_app, serve
 from .engine.discovery import DEFAULT_CONTENT_EXTENSIONS
@@ -114,7 +115,7 @@ def _serve(arguments: argparse.Namespace) -> int:
     return 0
 
 
-def reload_app() -> Starlette:
+def reload_app() -> ServeApp:
     """Create the app selected by the process-level reload dispatcher.
 
     :return: Fresh application configured from reload environment variables.
