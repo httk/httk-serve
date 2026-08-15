@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import pytest
-from starlette.background import BackgroundTask
 from starlette.testclient import TestClient
 
 from httk.serve.http.openapi import (
@@ -180,8 +179,8 @@ def test_scope_media_type_and_headers_land_on_a_successful_response() -> None:
     assert response.headers["x-scope"] == "yes"
 
 
-def test_scope_background_runs_after_the_handler_completed() -> None:
-    """A scope background task runs after the handler produced its response body."""
+def test_scope_after_response_runs_after_the_handler_completed() -> None:
+    """A scope post-response hook runs after the handler produced its response body."""
     order: list[str] = []
 
     def item(item: str, view: str | None = None, x_trace: str | None = None, *, body: Any) -> dict[str, str]:
@@ -190,16 +189,115 @@ def test_scope_background_runs_after_the_handler_completed() -> None:
 
     @asynccontextmanager
     async def scope(request: OpenAPIRequest) -> Any:
+        async def hook() -> None:
+            order.append("after_response")
+
         context = OperationContext(extras={})
         yield context
         context.media_type = "application/json"
-        context.background = BackgroundTask(lambda: order.append("background"))
+        context.after_response = hook
 
     app = build_app(item, request_scope=scope)
     with TestClient(app) as client:
         response = client.post("/items/one", json={"value": "yes"})
     assert response.status_code == 200
-    assert order == ["handler", "background"]
+    assert order == ["handler", "after_response"]
+
+
+def test_scope_after_response_runs_on_a_bodyless_response() -> None:
+    """A scope post-response hook fires on a bodyless response, not only a JSON one."""
+    order: list[str] = []
+
+    def delete(path: str) -> OpenAPIResponse:
+        order.append("handler")
+        return OpenAPIResponse(204)
+
+    @asynccontextmanager
+    async def scope(request: OpenAPIRequest) -> Any:
+        async def hook() -> None:
+            order.append("after_response")
+
+        context = OperationContext(extras={})
+        yield context
+        context.after_response = hook
+
+    app = build_app(lambda item, body: response_body(item, None, None, body), request_scope=scope, delete_entry=delete)
+    with TestClient(app) as client:
+        response = client.get("/files/gone")
+    assert response.status_code == 204
+    assert order == ["handler", "after_response"]
+
+
+def test_handler_after_response_hook_is_honored() -> None:
+    """A hook set on the returned response by the handler runs after the response is sent."""
+    order: list[str] = []
+
+    async def hook() -> None:
+        order.append("after_response")
+
+    def item(item: str, view: str | None = None, x_trace: str | None = None, *, body: Any) -> OpenAPIResponse:
+        order.append("handler")
+        return OpenAPIResponse(
+            200, response_body(item, view, x_trace, body), media_type="application/json", after_response=hook
+        )
+
+    app = build_app(item)
+    with TestClient(app) as client:
+        response = client.post("/items/one", json={"value": "yes"})
+    assert response.status_code == 200
+    assert order == ["handler", "after_response"]
+
+
+def test_handler_after_response_hook_wins_over_the_scope_hook() -> None:
+    """When both the handler and the scope set a hook, the handler's hook wins."""
+    fired: list[str] = []
+
+    async def handler_hook() -> None:
+        fired.append("handler_hook")
+
+    async def scope_hook() -> None:
+        fired.append("scope_hook")
+
+    def item(item: str, view: str | None = None, x_trace: str | None = None, *, body: Any) -> OpenAPIResponse:
+        return OpenAPIResponse(
+            200, response_body(item, view, x_trace, body), media_type="application/json", after_response=handler_hook
+        )
+
+    @asynccontextmanager
+    async def scope(request: OpenAPIRequest) -> Any:
+        context = OperationContext(extras={})
+        yield context
+        context.after_response = scope_hook
+
+    app = build_app(item, request_scope=scope)
+    with TestClient(app) as client:
+        response = client.post("/items/one", json={"value": "yes"})
+    assert response.status_code == 200
+    assert fired == ["handler_hook"]
+
+
+def test_scope_after_response_never_runs_on_an_adapted_error_response() -> None:
+    """A scope post-response hook does not run when the handler raises an adapted exception."""
+    fired: list[str] = []
+
+    def item(item: str, *, body: Any) -> dict[str, str]:
+        raise Boom
+
+    @asynccontextmanager
+    async def scope(request: OpenAPIRequest) -> Any:
+        async def hook() -> None:
+            fired.append("after_response")
+
+        context = OperationContext(extras={})
+        context.after_response = hook
+        yield context
+
+    app = build_app(item, request_scope=scope, exception_handlers={Boom: adapt_boom})
+    with TestClient(app) as client:
+        response = client.post("/items/one", json={"value": "yes"})
+    assert response.status_code == 400
+    assert response.json() == {"detail": "boom"}
+    assert fired == []
 
 
 def test_scope_metadata_never_reaches_an_error_response() -> None:

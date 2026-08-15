@@ -7,8 +7,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, final, get_type_hints
 
-from starlette.background import BackgroundTask
-
+from ..apptypes import ResponseHook
 from .app import OpenAPIContractError, OpenAPIOperation, OpenAPIRequest, OpenAPIResponse
 
 _ACRONYM_WORD = re.compile(r"(.)([A-Z][a-z]+)")
@@ -77,20 +76,21 @@ class OperationContext:
     The scope populates :attr:`extras` before the handler runs; the framework
     passes each extra the operation declares to the handler by name. After the
     handler returns, the scope may set :attr:`media_type`, :attr:`headers`, and
-    :attr:`background`, which the framework folds into the response on normal
+    :attr:`after_response`, which the framework folds into the response on normal
     completion only. The context is mutable by design so the scope can both
     supply inputs and collect response metadata.
 
     :param extras: Request-scope values keyed by the extra name each declares.
     :param media_type: Exact response media type the scope contributes, if any.
     :param headers: Additional response headers the scope contributes.
-    :param background: Starlette background task the scope contributes, if any.
+    :param after_response: Zero-argument coroutine callback the scope contributes
+        to run once after the response has been sent, if any.
     """
 
     extras: dict[str, Any]
     media_type: str | None = None
     headers: dict[str, str] = field(default_factory=dict)
-    background: BackgroundTask | None = None
+    after_response: ResponseHook | None = None
 
 
 @final

@@ -10,6 +10,7 @@ from .accept import (
     split_http_list,
 )
 from .api import JsonDocument, JsonDocumentFactory, create_file_map_app, json_get_app, jsonld_get_app
+from .apptypes import ResponseHook, ServeApp
 from .fields import is_field_name, is_field_value, validated_headers
 from .identifiers import is_json_encodable_text, urn_uuid, xsd_utc_timestamp
 from .webhook import (
@@ -25,6 +26,8 @@ __all__ = [
     "JsonDocumentFactory",
     "MediaRange",
     "PinnedHttpsJsonPoster",
+    "ResponseHook",
+    "ServeApp",
     "WebhookSender",
     "WebhookTransportError",
     "best_quality_ignoring_parameterised",

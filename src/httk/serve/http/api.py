@@ -12,6 +12,7 @@ from starlette.responses import FileResponse, Response
 from starlette.routing import Route
 
 from .accept import best_quality_matching_parameters, parse_accept, parse_media_type
+from .apptypes import ServeApp
 
 type JsonDocument = Mapping[str, object]
 type JsonDocumentFactory = Callable[[], JsonDocument | Awaitable[JsonDocument]]
@@ -56,7 +57,7 @@ def json_get_app(
     cache_control: str | None = "public, max-age=60",
     cors_allow_origin: str | None = "*",
     debug: bool = False,
-) -> Starlette:
+) -> ServeApp:
     """Create a lightweight application serving one live JSON document.
 
     :param document: JSON mapping or live zero-argument document factory.
@@ -118,7 +119,7 @@ def jsonld_get_app(
     cache_control: str | None = "public, max-age=60",
     cors_allow_origin: str | None = "*",
     debug: bool = False,
-) -> Starlette:
+) -> ServeApp:
     """Create a lightweight application serving one live JSON-LD document.
 
     :param document: JSON-LD mapping or live zero-argument document factory.
@@ -144,7 +145,7 @@ def jsonld_get_app(
     )
 
 
-def create_file_map_app(files: Mapping[str, str | Path], *, debug: bool = False) -> Starlette:
+def create_file_map_app(files: Mapping[str, str | Path], *, debug: bool = False) -> ServeApp:
     """Create an application exposing only explicitly mapped files.
 
     :param files: Root-relative URL paths mapped to filesystem paths.

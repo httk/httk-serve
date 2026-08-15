@@ -5,9 +5,7 @@ from contextlib import asynccontextmanager
 from functools import partial
 from typing import Any
 
-from starlette.applications import Starlette
-from starlette.background import BackgroundTask
-
+from httk.serve.http import ServeApp
 from httk.serve.http.openapi import (
     OpenAPIRequest,
     OpenAPIRequestError,
@@ -98,7 +96,7 @@ async def _scope(provider: DspProvider, request: OpenAPIRequest):
         context.headers = dict(representation.headers)
     yield context
     if provider.has_automatic_actions(batch):
-        context.background = BackgroundTask(provider.release_automatic, batch)
+        context.after_response = partial(provider.release_automatic, batch)
 
 
 def _request_error(error: OpenAPIRequestError) -> OpenAPIResponse:
@@ -125,8 +123,8 @@ def _adapt_protocol_error(error: Exception, request: OpenAPIRequest) -> OpenAPIR
     return _protocol_error(error, request)
 
 
-def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
-    """Create a mountable Starlette application for one DSP provider.
+def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> ServeApp:
+    """Create a mountable serving application for one DSP provider.
 
     Routes, methods, body schemas, status codes, and media types are loaded from
     the packaged OpenAPI 3.1 contract. Request and response validation resolves
@@ -134,7 +132,7 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
 
     :param provider: In-memory provider whose business operations are exposed.
     :param debug: Whether Starlette debug responses are enabled for unexpected failures.
-    :return: Mountable Starlette application with the provider on ``app.state``.
+    :return: Mountable serving application with the provider on ``app.state``.
     :raises TypeError: If ``provider`` is not a :class:`DspProvider`.
     :raises RuntimeError: If the packaged contract uses an unsupported construct.
     """
@@ -142,7 +140,7 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
         raise TypeError("provider must be a DspProvider")
 
     @asynccontextmanager
-    async def lifespan(_app: Starlette):
+    async def lifespan(_app: ServeApp):
         try:
             yield
         finally:

@@ -139,6 +139,10 @@ nitpick_ignore = [
     # though it is part of the runtime API used by create_file_map_app.
     ("py:class", "starlette.responses.FileResponse"),
     ("py:class", "starlette.background.BackgroundTask"),
+    # The ServeApp branded alias (type ServeApp = Starlette) is rendered by
+    # AutoAPI as the bare name Starlette, which the committed inventory only
+    # exposes under its fully qualified path.
+    ("py:class", "Starlette"),
     # DSP is being added alongside the unreleased httk-core Dataset and Service contracts,
     # while AutoAPI shortens a few callable/type-alias annotations beyond what
     # the committed external inventories can resolve.

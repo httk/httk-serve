@@ -15,6 +15,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from ..apptypes import ResponseHook, ServeApp
 from .schemas import OpenAPISchemaError, OpenAPISchemaRegistry
 
 if TYPE_CHECKING:
@@ -145,14 +146,15 @@ class OpenAPIResponse:
     :param body: Optional JSON-compatible response body.
     :param media_type: Exact declared media type; inferred only when unambiguous.
     :param headers: Additional HTTP response headers.
-    :param background: Optional Starlette background task.
+    :param after_response: Optional zero-argument coroutine callback run once
+        after the response has been sent.
     """
 
     status: int | None = None
     body: Any = None
     media_type: str | None = None
     headers: Mapping[str, str] = field(default_factory=dict)
-    background: BackgroundTask | None = None
+    after_response: ResponseHook | None = None
 
 
 def _local_ref(document: Mapping[str, Any], value: object) -> object:
@@ -417,6 +419,11 @@ async def _call(handler: ExceptionHandler, *args: Any) -> OpenAPIResponse:
     return result
 
 
+async def _run_hook(hook: ResponseHook) -> None:
+    """Invoke a neutral post-response hook once inside a Starlette background task."""
+    await hook()
+
+
 def _response(operation: OpenAPIOperation, value: OpenAPIResponse, schemas: OpenAPISchemaRegistry) -> Response:
     """Validate and serialize one operation response."""
     status = operation.success_status if value.status is None else value.status
@@ -433,7 +440,11 @@ def _response(operation: OpenAPIOperation, value: OpenAPIResponse, schemas: Open
             raise OpenAPIContractError(f"response body is required for {operation.operation_id} {status}")
         if value.media_type is not None:
             raise OpenAPIContractError("bodyless response cannot declare a media type")
-        return Response(status_code=status, headers=dict(value.headers), background=value.background)
+        return Response(
+            status_code=status,
+            headers=dict(value.headers),
+            background=BackgroundTask(_run_hook, value.after_response) if value.after_response is not None else None,
+        )
     body_contracts = tuple(contract for contract in contracts if contract[0] is not None)
     media_type = value.media_type
     if media_type is None:
@@ -456,7 +467,7 @@ def _response(operation: OpenAPIOperation, value: OpenAPIResponse, schemas: Open
         status_code=status,
         media_type=media_type,
         headers=dict(value.headers),
-        background=value.background,
+        background=BackgroundTask(_run_hook, value.after_response) if value.after_response is not None else None,
     )
 
 
@@ -487,7 +498,7 @@ def _merge_context(response: OpenAPIResponse, context: "OperationContext") -> Op
     """Fold a request scope's response metadata into a successful handler response.
 
     The handler wins on every field it set: its ``media_type`` when not ``None``,
-    its ``background`` when not ``None``, and its headers key-by-key. The scope
+    its ``after_response`` when not ``None``, and its headers key-by-key. The scope
     supplies whatever the handler left unset. A handler that returned a raw value
     set none of these, so the scope becomes the sole source.
 
@@ -500,7 +511,7 @@ def _merge_context(response: OpenAPIResponse, context: "OperationContext") -> Op
         body=response.body,
         media_type=response.media_type if response.media_type is not None else context.media_type,
         headers={**context.headers, **response.headers},
-        background=response.background if response.background is not None else context.background,
+        after_response=response.after_response if response.after_response is not None else context.after_response,
     )
 
 
@@ -514,10 +525,10 @@ def create_openapi_app(
     exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
     request_scope: "RequestScope | None" = None,
     scope_names: Sequence[str] = (),
-    lifespan: Callable[[Starlette], Any] | None = None,
+    lifespan: Callable[[ServeApp], Any] | None = None,
     debug: bool = False,
     path_converters: Mapping[str, str] | None = None,
-) -> Starlette:
+) -> ServeApp:
     """Create a Starlette app from a constrained OpenAPI 3.1 contract.
 
     ``contract`` accepts either an :class:`~httk.serve.http.openapi.OpenAPIContract`,

@@ -1,5 +1,6 @@
 """A constrained, offline OpenAPI 3.1 adapter for Starlette."""
 
+from ..apptypes import ResponseHook, ServeApp
 from .app import (
     ExceptionHandler,
     OpenAPIContractError,
@@ -44,6 +45,8 @@ __all__ = [
     "OperationContext",
     "RequestErrorHandler",
     "RequestScope",
+    "ResponseHook",
+    "ServeApp",
     "bind_operation",
     "convert_result",
     "create_openapi_app",
