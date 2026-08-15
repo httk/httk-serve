@@ -92,6 +92,62 @@ def _make_related_resolver(
     return resolve
 
 
+def _reject_hidden_property(name: str, entry: str, schema: ServedSchema) -> None:
+    """Reject one filter property name against the served schema for ``entry``.
+
+    :param name: Referenced property name.
+    :param entry: Served entry type whose ``entry_info`` governs ``name``.
+    :param schema: Served schema whose per-property ``queryable`` flags apply.
+    :raises httk.serve.optimade.model.errors.OptimadeError: If ``name`` is non-queryable or a hidden prefixed property.
+    """
+    properties = schema.entry_info[entry]['properties']
+    if name in properties:
+        if not properties[name].get('queryable', True):
+            raise OptimadeError("Filtering is not supported for property: " + name, 400, "Bad request")
+    elif name.startswith(schema.recognized_prefixes):
+        # Absent from the served schema yet carrying a recognized definition
+        # prefix: an adapter-hidden internal projection, not filterable at the
+        # protocol boundary. Unprefixed unknown names are left to the translator.
+        raise OptimadeError("Filter invokes unrecognized property name: " + name, 400, "Bad request")
+
+
+def _reject_hidden_filter_properties(node: FilterAst, endpoint: str, schema: ServedSchema) -> None:
+    """Reject a client filter referencing schema-hidden or non-queryable properties.
+
+    Queryability enforcement is a protocol-boundary policy applied to the parsed
+    client filter *before* any backend or adapter rewriting, so the neutral store
+    layer stays able to query every stored property for trusted internal callers.
+    The tree is walked without mutation; every ``('Identifier', ...)`` node is
+    validated against the served schema: a plain identifier against ``endpoint``,
+    and a depth-1 relationship identifier ``<type>.<property>`` against that
+    served type (deeper or non-served-type dotted paths are left to the
+    translator, which is the only thing that can handle or reject them).
+
+    :param node: Parsed filter node to inspect.
+    :param endpoint: Served entry type the filter targets.
+    :param schema: Served schema whose per-property ``queryable`` flags apply.
+    :raises httk.serve.optimade.model.errors.OptimadeError: If the filter names a hidden or non-queryable property.
+    """
+    if not isinstance(node, tuple) or not node:
+        return
+    if node[0] == 'Identifier':
+        # A dotted identifier is a depth-1 relationship filter only when its head
+        # names a served entry type; validate the trailing property against that
+        # type. Every other identifier is a property of the current endpoint, and
+        # the trailing segments the translator silently ignores must not smuggle a
+        # hidden head property past validation (e.g. `_httk_custom_public_id.x`).
+        if len(node) == 2:
+            _reject_hidden_property(node[1], endpoint, schema)
+        elif len(node) > 2:
+            if node[1] in schema.all_entries:
+                _reject_hidden_property(node[-1], node[1], schema)
+            else:
+                _reject_hidden_property(node[1], endpoint, schema)
+        return
+    for child in node:
+        _reject_hidden_filter_properties(child, endpoint, schema)
+
+
 def process(
     request: RawRequest,
     query_function: QueryFunction,
@@ -196,6 +252,10 @@ def process(
                     filter_ast = parse_optimade_filter(input_string)
                 except ParserSyntaxError as e:
                     raise OptimadeError(str(e), 400, "Bad request")
+                # Enforce queryability on the client filter before any backend or
+                # adapter rewriting; the synthesized request_id id-filter above
+                # needs no check.
+                _reject_hidden_filter_properties(filter_ast, endpoint, schema)
 
             if _LOG.isEnabledFor(logging.DEBUG):
                 _LOG.debug("==== FILTER STRING PARSE RESULT: %s", pformat(filter_ast), extra={"context": "optimade"})

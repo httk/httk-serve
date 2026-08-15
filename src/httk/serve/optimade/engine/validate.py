@@ -15,6 +15,11 @@ from ..schema.served import ServedSchema
 
 PAGE_LIMIT_MAX = 50
 
+# The filter lexer is quadratic in input length (16 KB ~ 6 s of CPU) and runs
+# synchronously on the ASGI event loop, so one oversized filter would block all
+# clients. Raising this bound therefore REQUIRES a lexer performance fix first.
+FILTER_LENGTH_MAX = 4096
+
 # A single dimension_slices specification: a dimension name, then '[', the
 # start/stop/step components (optional non-negative integers) separated by two
 # mandatory colons, then ']'.
@@ -103,6 +108,10 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
 
     # Validating the filter string is deferred to its parser
     if 'filter' in query and query['filter'] is not None:
+        if len(query['filter']) > FILTER_LENGTH_MAX:
+            raise OptimadeError(
+                "The filter exceeds the maximum supported length (4096 characters).", 400, "Bad request"
+            )
         validated_parameters.filter = query['filter']
 
     # The sort parameter is only meaningful for entry endpoints; on other

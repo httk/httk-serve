@@ -64,24 +64,44 @@ def _is_default_response(name: str, definition: PropertyDefinition, default_name
     return name in default_names and definition.requirements.get("response-level") not in {"should not", "must not"}
 
 
+def _is_queryable(name: str, definition: PropertyDefinition) -> bool:
+    """Whether a served property may be used in ``filter=``.
+
+    ``id`` and ``type`` are always queryable. A query support of ``"none"``
+    disables filtering only for provider-specific (underscore-namespaced)
+    properties, where it is the provider's authoritative statement that the field
+    must not be filtered. On STANDARD properties an ``"none"`` query support is
+    merely the specification's "querying not required" requirement level, which a
+    deployment may (and httk does) still implement, so it must not disable them.
+    Only the exact value ``"none"`` disables filtering; other levels keep the
+    default behavior.
+    """
+    if name in ("id", "type") or not name.startswith("_"):
+        return True
+    return definition.requirements.get("query-support") != "none"
+
+
 def simplified_property(
     definition: PropertyDefinition,
     *,
     sortable: bool = False,
     required_response: bool = False,
     default_response: bool = False,
+    queryable: bool = True,
 ) -> dict[str, Any]:
     """Build a simplified property view for the filter and wrapping layers.
 
     Carries the ``description``, reconstructed ``fulltype``, the implementation
-    flags (``sortable``/``required_response``/``default_response``), and — when
-    present — the property's ``unit`` and ``dimensions`` (used by the trajectory
-    frame-wrapping).
+    flags (``sortable``/``required_response``/``default_response``/``queryable``),
+    and — when present — the property's ``unit`` and ``dimensions`` (used by the
+    trajectory frame-wrapping).
 
     :param definition: Property definition to simplify.
     :param sortable: Mark the property as sortable by the backend.
     :param required_response: Mark the property as required in responses.
     :param default_response: Mark the property as returned by default.
+    :param queryable: Mark the property as usable in ``filter=`` (false honors
+        an ``x-optimade-requirements.query-support`` of ``"none"``).
     :return: Simplified property metadata.
     """
     info: dict[str, Any] = {
@@ -90,6 +110,7 @@ def simplified_property(
         "sortable": sortable,
         "required_response": required_response,
         "default_response": default_response,
+        "queryable": queryable,
     }
     unit = definition.unit
     if unit is not None and unit not in ("dimensionless", "inapplicable"):
@@ -230,8 +251,13 @@ def build_served_schema(
             is_sortable = name in sortable_names
             is_default = _is_default_response(name, prop, default_names)
             is_required = _is_required_response(name, prop)
+            is_queryable = _is_queryable(name, prop)
             simplified[name] = simplified_property(
-                prop, sortable=is_sortable, required_response=is_required, default_response=is_default
+                prop,
+                sortable=is_sortable,
+                required_response=is_required,
+                default_response=is_default,
+                queryable=is_queryable,
             )
             prop_defs[name] = prop.with_implementation(sortable=is_sortable, response_default=is_default).as_optimade()
             if is_default:

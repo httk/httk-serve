@@ -132,7 +132,12 @@ def _render(output: EndpointResponse) -> Response:
         body = _json_format(output.json_response)
     else:
         body = output.content if output.content is not None else ""
-    return Response(content=body, status_code=output.response_code, media_type=output.content_type)
+    return Response(
+        content=body,
+        status_code=output.response_code,
+        media_type=output.content_type,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
 
 
 def _error_output(ex: Exception, request: RawRequest, config: OptimadeConfig) -> EndpointResponse:
