@@ -4,13 +4,14 @@ from collections.abc import Callable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import cache
-from typing import Any, Self, cast
+from typing import Any, Self, cast, final
 
 from .app import OpenAPIContractError, OpenAPIOperation, parse_openapi_operations
 from .resources import load_packaged_contract, packaged_schema_documents
 from .schemas import OpenAPISchemaRegistry
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class OpenAPIContract:
     """Bundle a parsed OpenAPI contract with its offline JSON Schema registry.
@@ -21,7 +22,7 @@ class OpenAPIContract:
 
     operations: tuple[OpenAPIOperation, ...]
     schemas: OpenAPISchemaRegistry
-    _document: dict[str, Any] = field(repr=False)
+    _document: dict[str, Any] = field(repr=False, compare=False)
 
     @classmethod
     def from_package(
@@ -43,7 +44,10 @@ class OpenAPIContract:
         :param schemas: Path segments below the package to the schema root.
         :param schema_transform: Optional per-document transform applied to each
             bundled JSON Schema document before it is registered. It is not
-            applied to the OpenAPI document itself.
+            applied to the OpenAPI document itself. Must be a stable
+            module-level function: it is part of the cache key by identity,
+            so a lambda or closure never hits the cache and instead retains a
+            fully parsed contract for its own lifetime.
         :return: The parsed contract and its offline schema registry.
         :raises httk.serve.http.openapi.OpenAPIContractError: If the OpenAPI
             document uses an unsupported construct.

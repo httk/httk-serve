@@ -21,9 +21,10 @@ arrives.
 
 A protocol that ships its contract and schemas as package data loads both
 through one object. `OpenAPIContract.from_package` parses the OpenAPI document,
-builds an offline `OpenAPISchemaRegistry` over every bundled `*.json` schema,
-and caches the result, so repeated application construction does not re-parse
-or re-validate the package data.
+builds an offline `OpenAPISchemaRegistry` over every bundled `*.json` file that
+decodes to a mapping carrying a `$schema` key — other `*.json` files below the
+schema root are silently skipped — and caches the result, so repeated
+application construction does not re-parse or re-validate the package data.
 
 ```python
 from httk.serve.http.openapi import (

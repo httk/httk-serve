@@ -118,3 +118,25 @@ def test_catalogue_http_contract_rejects_duplicate_profile_parameters() -> None:
             json={"@context": [DSP_CONTEXT], "@type": "CatalogRequestMessage"},
         )
     assert response.status_code == 406
+
+
+def test_negotiation_request_http_contract_responds_201() -> None:
+    """A valid initial negotiation request over HTTP responds with the DSP-mandated 201."""
+    pub = publication()
+    with TestClient(create_dsp_app(provider()), base_url="https://provider.example") as client:
+        response = client.post(
+            "/2025-1/negotiations/request",
+            json={
+                "@context": [DSP_CONTEXT],
+                "@type": "ContractRequestMessage",
+                "consumerPid": "consumer",
+                "callbackAddress": "https://consumer.example/callback",
+                "offer": {
+                    "@id": pub.offer_id,
+                    "@type": "Offer",
+                    "target": pub.dataset.id,
+                    "permission": [{"action": "use"}],
+                },
+            },
+        )
+    assert response.status_code == 201

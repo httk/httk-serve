@@ -28,6 +28,8 @@ def dsp_contract() -> OpenAPIContract:
 
     :return: Contract parsed exclusively from package data.
     :raises DspSchemaError: If any bundled schema document is invalid.
+    :raises httk.serve.http.openapi.OpenAPIContractError: If the bundled
+        OpenAPI document uses an unsupported construct.
     """
     try:
         return OpenAPIContract.from_package(_CONTRACT_PACKAGE, schema_transform=_normalized_references)
