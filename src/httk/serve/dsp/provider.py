@@ -31,6 +31,7 @@ from .models import (
     CatalogueProfile,
     DatasetProfile,
     DspProtocolError,
+    DspTransitionSuperseded,
     ErrorKind,
     FrozenJsonValue,
     JsonValue,
@@ -579,6 +580,7 @@ class DspProvider:
 
         :param provider_pid: Provider negotiation process identifier.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         await self._send_negotiation(
             provider_pid,
@@ -600,6 +602,7 @@ class DspProvider:
 
         :param provider_pid: Provider negotiation process identifier.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         record = await self._negotiation(provider_pid)
         agreement = self._new_agreement(record)
@@ -624,6 +627,7 @@ class DspProvider:
 
         :param provider_pid: Provider negotiation process identifier.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         await self._send_negotiation(
             provider_pid,
@@ -653,6 +657,7 @@ class DspProvider:
         :param code: Machine-readable termination code.
         :param reason: Human-readable termination reason.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         await self._send_negotiation(
             provider_pid,
@@ -676,6 +681,7 @@ class DspProvider:
 
         :param provider_pid: Provider transfer-process identifier.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         transfer = await self._transfer(provider_pid)
         agreement_with_state = await self._state.agreement(transfer.agreement_id)
@@ -719,6 +725,7 @@ class DspProvider:
         :param code: Machine-readable suspension code.
         :param reason: Human-readable suspension reason.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         await self._send_transfer(
             provider_pid,
@@ -741,6 +748,7 @@ class DspProvider:
 
         :param provider_pid: Provider transfer-process identifier.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         await self._send_transfer(
             provider_pid,
@@ -769,6 +777,7 @@ class DspProvider:
         :param code: Machine-readable termination code.
         :param reason: Human-readable termination reason.
         :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+        :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
         """
         await self._send_transfer(
             provider_pid,
@@ -823,7 +832,7 @@ class DspProvider:
             if not termination:
                 try:
                     await self.terminate_negotiation(provider_pid, code="callback-failed", reason=error.detail)
-                except DspProtocolError:
+                except (DspProtocolError, DspTransitionSuperseded):
                     pass
             raise DspProtocolError(
                 "negotiation",
@@ -834,7 +843,7 @@ class DspProvider:
                 consumer_pid=record.consumer_pid,
             ) from error
         if not await self._state.commit_negotiation(provider_pid, token, state=target_state, agreement=agreement):
-            raise DspProtocolError("negotiation", 409, "callback transition was superseded", code="transition-conflict")
+            raise DspTransitionSuperseded("callback transition was superseded")
 
     async def _send_transfer(
         self,
@@ -869,7 +878,7 @@ class DspProvider:
             if not termination:
                 try:
                     await self.terminate_transfer(provider_pid, code="callback-failed", reason=error.detail)
-                except DspProtocolError:
+                except (DspProtocolError, DspTransitionSuperseded):
                     pass
             raise DspProtocolError(
                 "transfer",
@@ -880,7 +889,7 @@ class DspProvider:
                 consumer_pid=record.consumer_pid,
             ) from error
         if not await self._state.commit_transfer(provider_pid, token, state=target_state):
-            raise DspProtocolError("transfer", 409, "callback transition was superseded", code="transition-conflict")
+            raise DspTransitionSuperseded("callback transition was superseded")
 
     def _queue_automatic(self, batch: _AutomaticBatch | None, action: _AutomaticCallback) -> None:
         """Queue an automatic callback for one response or manage it directly."""
@@ -901,6 +910,9 @@ class DspProvider:
             await callback
         except asyncio.CancelledError:
             raise
+        except DspTransitionSuperseded:
+            _LOGGER.info("automatic DSP callback transition was superseded")
+            return
         except DspProtocolError as error:
             _LOGGER.warning(
                 "automatic DSP callback failed: kind=%s code=%s providerPid=%s consumerPid=%s",

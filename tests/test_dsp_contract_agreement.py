@@ -194,10 +194,9 @@ def _protocol_error_call_sites(source: str) -> tuple[list[tuple[str, int]], list
     return pairs, status_only, fully_skipped
 
 
-def test_every_raisable_protocol_error_pair_is_declared_except_the_known_409_gap() -> None:
+def test_every_raisable_protocol_error_pair_is_declared() -> None:
     """Every statically-checkable ``DspProtocolError(kind, status, ...)`` call site
-    anywhere under ``httk.serve.dsp`` must be declared by the contract, except a
-    known, currently-unreachable 409 gap.
+    anywhere under ``httk.serve.dsp`` must be declared by the contract.
 
     Call sites with a literal ``kind`` and ``status`` are checked as an exact
     pair. Call sites with a runtime ``kind`` but a literal ``status`` (e.g.
@@ -247,14 +246,17 @@ def test_every_raisable_protocol_error_pair_is_declared_except_the_known_409_gap
         )
 
     undeclared = {pair for pair in pairs if pair not in declared}
-    # Known, currently-unreachable gap: provider.py raises DspProtocolError(..., 409, ...)
-    # ("callback transition was superseded") in two places, on the automatic-callback
-    # delivery paths for negotiation and transfer. 409 is declared nowhere in the
-    # contract. It cannot reach an HTTP response today because _run_automatic swallows
-    # the exception on those background callback paths. catalogue.py's three literal call
-    # sites ((catalog, 400) and twice (catalog, 406)) are all already declared, so this set
-    # is unchanged by scanning the whole package rather than provider.py alone. Pinned
-    # exactly so a new undeclared pair introduced elsewhere cannot slip in silently: if
-    # this set grows, the test fails and forces a decision (declare the status, or make it
-    # truly unreachable and remove the gap).
-    assert undeclared == {("negotiation", 409), ("transfer", 409)}
+    # Every statically-checkable DspProtocolError(kind, status, ...) construction under
+    # httk.serve.dsp names a (kind, status) pair the contract declares as an error
+    # response. There is no gap: the former "callback transition was superseded" race on
+    # the automatic-callback delivery paths no longer raises a DspProtocolError at all --
+    # it raises DspTransitionSuperseded, which carries no wire status precisely because,
+    # by the time it fires, the peer callback has already been delivered and only the
+    # local commit lost a race. catalogue.py's three literal call sites ((catalog, 400)
+    # and twice (catalog, 406)) are all declared too. This set-equality assertion is what
+    # keeps it that way: if any call site ever introduces a (kind, status) pair the
+    # contract does not declare, undeclared grows non-empty and this test fails, forcing a
+    # decision (declare the status in the contract, or stop modelling it as a protocol
+    # error), rather than letting an undeclared status slip toward an OpenAPIContractError
+    # at runtime.
+    assert undeclared == set()

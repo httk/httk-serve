@@ -7,7 +7,14 @@ import socket
 import pytest
 from test_dsp_config import config, publication
 
-from httk.serve.dsp import CallbackTransportError, DspProvider, DspPublicationRecord, callback_url
+from httk.serve.dsp import (
+    CallbackTransportError,
+    DspProtocolError,
+    DspProvider,
+    DspPublicationRecord,
+    DspTransitionSuperseded,
+    callback_url,
+)
 from httk.serve.dsp.callbacks import DefaultCallbackSender, _CallbackTarget, _ResolvedAddress, _validate_callback_url
 
 
@@ -360,5 +367,46 @@ def test_injected_sender_can_raise_transport_error() -> None:
         with pytest.raises(Exception, match="callback delivery failed"):
             await provider.send_offer(str(created["providerPid"]))
         assert calls == 4  # Two failed offers and two failed best-effort terminations.
+
+    asyncio.run(exercise())
+
+
+def test_superseded_termination_does_not_mask_callback_delivery_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A superseded best-effort termination must not hide the 502 callback-delivery error.
+
+    When an offer callback cannot be delivered, the provider issues a best-effort
+    termination. Even if that termination's callback is delivered but its local
+    commit loses a race and raises ``DspTransitionSuperseded``, the original 502
+    ``callback delivery failed`` protocol error must still propagate, rather than
+    being masked by the benign race.
+    """
+
+    async def exercise() -> None:
+        responses = iter([500, 500, 204])
+
+        async def sender(_url: str, _document: dict[str, object]) -> int:
+            return next(responses)
+
+        provider = DspProvider(
+            config(automatic_progression=False),
+            publications=(DspPublicationRecord(dataset=publication()),),
+            callback_sender=sender,
+            uuid_factory=iter(["negotiation"]).__next__,
+        )
+        created = await provider.request_negotiation(request())
+
+        # The offer callback delivery fails before its commit, so commit_negotiation is
+        # only reached on the best-effort termination path. Forcing it to report the
+        # reservation was superseded makes terminate_negotiation raise
+        # DspTransitionSuperseded even though its 204 callback was delivered.
+        async def superseded_commit(*_args: object, **_kwargs: object) -> bool:
+            return False
+
+        monkeypatch.setattr(provider._state, "commit_negotiation", superseded_commit)
+
+        with pytest.raises(DspProtocolError, match="callback delivery failed") as excinfo:
+            await provider.send_offer(str(created["providerPid"]))
+        assert excinfo.value.status_code == 502
+        assert not isinstance(excinfo.value, DspTransitionSuperseded)
 
     asyncio.run(exercise())

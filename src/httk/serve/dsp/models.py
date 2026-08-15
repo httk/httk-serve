@@ -257,6 +257,17 @@ class DspProtocolError(Exception):
         return document
 
 
+class DspTransitionSuperseded(RuntimeError):
+    """Report that a callback was delivered but a concurrent transition won the commit.
+
+    This is not a protocol error: by the time it is raised the peer callback has
+    already been delivered successfully, and only the local commit lost a race
+    with a concurrent state transition. There is nothing to report on the wire
+    and no HTTP status to carry, so it deliberately does not subclass
+    :class:`DspProtocolError`.
+    """
+
+
 __all__ = [
     "AgreementRecord",
     "CatalogueProfile",
@@ -266,6 +277,7 @@ __all__ = [
     "DeliveryStatus",
     "DistributionProfile",
     "DspProtocolError",
+    "DspTransitionSuperseded",
     "ErrorKind",
     "FrozenJsonValue",
     "JsonScalar",
