@@ -133,13 +133,6 @@ def _complete_error_document(error: DspProtocolError, path: Mapping[str, str], b
     return document
 
 
-def _success_status(operation_id: str) -> int:
-    """Return the success status assigned by the OpenAPI operation."""
-    if operation_id in {"negotiation_request", "transfer_request"}:
-        return 201
-    return 200
-
-
 def _handler(provider: DspProvider, operation_id: str) -> Callable[[OpenAPIRequest], Awaitable[OpenAPIResponse]]:
     """Build one DSP business handler for the neutral request contract."""
 
@@ -166,12 +159,10 @@ def _handler(provider: DspProvider, operation_id: str) -> Callable[[OpenAPIReque
             else None
         )
         if result is None:
-            return OpenAPIResponse(_success_status(operation_id), background=background)
+            return OpenAPIResponse(background=background)
         media_type = catalogue_representation.media_type if catalogue_representation is not None else None
         headers = dict(catalogue_representation.headers) if catalogue_representation is not None else {}
-        return OpenAPIResponse(
-            _success_status(operation_id), result, media_type=media_type, headers=headers, background=background
-        )
+        return OpenAPIResponse(body=result, media_type=media_type, headers=headers, background=background)
 
     handler.__name__ = operation_id
     return handler

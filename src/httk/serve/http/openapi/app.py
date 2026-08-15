@@ -66,6 +66,8 @@ class OpenAPIOperation:
     :param parameters: Supported path, query, and header parameter contracts.
     :param request_schema: Required JSON request schema identifier, if any.
     :param responses: Exact status, media type, and schema response contracts.
+    :param success_status: The single declared 2xx status, or ``None`` when the
+        operation declares zero or more than one.
     """
 
     method: str
@@ -74,6 +76,7 @@ class OpenAPIOperation:
     parameters: tuple[OpenAPIParameter, ...]
     request_schema: str | None
     responses: Mapping[int, tuple[tuple[str | None, str | None], ...]]
+    success_status: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,14 +109,15 @@ class OpenAPIRequest:
 class OpenAPIResponse:
     """A handler response constrained by the matched OpenAPI operation.
 
-    :param status: Exact declared HTTP status.
+    :param status: Exact declared HTTP status, or ``None`` to use the matched
+        operation's declared success status.
     :param body: Optional JSON-compatible response body.
     :param media_type: Exact declared media type; inferred only when unambiguous.
     :param headers: Additional HTTP response headers.
     :param background: Optional Starlette background task.
     """
 
-    status: int
+    status: int | None = None
     body: Any = None
     media_type: str | None = None
     headers: Mapping[str, str] = field(default_factory=dict)
@@ -305,6 +309,8 @@ def parse_openapi_operations(document: Mapping[str, Any]) -> tuple[OpenAPIOperat
                 responses[int(status_text)] = (
                     _body_contracts(document, response) if "content" in response else ((None, None),)
                 )
+            success_statuses = [status for status in responses if 200 <= status < 300]
+            success_status = success_statuses[0] if len(success_statuses) == 1 else None
             operations.append(
                 OpenAPIOperation(
                     method,
@@ -313,6 +319,7 @@ def parse_openapi_operations(document: Mapping[str, Any]) -> tuple[OpenAPIOperat
                     tuple(parameter_contracts),
                     request_schema,
                     MappingProxyType(responses),
+                    success_status,
                 )
             )
     return tuple(operations)
@@ -381,20 +388,26 @@ async def _call(handler: Handler | ExceptionHandler, *args: Any) -> OpenAPIRespo
 
 def _response(operation: OpenAPIOperation, value: OpenAPIResponse, schemas: OpenAPISchemaRegistry) -> Response:
     """Validate and serialize one operation response."""
-    contracts = operation.responses.get(value.status)
+    status = operation.success_status if value.status is None else value.status
+    if status is None:
+        raise OpenAPIContractError(
+            f"{operation.operation_id} does not declare exactly one 2xx status; "
+            "the response must state a status explicitly"
+        )
+    contracts = operation.responses.get(status)
     if contracts is None:
-        raise OpenAPIContractError(f"OpenAPI does not declare {value.status} for {operation.operation_id}")
+        raise OpenAPIContractError(f"OpenAPI does not declare {status} for {operation.operation_id}")
     if value.body is None:
         if contracts != ((None, None),):
-            raise OpenAPIContractError(f"response body is required for {operation.operation_id} {value.status}")
+            raise OpenAPIContractError(f"response body is required for {operation.operation_id} {status}")
         if value.media_type is not None:
             raise OpenAPIContractError("bodyless response cannot declare a media type")
-        return Response(status_code=value.status, headers=dict(value.headers), background=value.background)
+        return Response(status_code=status, headers=dict(value.headers), background=value.background)
     body_contracts = tuple(contract for contract in contracts if contract[0] is not None)
     media_type = value.media_type
     if media_type is None:
         if len(body_contracts) != 1:
-            raise OpenAPIContractError(f"response media type is ambiguous for {operation.operation_id} {value.status}")
+            raise OpenAPIContractError(f"response media type is ambiguous for {operation.operation_id} {status}")
         media_type = body_contracts[0][0]
     assert media_type is not None
     contract = next((item for item in body_contracts if item[0] == media_type), None)
@@ -409,7 +422,7 @@ def _response(operation: OpenAPIOperation, value: OpenAPIResponse, schemas: Open
         raise OpenAPIContractError(f"only JSON response media types are supported: {media_type}")
     return JSONResponse(
         value.body,
-        status_code=value.status,
+        status_code=status,
         media_type=media_type,
         headers=dict(value.headers),
         background=value.background,

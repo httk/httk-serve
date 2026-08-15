@@ -83,6 +83,13 @@ def document() -> dict[str, Any]:
     }
 
 
+def ambiguous_success_document() -> dict[str, Any]:
+    """Return a contract where ``item`` declares two 2xx responses."""
+    contract = document()
+    contract["paths"]["/items/{item}"]["post"]["responses"]["204"] = {"description": "No content"}
+    return contract
+
+
 def error_response(error: OpenAPIRequestError) -> OpenAPIResponse:
     """Serialize neutral request errors for the synthetic protocol."""
     return OpenAPIResponse(400, {"detail": error.detail})
@@ -220,6 +227,49 @@ def test_openapi_app_adapts_invalid_request_and_supports_bodyless_and_path_conve
     assert invalid_response.status_code == 500
 
 
+def test_openapi_app_defaults_status_less_response_to_declared_success_status() -> None:
+    """A handler returning ``OpenAPIResponse()`` gets the operation's declared status."""
+
+    def item(request: OpenAPIRequest) -> OpenAPIResponse:
+        return OpenAPIResponse(
+            body={
+                "path": request.path_params["item"],
+                "query": request.query["view"],
+                "header": request.header("x-trace") or "",
+                "value": request.body["value"],
+            },
+            media_type="application/json",
+        )
+
+    app = create_openapi_app(
+        document(),
+        {"item": item, "delete": lambda _request: OpenAPIResponse()},
+        schemas=OpenAPISchemaRegistry(SCHEMAS),
+        request_error_handler=error_response,
+        path_converters={"path": "path"},
+    )
+    with TestClient(app) as client:
+        response = client.post("/items/one?view=full", headers={"X-Trace": "trace"}, json={"value": "yes"})
+        deleted = client.get("/files/a/nested/file")
+    assert response.status_code == 200
+    assert deleted.status_code == 204
+    assert deleted.content == b""
+
+
+def test_openapi_app_raises_when_status_less_response_has_no_single_success_status() -> None:
+    """A status-less response for an operation without exactly one 2xx status is rejected."""
+    app = create_openapi_app(
+        ambiguous_success_document(),
+        {"item": lambda _request: OpenAPIResponse(), "delete": lambda _request: OpenAPIResponse(204)},
+        schemas=OpenAPISchemaRegistry(SCHEMAS),
+        request_error_handler=error_response,
+        path_converters={"path": "path"},
+    )
+    with TestClient(app) as client:
+        with pytest.raises(OpenAPIContractError, match="does not declare exactly one 2xx status"):
+            client.post("/items/one?view=full", headers={"X-Trace": "trace"}, json={"value": "yes"})
+
+
 def test_openapi_app_rejects_incomplete_handlers_and_unsupported_constructs() -> None:
     """Contract errors happen during application construction rather than at request time."""
     registry = OpenAPISchemaRegistry(SCHEMAS)
@@ -264,6 +314,22 @@ def test_openapi_parser_rejects_parameter_contract_mismatches_and_reference_cycl
     cycle["paths"]["/items/{item}"]["post"] = {"$ref": "#/paths/~1items~1{item}/post"}
     with pytest.raises(OpenAPIContractError, match="cyclic local"):
         parse_openapi_operations(cycle)
+
+
+def test_openapi_parser_derives_success_status_from_the_single_declared_2xx() -> None:
+    """Each operation's success status is the sole declared 2xx response status."""
+    operations = parse_openapi_operations(document())
+    item = next(operation for operation in operations if operation.operation_id == "item")
+    delete = next(operation for operation in operations if operation.operation_id == "delete")
+    assert item.success_status == 200
+    assert delete.success_status == 204
+
+
+def test_openapi_parser_leaves_success_status_none_for_ambiguous_2xx() -> None:
+    """A contract declaring two 2xx responses for one operation still parses."""
+    operations = parse_openapi_operations(ambiguous_success_document())
+    item = next(operation for operation in operations if operation.operation_id == "item")
+    assert item.success_status is None
 
 
 @pytest.mark.parametrize(
