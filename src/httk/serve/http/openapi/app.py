@@ -6,7 +6,7 @@ import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
@@ -15,6 +15,13 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from .schemas import OpenAPISchemaError, OpenAPISchemaRegistry
+
+if TYPE_CHECKING:
+    # Deferred to break the import cycle: contract.py imports OpenAPIContractError,
+    # OpenAPIOperation, and parse_openapi_operations from this module at module level,
+    # so this module must not import contract.py at module level in turn. The runtime
+    # check in create_openapi_app uses a local import instead; this one is type-only.
+    from .contract import OpenAPIContract
 
 type Handler = Callable[["OpenAPIRequest"], "OpenAPIResponse | Awaitable[OpenAPIResponse]"]
 type RequestErrorHandler = Callable[["OpenAPIRequestError"], "OpenAPIResponse"]
@@ -453,30 +460,49 @@ def _preflight_schemas(operations: tuple[OpenAPIOperation, ...], schemas: OpenAP
 
 
 def create_openapi_app(
-    document: Mapping[str, Any],
+    document: "OpenAPIContract | Mapping[str, Any]",
     handlers: Mapping[str, Handler],
     *,
-    schemas: OpenAPISchemaRegistry,
+    schemas: OpenAPISchemaRegistry | None = None,
     request_error_handler: RequestErrorHandler,
     exception_handlers: Mapping[type[Exception], ExceptionHandler] | None = None,
     lifespan: Callable[[Starlette], Any] | None = None,
     debug: bool = False,
     path_converters: Mapping[str, str] | None = None,
 ) -> Starlette:
-    """Create a Starlette app from a constrained OpenAPI 3.1 document.
+    """Create a Starlette app from a constrained OpenAPI 3.1 contract.
 
-    :param document: Caller-owned OpenAPI path document.
+    ``document`` accepts either an :class:`~httk.serve.http.openapi.OpenAPIContract`,
+    which already bundles its offline schema registry, or a plain OpenAPI document
+    mapping paired with a separate ``schemas`` registry.
+
+    :param document: Parsed contract, or a caller-owned OpenAPI path document.
     :param handlers: Operation-id-to-handler mapping.
     :param schemas: Offline JSON Schema registry for external body references.
+        Required and used when ``document`` is a plain mapping; must not be
+        supplied when ``document`` is an
+        :class:`~httk.serve.http.openapi.OpenAPIContract`.
     :param request_error_handler: Converts request parsing or schema errors to a response.
     :param exception_handlers: Exact protocol exception classes converted to responses.
     :param lifespan: Optional Starlette lifespan callable.
     :param debug: Whether Starlette debug responses are enabled.
     :param path_converters: OpenAPI path parameter to Starlette converter mapping.
     :return: Mountable Starlette application.
-    :raises OpenAPIContractError: If handlers or the contract are incomplete or unsupported.
+    :raises OpenAPIContractError: If handlers or the contract are incomplete or
+        unsupported, or if ``document`` and ``schemas`` disagree about which
+        schema registry to use.
     """
-    operations = parse_openapi_operations(document)
+    from .contract import OpenAPIContract  # local: see the TYPE_CHECKING import above
+
+    if isinstance(document, OpenAPIContract):
+        if schemas is not None:
+            raise OpenAPIContractError("schemas must not be supplied together with an OpenAPIContract")
+        operations = document.operations
+        schemas = document.schemas
+    else:
+        if schemas is None:
+            raise OpenAPIContractError("schemas is required when document is a plain OpenAPI mapping")
+        operations = parse_openapi_operations(document)
     _preflight_schemas(operations, schemas)
     expected = {operation.operation_id for operation in operations}
     missing, unknown = expected - set(handlers), set(handlers) - expected

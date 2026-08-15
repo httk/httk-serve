@@ -13,12 +13,14 @@ from .app import (
     create_openapi_app,
     parse_openapi_operations,
 )
+from .contract import OpenAPIContract
 from .resources import load_packaged_contract, packaged_schema_documents, packaged_schema_registry
 from .schemas import OpenAPISchemaError, OpenAPISchemaRegistry
 
 __all__ = [
     "ExceptionHandler",
     "Handler",
+    "OpenAPIContract",
     "OpenAPIContractError",
     "OpenAPIOperation",
     "OpenAPIParameter",

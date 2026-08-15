@@ -13,14 +13,12 @@ from httk.serve.http.openapi import (
     OpenAPIRequestError,
     OpenAPIResponse,
     create_openapi_app,
-    load_packaged_contract,
-    parse_openapi_operations,
 )
 
 from .catalogue import DCAT_MEDIA_TYPE, DCAT_PROFILE, DspCatalogueRepresentation
 from .models import DspProtocolError, ErrorKind
 from .provider import DspProvider, _AutomaticBatch
-from .validation import schema_registry
+from .validation import dsp_contract
 
 type HandlerResult = dict[str, Any] | None
 
@@ -30,7 +28,7 @@ def openapi_document() -> dict[str, Any]:
 
     :return: Parsed OpenAPI mapping.
     """
-    return load_packaged_contract("httk.serve.dsp", "schemas", "openapi.yaml")
+    return dsp_contract().document()
 
 
 def openapi_operations() -> tuple[OpenAPIOperation, ...]:
@@ -39,7 +37,7 @@ def openapi_operations() -> tuple[OpenAPIOperation, ...]:
     :return: Operations in document order.
     :raises RuntimeError: If the document uses an unsupported construct.
     """
-    return parse_openapi_operations(openapi_document())
+    return dsp_contract().operations
 
 
 async def _dispatch(
@@ -215,14 +213,14 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
         finally:
             await provider.cancel_automatic()
 
-    operations = openapi_operations()
+    contract = dsp_contract()
+    operations = contract.operations
     exception_handlers: Mapping[type[Exception], Callable[[Exception, OpenAPIRequest], OpenAPIResponse]] = {
         DspProtocolError: _adapt_protocol_error
     }
     app = create_openapi_app(
-        openapi_document(),
+        contract,
         {operation.operation_id: _handler(provider, operation.operation_id) for operation in operations},
-        schemas=schema_registry(),
         request_error_handler=_request_error,
         exception_handlers=exception_handlers,
         lifespan=lifespan,

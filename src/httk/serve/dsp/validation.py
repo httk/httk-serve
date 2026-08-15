@@ -1,10 +1,11 @@
 """Load and validate the bundled DSP and local profile schemas offline."""
 
 from collections.abc import Mapping
-from functools import cache
 from typing import Any
 
-from httk.serve.http.openapi import OpenAPISchemaError, OpenAPISchemaRegistry, packaged_schema_documents
+from httk.serve.http.openapi import OpenAPIContract, OpenAPISchemaError, OpenAPISchemaRegistry
+
+_CONTRACT_PACKAGE = "httk.serve.dsp"
 
 
 class DspSchemaError(ValueError):
@@ -22,20 +23,25 @@ def _normalized_references(value: Any) -> Any:
     return value
 
 
-@cache
+def dsp_contract() -> OpenAPIContract:
+    """Return the cached bundled DSP OpenAPI contract and offline schema registry.
+
+    :return: Contract parsed exclusively from package data.
+    :raises DspSchemaError: If any bundled schema document is invalid.
+    """
+    try:
+        return OpenAPIContract.from_package(_CONTRACT_PACKAGE, schema_transform=_normalized_references)
+    except OpenAPISchemaError as error:
+        raise DspSchemaError(str(error)) from error
+
+
 def schema_registry() -> OpenAPISchemaRegistry:
     """Return the immutable registry of bundled JSON Schemas.
 
     :return: Registry whose resources are resolved exclusively from package
         data.
     """
-    documents = [
-        _normalized_references(document) for document in packaged_schema_documents("httk.serve.dsp", "schemas")
-    ]
-    try:
-        return OpenAPISchemaRegistry(documents)
-    except OpenAPISchemaError as error:
-        raise DspSchemaError(str(error)) from error
+    return dsp_contract().schemas
 
 
 def schema_document(identifier: str) -> Mapping[str, Any]:
@@ -64,4 +70,4 @@ def validate_document(identifier: str, document: Any) -> None:
         raise DspSchemaError(str(exc)) from exc
 
 
-__all__ = ["DspSchemaError", "schema_document", "schema_registry", "validate_document"]
+__all__ = ["DspSchemaError", "dsp_contract", "schema_document", "schema_registry", "validate_document"]
