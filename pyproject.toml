@@ -54,6 +54,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
+"httk.serve" = ["py.typed"]
 "httk.serve.web" = ["py.typed", "assets/*.css", "assets/*.js", "assets/*.mjs"]
 "httk.serve.http" = ["py.typed"]
 "httk.serve.optimade" = ["py.typed"]
