@@ -9,7 +9,6 @@ from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 
 from httk.serve.http.openapi import (
-    OpenAPIOperation,
     OpenAPIRequest,
     OpenAPIRequestError,
     OpenAPIResponse,
@@ -47,23 +46,6 @@ _OPERATIONS: Mapping[str, OperationBinding] = {
     "transfer_completion": operation(DspProvider.receive_transfer_completion, aliases={"body": "message"}),
     "transfer_termination": operation(DspProvider.receive_transfer_termination, aliases={"body": "message"}),
 }
-
-
-def openapi_document() -> dict[str, Any]:
-    """Load the authoritative packaged OpenAPI document.
-
-    :return: Parsed OpenAPI mapping.
-    """
-    return dsp_contract().document()
-
-
-def openapi_operations() -> tuple[OpenAPIOperation, ...]:
-    """Parse and validate the supported subset of the bundled OpenAPI contract.
-
-    :return: Operations in document order.
-    :raises RuntimeError: If the document uses an unsupported construct.
-    """
-    return dsp_contract().operations
 
 
 def _error_kind(operation_id: str) -> ErrorKind:
@@ -186,11 +168,4 @@ def create_dsp_app(provider: DspProvider, *, debug: bool = False) -> Starlette:
     return app
 
 
-__all__ = [
-    "DCAT_MEDIA_TYPE",
-    "DCAT_PROFILE",
-    "OpenAPIOperation",
-    "create_dsp_app",
-    "openapi_document",
-    "openapi_operations",
-]
+__all__ = ["DCAT_MEDIA_TYPE", "DCAT_PROFILE", "create_dsp_app"]

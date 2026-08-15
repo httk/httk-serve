@@ -5,7 +5,8 @@ from starlette.testclient import TestClient
 from test_dsp_config import companion, config, publication
 
 from httk.serve.dsp import DSP_CONTEXT, EU_FILE_TYPE_JSON, DspProvider, DspPublicationRecord, create_dsp_app
-from httk.serve.dsp.api import DCAT_MEDIA_TYPE, DCAT_PROFILE, openapi_operations
+from httk.serve.dsp.api import DCAT_MEDIA_TYPE, DCAT_PROFILE
+from httk.serve.dsp.validation import dsp_contract
 
 
 def provider(*, alternate: bool = False) -> DspProvider:
@@ -21,7 +22,7 @@ def provider(*, alternate: bool = False) -> DspProvider:
 
 
 def test_openapi_exact_endpoint_inventory() -> None:
-    assert {(operation.method.upper(), operation.path) for operation in openapi_operations()} == {
+    assert {(operation.method.upper(), operation.path) for operation in dsp_contract().operations} == {
         ("GET", "/.well-known/dspace-version"),
         ("POST", "/2025-1/catalog/request"),
         ("GET", "/2025-1/catalog/datasets/{id}"),

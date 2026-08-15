@@ -16,8 +16,8 @@ from rdflib import Graph, Namespace, URIRef
 from test_dsp_config import companion, config, publication
 
 from httk.serve.dsp import DspDatasetPublication, DspProvider, DspPublicationRecord
-from httk.serve.dsp.api import openapi_document
-from httk.serve.dsp.validation import DspSchemaError, schema_document, schema_registry, validate_document
+from httk.serve.dsp.validation import dsp_contract
+from httk.serve.http.openapi import OpenAPISchemaError
 
 SCHEMAS = Path(__file__).parents[1] / "src" / "httk" / "serve" / "dsp" / "schemas"
 
@@ -35,7 +35,7 @@ def _without_external_schema_refs(value):
 
 def test_openapi_is_valid_31_without_network_resolution() -> None:
     """Validate the OpenAPI structure while schema semantics stay in the offline registry."""
-    document = openapi_document()
+    document = dsp_contract().document()
     assert document["openapi"] == "3.1.0"
     validate(_without_external_schema_refs(copy.deepcopy(document)))
 
@@ -47,7 +47,7 @@ def test_every_official_schema_id_is_in_the_offline_registry() -> None:
         document = json.loads(path.read_text(encoding="utf-8"))
         expected.add(document["$id"])
         Draft201909Validator.check_schema(document)
-    registered = set(schema_registry())
+    registered = set(dsp_contract().schemas)
     assert expected <= registered
     assert all(
         identifier.startswith(("https://w3id.org/dspace/2025/1/", "https://schemas.httk.org/"))
@@ -98,16 +98,16 @@ def test_every_vendored_official_example_validates_offline(monkeypatch) -> None:
     examples = sorted(SCHEMAS.glob("*/examples/*.json"))
     assert len(examples) == 25
     for path in examples:
-        validate_document(_example_schema(path), json.loads(path.read_text(encoding="utf-8")))
+        dsp_contract().schemas.validate(_example_schema(path), json.loads(path.read_text(encoding="utf-8")))
 
 
 def test_local_profile_examples_validate() -> None:
     """Validate the strict local DCAT and HTTP-pull wire examples."""
-    validate_document(
+    dsp_contract().schemas.validate(
         "https://schemas.httk.org/dsp/2025-1/dcat-ap-catalogue.json",
         json.loads((SCHEMAS / "profile" / "example-catalogue.json").read_text(encoding="utf-8")),
     )
-    validate_document(
+    dsp_contract().schemas.validate(
         "https://schemas.httk.org/dsp/2025-1/http-pull-profile.json",
         json.loads((SCHEMAS / "profile" / "example-http-pull-configuration.json").read_text(encoding="utf-8")),
     )
@@ -207,5 +207,5 @@ def test_schema_files_are_parseable_data() -> None:
 
 def test_registry_rejects_unknown_schema_without_retrieval() -> None:
     """Keep unknown identifiers from falling through to network retrieval."""
-    with pytest.raises(DspSchemaError, match="not bundled"):
-        schema_document("https://schemas.invalid/not-bundled.json")
+    with pytest.raises(OpenAPISchemaError, match="not registered"):
+        dsp_contract().schemas.lookup("https://schemas.invalid/not-bundled.json")
