@@ -1,3 +1,5 @@
+import pytest
+
 from httk.serve.optimade.endpoints.error import format_optimade_error
 from httk.serve.optimade.endpoints.meta import generate_meta
 from httk.serve.optimade.model import OptimadeConfig, OptimadeError, RawRequest
@@ -95,3 +97,9 @@ def test_generate_meta_optional_fields_absent_by_default() -> None:
     assert "database" not in meta
     assert "schema" not in meta
     assert "request_delay" not in meta
+
+
+def test_page_limit_max_defaults_to_50_and_rejects_invalid() -> None:
+    assert OptimadeConfig().page_limit_max == 50
+    with pytest.raises(ValueError):
+        OptimadeConfig(page_limit_max=0)

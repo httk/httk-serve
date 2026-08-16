@@ -47,6 +47,15 @@ test.beforeAll(async () => {
     if (url.pathname === "/cursor-next") return send(response, 200, JSON.stringify(result([resource("two", "Second", 3)], null, "structures", { dataReturned: 2, dataAvailable: 5 })), "application/vnd.api+json");
     if (url.pathname === "/empty/v1/empty") return send(response, 200, JSON.stringify(result([], null, "empty")), "application/vnd.api+json");
     if (url.pathname === "/race/v1/race") return send(response, 200, JSON.stringify(result([resource("fresh", "Fresh", 1, "race")], null, "race")), "application/vnd.api+json");
+    if (url.pathname === "/psize/v1/structures") {
+      // Echo the requested page size back as that many rows, so the dropdown's effect is observable.
+      // This stub deliberately honors ANY page_limit — a real httk-serve service caps it at
+      // OptimadeConfig.page_limit_max and returns 403 above that — so this spec proves the widget
+      // plumbing (URL param -> effective size -> page_limit) only, not the service ceiling.
+      const limit = Number(url.searchParams.get("page_limit")) || 1;
+      const rows = Array.from({ length: limit }, (_, i) => resource(`p${i}`, `Row ${i}`, i + 1));
+      return send(response, 200, JSON.stringify(result(rows, null, "structures")), "application/vnd.api+json");
+    }
     return send(response, 404, "not found", "text/plain");
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -182,6 +191,22 @@ test("the advanced-filter disclosure prefills the filter and carries the raw sor
   assert.equal(await page.locator("#advanced [data-httk-serve-optimade-advanced]").evaluate((el) => el.open), true);
 });
 
+test("the page-size dropdown reflects the URL value and drives how many rows are requested", async ({ page }) => {
+  // A URL page size that is one of the options selects it and is requested from the service.
+  await page.goto(`${origin}/?page_size=5`);
+  const select = page.locator("#pagesize [data-httk-serve-optimade-page-size]");
+  await select.waitFor();
+  assert.deepEqual(await select.locator("option").allTextContents(), ["2", "5", "10"]);
+  assert.equal(await select.inputValue(), "5");
+  await page.locator("#pagesize [data-httk-serve-optimade-status]").getByText("5 results loaded.").waitFor();
+  assert.equal(await page.locator("#pagesize tbody tr").count(), 5);
+
+  // With no URL parameter the authored default (2) is selected and requested.
+  await page.goto(`${origin}/`);
+  await page.locator("#pagesize [data-httk-serve-optimade-status]").getByText("2 results loaded.").waitFor();
+  assert.equal(await page.locator("#pagesize [data-httk-serve-optimade-page-size]").inputValue(), "2");
+});
+
 function page() {
   const main = shell("main", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: "nsites >= 1", filter_query: "filter", allowed_origins: [], detail_route: "/details?view=table", detail_column: "name", detail_query: "id" });
   const mirror = shell("mirror", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
@@ -191,12 +216,13 @@ function page() {
   const race = shell("race", { base_url: "/race/v1", entry_type: "race", columns: [{ key: "name", label: "Name", align: "start" }], page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
   const summary = shell("summary", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: "nsites >= 1", filter_query: "filter", allowed_origins: [], summary: { noun: "structures", fields: { nsites: { label: "Sites", format: null, values: null } } } });
   const sortable = shell("sortable", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: "filter", sort: null, sort_query: "sort", allowed_origins: [] });
-  const advanced = shell("advanced", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: "filter", sort: null, sort_query: "sort", allowed_origins: [], advanced_filter: { label: "Advanced OPTIMADE filter", help_url: "/fields" } });
+  const advanced = shell("advanced", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: "filter", sort: null, sort_query: "sort", allowed_origins: [], advanced_filter: { label: "Advanced search (OPTIMADE filter)", help_url: "/fields" } });
+  const pagesize = shell("pagesize", { base_url: "/psize/v1", entry_type: "structures", columns: columns(), page_size: 2, page_size_options: [2, 5, 10], page_size_query: "page_size", filter: null, filter_query: null, allowed_origins: [] });
   const invalid = shell("invalid", { base_url: "/v1", entry_type: "structures", columns: [{ key: "id", label: "ID", align: "start" }], page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
   // Deliberately break a required field after the shell is produced; this covers
   // defensive install failures rather than the trusted Python declaration.
   const invalidConfig = invalid.replace('"base_url":"/v1"', '"base_url":"http://"');
-  return `<!doctype html><meta charset="utf-8"><title>OPTIMADE smoke</title><script>window.optimadeEvents=[];document.addEventListener("httk-serve:optimade-table-updated",e=>window.optimadeEvents.push(e.detail));{const original=window.fetch.bind(window);let first=true;window.fetch=(input,init)=>{if(first&&String(input).includes("/race/v1/race")){first=false;return new Promise(resolve=>{window.releaseOptimadeRace=()=>resolve(new Response(JSON.stringify(${JSON.stringify(result([resource("stale", "Stale", 1, "race")], null, "race"))}),{headers:{"content-type":"application/vnd.api+json"}}));});}return original(input,init);};}</script><link rel="stylesheet" href="/assets/serve-optimade-table.css">${main}${mirror}${empty}${error}${redirect}${race}${summary}${sortable}${advanced}${invalidConfig}<script type="module" src="/assets/serve-optimade-table.mjs"></script>`;
+  return `<!doctype html><meta charset="utf-8"><title>OPTIMADE smoke</title><script>window.optimadeEvents=[];document.addEventListener("httk-serve:optimade-table-updated",e=>window.optimadeEvents.push(e.detail));{const original=window.fetch.bind(window);let first=true;window.fetch=(input,init)=>{if(first&&String(input).includes("/race/v1/race")){first=false;return new Promise(resolve=>{window.releaseOptimadeRace=()=>resolve(new Response(JSON.stringify(${JSON.stringify(result([resource("stale", "Stale", 1, "race")], null, "race"))}),{headers:{"content-type":"application/vnd.api+json"}}));});}return original(input,init);};}</script><link rel="stylesheet" href="/assets/serve-optimade-table.css">${main}${mirror}${empty}${error}${redirect}${race}${summary}${sortable}${advanced}${pagesize}${invalidConfig}<script type="module" src="/assets/serve-optimade-table.mjs"></script>`;
 }
 
 function shell(id, configuration) {
@@ -206,7 +232,10 @@ function shell(id, configuration) {
   const advanced = configuration.advanced_filter
     ? `<details class="httk-serve-optimade-table__advanced" data-httk-serve-optimade-advanced><summary>${configuration.advanced_filter.label}</summary><form method="get" class="httk-serve-optimade-table__advanced-form"><input type="hidden" name="${configuration.filter_query}_advanced" value="1"><label class="httk-serve-optimade-table__advanced-label">OPTIMADE filter <input type="text" name="${configuration.filter_query}" class="httk-serve-optimade-table__advanced-input" data-httk-serve-optimade-advanced-filter autocomplete="off" spellcheck="false"></label><button type="submit">Search</button>${configuration.advanced_filter.help_url ? `<a class="httk-serve-optimade-table__advanced-help" href="${configuration.advanced_filter.help_url}" target="_blank" rel="noopener noreferrer">Available fields</a>` : ""}</form></details>`
     : "";
-  return `<section id="${id}" class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-config-id="${id}-config" aria-busy="true">${summary}${advanced}<table><thead><tr>${heads}</tr></thead><tbody></tbody></table><nav class="httk-serve-optimade-table__pager"><button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button><span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span><button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button></nav><script id="${id}-config" type="application/json">${config}</script></section>`;
+  const pageSize = configuration.page_size_query
+    ? `<label class="httk-serve-optimade-table__page-size">Results per page <select data-httk-serve-optimade-page-size>${(configuration.page_size_options ?? []).map((n) => `<option value="${n}">${n}</option>`).join("")}</select></label>`
+    : "";
+  return `<section id="${id}" class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-config-id="${id}-config" aria-busy="true">${summary}${advanced}<table><thead><tr>${heads}</tr></thead><tbody></tbody></table><nav class="httk-serve-optimade-table__pager"><button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button><span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span><button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button>${pageSize}</nav><script id="${id}-config" type="application/json">${config}</script></section>`;
 }
 
 function columns() { return [{ key: "id", label: "ID", align: "start" }, { key: "name", label: "Name", align: "start" }, { key: "nsites", label: "N", align: "end" }]; }

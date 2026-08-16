@@ -40,6 +40,8 @@ def render(
     entry_type: str = "structures",
     columns: object,
     page_size: int = 50,
+    page_size_options: object = None,
+    page_size_query: str | None = None,
     caption: str = "OPTIMADE results",
     filter: str | None = None,
     filter_query: str | None = None,
@@ -66,6 +68,11 @@ def render(
     :param entry_type: OPTIMADE entry resource type.
     :param columns: Column names or column mappings to display.
     :param page_size: Number of entries requested per browser page.
+    :param page_size_options: Optional sequence of 1-8 distinct page-size integers (each
+        1..500) offered by the page-size dropdown. ``None`` uses ``(50, 100, 500)``. The
+        current ``page_size`` is always included as an option; the list is sorted ascending.
+    :param page_size_query: Query parameter name whose value selects a page size from the
+        options. The dropdown renders only when this is set.
     :param caption: Accessible table caption.
     :param filter: Initial OPTIMADE filter expression.
     :param filter_query: Whole-filter query parameter name used by the browser.
@@ -114,6 +121,8 @@ def render(
     )
     if normalized_detail_route is not None:
         normalized_detail_route = context.url_for(normalized_detail_route)
+    normalized_page_size_options = _page_size_options(page_size_options, page_size)
+    normalized_page_size_query = _optional_identifier(page_size_query, field="page_size_query")
     normalized_summary = _summary(summary, normalized_columns)
     normalized_advanced_filter = _advanced_filter(advanced_filter, filter_query=normalized_filter_query)
 
@@ -130,6 +139,8 @@ def render(
         "filter": normalized_filter,
         "filter_query": normalized_filter_query,
         "page_size": page_size,
+        "page_size_options": normalized_page_size_options,
+        "page_size_query": normalized_page_size_query,
         "sort": normalized_sort,
         "sort_aliases": normalized_sort_aliases,
         "sort_query": normalized_sort_query,
@@ -155,6 +166,7 @@ def render(
         if normalized_advanced_filter is not None
         else ""
     )
+    page_size_shell = _page_size_shell(normalized_page_size_options) if normalized_page_size_query is not None else ""
     html = (
         f'<link rel="stylesheet" href="{internal_root}/assets/serve-optimade-table.css">'
         f'<script type="module" src="{optimade_protocol_href(context)}"></script>'
@@ -168,6 +180,7 @@ def render(
         '<button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button>'
         '<span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span>'
         '<button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button>'
+        f"{page_size_shell}"
         "</nav>"
         f'<script id="{config_id}" type="application/json">{config_json}</script>'
         "</section>"
@@ -392,17 +405,45 @@ def _summary_values(value: object) -> dict[str, str]:
     return values
 
 
+def _page_size_options(value: object, page_size: int) -> list[int]:
+    if value is None:
+        options = [50, 100, 500]
+    else:
+        if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
+            raise OptimadeTableProtocolError("page_size_options must be a sequence of integers")
+        if not 1 <= len(value) <= 8:
+            raise OptimadeTableProtocolError("page_size_options must contain between 1 and 8 entries")
+        options = []
+        for item in value:
+            if isinstance(item, bool) or not isinstance(item, int) or not 1 <= item <= 500:
+                raise OptimadeTableProtocolError("page_size_options entries must be integers between 1 and 500")
+            if item in options:
+                raise OptimadeTableProtocolError("page_size_options entries must be distinct")
+            options.append(item)
+    if page_size not in options:
+        options.append(page_size)
+    return sorted(options)
+
+
+def _page_size_shell(options: Sequence[int]) -> str:
+    choices = "".join(f'<option value="{n}">{n}</option>' for n in options)
+    return (
+        '<label class="httk-serve-optimade-table__page-size">Results per page '
+        f"<select data-httk-serve-optimade-page-size>{choices}</select></label>"
+    )
+
+
 def _advanced_filter(value: object, *, filter_query: str | None) -> dict[str, object] | None:
     if value is None:
         return None
     if value is True:
-        label = "Advanced OPTIMADE filter"
+        label = "Advanced search (OPTIMADE filter)"
         help_url: str | None = None
     elif isinstance(value, Mapping):
         if set(value) - {"label", "help_url"}:
             raise OptimadeTableProtocolError("advanced_filter may contain only label and help_url")
         label = _text(
-            value.get("label", "Advanced OPTIMADE filter"),
+            value.get("label", "Advanced search (OPTIMADE filter)"),
             field="advanced_filter label",
             maximum=MAX_OPTIMADE_LABEL_CHARS,
         )

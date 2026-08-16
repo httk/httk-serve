@@ -130,6 +130,22 @@ def test_structures_pagination_next_link() -> None:
     assert [d["id"] for d in payload2["data"]] == ["s2", "s3"]
 
 
+def test_page_limit_over_max_returns_403_envelope() -> None:
+    client = make_client()
+    response = client.get("/structures", params={"page_limit": "51"})
+    assert response.status_code == 403
+    assert response.headers["content-type"] == "application/vnd.api+json"
+    error = response.json()["errors"][0]
+    assert error["status"] == 403
+    assert "maximum supported" in error["detail"]
+
+
+def test_page_limit_max_is_configurable_end_to_end() -> None:
+    client = TestClient(make_app(config=OptimadeConfig(page_limit_max=500)), base_url="http://testserver")
+    assert client.get("/structures", params={"page_limit": "500"}).status_code == 200
+    assert client.get("/structures", params={"page_limit": "501"}).status_code == 403
+
+
 @pytest.mark.parametrize(
     ("endpoint", "expected_path"),
     [

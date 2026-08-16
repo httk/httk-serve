@@ -684,7 +684,7 @@ def test_page_resources_share_one_document_and_link_objects_work() -> None:
 
 
 def test_pagination_guards_cycles_max_pages_cross_origin_and_missing_next() -> None:
-    initial_suffix = "/v1/renamed-files?page_limit=100"
+    initial_suffix = "/v1/renamed-files?page_limit=50"
     cases = [
         (
             [page([resource("a", "renamed-files")], next_link=initial_suffix, more=True)],

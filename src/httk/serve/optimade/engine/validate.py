@@ -13,8 +13,6 @@ from ..model.request import (
 from ..model.versions import optimade_default_version, optimade_supported_versions
 from ..schema.served import ServedSchema
 
-PAGE_LIMIT_MAX = 50
-
 # The filter lexer is quadratic in input length (16 KB ~ 6 s of CPU) and runs
 # synchronously on the ASGI event loop, so one oversized filter would block all
 # clients. Raising this bound therefore REQUIRES a lexer performance fix first.
@@ -54,7 +52,9 @@ def _parse_dimension_slices(value: str) -> dict[str, RequestedSlice]:
     return result
 
 
-def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) -> ValidatedParameters:
+def _validate_query(
+    endpoint: str, query: dict[str, str], schema: ServedSchema, page_limit_max: int
+) -> ValidatedParameters:
     validated_parameters = ValidatedParameters()
 
     if ('response_format' in query and query['response_format'] is not None) and query['response_format'] != 'json':
@@ -69,7 +69,10 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
             # A negative limit must not reach the backend: the execution layer
             # interprets negative limits as "no bound", which would bypass the cap.
             raise OptimadeError("page_limit must be a non-negative integer.", 400, "Bad request")
-        validated_parameters.page_limit = min(validated_parameters.page_limit, PAGE_LIMIT_MAX)
+        if validated_parameters.page_limit > page_limit_max:
+            # OPTIMADE: the service MAY cap page_limit and MUST answer a larger
+            # request with 403 Forbidden rather than silently clamping.
+            raise OptimadeError(f"page_limit larger than the maximum supported ({page_limit_max}).", 403, "Forbidden")
 
     if 'page_offset' in query and query['page_offset'] is not None:
         try:
@@ -136,12 +139,15 @@ def _validate_query(endpoint: str, query: dict[str, str], schema: ServedSchema) 
     return validated_parameters
 
 
-def validate_optimade_request(request: RawRequest, version: str, schema: ServedSchema) -> ValidatedRequest:
+def validate_optimade_request(
+    request: RawRequest, version: str, schema: ServedSchema, page_limit_max: int = 50
+) -> ValidatedRequest:
     """Validate a raw request against an explicit served schema.
 
     :param request: Raw request supplied by the web layer.
     :param version: API version selected for the request.
     :param schema: Served entry and property schema.
+    :param page_limit_max: Largest accepted ``page_limit``; larger requests raise 403.
     :return: Canonical request and validated query parameters.
     :raises httk.serve.optimade.model.errors.OptimadeError: If the path, version, or query is invalid.
     """
@@ -253,7 +259,7 @@ def validate_optimade_request(request: RawRequest, version: str, schema: ServedS
         version=validated_version,
         url_version=url_version,
         request_id=request_id,
-        query=_validate_query(endpoint, query, schema),
+        query=_validate_query(endpoint, query, schema, page_limit_max),
     )
 
     if 'response_fields' in query and query['response_fields'] is not None:

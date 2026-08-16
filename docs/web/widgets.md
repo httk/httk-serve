@@ -176,7 +176,8 @@ and its three internal assets in both live and published output:
 ```
 
 The declaration accepts `base_url`, `entry_type="structures"`, `columns`,
-`page_size=50`, `caption="OPTIMADE results"`, `filter`, `filter_query`,
+`page_size=50`, `page_size_options`, `page_size_query`, `caption="OPTIMADE results"`,
+`filter`, `filter_query`,
 `sort`, `sort_query`, `allowed_origins=()`, `detail_route`, `detail_column`,
 `detail_query="id"`, `summary`, and `advanced_filter`. URLs, identifiers, columns, origins, and display text are
 strictly bounded and validated. `filter_query` names a browser URL parameter
@@ -289,8 +290,27 @@ else, since its mere presence controls the disclosure's open state.
 
 Put any other sort and filter controls in ordinary GET forms; the original query
 snapshot reaches the provider and stays bound across pager requests. Page size
-defaults to 50 and is strictly limited to 500. Continuation requests, tokens,
+defaults to 50; the widget configuration accepts up to 500, but the size a
+service actually serves is bounded by that service's own maximum page limit.
+Continuation requests, tokens,
 cursors, rows, rendered HTML, and JSON responses all have explicit size bounds.
+
+A page-size dropdown follows the same opt-in URL-wiring grammar as `filter_query`
+and `sort_query`: it renders only when `page_size_query` names the URL parameter
+that carries the chosen size, and `page_size_options` lists the offered sizes (a
+sequence of 1-8 distinct integers, each 1..500; default `(50, 100, 500)`). The
+options are sorted ascending and always include the current `page_size` so the
+active state is selectable. On load the browser reads that parameter and uses it
+as the page size only when it exactly matches one of the options, otherwise it
+falls back to the authored `page_size`. Changing the dropdown navigates (via
+`location.assign`) to the same URL with only the page-size parameter changed —
+every other parameter, including the filter, sort, and the advanced-form marker,
+is preserved — so the effective size survives sort clicks and vice versa. Like
+the other controls it writes no history, cookie, or storage state of its own.
+The achievable page size is capped by the OPTIMADE service's own maximum page
+limit — for httk-serve services this is `OptimadeConfig.page_limit_max` (default
+50), and a larger `page_limit` is rejected with HTTP 403 per the OPTIMADE spec —
+so pick `page_size_options` your service actually accepts.
 
 Widget invocations must occupy their complete source paragraph/block. Code
 examples in Markdown fences or indented code, RST literal/doctest blocks, and

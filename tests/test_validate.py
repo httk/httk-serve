@@ -67,9 +67,24 @@ def test_versions_endpoint_only_unversioned() -> None:
     assert excinfo.value.response_code == 404
 
 
-def test_page_limit_clamped() -> None:
-    validated = validate_optimade_request(make_request("/structures?page_limit=1000"), "1.3.0", SCHEMA)
+def test_page_limit_at_max_is_accepted() -> None:
+    validated = validate_optimade_request(make_request("/structures?page_limit=50"), "1.3.0", SCHEMA)
     assert validated.query.page_limit == 50
+
+
+def test_page_limit_over_max_is_forbidden() -> None:
+    # OPTIMADE mandates 403 for an oversized page_limit, not a silent clamp.
+    with pytest.raises(OptimadeError) as excinfo:
+        validate_optimade_request(make_request("/structures?page_limit=51"), "1.3.0", SCHEMA)
+    assert excinfo.value.response_code == 403
+
+
+def test_page_limit_max_is_configurable() -> None:
+    validated = validate_optimade_request(make_request("/structures?page_limit=500"), "1.3.0", SCHEMA, page_limit_max=500)
+    assert validated.query.page_limit == 500
+    with pytest.raises(OptimadeError) as excinfo:
+        validate_optimade_request(make_request("/structures?page_limit=501"), "1.3.0", SCHEMA, page_limit_max=500)
+    assert excinfo.value.response_code == 403
 
 
 def test_negative_page_offset_clamped() -> None:

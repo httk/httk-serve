@@ -35,8 +35,10 @@ class OptimadeConfig:
     :param license: License metadata exposed by the base-info endpoint.
     :param available_licenses: Licenses advertised for the service.
     :param available_licenses_for_entries: Licenses advertised for entries.
+    :param page_limit_max: Largest ``page_limit`` accepted; larger requests get a 403.
     :param partial_data_chunk_size: Number of outer items emitted per partial-data page.
     :param cors_origins: Exact browser origins allowed to make cross-origin requests.
+    :raises ValueError: If ``page_limit_max`` is not an integer >= 1.
     """
 
     provider: dict[str, Any] = field(default_factory=_default_provider)
@@ -48,8 +50,13 @@ class OptimadeConfig:
     license: dict[str, Any] | str | None = None
     available_licenses: list[str] | None = None
     available_licenses_for_entries: list[str] | None = None
+    page_limit_max: int = 50
     partial_data_chunk_size: int = 1000
     cors_origins: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.page_limit_max, int) or isinstance(self.page_limit_max, bool) or self.page_limit_max < 1:
+            raise ValueError("page_limit_max must be an integer >= 1")
 
 
 @dataclass
@@ -86,6 +93,7 @@ class OptimadeIndexConfig(OptimadeConfig):
             raise ValueError(f"index link {link_id!r} has an invalid {key}.meta")
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         seen: set[str] = set()
         root_count = 0
         child_ids: set[str] = set()

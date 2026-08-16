@@ -222,12 +222,12 @@ def test_optimade_advanced_filter_disclosure_is_off_by_default_and_validated() -
         context, base_url="/optimade/v1", columns=["nsites"], filter_query="filter", advanced_filter=True
     )
     assert _optimade_config(enabled.html)["advanced_filter"] == {
-        "label": "Advanced OPTIMADE filter",
+        "label": "Advanced search (OPTIMADE filter)",
         "help_url": None,
     }
     assert "data-httk-serve-optimade-advanced" in enabled.html
     assert "data-httk-serve-optimade-advanced-filter" in enabled.html
-    assert "<summary>Advanced OPTIMADE filter</summary>" in enabled.html
+    assert "<summary>Advanced search (OPTIMADE filter)</summary>" in enabled.html
     assert '<form method="get"' in enabled.html
     assert 'name="filter"' in enabled.html
     # The submit marker (filter_query + "_advanced") lets the browser reopen the disclosure.
@@ -264,6 +264,51 @@ def test_optimade_advanced_filter_disclosure_is_off_by_default_and_validated() -
             render_optimade_table(
                 context, base_url="/optimade/v1", columns=["nsites"], filter_query="filter", advanced_filter=invalid
             )
+
+
+def test_optimade_page_size_options_normalize_and_render_only_when_wired() -> None:
+    context = WidgetContext(
+        route="index",
+        render_mode="serve",
+        widget_id="table",
+        query={},
+        postvars={},
+        page={"relbaseurl": "."},
+        source_path=Path("index.md"),
+        url_for=lambda route: route,
+        absolute_url_for=lambda route: route,
+    )
+    # Defaults: (50, 100, 500); no dropdown without page_size_query; key always present.
+    default = render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"])
+    assert _optimade_config(default.html)["page_size_options"] == [50, 100, 500]
+    assert _optimade_config(default.html)["page_size_query"] is None
+    assert "data-httk-serve-optimade-page-size" not in default.html
+
+    # Dropdown renders only when page_size_query is set; options sorted ascending.
+    wired = render_optimade_table(
+        context,
+        base_url="/optimade/v1",
+        columns=["nsites"],
+        page_size=100,
+        page_size_options=[500, 25, 100],
+        page_size_query="page_size",
+    )
+    assert _optimade_config(wired.html)["page_size_options"] == [25, 100, 500]
+    assert _optimade_config(wired.html)["page_size_query"] == "page_size"
+    assert "data-httk-serve-optimade-page-size" in wired.html
+    assert '<option value="25">25</option>' in wired.html
+
+    # The current page_size is injected into the options when missing (and kept sorted).
+    injected = render_optimade_table(
+        context, base_url="/optimade/v1", columns=["nsites"], page_size=75, page_size_options=[50, 100], page_size_query="ps"
+    )
+    assert _optimade_config(injected.html)["page_size_options"] == [50, 75, 100]
+
+    for invalid in ([], [0], [501], [10, 10], [1.5], ["50"], list(range(1, 10)), "50"):
+        with pytest.raises(OptimadeTableProtocolError):
+            render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"], page_size_options=invalid)
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"], page_size_query="bad name")
 
 
 def test_site_local_declared_asset_is_served_only_after_its_page_renders(tmp_path: Path) -> None:

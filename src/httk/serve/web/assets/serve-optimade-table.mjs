@@ -42,6 +42,19 @@ export function effectiveSort(configuration, location = globalThis.location) {
   return resolveSortAlias(value || null, configuration.sort_aliases);
 }
 
+/** Return the page size selected by the document URL, restricted to the configured options. */
+export function effectivePageSize(configuration, location = globalThis.location) {
+  const query = configuration.page_size_query;
+  if (query === null || query === undefined) return configuration.page_size;
+  if (typeof query !== "string" || !query) throw new Error("OPTIMADE table page_size_query is invalid");
+  const options = Array.isArray(configuration.page_size_options) ? configuration.page_size_options : [];
+  const raw = new URLSearchParams(location?.search ?? "").get(query);
+  if (raw === null) return configuration.page_size;
+  // String-exact integer match, so "37", "abc", "050", or "-5" never select an option.
+  const match = options.find((option) => String(option) === raw);
+  return match ?? configuration.page_size;
+}
+
 /** A stable key for work that discovers an OPTIMADE API, not a table page. */
 export function discoveryCacheKey(configuration, documentBase = globalThis.document?.baseURI, bodyLimit = undefined) {
   const base = new URL(configuration.base_url, documentBase).href;
@@ -238,8 +251,18 @@ export function sortHref(columnKey, currentSortComponents, sortQuery, search) {
   const primary = Array.isArray(currentSortComponents) ? currentSortComponents[0] : null;
   const descending = primary?.property === columnKey && primary.descending === false;
   const value = `${descending ? "-" : ""}${columnKey}${columnKey === "id" ? "" : ",id"}`;
+  return setSearchParam(sortQuery, value, search);
+}
+
+/** Relative href that sets ONLY the page-size parameter, preserving every other one. */
+export function pageSizeHref(value, pageSizeQuery, search) {
+  return setSearchParam(pageSizeQuery, String(value), search);
+}
+
+/** Set one URL parameter over the captured search string, preserving all others. */
+function setSearchParam(name, value, search) {
   const params = new URLSearchParams(typeof search === "string" ? search : "");
-  params.set(sortQuery, value);
+  params.set(name, value);
   return `?${params.toString()}`;
 }
 
@@ -334,8 +357,11 @@ export function installOptimadeTable(shell, options = {}) {
     const authoredSort = resolveSortAlias(configuration.sort ?? null, configuration.sort_aliases);
     const filter = effectiveFilter(configuration, location);
     const sort = effectiveSort(configuration, location);
+    const pageSize = effectivePageSize(configuration, location);
     if (configuration.summary) summaryPills = { filter: parseFilterPills(filter), sort: parseSortPill(sort, authoredSort) };
-    configuration = { ...configuration, filter, sort };
+    // The effective page size overrides the authored one so the transport (and thus
+    // validatePage's data.length <= pageSize check) uses the URL-selected value.
+    configuration = { ...configuration, filter, sort, page_size: pageSize };
   } catch (error) {
     failInstallation(shell, view, messageFor(error));
     return null;
@@ -388,6 +414,7 @@ export class OptimadeTableController {
   #lastRequest;
   #summaryElement;
   #summaryPills;
+  #location;
   #search;
   #headersDecorated;
 
@@ -411,11 +438,33 @@ export class OptimadeTableController {
     this.#abortController = null;
     this.#lastRequest = { kind: "initial", url: null };
     // The header sort links navigate to the current URL with only the sort param changed.
-    this.#search = (options.location ?? globalThis.location)?.search ?? "";
+    this.#location = options.location ?? globalThis.location;
+    this.#search = this.#location?.search ?? "";
     this.#headersDecorated = false;
     view.previous.addEventListener("click", () => this.previous());
     view.next.addEventListener("click", () => this.next());
     this.#setupAdvancedForm();
+    this.#setupPageSize();
+  }
+
+  /** Wire the page-size dropdown to the effective value and a preserve-all-params navigation. */
+  #setupPageSize() {
+    try {
+      const query = this.#configuration.page_size_query;
+      if (!query) return;
+      const select = this.#shell.querySelector?.("[data-httk-serve-optimade-page-size]");
+      if (!select) return;
+      select.value = String(this.#configuration.page_size);
+      select.addEventListener("change", () => {
+        try {
+          this.#location.assign(pageSizeHref(select.value, query, this.#search));
+        } catch {
+          // A broken select or location must never break the table.
+        }
+      });
+    } catch {
+      // The dropdown is an optional convenience; never fail install for it.
+    }
   }
 
   /** Prefill the advanced-filter input and carry the raw URL sort into its GET form. */

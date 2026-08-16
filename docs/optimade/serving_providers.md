@@ -138,6 +138,13 @@ slash), credentials, queries, or fragments. Hostnames must be ASCII; configure
 an internationalized domain name in browser-compatible punycode form so it
 matches the browser's `Origin` header exactly.
 
+The largest `page_limit` a client may request is `OptimadeConfig.page_limit_max`
+(default 50). Raise it to serve larger pages, e.g.
+`OptimadeConfig(page_limit_max=500)`. Per the OPTIMADE spec a request for a
+`page_limit` above this maximum is rejected with HTTP 403 Forbidden rather than
+silently clamped; the default page size (when no `page_limit` is given) is
+unaffected.
+
 ## Query programmatically
 
 For tests or in-process use, skip HTTP and drive the engine directly:

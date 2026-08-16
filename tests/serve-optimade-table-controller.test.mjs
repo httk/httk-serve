@@ -4,9 +4,11 @@ import test from "node:test";
 import {
   discoveryCacheKey,
   effectiveFilter,
+  effectivePageSize,
   effectiveSort,
   formatCellValue,
   OptimadeTableController,
+  pageSizeHref,
   parseFilterPills,
   parseSortPill,
   pillParts,
@@ -201,6 +203,26 @@ test("sortHref toggles direction, appends the id tiebreaker, and preserves other
   assert.equal(sortHref("nsites", null, "sort", "?a=1&sort=old&b=2"), "?a=1&sort=nsites%2Cid&b=2");
 });
 
+test("effectivePageSize restricts the URL value to the configured options", () => {
+  const config = { page_size: 50, page_size_options: [25, 50, 100], page_size_query: "page_size" };
+  // No wiring: always the authored page_size.
+  assert.equal(effectivePageSize({ page_size: 50 }, { search: "?page_size=100" }), 50);
+  // Absent param falls back to the authored page_size.
+  assert.equal(effectivePageSize(config, { search: "?other=1" }), 50);
+  // A value matching an option (string-exact) selects it.
+  assert.equal(effectivePageSize(config, { search: "?page_size=100" }), 100);
+  // Non-option, non-integer, and negative values all fall back.
+  assert.equal(effectivePageSize(config, { search: "?page_size=37" }), 50);
+  assert.equal(effectivePageSize(config, { search: "?page_size=abc" }), 50);
+  assert.equal(effectivePageSize(config, { search: "?page_size=-25" }), 50);
+});
+
+test("pageSizeHref sets only the page-size param and preserves everything else", () => {
+  assert.equal(pageSizeHref(100, "page_size", "?filter=nsites+%3E%3D+2&sort=-nsites"), "?filter=nsites+%3E%3D+2&sort=-nsites&page_size=100");
+  assert.equal(pageSizeHref(50, "page_size", "?page_size=100&filter_advanced=1"), "?page_size=50&filter_advanced=1");
+  assert.equal(pageSizeHref(25, "page_size", ""), "?page_size=25");
+});
+
 test("id sort components are kept so the id column header toggles direction", () => {
   // Unlike parseSortPill, sortComponents keeps id so the header decorator can toggle it.
   assert.deepEqual(sortComponents("id"), [{ property: "id", descending: false }]);
@@ -240,4 +262,26 @@ test("the advanced disclosure opens only when its own submit marker is present",
   // A bare sidebar-style filter with no marker stays closed.
   assert.equal(build("?filter=nsites+%3E%3D+1"), false);
   assert.equal(build("?other=1"), false);
+});
+
+test("changing the page-size dropdown navigates to the size-only URL, preserving other params", () => {
+  const staticButton = { addEventListener() {}, setAttribute() {} };
+  let changeHandler = null;
+  const select = { value: "", addEventListener: (type, fn) => { if (type === "change") changeHandler = fn; } };
+  const shell = { querySelector: (selector) => (selector.includes("page-size") ? select : null) };
+  let assigned = null;
+  const location = { search: "?filter=nsites+%3E%3D+2&sort=-nsites", assign: (href) => { assigned = href; } };
+  const config = { ...configuration, page_size: 50, page_size_options: [25, 50, 100], page_size_query: "page_size" };
+  new OptimadeTableController(shell, { tbody: {}, previous: staticButton, next: staticButton, status: {}, pager: {}, columns: 1 }, config, {
+    document: { baseURI: "https://site.example.test/", defaultView: {} },
+    location,
+    fetch: async () => { throw new Error("not called"); },
+  });
+  // Install selects the effective (here authored) page size in the dropdown.
+  assert.equal(select.value, "50");
+  // A user change navigates via location.assign to the same URL with only the page-size param set.
+  select.value = "100";
+  changeHandler();
+  assert.equal(assigned, pageSizeHref("100", "page_size", location.search));
+  assert.equal(assigned, "?filter=nsites+%3E%3D+2&sort=-nsites&page_size=100");
 });

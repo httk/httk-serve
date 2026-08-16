@@ -180,7 +180,7 @@ def process(
     if _LOG.isEnabledFor(logging.DEBUG):
         _LOG.debug("==== OPTIMADE REQUEST FOR: %s", request.representation, extra={"context": "optimade"})
 
-    validated_request = validate_optimade_request(request, version, schema)
+    validated_request = validate_optimade_request(request, version, schema, config.page_limit_max)
     endpoint = validated_request.endpoint
     request_id = validated_request.request_id
     validated_parameters = validated_request.query

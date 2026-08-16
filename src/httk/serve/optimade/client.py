@@ -262,7 +262,7 @@ class OptimadeStore:
         base_url: str,
         *,
         client: object | None = None,
-        page_limit: int = 100,
+        page_limit: int = 50,
         max_pages: int = 10_000,
         allow_cross_origin_pagination: bool = False,
         response_fields: object | None = None,
