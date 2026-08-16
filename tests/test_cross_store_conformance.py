@@ -20,6 +20,7 @@ from httk.atomistic import Species, StructureEntryProvider, UnitcellStructure
 from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry, load_entry_type_definition
 from httk.core.optimade import OptimadeResource
 from httk.store.db import Database, SqlStore
+from httk.store.db.rows import is_lazy_row
 
 from httk.serve.optimade import OptimadeStore, adapter_from_providers, create_asgi_app
 from httk.serve.optimade.backend.memory_store import InMemoryStore
@@ -330,7 +331,12 @@ def test_remote_typed_and_generic_resources_copy_to_sqlite_without_losing_source
         store = SqlStore(database, entry_records={})
         typed_sid = store.save(nacl)
         generic_sid = store.save(nacl.resource)
-        typed = store.fetch(type(nacl), typed_sid)
+        # The lazy default returns a row subclass; only eager restores exact
+        # type.  A fresh store on the same database gives a cold-cache proxy
+        # (the live saved nacl otherwise wins the main store's cache slot).
+        lazy_typed = SqlStore(database).fetch(type(nacl), typed_sid)
+        assert is_lazy_row(lazy_typed) and lazy_typed.elements_ratios == nacl.elements_ratios
+        typed = store.fetch(type(nacl), typed_sid, eager=True)
         generic = store.fetch(OptimadeResource, generic_sid)
 
         assert type(typed) is type(nacl)
