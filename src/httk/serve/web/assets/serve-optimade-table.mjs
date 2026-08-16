@@ -21,17 +21,25 @@ export function effectiveFilter(configuration, location = globalThis.location) {
 }
 
 /** Return the sort selected by the document URL, without composing sorts. */
+/** Resolve a display sort value through the configured alias map before it reaches OPTIMADE. */
+function resolveSortAlias(value, aliases) {
+  if (value === null || !aliases || typeof aliases !== "object") return value;
+  return Object.prototype.hasOwnProperty.call(aliases, value) ? aliases[value] : value;
+}
+
 export function effectiveSort(configuration, location = globalThis.location) {
   const authored = optionalString(configuration.sort, "sort");
-  if (configuration.sort_query === null || configuration.sort_query === undefined) return authored;
+  if (configuration.sort_query === null || configuration.sort_query === undefined) {
+    return resolveSortAlias(authored, configuration.sort_aliases);
+  }
   if (typeof configuration.sort_query !== "string" || !configuration.sort_query) {
     throw new Error("OPTIMADE table sort_query is invalid");
   }
   const parameters = new URLSearchParams(location?.search ?? "");
-  if (!parameters.has(configuration.sort_query)) return authored;
+  if (!parameters.has(configuration.sort_query)) return resolveSortAlias(authored, configuration.sort_aliases);
   const value = parameters.get(configuration.sort_query) ?? "";
   if (value.length > MAX_FILTER_CHARS) throw new Error("The OPTIMADE sort in this URL is longer than 4096 characters.");
-  return value || null;
+  return resolveSortAlias(value || null, configuration.sort_aliases);
 }
 
 /** A stable key for work that discovers an OPTIMADE API, not a table page. */
@@ -296,6 +304,13 @@ function validateConfiguration(config) {
     } else if (column.format.name === "join") {
       if (typeof column.format.separator !== "string") throw new Error("OPTIMADE table join format is invalid.");
     } else throw new Error("OPTIMADE table column format is invalid.");
+  }
+  const aliases = config.sort_aliases;
+  if (aliases !== undefined && aliases !== null) {
+    if (typeof aliases !== "object" || Array.isArray(aliases) ||
+        Object.values(aliases).some((sort) => typeof sort !== "string" || !sort)) {
+      throw new Error("OPTIMADE table sort_aliases are invalid.");
+    }
   }
 }
 

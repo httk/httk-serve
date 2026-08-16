@@ -44,6 +44,7 @@ def render(
     filter_query: str | None = None,
     sort: str | None = None,
     sort_query: str | None = None,
+    sort_aliases: Mapping[str, str] | None = None,
     allowed_origins: tuple[str, ...] = (),
     detail_route: str | None = None,
     detail_column: str | None = None,
@@ -67,6 +68,10 @@ def render(
     :param filter_query: Whole-filter query parameter name used by the browser.
     :param sort: Optional OPTIMADE sort expression.
     :param sort_query: Query parameter name whose complete value replaces ``sort``.
+    :param sort_aliases: Optional mapping of display sort values (e.g. a human-facing
+        ``"rank"``) to complete OPTIMADE sort expressions. The browser resolves an
+        authored or URL-supplied sort through this mapping before querying, so a
+        display alias is never sent to OPTIMADE; unmapped values pass through unchanged.
     :param allowed_origins: Client-side allow-list for continuation origins.
     :param detail_route: Optional site route for entry details.
     :param detail_column: Column supplying the detail value.
@@ -85,6 +90,7 @@ def render(
     normalized_filter_query = _optional_identifier(filter_query, field="filter_query")
     normalized_sort = _optional_text(sort, field="sort")
     normalized_sort_query = _optional_identifier(sort_query, field="sort_query")
+    normalized_sort_aliases = _sort_aliases(sort_aliases)
     normalized_origins = _origins(allowed_origins)
     normalized_detail_query = _identifier(detail_query, field="detail_query")
     normalized_detail_route, normalized_detail_column = _detail(
@@ -108,6 +114,7 @@ def render(
         "filter_query": normalized_filter_query,
         "page_size": page_size,
         "sort": normalized_sort,
+        "sort_aliases": normalized_sort_aliases,
         "sort_query": normalized_sort_query,
         "widget_id": context.widget_id,
     }
@@ -193,6 +200,19 @@ def _optional_text(value: object, *, field: str) -> str | None:
     if value is None:
         return None
     return _text(value, field=field, maximum=MAX_OPTIMADE_TEXT_CHARS)
+
+
+def _sort_aliases(value: object) -> dict[str, str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise OptimadeTableProtocolError("sort_aliases must be a mapping of display value to OPTIMADE sort")
+    aliases: dict[str, str] = {}
+    for alias, sort in value.items():
+        if not isinstance(alias, str) or not alias or len(alias) > MAX_OPTIMADE_TEXT_CHARS:
+            raise OptimadeTableProtocolError("sort_aliases keys must be non-empty strings")
+        aliases[alias] = _text(sort, field="sort_aliases value", maximum=MAX_OPTIMADE_TEXT_CHARS)
+    return aliases
 
 
 def _filter(value: object) -> str | None:

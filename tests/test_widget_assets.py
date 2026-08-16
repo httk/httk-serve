@@ -104,6 +104,35 @@ def test_optimade_column_formats_are_strict_and_serialized() -> None:
             render_optimade_table(context, base_url="/optimade/v1", columns=[{"key": "x", "format": invalid}])
 
 
+def test_optimade_sort_aliases_are_validated_and_serialized() -> None:
+    context = WidgetContext(
+        route="index",
+        render_mode="serve",
+        widget_id="table",
+        query={},
+        postvars={},
+        page={"relbaseurl": "."},
+        source_path=Path("index.md"),
+        url_for=lambda route: route,
+        absolute_url_for=lambda route: route,
+    )
+    result = render_optimade_table(
+        context,
+        base_url="/optimade/v1",
+        columns=["nsites"],
+        sort_query="sort",
+        sort_aliases={"rank": "id", "best": "-nsites,id"},
+    )
+    config = _optimade_config(result.html)
+    assert config["sort_aliases"] == {"rank": "id", "best": "-nsites,id"}
+    # Omitting sort_aliases serializes an explicit null.
+    plain = _optimade_config(render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"]).html)
+    assert plain["sort_aliases"] is None
+    for invalid in ([("rank", "id")], {"rank": ""}, {"": "id"}, {"rank": 1}, "id"):
+        with pytest.raises(OptimadeTableProtocolError):
+            render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"], sort_aliases=invalid)
+
+
 def test_site_local_declared_asset_is_served_only_after_its_page_renders(tmp_path: Path) -> None:
     src = _src(tmp_path, '{{ widget("site.asset") }}')
     (src / "widgets" / "asset.py").write_text(

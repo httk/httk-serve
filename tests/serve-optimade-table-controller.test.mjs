@@ -34,6 +34,24 @@ test("a URL sort overrides the authored sort completely and is bounded", () => {
   assert.throws(() => effectiveSort(withSort, { search: `?sort=${"x".repeat(4097)}` }), /4096/);
 });
 
+test("sort_aliases resolve display sort values to OPTIMADE sorts before querying", () => {
+  const aliased = {
+    ...configuration,
+    sort: "rank",
+    sort_query: "sort",
+    sort_aliases: { rank: "id", best: "-nsites,id" },
+  };
+  // A display alias in the URL is translated, never sent verbatim.
+  assert.equal(effectiveSort(aliased, { search: "?sort=rank" }), "id");
+  assert.equal(effectiveSort(aliased, { search: "?sort=best" }), "-nsites,id");
+  // An unmapped value passes through unchanged (a real OPTIMADE sort, or the server's problem).
+  assert.equal(effectiveSort(aliased, { search: "?sort=chemical_formula_reduced" }), "chemical_formula_reduced");
+  // The authored default is resolved through the map too.
+  assert.equal(effectiveSort(aliased, { search: "?other=1" }), "id");
+  // No map: values pass through unchanged.
+  assert.equal(effectiveSort({ ...configuration, sort_query: "sort" }, { search: "?sort=rank" }), "rank");
+});
+
 test("discovery cache keys include discovery inputs but not table-only options", () => {
   const first = discoveryCacheKey(configuration, "https://site.example.test/guide/");
   const reorderedOrigins = discoveryCacheKey({ ...configuration, allowed_origins: [...configuration.allowed_origins].reverse(), detail_route: "details" }, "https://site.example.test/guide/");
