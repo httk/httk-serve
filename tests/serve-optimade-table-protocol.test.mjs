@@ -365,3 +365,31 @@ test("fetchOne enforces the bounded response body", async () => {
     fetch: network.fetch, documentBase: "https://site.example.test/", bodyLimit: 10,
   }).fetchOne("id"), (error) => error.code === "body_limit");
 });
+
+test("the default fetch is invoked with the global receiver so native fetch does not raise Illegal invocation", async () => {
+  const responses = {
+    [`${BASE}/versions`]: () => text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: () => json(info(), `${BASE}/v1/info`),
+    [`${BASE}/v1/info/structures`]: () => json(entry(), `${BASE}/v1/info/structures`),
+  };
+  // A native-like fetch: browsers throw "Illegal invocation" unless the receiver is the global object.
+  const strictGlobalFetch = function fetch(url) {
+    if (this !== globalThis) throw new TypeError("Illegal invocation");
+    const make = responses[url];
+    if (!make) throw new Error(`unexpected ${url}`);
+    return Promise.resolve(make());
+  };
+  const previous = globalThis.fetch;
+  globalThis.fetch = strictGlobalFetch;
+  try {
+    // No fetch option: this exercises the `?? globalThis.fetch` fallback, the real browser path.
+    const client = new OptimadeTransport(
+      { base_url: BASE, entry_type: "structures", columns: ["id", "nsites"], page_size: 2, allowed_origins: [] },
+      { documentBase: "https://site.example.test/docs/page.html" },
+    );
+    const discovery = await client.discover();
+    assert.equal(discovery.apiBaseUrl, `${BASE}/v1`);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});

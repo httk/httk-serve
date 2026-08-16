@@ -219,7 +219,10 @@ export class OptimadeTransport {
     const requested = this.#allowedUrl(value);
     let response;
     try {
-      response = await this.fetch(requested.href, {
+      // Browsers require native fetch to run with the global object as its receiver; a bare
+      // this.fetch(...) call would throw "Illegal invocation". The stored reference is kept
+      // unbound so it remains a stable discovery-cache key.
+      response = await this.fetch.call(globalThis, requested.href, {
         method: "GET",
         credentials: "omit",
         redirect: "error",
