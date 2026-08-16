@@ -40,7 +40,7 @@ test.beforeAll(async () => {
     }
     if (url.pathname === "/error/v1/info") return send(response, 503, JSON.stringify({ errors: [{ title: "Unavailable", detail: "opaque-error-token must stay private" }] }), "application/json");
     if (url.pathname.endsWith("/info")) return send(response, 200, JSON.stringify(info(url.pathname.includes("empty") ? ["empty"] : url.pathname.includes("race") ? ["race"] : ["structures"])), "application/vnd.api+json");
-    if (url.pathname.endsWith("/info/structures")) return send(response, 200, JSON.stringify(entry("structures", ["name", "nsites"])), "application/vnd.api+json");
+    if (url.pathname.endsWith("/info/structures")) return send(response, 200, JSON.stringify(entry("structures", ["name", "nsites"], ["nsites"])), "application/vnd.api+json");
     if (url.pathname.endsWith("/info/empty")) return send(response, 200, JSON.stringify(entry("empty", ["name"])), "application/vnd.api+json");
     if (url.pathname.endsWith("/info/race")) return send(response, 200, JSON.stringify(entry("race", ["name"])), "application/vnd.api+json");
     if (url.pathname === "/v1/structures") return send(response, 200, JSON.stringify(result([resource("one", "<img src=x onerror=alert(1)>", 2)], "/cursor-next?opaque=not-for-dom", "structures", { dataReturned: 2, dataAvailable: 5 })), "application/vnd.api+json");
@@ -126,6 +126,40 @@ test("the results summary reports spec counts and renders a filter pill", async 
   assert.match(await pill.textContent(), /Sites\s+≥ 9/);
 });
 
+test("sortable column headers become sort links that toggle direction and set aria-sort", async ({ page }) => {
+  await page.goto(`${origin}/`);
+  const sortLink = page.locator("#sortable thead th").nth(2).locator("a.httk-serve-optimade-table__sort-link");
+  await sortLink.waitFor();
+  // The nsites column (a sortable, advertised field) links to sort ascending with an id tiebreaker.
+  assert.equal(await sortLink.getAttribute("href"), "?sort=nsites%2Cid");
+  // The name column is not advertised sortable, so its header is never wrapped in a link.
+  assert.equal(await page.locator("#sortable thead th").nth(1).locator("a.httk-serve-optimade-table__sort-link").count(), 0);
+
+  await page.goto(`${origin}/?sort=nsites%2Cid`);
+  const active = page.locator("#sortable thead th").nth(2);
+  const activeLink = active.locator("a.httk-serve-optimade-table__sort-link");
+  await activeLink.waitFor();
+  // Already sorted ascending by nsites: the link now flips to descending and aria-sort is set.
+  assert.equal(await activeLink.getAttribute("href"), "?sort=-nsites%2Cid");
+  assert.equal(await active.getAttribute("aria-sort"), "ascending");
+});
+
+test("the advanced-filter disclosure prefills the filter and carries the raw sort param", async ({ page }) => {
+  await page.goto(`${origin}/?filter=nsites%20%3E%3D%209&sort=best`);
+  const details = page.locator("#advanced [data-httk-serve-optimade-advanced]");
+  await details.waitFor();
+  const input = details.locator("[data-httk-serve-optimade-advanced-filter]");
+  // The input is prefilled with the effective (URL-selected) filter value.
+  await input.waitFor();
+  assert.equal(await input.inputValue(), "nsites >= 9");
+  // The raw URL sort alias is preserved in a hidden field so the GET form round-trips it verbatim.
+  assert.equal(await details.locator('form input[type="hidden"][name="sort"]').inputValue(), "best");
+  const help = details.locator("a.httk-serve-optimade-table__advanced-help");
+  assert.equal(await help.getAttribute("href"), "/fields");
+  assert.equal(await help.getAttribute("target"), "_blank");
+  assert.equal(await help.getAttribute("rel"), "noopener noreferrer");
+});
+
 function page() {
   const main = shell("main", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: "nsites >= 1", filter_query: "filter", allowed_origins: [], detail_route: "/details?view=table", detail_column: "name", detail_query: "id" });
   const mirror = shell("mirror", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
@@ -134,23 +168,28 @@ function page() {
   const redirect = shell("redirect", { base_url: "/redirect/v1", entry_type: "structures", columns: [{ key: "id", label: "ID", align: "start" }], page_size: 2, filter: "secret filter", filter_query: null, allowed_origins: [] });
   const race = shell("race", { base_url: "/race/v1", entry_type: "race", columns: [{ key: "name", label: "Name", align: "start" }], page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
   const summary = shell("summary", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: "nsites >= 1", filter_query: "filter", allowed_origins: [], summary: { noun: "structures", fields: { nsites: { label: "Sites", format: null, values: null } } } });
+  const sortable = shell("sortable", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: "filter", sort: null, sort_query: "sort", allowed_origins: [] });
+  const advanced = shell("advanced", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: "filter", sort: null, sort_query: "sort", allowed_origins: [], advanced_filter: { label: "Advanced OPTIMADE filter", help_url: "/fields" } });
   const invalid = shell("invalid", { base_url: "/v1", entry_type: "structures", columns: [{ key: "id", label: "ID", align: "start" }], page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
   // Deliberately break a required field after the shell is produced; this covers
   // defensive install failures rather than the trusted Python declaration.
   const invalidConfig = invalid.replace('"base_url":"/v1"', '"base_url":"http://"');
-  return `<!doctype html><meta charset="utf-8"><title>OPTIMADE smoke</title><script>window.optimadeEvents=[];document.addEventListener("httk-serve:optimade-table-updated",e=>window.optimadeEvents.push(e.detail));{const original=window.fetch.bind(window);let first=true;window.fetch=(input,init)=>{if(first&&String(input).includes("/race/v1/race")){first=false;return new Promise(resolve=>{window.releaseOptimadeRace=()=>resolve(new Response(JSON.stringify(${JSON.stringify(result([resource("stale", "Stale", 1, "race")], null, "race"))}),{headers:{"content-type":"application/vnd.api+json"}}));});}return original(input,init);};}</script><link rel="stylesheet" href="/assets/serve-optimade-table.css">${main}${mirror}${empty}${error}${redirect}${race}${summary}${invalidConfig}<script type="module" src="/assets/serve-optimade-table.mjs"></script>`;
+  return `<!doctype html><meta charset="utf-8"><title>OPTIMADE smoke</title><script>window.optimadeEvents=[];document.addEventListener("httk-serve:optimade-table-updated",e=>window.optimadeEvents.push(e.detail));{const original=window.fetch.bind(window);let first=true;window.fetch=(input,init)=>{if(first&&String(input).includes("/race/v1/race")){first=false;return new Promise(resolve=>{window.releaseOptimadeRace=()=>resolve(new Response(JSON.stringify(${JSON.stringify(result([resource("stale", "Stale", 1, "race")], null, "race"))}),{headers:{"content-type":"application/vnd.api+json"}}));});}return original(input,init);};}</script><link rel="stylesheet" href="/assets/serve-optimade-table.css">${main}${mirror}${empty}${error}${redirect}${race}${summary}${sortable}${advanced}${invalidConfig}<script type="module" src="/assets/serve-optimade-table.mjs"></script>`;
 }
 
 function shell(id, configuration) {
   const config = JSON.stringify(configuration).replace(/</g, "\\u003c");
   const heads = configuration.columns.map((column) => `<th>${column.label}</th>`).join("");
   const summary = configuration.summary ? '<div class="httk-serve-optimade-table__summary" data-httk-serve-optimade-summary hidden></div>' : "";
-  return `<section id="${id}" class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-config-id="${id}-config" aria-busy="true">${summary}<table><thead><tr>${heads}</tr></thead><tbody></tbody></table><nav class="httk-serve-optimade-table__pager"><button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button><span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span><button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button></nav><script id="${id}-config" type="application/json">${config}</script></section>`;
+  const advanced = configuration.advanced_filter
+    ? `<details class="httk-serve-optimade-table__advanced" data-httk-serve-optimade-advanced><summary>${configuration.advanced_filter.label}</summary><form method="get" class="httk-serve-optimade-table__advanced-form"><label class="httk-serve-optimade-table__advanced-label">OPTIMADE filter <input type="text" name="${configuration.filter_query}" class="httk-serve-optimade-table__advanced-input" data-httk-serve-optimade-advanced-filter autocomplete="off" spellcheck="false"></label><button type="submit">Search</button>${configuration.advanced_filter.help_url ? `<a class="httk-serve-optimade-table__advanced-help" href="${configuration.advanced_filter.help_url}" target="_blank" rel="noopener noreferrer">Available fields</a>` : ""}</form></details>`
+    : "";
+  return `<section id="${id}" class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-config-id="${id}-config" aria-busy="true">${summary}${advanced}<table><thead><tr>${heads}</tr></thead><tbody></tbody></table><nav class="httk-serve-optimade-table__pager"><button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button><span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span><button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button></nav><script id="${id}-config" type="application/json">${config}</script></section>`;
 }
 
 function columns() { return [{ key: "id", label: "ID", align: "start" }, { key: "name", label: "Name", align: "start" }, { key: "nsites", label: "N", align: "end" }]; }
 function info(entries) { return { data: { id: "/", type: "info", attributes: { api_version: "1.3.0", formats: ["json"], entry_types_by_format: { json: entries }, available_endpoints: ["info", ...entries] } } }; }
-function entry(id, fields) { return { data: { id, type: "info", properties: Object.fromEntries(fields.map((field) => [field, {}])), formats: ["json"], output_fields_by_format: { json: fields } } }; }
+function entry(id, fields, sortable = []) { return { data: { id, type: "info", properties: Object.fromEntries(fields.map((field) => [field, sortable.includes(field) ? { sortable: true } : {}])), formats: ["json"], output_fields_by_format: { json: fields } } }; }
 function resource(id, name, nsites, type = "structures") { return { id, type, attributes: type === "structures" ? { name, nsites } : { name } }; }
 // data_returned is the filtered total independent of pagination (so it may
 // exceed a single page); data_available is the unfiltered endpoint total.

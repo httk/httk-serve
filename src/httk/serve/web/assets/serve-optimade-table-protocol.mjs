@@ -138,12 +138,13 @@ export class OptimadeTransport {
     const info = await this.#request(appendPath(this.apiBase, "info"), "json");
     const apiVersion = validateInfo(parseJson(info.text, "/info"), this.entryType);
     const entryInfo = await this.#request(appendPath(this.apiBase, `info/${encodeURIComponent(this.entryType)}`), "json");
-    const advertisedFields = validateEntryInfo(parseJson(entryInfo.text, `/info/${this.entryType}`), apiVersion, this.entryType, this.selectedFields);
+    const { advertisedFields, sortableFields } = validateEntryInfo(parseJson(entryInfo.text, `/info/${this.entryType}`), apiVersion, this.entryType, this.selectedFields);
     this.discovery = Object.freeze({
       apiBaseUrl: this.apiBase.href,
       apiVersion,
       entryType: this.entryType,
       advertisedFields: Object.freeze([...advertisedFields]),
+      sortableFields: Object.freeze([...sortableFields]),
     });
     return this.discovery;
   }
@@ -476,7 +477,9 @@ function validateEntryInfo(root, api, entryType, selected) {
       throw protocol("discovery", `/info/${entryType} does not advertise selected field ${field}`);
     }
   }
-  return output;
+  // Only a strict boolean true marks a property sortable; anything else is not.
+  const sortableFields = Object.keys(data.properties).filter((name) => data.properties[name]?.sortable === true);
+  return { advertisedFields: output, sortableFields };
 }
 
 function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, allowUrl }) {

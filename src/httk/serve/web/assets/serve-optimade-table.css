@@ -35,6 +35,16 @@
 .httk-serve-optimade-table__summary-count { color: var(--httk-serve-muted); flex-basis: 100%; font-size: .9em; margin: 0; }
 .httk-serve-optimade-table__pill { background: var(--httk-serve-wash); border: 1px solid var(--httk-serve-rule, currentColor); border-radius: 999px; display: inline-block; font-size: .85em; padding: .1rem .55rem; }
 .httk-serve-optimade-table__pill strong { font-weight: 650; }
+.httk-serve-optimade-table__sort-link { cursor: pointer; }
+.httk-serve-optimade-table th[aria-sort] { color: var(--httk-serve-accent); }
+.httk-serve-optimade-table th[aria-sort="ascending"] .httk-serve-optimade-table__sort-link::after { content: " ↑"; }
+.httk-serve-optimade-table th[aria-sort="descending"] .httk-serve-optimade-table__sort-link::after { content: " ↓"; }
+.httk-serve-optimade-table__advanced { margin-block-end: .7rem; }
+.httk-serve-optimade-table__advanced summary { cursor: pointer; font-size: .9em; font-weight: 650; }
+.httk-serve-optimade-table__advanced-form { align-items: center; display: flex; flex-wrap: wrap; gap: .5rem .75rem; margin-block-start: .5rem; }
+.httk-serve-optimade-table__advanced-label { align-items: center; display: flex; flex: 1 1 20rem; gap: .4rem; min-inline-size: 0; }
+.httk-serve-optimade-table__advanced-input { background: transparent; border: 1px solid var(--httk-serve-rule, currentColor); border-radius: 0; color: inherit; flex: 1 1 12rem; font: inherit; min-inline-size: 0; padding: .3rem .5rem; }
+.httk-serve-optimade-table__advanced-help { font-size: .9em; }
 
 @media (prefers-reduced-motion: no-preference) {
   .httk-serve-optimade-table tbody { transition: opacity 100ms linear; }

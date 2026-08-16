@@ -51,6 +51,7 @@ def render(
     detail_column: str | None = None,
     detail_query: str = "id",
     summary: object = None,
+    advanced_filter: object = None,
 ) -> WidgetRenderResult:
     """Render an inert, accessible OPTIMADE table shell and trusted assets.
 
@@ -83,6 +84,12 @@ def render(
         ``noun`` and a ``fields`` mapping of property name to ``label``, ``format``,
         and ``values`` overlays used to describe the active filter and sort in human
         terms. Field presentation defaults to the matching column's label and format.
+    :param advanced_filter: Optional advanced-filter disclosure configuration. ``None``
+        disables it, ``True`` enables it with defaults, and a mapping may set ``label``
+        (the disclosure heading) and ``help_url`` (an absolute HTTP(S) URL or site-relative
+        path to an "available fields" reference). The disclosure is a plain GET form that
+        submits a raw OPTIMADE filter under the ``filter_query`` parameter, so it requires
+        ``filter_query`` to be set.
     :return: Accessible table shell and its trusted assets.
     :raises OptimadeTableProtocolError: If configuration violates the browser protocol.
     """
@@ -108,8 +115,10 @@ def render(
     if normalized_detail_route is not None:
         normalized_detail_route = context.url_for(normalized_detail_route)
     normalized_summary = _summary(summary, normalized_columns)
+    normalized_advanced_filter = _advanced_filter(advanced_filter, filter_query=normalized_filter_query)
 
     configuration = {
+        "advanced_filter": normalized_advanced_filter,
         "allowed_origins": normalized_origins,
         "base_url": normalized_base_url,
         "caption": normalized_caption,
@@ -141,6 +150,11 @@ def render(
         if normalized_summary is not None
         else ""
     )
+    advanced_shell = (
+        _advanced_filter_shell(normalized_advanced_filter, cast(str, normalized_filter_query))
+        if normalized_advanced_filter is not None
+        else ""
+    )
     html = (
         f'<link rel="stylesheet" href="{internal_root}/assets/serve-optimade-table.css">'
         f'<script type="module" src="{optimade_protocol_href(context)}"></script>'
@@ -148,6 +162,7 @@ def render(
         f'<section class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-widget-id="{widget_id}" '
         f'data-config-id="{config_id}" aria-busy="true">'
         f"{summary_shell}"
+        f"{advanced_shell}"
         f'<table><caption>{escape(normalized_caption, quote=False)}</caption><thead><tr>{headers}</tr></thead><tbody></tbody></table>'
         '<nav class="httk-serve-optimade-table__pager" aria-label="OPTIMADE table pagination">'
         '<button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button>'
@@ -375,6 +390,71 @@ def _summary_values(value: object) -> dict[str, str]:
         key = _text(raw, field="summary value key", maximum=MAX_OPTIMADE_LABEL_CHARS)
         values[key] = _text(label, field="summary value label", maximum=MAX_OPTIMADE_LABEL_CHARS)
     return values
+
+
+def _advanced_filter(value: object, *, filter_query: str | None) -> dict[str, object] | None:
+    if value is None:
+        return None
+    if value is True:
+        label = "Advanced OPTIMADE filter"
+        help_url: str | None = None
+    elif isinstance(value, Mapping):
+        if set(value) - {"label", "help_url"}:
+            raise OptimadeTableProtocolError("advanced_filter may contain only label and help_url")
+        label = _text(
+            value.get("label", "Advanced OPTIMADE filter"),
+            field="advanced_filter label",
+            maximum=MAX_OPTIMADE_LABEL_CHARS,
+        )
+        help_url = _advanced_filter_help_url(value.get("help_url"))
+    else:
+        raise OptimadeTableProtocolError("advanced_filter must be True, a mapping, or None")
+    if filter_query is None:
+        raise OptimadeTableProtocolError("advanced_filter requires filter_query to name the form parameter")
+    return {"label": label, "help_url": help_url}
+
+
+def _advanced_filter_help_url(value: object) -> str | None:
+    if value is None:
+        return None
+    text = _text(value, field="advanced_filter help_url", maximum=MAX_OPTIMADE_URL_CHARS)
+    if "\\" in text or any(char.isspace() for char in text):
+        raise OptimadeTableProtocolError("advanced_filter help_url must not contain whitespace or backslashes")
+    parsed = urlsplit(text)
+    if parsed.scheme:
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise OptimadeTableProtocolError("advanced_filter help_url must use HTTP(S) with a host")
+        if parsed.username is not None or parsed.password is not None:
+            raise OptimadeTableProtocolError("advanced_filter help_url must not include credentials")
+    elif parsed.netloc or text.startswith("//"):
+        raise OptimadeTableProtocolError("advanced_filter help_url must not be protocol-relative")
+    elif not parsed.path:
+        raise OptimadeTableProtocolError("advanced_filter help_url must be an HTTP(S) URL or site-relative path")
+    return text
+
+
+def _advanced_filter_shell(spec: Mapping[str, object], filter_query: str) -> str:
+    label = escape(cast(str, spec["label"]), quote=False)
+    name = escape(filter_query, quote=True)
+    help_url = spec["help_url"]
+    help_link = (
+        f'<a class="httk-serve-optimade-table__advanced-help" '
+        f'href="{escape(cast(str, help_url), quote=True)}" target="_blank" rel="noopener noreferrer">Available fields</a>'
+        if help_url is not None
+        else ""
+    )
+    return (
+        '<details class="httk-serve-optimade-table__advanced" data-httk-serve-optimade-advanced>'
+        f"<summary>{label}</summary>"
+        '<form method="get" class="httk-serve-optimade-table__advanced-form">'
+        '<label class="httk-serve-optimade-table__advanced-label">OPTIMADE filter '
+        f'<input type="text" name="{name}" class="httk-serve-optimade-table__advanced-input" '
+        'data-httk-serve-optimade-advanced-filter autocomplete="off" spellcheck="false"></label>'
+        '<button type="submit">Search</button>'
+        f"{help_link}"
+        "</form>"
+        "</details>"
+    )
 
 
 def _origins(value: object) -> list[str]:

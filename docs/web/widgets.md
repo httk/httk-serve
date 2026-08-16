@@ -178,7 +178,7 @@ and its three internal assets in both live and published output:
 The declaration accepts `base_url`, `entry_type="structures"`, `columns`,
 `page_size=50`, `caption="OPTIMADE results"`, `filter`, `filter_query`,
 `sort`, `sort_query`, `allowed_origins=()`, `detail_route`, `detail_column`,
-`detail_query="id"`, and `summary`. URLs, identifiers, columns, origins, and display text are
+`detail_query="id"`, `summary`, and `advanced_filter`. URLs, identifiers, columns, origins, and display text are
 strictly bounded and validated. `filter_query` names a browser URL parameter
 whose complete value overrides `filter`, while `sort_query` similarly overrides
 `sort`; neither is access control. Detail
@@ -247,11 +247,37 @@ filter pills rather than a misleading partial description. The sort pill drops
 the effective sort equals the authored default. No summary output is emitted when
 `summary` is unset.
 
-There is no interactive header sorting in this phase. Put sort and filter
-controls in ordinary GET forms; the original query snapshot reaches the provider
-and stays bound across pager requests. Page size defaults to 50 and is strictly
-limited to 500. Continuation requests, tokens, cursors, rows, rendered HTML, and
-JSON responses all have explicit size bounds.
+When `sort_query` is set, column headers whose field the OPTIMADE service
+advertises as sortable (a strict `sortable: true` on the property in
+`/info/<entry_type>`) become sort links after discovery succeeds. Clicking one
+navigates to the current URL with only the `sort_query` parameter changed:
+ascending by default, appending an `,id` tiebreaker except for the `id` column
+itself. Clicking the current primary sort column again reverses its direction,
+and that column's header carries `aria-sort="ascending"` or `"descending"`.
+Every other URL parameter, including the filter, is preserved verbatim. Headers
+of non-advertised columns, and all headers when `sort_query` is unset, are never
+linked. Navigation is a full page load; there is no dynamic (no-reload) sorting.
+
+`advanced_filter` is an optional, off-by-default fold-out disclosure rendered
+above the table. `advanced_filter=None` disables it and changes nothing else;
+`advanced_filter=True` enables it with defaults; a mapping may set `label` (the
+disclosure heading) and `help_url` (an absolute HTTP(S) URL or site-relative
+path to an "available fields" reference, linked only when given and opened in a
+new tab). It requires
+`filter_query`, because the disclosure is a plain GET `<details>`/`<form>` that
+submits a raw OPTIMADE filter under that parameter name; enabling it without
+`filter_query` is rejected. The input is prefilled with the effective (authored
+or URL-selected) filter, and when `sort_query` is set and present in the URL, a
+single hidden input carries that **raw** parameter value (the user's alias, not
+the resolved sort) so the form round-trips the current sort. No other URL
+parameters are re-emitted: a site's own filter-building form would re-normalize
+the filter from its own field parameters, so carrying them would fight the raw
+filter the disclosure submits.
+
+Put any other sort and filter controls in ordinary GET forms; the original query
+snapshot reaches the provider and stays bound across pager requests. Page size
+defaults to 50 and is strictly limited to 500. Continuation requests, tokens,
+cursors, rows, rendered HTML, and JSON responses all have explicit size bounds.
 
 Widget invocations must occupy their complete source paragraph/block. Code
 examples in Markdown fences or indented code, RST literal/doctest blocks, and

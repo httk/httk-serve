@@ -212,6 +212,37 @@ export function parseSortPill(sort, defaultSort) {
   return components.length ? components : null;
 }
 
+/** Split a sort into {property, descending} components, KEEPING id (unlike the pill parser). */
+export function sortComponents(sort) {
+  if (typeof sort !== "string") return [];
+  const components = [];
+  for (const raw of sort.split(",")) {
+    const token = raw.trim();
+    if (!token) continue;
+    const descending = token.startsWith("-");
+    const property = descending ? token.slice(1) : token;
+    if (property) components.push({ property, descending });
+  }
+  return components;
+}
+
+/**
+ * The relative href for clicking a column header to sort by it.
+ *
+ * Toggles direction when the column is already the primary sort (ascending →
+ * descending, descending → ascending) and otherwise defaults to ascending. An
+ * `,id` tiebreaker is always appended except for the `id` column itself. Only
+ * the sort parameter is changed; every other URL parameter is preserved.
+ */
+export function sortHref(columnKey, currentSortComponents, sortQuery, search) {
+  const primary = Array.isArray(currentSortComponents) ? currentSortComponents[0] : null;
+  const descending = primary?.property === columnKey && primary.descending === false;
+  const value = `${descending ? "-" : ""}${columnKey}${columnKey === "id" ? "" : ",id"}`;
+  const params = new URLSearchParams(typeof search === "string" ? search : "");
+  params.set(sortQuery, value);
+  return `?${params.toString()}`;
+}
+
 function pillValue(literal, fieldSpec) {
   if (literal.type === "number") {
     if (fieldSpec?.format?.name === "number") {
@@ -357,6 +388,8 @@ export class OptimadeTableController {
   #lastRequest;
   #summaryElement;
   #summaryPills;
+  #search;
+  #headersDecorated;
 
   constructor(shell, view, configuration, options) {
     this.#shell = shell;
@@ -377,8 +410,36 @@ export class OptimadeTableController {
     this.#generation = 0;
     this.#abortController = null;
     this.#lastRequest = { kind: "initial", url: null };
+    // The header sort links navigate to the current URL with only the sort param changed.
+    this.#search = (options.location ?? globalThis.location)?.search ?? "";
+    this.#headersDecorated = false;
     view.previous.addEventListener("click", () => this.previous());
     view.next.addEventListener("click", () => this.next());
+    this.#setupAdvancedForm();
+  }
+
+  /** Prefill the advanced-filter input and carry the raw URL sort into its GET form. */
+  #setupAdvancedForm() {
+    try {
+      const details = this.#shell.querySelector?.("[data-httk-serve-optimade-advanced]");
+      if (!details) return;
+      const input = details.querySelector?.("[data-httk-serve-optimade-advanced-filter]");
+      // The effective filter is the URL param or authored value; assign only .value.
+      if (input) input.value = this.#configuration.filter ?? "";
+      const form = details.querySelector?.("form");
+      const sortQuery = this.#configuration.sort_query;
+      if (!form || !sortQuery) return;
+      const params = new URLSearchParams(this.#search);
+      // Preserve the user's raw alias in the URL, not the resolved sort.
+      if (!params.has(sortQuery)) return;
+      const hidden = this.#document.createElement("input");
+      hidden.type = "hidden";
+      hidden.name = sortQuery;
+      hidden.value = params.get(sortQuery) ?? "";
+      form.append(hidden);
+    } catch {
+      // The advanced form is an optional convenience; never fail install for it.
+    }
   }
 
   reload() {
@@ -443,6 +504,38 @@ export class OptimadeTableController {
     // with reusable, validated discovery rather than binding discovery to an abort signal.
     this.#transport.apiBase = new URL(discovery.apiBaseUrl);
     this.#transport.discovery = Promise.resolve(discovery);
+    this.#decorateHeaders(discovery);
+  }
+
+  /** Turn server-advertised sortable column headers into sort links, once. */
+  #decorateHeaders(discovery) {
+    if (this.#headersDecorated) return;
+    this.#headersDecorated = true;
+    try {
+      const sortQuery = this.#configuration.sort_query;
+      if (sortQuery === null || sortQuery === undefined) return;
+      const sortable = new Set(discovery?.sortableFields ?? []);
+      // Keep id components (parseSortPill drops them) so an id column header still toggles.
+      const components = sortComponents(this.#configuration.sort ?? "");
+      const primary = components[0] ?? null;
+      const headers = this.#shell.querySelectorAll?.("thead th");
+      if (!headers) return;
+      const columns = this.#configuration.columns;
+      for (let i = 0; i < columns.length; i += 1) {
+        const th = headers[i];
+        const key = columns[i]?.key;
+        if (!th || typeof key !== "string" || !sortable.has(key)) continue;
+        if (th.querySelector?.(".httk-serve-optimade-table__sort-link")) continue;
+        const anchor = this.#document.createElement("a");
+        anchor.className = "httk-serve-optimade-table__sort-link";
+        anchor.href = sortHref(key, components, sortQuery, this.#search);
+        while (th.firstChild) anchor.append(th.firstChild);
+        th.append(anchor);
+        if (primary?.property === key) th.setAttribute("aria-sort", primary.descending ? "descending" : "ascending");
+      }
+    } catch {
+      // Header decoration is progressive enhancement; it must never fail the table.
+    }
   }
 
   #commit(page, request, generation) {

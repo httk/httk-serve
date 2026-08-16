@@ -386,6 +386,32 @@ test("fetchOne enforces the bounded response body", async () => {
   }).fetchOne("id"), (error) => error.code === "body_limit");
 });
 
+test("discovery exposes exactly the strictly-sortable advertised fields", async () => {
+  const fields = ["nsites", "nelements", "chemical_formula_reduced", "energy"];
+  const entryInfo = {
+    data: {
+      id: "structures",
+      type: "info",
+      properties: {
+        nsites: { sortable: true },
+        nelements: { sortable: false },
+        chemical_formula_reduced: {},
+        energy: { sortable: "yes" },
+      },
+      formats: ["json"],
+      output_fields_by_format: { json: fields },
+    },
+  };
+  const network = routes({
+    [`${BASE}/versions`]: text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: json(info(), `${BASE}/v1/info`),
+    [`${BASE}/v1/info/structures`]: json(entryInfo, `${BASE}/v1/info/structures`),
+  });
+  const discovery = await transport(network.fetch, { columns: fields }).discover();
+  assert.deepEqual([...discovery.sortableFields], ["nsites"]);
+  assert.ok(Object.isFrozen(discovery.sortableFields));
+});
+
 test("the default fetch is invoked with the global receiver so native fetch does not raise Illegal invocation", async () => {
   const responses = {
     [`${BASE}/versions`]: () => text("version\n1\n", `${BASE}/versions`),

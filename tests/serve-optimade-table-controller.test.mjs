@@ -12,6 +12,8 @@ import {
   pillParts,
   renderSummary,
   resolveSortAlias,
+  sortComponents,
+  sortHref,
 } from "../src/httk/serve/web/assets/serve-optimade-table.mjs";
 
 function stubDocument() {
@@ -182,6 +184,30 @@ test("an aliased authored default is suppressed while a URL-overridden sort stil
   assert.deepEqual(parseSortPill(effectiveSort(config, { search: "?sort=chemical_formula_reduced" }), authoredDefault), [
     { property: "chemical_formula_reduced", descending: false },
   ]);
+});
+
+test("sortHref toggles direction, appends the id tiebreaker, and preserves other params", () => {
+  // No current sort: ascending default with an id tiebreaker, other params kept.
+  assert.equal(sortHref("nsites", null, "sort", "?filter=nsites+%3E%3D+2"), "?filter=nsites+%3E%3D+2&sort=nsites%2Cid");
+  // The column is the current ascending primary: flip to descending.
+  assert.equal(sortHref("nsites", [{ property: "nsites", descending: false }], "sort", "?sort=nsites%2Cid"), "?sort=-nsites%2Cid");
+  // The column is the current descending primary: flip back to ascending.
+  assert.equal(sortHref("nsites", [{ property: "nsites", descending: true }], "sort", "?sort=-nsites%2Cid"), "?sort=nsites%2Cid");
+  // A different column stays ascending default regardless of the current sort.
+  assert.equal(sortHref("energy", [{ property: "nsites", descending: false }], "sort", "?sort=nsites%2Cid"), "?sort=energy%2Cid");
+  // The id column never gets a duplicate ,id tiebreaker.
+  assert.equal(sortHref("id", null, "sort", ""), "?sort=id");
+  // Unrelated params survive verbatim while the sort param is replaced.
+  assert.equal(sortHref("nsites", null, "sort", "?a=1&sort=old&b=2"), "?a=1&sort=nsites%2Cid&b=2");
+});
+
+test("id sort components are kept so the id column header toggles direction", () => {
+  // Unlike parseSortPill, sortComponents keeps id so the header decorator can toggle it.
+  assert.deepEqual(sortComponents("id"), [{ property: "id", descending: false }]);
+  assert.deepEqual(sortComponents("-id"), [{ property: "id", descending: true }]);
+  // Effective sort id → the id header flips to descending; -id → back to ascending.
+  assert.equal(sortHref("id", sortComponents("id"), "sort", ""), "?sort=-id");
+  assert.equal(sortHref("id", sortComponents("-id"), "sort", ""), "?sort=id");
 });
 
 test("a controller exposes no enumerable state that can contain continuation URLs", () => {

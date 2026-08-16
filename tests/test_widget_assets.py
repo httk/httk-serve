@@ -200,6 +200,69 @@ def test_optimade_summary_is_off_by_default_and_normalizes_when_enabled() -> Non
             render_optimade_table(context, base_url="/optimade/v1", columns=columns, summary=invalid)
 
 
+def test_optimade_advanced_filter_disclosure_is_off_by_default_and_validated() -> None:
+    context = WidgetContext(
+        route="index",
+        render_mode="serve",
+        widget_id="table",
+        query={},
+        postvars={},
+        page={"relbaseurl": "."},
+        source_path=Path("index.md"),
+        url_for=lambda route: route,
+        absolute_url_for=lambda route: route,
+    )
+    # Off: explicit null key and no disclosure element (and no filter_query is fine).
+    off = render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"])
+    assert "data-httk-serve-optimade-advanced" not in off.html
+    assert _optimade_config(off.html)["advanced_filter"] is None
+
+    # True: defaults, disclosure present, GET form posts under filter_query.
+    enabled = render_optimade_table(
+        context, base_url="/optimade/v1", columns=["nsites"], filter_query="filter", advanced_filter=True
+    )
+    assert _optimade_config(enabled.html)["advanced_filter"] == {
+        "label": "Advanced OPTIMADE filter",
+        "help_url": None,
+    }
+    assert "data-httk-serve-optimade-advanced" in enabled.html
+    assert "data-httk-serve-optimade-advanced-filter" in enabled.html
+    assert "<summary>Advanced OPTIMADE filter</summary>" in enabled.html
+    assert '<form method="get"' in enabled.html
+    assert 'name="filter"' in enabled.html
+    assert "Available fields" not in enabled.html
+
+    # Mapping: custom label and a site-relative help link.
+    mapped = render_optimade_table(
+        context,
+        base_url="/optimade/v1",
+        columns=["nsites"],
+        filter_query="q",
+        advanced_filter={"label": "Custom filter", "help_url": "/fields"},
+    )
+    assert _optimade_config(mapped.html)["advanced_filter"] == {"label": "Custom filter", "help_url": "/fields"}
+    assert "<summary>Custom filter</summary>" in mapped.html
+    assert 'href="/fields" target="_blank" rel="noopener noreferrer"' in mapped.html
+    assert 'name="q"' in mapped.html
+
+    # A disclosure without a filter_query has no form parameter name and is rejected.
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"], advanced_filter=True)
+    for invalid in (
+        {"unknown": 1},
+        {"help_url": "javascript:alert(1)"},
+        {"help_url": "//evil.example"},
+        {"help_url": "https://user:pass@host/fields"},
+        {"help_url": 5},
+        {"label": ""},
+        "on",
+    ):
+        with pytest.raises(OptimadeTableProtocolError):
+            render_optimade_table(
+                context, base_url="/optimade/v1", columns=["nsites"], filter_query="filter", advanced_filter=invalid
+            )
+
+
 def test_site_local_declared_asset_is_served_only_after_its_page_renders(tmp_path: Path) -> None:
     src = _src(tmp_path, '{{ widget("site.asset") }}')
     (src / "widgets" / "asset.py").write_text(
