@@ -23,6 +23,7 @@ MAX_OPTIMADE_TEXT_CHARS = 4_096
 MAX_OPTIMADE_LABEL_CHARS = 256
 MAX_OPTIMADE_ORIGINS = 16
 MAX_OPTIMADE_COLUMNS = 32
+MAX_OPTIMADE_SUMMARY_FIELDS = 64
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _ALIGNMENTS = frozenset({"start", "center", "end"})
 _OPTIMADE_TABLE_ASSETS: tuple[WidgetAsset, ...] | None = None
@@ -49,6 +50,7 @@ def render(
     detail_route: str | None = None,
     detail_column: str | None = None,
     detail_query: str = "id",
+    summary: object = None,
 ) -> WidgetRenderResult:
     """Render an inert, accessible OPTIMADE table shell and trusted assets.
 
@@ -76,6 +78,11 @@ def render(
     :param detail_route: Optional site route for entry details.
     :param detail_column: Column supplying the detail value.
     :param detail_query: Query parameter receiving the detail value.
+    :param summary: Optional results-summary configuration. ``None`` disables it,
+        ``True`` enables it with defaults (noun ``"entries"``), and a mapping may set
+        ``noun`` and a ``fields`` mapping of property name to ``label``, ``format``,
+        and ``values`` overlays used to describe the active filter and sort in human
+        terms. Field presentation defaults to the matching column's label and format.
     :return: Accessible table shell and its trusted assets.
     :raises OptimadeTableProtocolError: If configuration violates the browser protocol.
     """
@@ -100,6 +107,7 @@ def render(
     )
     if normalized_detail_route is not None:
         normalized_detail_route = context.url_for(normalized_detail_route)
+    normalized_summary = _summary(summary, normalized_columns)
 
     configuration = {
         "allowed_origins": normalized_origins,
@@ -116,6 +124,7 @@ def render(
         "sort": normalized_sort,
         "sort_aliases": normalized_sort_aliases,
         "sort_query": normalized_sort_query,
+        "summary": normalized_summary,
         "widget_id": context.widget_id,
     }
     config_json = _safe_json(configuration)
@@ -127,12 +136,18 @@ def render(
         f'{escape(cast(str, column["label"]), quote=False)}</th>'
         for column in normalized_columns
     )
+    summary_shell = (
+        '<div class="httk-serve-optimade-table__summary" data-httk-serve-optimade-summary hidden></div>'
+        if normalized_summary is not None
+        else ""
+    )
     html = (
         f'<link rel="stylesheet" href="{internal_root}/assets/serve-optimade-table.css">'
         f'<script type="module" src="{optimade_protocol_href(context)}"></script>'
         f'<script type="module" src="{internal_root}/assets/serve-optimade-table.mjs"></script>'
         f'<section class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-widget-id="{widget_id}" '
         f'data-config-id="{config_id}" aria-busy="true">'
+        f"{summary_shell}"
         f'<table><caption>{escape(normalized_caption, quote=False)}</caption><thead><tr>{headers}</tr></thead><tbody></tbody></table>'
         '<nav class="httk-serve-optimade-table__pager" aria-label="OPTIMADE table pagination">'
         '<button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button>'
@@ -295,6 +310,71 @@ def _column_format(value: object) -> str | dict[str, object]:
 def _short_format_text(value: object, field: str) -> None:
     if not isinstance(value, str) or len(value) > 16 or any(ord(char) < 0x20 or ord(char) == 0x7F for char in value):
         raise OptimadeTableProtocolError(f"{field} must be a string of at most 16 characters without controls")
+
+
+def _summary(value: object, columns: Sequence[Mapping[str, object]]) -> dict[str, object] | None:
+    if value is None:
+        return None
+    if value is True:
+        noun = "entries"
+        overlay: dict[str, dict[str, object]] = {}
+    elif isinstance(value, Mapping):
+        if set(value) - {"noun", "fields"}:
+            raise OptimadeTableProtocolError("summary may contain only noun and fields")
+        noun = _text(value.get("noun", "entries"), field="summary noun", maximum=MAX_OPTIMADE_LABEL_CHARS)
+        overlay = _summary_fields(value.get("fields"))
+    else:
+        raise OptimadeTableProtocolError("summary must be True, a mapping, or None")
+    fields: dict[str, dict[str, object]] = {
+        cast(str, column["key"]): {"label": column["label"], "format": column.get("format"), "values": None}
+        for column in columns
+    }
+    for prop, spec in overlay.items():
+        entry = fields.get(prop, {"label": prop, "format": None, "values": None})
+        if "label" in spec:
+            entry["label"] = spec["label"]
+        if "format" in spec:
+            entry["format"] = spec["format"]
+        entry["values"] = spec.get("values")
+        fields[prop] = entry
+    return {"noun": noun, "fields": fields}
+
+
+def _summary_fields(value: object) -> dict[str, dict[str, object]]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise OptimadeTableProtocolError("summary fields must be a mapping of property to presentation")
+    if len(value) > MAX_OPTIMADE_SUMMARY_FIELDS:
+        raise OptimadeTableProtocolError(f"summary fields may contain at most {MAX_OPTIMADE_SUMMARY_FIELDS} entries")
+    overlay: dict[str, dict[str, object]] = {}
+    for prop, spec in value.items():
+        key = _identifier(prop, field="summary field property")
+        if not isinstance(spec, Mapping) or set(spec) - {"label", "format", "values"}:
+            raise OptimadeTableProtocolError("summary field entries may contain only label, format, and values")
+        entry: dict[str, object] = {}
+        if "label" in spec:
+            entry["label"] = _text(spec["label"], field="summary field label", maximum=MAX_OPTIMADE_LABEL_CHARS)
+        if "format" in spec:
+            entry["format"] = _column_format(spec["format"])
+        if "values" in spec:
+            entry["values"] = _summary_values(spec["values"])
+        overlay[key] = entry
+    return overlay
+
+
+def _summary_values(value: object) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        raise OptimadeTableProtocolError("summary field values must be a mapping of value to label")
+    if len(value) > MAX_OPTIMADE_SUMMARY_FIELDS:
+        raise OptimadeTableProtocolError(
+            f"summary field values may contain at most {MAX_OPTIMADE_SUMMARY_FIELDS} entries"
+        )
+    values: dict[str, str] = {}
+    for raw, label in value.items():
+        key = _text(raw, field="summary value key", maximum=MAX_OPTIMADE_LABEL_CHARS)
+        values[key] = _text(label, field="summary value label", maximum=MAX_OPTIMADE_LABEL_CHARS)
+    return values
 
 
 def _origins(value: object) -> list[str]:

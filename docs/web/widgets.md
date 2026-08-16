@@ -177,8 +177,8 @@ and its three internal assets in both live and published output:
 
 The declaration accepts `base_url`, `entry_type="structures"`, `columns`,
 `page_size=50`, `caption="OPTIMADE results"`, `filter`, `filter_query`,
-`sort`, `sort_query`, `allowed_origins=()`, `detail_route`, `detail_column`, and
-`detail_query="id"`. URLs, identifiers, columns, origins, and display text are
+`sort`, `sort_query`, `allowed_origins=()`, `detail_route`, `detail_column`,
+`detail_query="id"`, and `summary`. URLs, identifiers, columns, origins, and display text are
 strictly bounded and validated. `filter_query` names a browser URL parameter
 whose complete value overrides `filter`, while `sort_query` similarly overrides
 `sort`; neither is access control. Detail
@@ -230,6 +230,22 @@ site-local link: the resource id replaces `detail_query` while other detail
 route query values are retained. The widget dispatches a bubbling
 `httk-serve:optimade-table-updated` event only after a page commits; its detail has
 only the entry type, result count, page index, and next/previous availability.
+
+`summary` is an optional, off-by-default results summary rendered above the
+table. `summary=None` disables it and changes nothing else; `summary=True`
+enables it with defaults (noun `"entries"`); a mapping may set `noun` and a
+`fields` mapping of property name to a `{label, format, values}` presentation
+overlay. Each field's label and number/formula/join `format` default to the
+matching column's, so `fields` only needs entries for filter-only properties or
+overridden labels; `values` maps enum values to display labels. Once enabled, the
+summary shows a `Showing X of Y <noun>.` count (from the OPTIMADE `data_returned`
+and `data_available` meta counts) and describes the active filter and sort as
+pills. Filter description is all-or-nothing: a filter containing `OR`, `NOT`,
+parentheses, or any clause the widget cannot render in human terms produces no
+filter pills rather than a misleading partial description. The sort pill drops
+`id` components, which are pagination tiebreakers, and is omitted entirely when
+the effective sort equals the authored default. No summary output is emitted when
+`summary` is unset.
 
 There is no interactive header sorting in this phase. Put sort and filter
 controls in ordinary GET forms; the original query snapshot reaches the provider

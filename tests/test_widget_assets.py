@@ -133,6 +133,73 @@ def test_optimade_sort_aliases_are_validated_and_serialized() -> None:
             render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"], sort_aliases=invalid)
 
 
+def test_optimade_summary_is_off_by_default_and_normalizes_when_enabled() -> None:
+    context = WidgetContext(
+        route="index",
+        render_mode="serve",
+        widget_id="table",
+        query={},
+        postvars={},
+        page={"relbaseurl": "."},
+        source_path=Path("index.md"),
+        url_for=lambda route: route,
+        absolute_url_for=lambda route: route,
+    )
+    columns = [
+        {"key": "nsites", "label": "Sites"},
+        {"key": "energy", "format": {"name": "number", "digits": 2, "scale": 1, "suffix": " eV"}},
+    ]
+    # Off: no summary element and an explicit null summary key.
+    off = render_optimade_table(context, base_url="/optimade/v1", columns=columns)
+    assert "data-httk-serve-optimade-summary" not in off.html
+    assert _optimade_config(off.html)["summary"] is None
+
+    # True: element present and defaults derived entirely from the columns.
+    enabled = render_optimade_table(context, base_url="/optimade/v1", columns=columns, summary=True)
+    assert "data-httk-serve-optimade-summary" in enabled.html
+    assert _optimade_config(enabled.html)["summary"] == {
+        "noun": "entries",
+        "fields": {
+            "nsites": {"label": "Sites", "format": None, "values": None},
+            "energy": {"label": "energy", "format": {"name": "number", "digits": 2, "scale": 1.0, "suffix": " eV"}, "values": None},
+        },
+    }
+
+    # Mapping: overlay replaces label/format and adds values; a filter-only field is added.
+    mapped = render_optimade_table(
+        context,
+        base_url="/optimade/v1",
+        columns=columns,
+        summary={
+            "noun": "screened entries",
+            "fields": {
+                "nsites": {"label": "Number of sites"},
+                "_amdb_collinearity": {"label": "Collinearity", "values": {"collinear": "Collinear"}},
+                "energy": {"format": {"name": "number", "digits": 0, "scale": 100, "suffix": " %"}},
+            },
+        },
+    )
+    assert _optimade_config(mapped.html)["summary"] == {
+        "noun": "screened entries",
+        "fields": {
+            "nsites": {"label": "Number of sites", "format": None, "values": None},
+            "energy": {"label": "energy", "format": {"name": "number", "digits": 0, "scale": 100.0, "suffix": " %"}, "values": None},
+            "_amdb_collinearity": {"label": "Collinearity", "format": None, "values": {"collinear": "Collinear"}},
+        },
+    }
+
+    for invalid in (
+        {"unknown": 1},
+        {"fields": {"nsites": {"bad": 1}}},
+        {"fields": {"nsites": {"values": {"x": 1}}}},
+        {"fields": {"nsites": {"values": {f"k{n}": "v" for n in range(65)}}}},
+        {"fields": {f"f{n}": {} for n in range(65)}},
+        "on",
+    ):
+        with pytest.raises(OptimadeTableProtocolError):
+            render_optimade_table(context, base_url="/optimade/v1", columns=columns, summary=invalid)
+
+
 def test_site_local_declared_asset_is_served_only_after_its_page_renders(tmp_path: Path) -> None:
     src = _src(tmp_path, '{{ widget("site.asset") }}')
     (src / "widgets" / "asset.py").write_text(

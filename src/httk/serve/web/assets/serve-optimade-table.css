@@ -30,6 +30,11 @@
 .httk-serve-optimade-table__error td { border-inline-start: .25rem solid #b33a2f; color: currentColor; }
 .httk-serve-optimade-table__empty td { color: var(--httk-serve-muted); font-style: italic; }
 .httk-serve-optimade-table[aria-busy="true"] tbody { opacity: .58; }
+.httk-serve-optimade-table__summary { align-items: baseline; display: flex; flex-wrap: wrap; gap: .35rem .5rem; margin-block-end: .7rem; }
+.httk-serve-optimade-table__summary[hidden] { display: none; }
+.httk-serve-optimade-table__summary-count { color: var(--httk-serve-muted); flex-basis: 100%; font-size: .9em; margin: 0; }
+.httk-serve-optimade-table__pill { background: var(--httk-serve-wash); border: 1px solid var(--httk-serve-rule, currentColor); border-radius: 999px; display: inline-block; font-size: .85em; padding: .1rem .55rem; }
+.httk-serve-optimade-table__pill strong { font-weight: 650; }
 
 @media (prefers-reduced-motion: no-preference) {
   .httk-serve-optimade-table tbody { transition: opacity 100ms linear; }

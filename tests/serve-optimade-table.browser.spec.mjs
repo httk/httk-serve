@@ -43,8 +43,8 @@ test.beforeAll(async () => {
     if (url.pathname.endsWith("/info/structures")) return send(response, 200, JSON.stringify(entry("structures", ["name", "nsites"])), "application/vnd.api+json");
     if (url.pathname.endsWith("/info/empty")) return send(response, 200, JSON.stringify(entry("empty", ["name"])), "application/vnd.api+json");
     if (url.pathname.endsWith("/info/race")) return send(response, 200, JSON.stringify(entry("race", ["name"])), "application/vnd.api+json");
-    if (url.pathname === "/v1/structures") return send(response, 200, JSON.stringify(result([resource("one", "<img src=x onerror=alert(1)>", 2)], "/cursor-next?opaque=not-for-dom")), "application/vnd.api+json");
-    if (url.pathname === "/cursor-next") return send(response, 200, JSON.stringify(result([resource("two", "Second", 3)], null)), "application/vnd.api+json");
+    if (url.pathname === "/v1/structures") return send(response, 200, JSON.stringify(result([resource("one", "<img src=x onerror=alert(1)>", 2)], "/cursor-next?opaque=not-for-dom", "structures", { dataReturned: 2, dataAvailable: 5 })), "application/vnd.api+json");
+    if (url.pathname === "/cursor-next") return send(response, 200, JSON.stringify(result([resource("two", "Second", 3)], null, "structures", { dataReturned: 2, dataAvailable: 5 })), "application/vnd.api+json");
     if (url.pathname === "/empty/v1/empty") return send(response, 200, JSON.stringify(result([], null, "empty")), "application/vnd.api+json");
     if (url.pathname === "/race/v1/race") return send(response, 200, JSON.stringify(result([resource("fresh", "Fresh", 1, "race")], null, "race")), "application/vnd.api+json");
     return send(response, 404, "not found", "text/plain");
@@ -117,6 +117,15 @@ test("the browser controller loads, pages, and keeps protocol state private", as
   assert.equal(controllerExposesUrlState, false);
 });
 
+test("the results summary reports spec counts and renders a filter pill", async ({ page }) => {
+  await page.goto(`${origin}/?filter=nsites%20%3E%3D%209`);
+  const region = page.locator("#summary [data-httk-serve-optimade-summary]");
+  await region.getByText("Showing 2 of 5 structures.").waitFor();
+  const pill = region.locator(".httk-serve-optimade-table__pill").first();
+  await pill.waitFor();
+  assert.match(await pill.textContent(), /Sites\s+≥ 9/);
+});
+
 function page() {
   const main = shell("main", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: "nsites >= 1", filter_query: "filter", allowed_origins: [], detail_route: "/details?view=table", detail_column: "name", detail_query: "id" });
   const mirror = shell("mirror", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
@@ -124,23 +133,27 @@ function page() {
   const error = shell("error", { base_url: "/error/v1", entry_type: "structures", columns: [{ key: "id", label: "ID", align: "start" }], page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
   const redirect = shell("redirect", { base_url: "/redirect/v1", entry_type: "structures", columns: [{ key: "id", label: "ID", align: "start" }], page_size: 2, filter: "secret filter", filter_query: null, allowed_origins: [] });
   const race = shell("race", { base_url: "/race/v1", entry_type: "race", columns: [{ key: "name", label: "Name", align: "start" }], page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
+  const summary = shell("summary", { base_url: "/v1", entry_type: "structures", columns: columns(), page_size: 2, filter: "nsites >= 1", filter_query: "filter", allowed_origins: [], summary: { noun: "structures", fields: { nsites: { label: "Sites", format: null, values: null } } } });
   const invalid = shell("invalid", { base_url: "/v1", entry_type: "structures", columns: [{ key: "id", label: "ID", align: "start" }], page_size: 2, filter: null, filter_query: null, allowed_origins: [] });
   // Deliberately break a required field after the shell is produced; this covers
   // defensive install failures rather than the trusted Python declaration.
   const invalidConfig = invalid.replace('"base_url":"/v1"', '"base_url":"http://"');
-  return `<!doctype html><meta charset="utf-8"><title>OPTIMADE smoke</title><script>window.optimadeEvents=[];document.addEventListener("httk-serve:optimade-table-updated",e=>window.optimadeEvents.push(e.detail));{const original=window.fetch.bind(window);let first=true;window.fetch=(input,init)=>{if(first&&String(input).includes("/race/v1/race")){first=false;return new Promise(resolve=>{window.releaseOptimadeRace=()=>resolve(new Response(JSON.stringify(${JSON.stringify(result([resource("stale", "Stale", 1, "race")], null, "race"))}),{headers:{"content-type":"application/vnd.api+json"}}));});}return original(input,init);};}</script><link rel="stylesheet" href="/assets/serve-optimade-table.css">${main}${mirror}${empty}${error}${redirect}${race}${invalidConfig}<script type="module" src="/assets/serve-optimade-table.mjs"></script>`;
+  return `<!doctype html><meta charset="utf-8"><title>OPTIMADE smoke</title><script>window.optimadeEvents=[];document.addEventListener("httk-serve:optimade-table-updated",e=>window.optimadeEvents.push(e.detail));{const original=window.fetch.bind(window);let first=true;window.fetch=(input,init)=>{if(first&&String(input).includes("/race/v1/race")){first=false;return new Promise(resolve=>{window.releaseOptimadeRace=()=>resolve(new Response(JSON.stringify(${JSON.stringify(result([resource("stale", "Stale", 1, "race")], null, "race"))}),{headers:{"content-type":"application/vnd.api+json"}}));});}return original(input,init);};}</script><link rel="stylesheet" href="/assets/serve-optimade-table.css">${main}${mirror}${empty}${error}${redirect}${race}${summary}${invalidConfig}<script type="module" src="/assets/serve-optimade-table.mjs"></script>`;
 }
 
 function shell(id, configuration) {
   const config = JSON.stringify(configuration).replace(/</g, "\\u003c");
   const heads = configuration.columns.map((column) => `<th>${column.label}</th>`).join("");
-  return `<section id="${id}" class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-config-id="${id}-config" aria-busy="true"><table><thead><tr>${heads}</tr></thead><tbody></tbody></table><nav class="httk-serve-optimade-table__pager"><button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button><span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span><button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button></nav><script id="${id}-config" type="application/json">${config}</script></section>`;
+  const summary = configuration.summary ? '<div class="httk-serve-optimade-table__summary" data-httk-serve-optimade-summary hidden></div>' : "";
+  return `<section id="${id}" class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-config-id="${id}-config" aria-busy="true">${summary}<table><thead><tr>${heads}</tr></thead><tbody></tbody></table><nav class="httk-serve-optimade-table__pager"><button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button><span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span><button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button></nav><script id="${id}-config" type="application/json">${config}</script></section>`;
 }
 
 function columns() { return [{ key: "id", label: "ID", align: "start" }, { key: "name", label: "Name", align: "start" }, { key: "nsites", label: "N", align: "end" }]; }
 function info(entries) { return { data: { id: "/", type: "info", attributes: { api_version: "1.3.0", formats: ["json"], entry_types_by_format: { json: entries }, available_endpoints: ["info", ...entries] } } }; }
 function entry(id, fields) { return { data: { id, type: "info", properties: Object.fromEntries(fields.map((field) => [field, {}])), formats: ["json"], output_fields_by_format: { json: fields } } }; }
 function resource(id, name, nsites, type = "structures") { return { id, type, attributes: type === "structures" ? { name, nsites } : { name } }; }
-function result(data, next, entryType = "structures") { return { data, meta: { api_version: "1.3.0", data_returned: data.length, more_data_available: next !== null }, links: { next } }; }
+// data_returned is the filtered total independent of pagination (so it may
+// exceed a single page); data_available is the unfiltered endpoint total.
+function result(data, next, entryType = "structures", { dataReturned = data.length, dataAvailable = data.length } = {}) { return { data, meta: { api_version: "1.3.0", data_returned: dataReturned, data_available: dataAvailable, more_data_available: next !== null }, links: { next } }; }
 function send(response, status, body, type) { response.writeHead(status, { "content-type": type }); response.end(body); }
 async function assertLink(page, selector, expected) { assert.equal(await page.locator(selector).getAttribute("href"), expected); }

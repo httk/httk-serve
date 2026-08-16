@@ -22,7 +22,7 @@ export function effectiveFilter(configuration, location = globalThis.location) {
 
 /** Return the sort selected by the document URL, without composing sorts. */
 /** Resolve a display sort value through the configured alias map before it reaches OPTIMADE. */
-function resolveSortAlias(value, aliases) {
+export function resolveSortAlias(value, aliases) {
   if (value === null || !aliases || typeof aliases !== "object") return value;
   return Object.prototype.hasOwnProperty.call(aliases, value) ? aliases[value] : value;
 }
@@ -67,27 +67,251 @@ export function formatCellValue(value, maximum = MAX_CELL_CHARS) {
   return { text, missing: false, truncated: false };
 }
 
+const SUMMARY_KEYWORDS = new Set(["AND", "OR", "NOT", "HAS", "ALL", "ANY", "ONLY", "CONTAINS", "STARTS", "ENDS", "WITH"]);
+const SUMMARY_OP_PREFIX = { "!=": "≠ ", "<=": "≤ ", ">=": "≥ ", "<": "< ", ">": "> " };
+const SUMMARY_PILL_MAX_CHARS = 256;
+
+/** Shared presentation-only number formatting; returns null when scaling overflows. */
+function formatNumberValue(value, format) {
+  const scaled = value * format.scale;
+  if (!Number.isFinite(scaled)) return null;
+  return `${scaled.toFixed(format.digits)}${format.suffix}`;
+}
+
+/** Tokenize an OPTIMADE filter, honouring double-quoted strings; null if unrecognizable. */
+function tokenizeFilter(filter) {
+  const tokens = [];
+  let i = 0;
+  while (i < filter.length) {
+    const c = filter[i];
+    if (c === " " || c === "\t" || c === "\n" || c === "\r") { i += 1; continue; }
+    if (c === '"') {
+      let value = "";
+      let closed = false;
+      i += 1;
+      while (i < filter.length) {
+        const ch = filter[i];
+        if (ch === "\\" && (filter[i + 1] === '"' || filter[i + 1] === "\\")) { value += filter[i + 1]; i += 2; continue; }
+        if (ch === '"') { closed = true; i += 1; break; }
+        value += ch; i += 1;
+      }
+      if (!closed) return null;
+      tokens.push({ type: "string", value });
+      continue;
+    }
+    if (c === "(" || c === ")") return null;
+    if (c === ",") { tokens.push({ type: "comma" }); i += 1; continue; }
+    const pair = filter.slice(i, i + 2);
+    if (pair === "<=" || pair === ">=" || pair === "!=") { tokens.push({ type: "op", value: pair }); i += 2; continue; }
+    if (c === "<" || c === ">" || c === "=") { tokens.push({ type: "op", value: c }); i += 1; continue; }
+    const number = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/.exec(filter.slice(i));
+    if (number && /\d/.test(number[0])) { tokens.push({ type: "number", value: number[0] }); i += number[0].length; continue; }
+    const word = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(filter.slice(i));
+    if (word) { tokens.push({ type: "word", value: word[0] }); i += word[0].length; continue; }
+    return null;
+  }
+  return tokens;
+}
+
+function literalValue(token) {
+  if (!token) return null;
+  if (token.type === "string") return { type: "string", value: token.value };
+  if (token.type === "number") {
+    const n = Number(token.value);
+    return Number.isFinite(n) ? { type: "number", value: n } : null;
+  }
+  return null;
+}
+
+function stringLiteral(token) {
+  return token?.type === "string" ? { type: "string", value: token.value } : null;
+}
+
+function literalList(tokens) {
+  if (!tokens.length) return null;
+  const values = [];
+  let wantLiteral = true;
+  for (const token of tokens) {
+    if (wantLiteral) {
+      const value = literalValue(token);
+      if (value === null) return null;
+      values.push(value);
+    } else if (token.type !== "comma") return null;
+    wantLiteral = !wantLiteral;
+  }
+  return wantLiteral ? null : values;
+}
+
+function parseFilterClause(tokens) {
+  const [first, ...rest] = tokens;
+  if (!first || first.type !== "word" || SUMMARY_KEYWORDS.has(first.value)) return null;
+  const property = first.value;
+  const op = rest[0];
+  if (!op) return null;
+  if (op.type === "op") {
+    const literal = literalValue(rest[1]);
+    if (literal === null || rest.length !== 2) return null;
+    return { property, op: op.value, values: [literal] };
+  }
+  if (op.type !== "word") return null;
+  if (op.value === "CONTAINS") {
+    const literal = stringLiteral(rest[1]);
+    if (literal === null || rest.length !== 2) return null;
+    return { property, op: "CONTAINS", values: [literal] };
+  }
+  if (op.value === "STARTS" || op.value === "ENDS") {
+    if (rest[1]?.type !== "word" || rest[1].value !== "WITH" || rest.length !== 3) return null;
+    const literal = stringLiteral(rest[2]);
+    if (literal === null) return null;
+    return { property, op: `${op.value} WITH`, values: [literal] };
+  }
+  if (op.value === "HAS") {
+    const quantifier = rest[1]?.type === "word" && (rest[1].value === "ALL" || rest[1].value === "ANY" || rest[1].value === "ONLY") ? rest[1].value : null;
+    const values = literalList(rest.slice(quantifier ? 2 : 1));
+    if (values === null) return null;
+    if (!quantifier) return values.length === 1 ? { property, op: "HAS", values } : null;
+    return { property, op: `HAS ${quantifier}`, values };
+  }
+  return null;
+}
+
+/** Parse a filter into human-describable clauses, or null if any part is unrepresentable. */
+export function parseFilterPills(filter) {
+  if (filter === null || filter === undefined || filter === "") return [];
+  const tokens = tokenizeFilter(filter);
+  if (tokens === null) return null;
+  if (!tokens.length) return [];
+  const clauses = [[]];
+  for (const token of tokens) {
+    if (token.type === "word" && (token.value === "OR" || token.value === "NOT")) return null;
+    if (token.type === "word" && token.value === "AND") { clauses.push([]); continue; }
+    clauses.at(-1).push(token);
+  }
+  const pills = [];
+  for (const clause of clauses) {
+    const pill = parseFilterClause(clause);
+    if (pill === null) return null;
+    pills.push(pill);
+  }
+  return pills;
+}
+
+/** Parse a sort into described components, dropping id tiebreakers; null when nothing meaningful remains. */
+export function parseSortPill(sort, defaultSort) {
+  if (sort === null || sort === undefined || sort === "") return null;
+  if (defaultSort !== null && defaultSort !== undefined && sort === defaultSort) return null;
+  const components = [];
+  for (const raw of sort.split(",")) {
+    const token = raw.trim();
+    if (!token) continue;
+    const descending = token.startsWith("-");
+    const property = descending ? token.slice(1) : token;
+    if (!property || property === "id") continue;
+    components.push({ property, descending });
+  }
+  return components.length ? components : null;
+}
+
+function pillValue(literal, fieldSpec) {
+  if (literal.type === "number") {
+    if (fieldSpec?.format?.name === "number") {
+      const text = formatNumberValue(literal.value, fieldSpec.format);
+      if (text !== null) return text;
+    }
+    return String(literal.value);
+  }
+  const values = fieldSpec?.values;
+  if (values && typeof values === "object" && Object.prototype.hasOwnProperty.call(values, literal.value)) return values[literal.value];
+  return literal.value;
+}
+
+function present(count) {
+  return count !== null && count !== undefined;
+}
+
+/** Compose the count sentence, or null when there is no meaningful count to show. */
+function summaryCountSentence(filterActive, dataReturned, dataAvailable, noun) {
+  if (filterActive) {
+    if (present(dataReturned) && present(dataAvailable)) return `Showing ${dataReturned} of ${dataAvailable} ${noun}.`;
+    if (present(dataReturned)) return `Showing ${dataReturned} ${noun}.`;
+    return null;
+  }
+  const total = present(dataAvailable) ? dataAvailable : dataReturned;
+  return present(total) ? `Showing all ${total} ${noun}.` : null;
+}
+
+/** Build one pill span with a bold label and a plain text value (createElement/text only). */
+function summaryPill(document, label, text) {
+  const pill = document.createElement("span");
+  pill.className = "httk-serve-optimade-table__pill";
+  const strong = document.createElement("strong");
+  strong.append(document.createTextNode(label));
+  pill.append(strong, document.createTextNode(` ${text}`));
+  return pill;
+}
+
+/** Render a filter clause into a human label and value text using a summary field spec. */
+export function pillParts(clause, fieldSpec) {
+  const label = fieldSpec?.label ?? clause.property;
+  const joined = clause.values.map((value) => pillValue(value, fieldSpec)).join(", ");
+  // Cap pill text like a table cell so a crafted URL filter cannot inflate the widget.
+  const text = formatCellValue(`${SUMMARY_OP_PREFIX[clause.op] ?? ""}${joined}`, SUMMARY_PILL_MAX_CHARS).text;
+  return { label, text };
+}
+
+/** Rebuild the summary element idempotently from precomputed pills and page counts. */
+export function renderSummary(element, document, summary, pills, filterActive, page) {
+  const fields = summary.fields ?? {};
+  element.replaceChildren();
+  let rendered = false;
+  const sentence = summaryCountSentence(filterActive, page.dataReturned, page.dataAvailable, summary.noun);
+  if (sentence) {
+    const line = document.createElement("p");
+    line.className = "httk-serve-optimade-table__summary-count";
+    line.textContent = sentence;
+    element.append(line);
+    rendered = true;
+  }
+  for (const clause of pills?.filter ?? []) {
+    const { label, text } = pillParts(clause, fields[clause.property]);
+    element.append(summaryPill(document, label, text));
+    rendered = true;
+  }
+  if (pills?.sort) {
+    const text = pills.sort
+      .map((component) => `${fields[component.property]?.label ?? component.property} ${component.descending ? "↓" : "↑"}`)
+      .join(", ");
+    element.append(summaryPill(document, "Sorted by", text));
+    rendered = true;
+  }
+  element.hidden = !rendered;
+}
+
 /** Install a controller for one shell. Calling this again returns the original controller. */
 export function installOptimadeTable(shell, options = {}) {
   if (controllers.has(shell)) return controllers.get(shell);
   let view;
   let configuration;
+  let summaryPills = null;
   try {
     view = requiredShell(shell);
     configuration = readConfiguration(shell, options.document ?? globalThis.document);
     validateConfiguration(configuration);
-    configuration = {
-      ...configuration,
-      filter: effectiveFilter(configuration, options.location ?? globalThis.location),
-      sort: effectiveSort(configuration, options.location ?? globalThis.location),
-    };
+    const location = options.location ?? globalThis.location;
+    // The authored default is alias-resolved just like the effective sort, so an
+    // aliased default compares resolved-to-resolved and its pill is suppressed.
+    const authoredSort = resolveSortAlias(configuration.sort ?? null, configuration.sort_aliases);
+    const filter = effectiveFilter(configuration, location);
+    const sort = effectiveSort(configuration, location);
+    if (configuration.summary) summaryPills = { filter: parseFilterPills(filter), sort: parseSortPill(sort, authoredSort) };
+    configuration = { ...configuration, filter, sort };
   } catch (error) {
     failInstallation(shell, view, messageFor(error));
     return null;
   }
   let controller;
   try {
-    controller = new OptimadeTableController(shell, view, configuration, options);
+    controller = new OptimadeTableController(shell, view, configuration, { ...options, summaryPills });
   } catch (error) {
     failInstallation(shell, view, messageFor(error));
     return null;
@@ -131,12 +355,17 @@ export class OptimadeTableController {
   #generation;
   #abortController;
   #lastRequest;
+  #summaryElement;
+  #summaryPills;
 
   constructor(shell, view, configuration, options) {
     this.#shell = shell;
     this.#view = view;
     this.#configuration = configuration;
     this.#document = options.document ?? globalThis.document;
+    this.#summaryPills = options.summaryPills ?? null;
+    // A missing summary element degrades to no summary; it never kills the table.
+    this.#summaryElement = configuration.summary ? (shell.querySelector?.("[data-httk-serve-optimade-summary]") ?? null) : null;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#bodyLimit = options.bodyLimit;
     this.#documentBase = options.documentBase ?? this.#document?.baseURI;
@@ -232,12 +461,19 @@ export class OptimadeTableController {
     removeRetry(this.#view);
     this.#view.status.textContent = page.resources.length ? `${page.resources.length} results loaded.` : "No OPTIMADE results found.";
     if (!page.resources.length) renderNotice(this.#view.tbody, this.#view.columns, "No OPTIMADE results found.", "empty", this.#document);
+    if (this.#summaryElement) this.#renderSummary(page);
     if (!this.#current(generation)) return;
     const CustomEventForDocument = this.#document?.defaultView?.CustomEvent ?? globalThis.CustomEvent;
     this.#shell.dispatchEvent(new CustomEventForDocument("httk-serve:optimade-table-updated", {
       bubbles: true,
       detail: Object.freeze({ entryType: this.#configuration.entry_type, count: page.resources.length, pageIndex: this.#pageIndex, hasNext: this.#nextUrl !== null, hasPrevious: this.#previousUrls.length > 0 }),
     }));
+  }
+
+  #renderSummary(page) {
+    const filter = this.#configuration.filter;
+    const filterActive = filter !== null && filter !== undefined && filter !== "";
+    renderSummary(this.#summaryElement, this.#document, this.#configuration.summary, this.#summaryPills, filterActive, page);
   }
 
   #rememberPrevious(url) {
@@ -371,10 +607,8 @@ function formattedCellValue(value, format) {
     return { ...rendered, formula: true };
   }
   if (format?.name === "number" && typeof value === "number" && Number.isFinite(value)) {
-    const scaled = value * format.scale;
-    if (Number.isFinite(scaled)) {
-      return formatCellValue(`${scaled.toFixed(format.digits)}${format.suffix}`);
-    }
+    const text = formatNumberValue(value, format);
+    if (text !== null) return formatCellValue(text);
   }
   if (format?.name === "join" && Array.isArray(value) && value.every((item) => item === null || typeof item === "string" || typeof item === "number" || typeof item === "boolean")) {
     return formatCellValue(value.join(format.separator));
