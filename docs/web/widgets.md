@@ -272,7 +272,11 @@ single hidden input carries that **raw** parameter value (the user's alias, not
 the resolved sort) so the form round-trips the current sort. No other URL
 parameters are re-emitted: a site's own filter-building form would re-normalize
 the filter from its own field parameters, so carrying them would fight the raw
-filter the disclosure submits.
+filter the disclosure submits. The disclosure renders open whenever the
+`filter_query` URL parameter is present and non-empty (a merely-authored base
+filter does not open it). On sites whose search form writes `?filter=`, the
+disclosure is therefore open after every search, showing the raw OPTIMADE filter
+alongside the summary pills.
 
 Put any other sort and filter controls in ordinary GET forms; the original query
 snapshot reaches the provider and stays bound across pager requests. Page size

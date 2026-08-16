@@ -152,12 +152,19 @@ test("the advanced-filter disclosure prefills the filter and carries the raw sor
   // The input is prefilled with the effective (URL-selected) filter value.
   await input.waitFor();
   assert.equal(await input.inputValue(), "nsites >= 9");
+  // An active URL filter opens the disclosure so the raw filter is visible.
+  assert.equal(await details.evaluate((el) => el.open), true);
   // The raw URL sort alias is preserved in a hidden field so the GET form round-trips it verbatim.
   assert.equal(await details.locator('form input[type="hidden"][name="sort"]').inputValue(), "best");
   const help = details.locator("a.httk-serve-optimade-table__advanced-help");
   assert.equal(await help.getAttribute("href"), "/fields");
   assert.equal(await help.getAttribute("target"), "_blank");
   assert.equal(await help.getAttribute("rel"), "noopener noreferrer");
+
+  // With no filter parameter in the URL, the disclosure stays closed.
+  await page.goto(`${origin}/`);
+  await page.locator("#advanced [data-httk-serve-optimade-status]").getByText("1 results loaded.").waitFor();
+  assert.equal(await page.locator("#advanced [data-httk-serve-optimade-advanced]").evaluate((el) => el.open), false);
 });
 
 function page() {

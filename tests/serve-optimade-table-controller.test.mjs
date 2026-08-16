@@ -221,3 +221,20 @@ test("a controller exposes no enumerable state that can contain continuation URL
   assert.deepEqual(Object.keys(controller), []);
   assert.equal(Object.values(controller).some((value) => Array.isArray(value) || String(value).includes("opaque=")), false);
 });
+
+test("the advanced disclosure opens only when the filter_query URL parameter is present and non-empty", () => {
+  const button = { addEventListener() {}, setAttribute() {} };
+  const build = (search) => {
+    const details = { open: false, querySelector: () => null };
+    const shell = { querySelector: (selector) => (selector.includes("advanced") ? details : null) };
+    new OptimadeTableController(shell, { tbody: {}, previous: button, next: button, status: {}, pager: {}, columns: 1 }, configuration, {
+      document: { baseURI: "https://site.example.test/", defaultView: {} },
+      location: { search },
+      fetch: async () => { throw new Error("not called"); },
+    });
+    return details.open;
+  };
+  assert.equal(build("?filter=nsites+%3E%3D+1"), true);
+  assert.equal(build("?filter="), false);
+  assert.equal(build("?other=1"), false);
+});
