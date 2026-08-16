@@ -213,6 +213,9 @@ def test_provider_rejects_wrong_publication_record_layout() -> None:
         def fetch(self, _cls: type, _sid: int) -> object:
             raise AssertionError("wrong layout should be rejected before fetching")
 
+        def fetch_many(self, _cls: type, _sids: object) -> list[object]:
+            raise AssertionError("wrong layout should be rejected before fetching")
+
         def stored_property_plan(self, _family: type) -> object:
             raise AssertionError("wrong layout should be rejected before planning")
 
