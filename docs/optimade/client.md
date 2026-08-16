@@ -108,8 +108,9 @@ asynchronous queries are outside this client.
 `first()` (`None` when empty), `one()` (raising `NoResultError` or
 `MultipleResultsError`), `scalars()`, and scalar `column(name)` projections.
 `search.count()` and `len(results)` use the server's filtered
-`meta.data_available`; they raise `CountUnavailableError` when that exact count
-is absent or invalid. `results[start:stop]` makes a derived lazy plan when
+`meta.data_returned` (the total for the current filter query, independent of
+pagination); they raise `CountUnavailableError` when that exact count is absent
+or invalid. `results[start:stop]` makes a derived lazy plan when
 both bounds are nonnegative integers and the step is omitted or `1`; integer
 indexing, negative bounds, and non-unit steps are unsupported. Cursor rows are
 not implemented.
@@ -192,8 +193,9 @@ Relevant failures are `OptimadeTransportError`, `OptimadeHTTPError`,
 credentials and sensitive query tokens.
 
 Before a result page yields any item, the client verifies its JSON:API/OPTIMADE
-envelope: object `meta`, an optional but (when present) matching integer
-`meta.data_returned`, endpoint-matched resource types, and object-valued
+envelope: object `meta`, an optional but (when present) nonnegative integer
+`meta.data_returned` (the filtered total, independent of this page's length),
+endpoint-matched resource types, and object-valued
 `attributes`/`relationships` members when present. This
 prevents a partially yielded typed page from being followed by a malformed
 entry in the same response.

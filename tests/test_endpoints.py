@@ -53,9 +53,7 @@ def make_validated(endpoint: str, **query_kwargs: Any) -> ValidatedRequest:
 
 
 def make_config() -> OptimadeConfig:
-    config = OptimadeConfig()
-    config.data_available = {"structures": 10, "calculations": 5}
-    return config
+    return OptimadeConfig()
 
 
 def test_info_endpoint_reply() -> None:
@@ -127,13 +125,13 @@ def test_entry_endpoint_reply() -> None:
         {"id": "1", "type": "structures", "nelements": 2},
         {"id": "2", "type": "structures", "nelements": 3},
     ]
-    reply = generate_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults(rows))
+    reply = generate_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults(rows), data_available=10)
     assert reply["links"]["next"] is None
     assert len(reply["data"]) == 2
     assert reply["data"][0]["id"] == "1"
     assert reply["data"][0]["attributes"] == {"nelements": 2}
     assert reply["meta"]["data_returned"] == 2
-    assert reply["meta"]["data_available"] == 2
+    assert reply["meta"]["data_available"] == 10
     assert reply["meta"]["more_data_available"] is False
 
 
@@ -150,31 +148,40 @@ def test_entry_endpoint_reply_pagination() -> None:
     assert reply["meta"]["more_data_available"] is True
 
 
-def test_entry_endpoint_reply_uses_filtered_total_and_emitted_page_size() -> None:
+def test_entry_endpoint_reply_uses_filtered_total_and_unfiltered_endpoint_total() -> None:
+    # data_returned is the filtered total across all pages (independent of
+    # pagination); data_available is the unfiltered endpoint total supplied by
+    # the caller; the emitted page holds only page_limit resources.
     rows = [{"id": str(i), "type": "structures"} for i in range(2)]
     reply = generate_entry_endpoint_reply(
         make_validated("structures", page_limit=2, page_offset=4),
         make_config(),
         StubResults(rows, more_data_available=True, total_count=7),
+        data_available=10,
     )
-    assert reply["meta"]["data_available"] == 7
-    assert reply["meta"]["data_returned"] == 2
+    assert reply["meta"]["data_returned"] == 7
+    assert reply["meta"]["data_available"] == 10
+    assert len(reply["data"]) == 2
     assert "page_offset=6" in reply["links"]["next"]
 
 
 def test_single_entry_endpoint_reply() -> None:
     rows = [{"id": "1", "type": "structures", "nelements": 2}]
-    reply = generate_single_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults(rows))
+    reply = generate_single_entry_endpoint_reply(
+        make_validated("structures"), make_config(), StubResults(rows), data_available=10
+    )
     assert reply["data"]["id"] == "1"
     assert reply["meta"]["data_returned"] == 1
-    assert reply["meta"]["data_available"] == 1
+    assert reply["meta"]["data_available"] == 10
 
 
 def test_single_entry_endpoint_reply_not_found() -> None:
-    reply = generate_single_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults([]))
+    reply = generate_single_entry_endpoint_reply(
+        make_validated("structures"), make_config(), StubResults([]), data_available=10
+    )
     assert reply["data"] is None
     assert reply["meta"]["data_returned"] == 0
-    assert reply["meta"]["data_available"] == 0
+    assert reply["meta"]["data_available"] == 10
 
 
 def test_single_entry_endpoint_reply_multiple_is_error() -> None:
@@ -226,9 +233,11 @@ def test_entry_info_endpoint_reply_custom_property_definitions() -> None:
     assert energy["type"] == ["number", "null"]
 
 
-def test_entry_reply_without_static_data_available_count() -> None:
-    # Entry response metadata derives from the current query, not process_init.
+def test_entry_reply_omits_data_available_when_not_supplied() -> None:
+    # data_available is passed in by the caller (process computes it per request);
+    # when omitted the field is simply absent from the envelope.
     config = OptimadeConfig()
     rows = [{"id": "1", "type": "structures"}]
     reply = generate_entry_endpoint_reply(make_validated("structures"), config, StubResults(rows))
-    assert reply["meta"]["data_available"] == 1
+    assert "data_available" not in reply["meta"]
+    assert reply["meta"]["data_returned"] == 1

@@ -21,7 +21,7 @@ def test_generate_meta_counts() -> None:
         representation="/structures",
         api_version="1.3.0",
         config=config,
-        data_count=7,
+        data_returned=7,
         more_data_available=True,
         data_available=42,
     )
@@ -42,7 +42,8 @@ def test_format_optimade_error_from_optimade_error() -> None:
     assert error["status"] == 404
     assert error["title"] == "Not Found"
     assert error["detail"] == "no such endpoint"
-    assert output.json_response["meta"]["data_returned"] == 1
+    # Error replies carry no data member, so data_returned is omitted.
+    assert "data_returned" not in output.json_response["meta"]
 
 
 def test_format_optimade_error_from_generic_exception() -> None:

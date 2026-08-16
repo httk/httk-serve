@@ -42,7 +42,7 @@ def format_optimade_error(
             representation=request.representation,
             api_version=version,
             config=config,
-            data_count=1,
+            data_returned=None,
             more_data_available=False,
         ),
     }

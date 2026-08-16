@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..endpoints.error import format_optimade_error
 from ..endpoints.meta import merge_collected_warnings
-from ..engine.processing import SnapshotCutoff, process, process_init
+from ..engine.processing import SnapshotCutoff, process
 from ..engine.validate import determine_optimade_version
 from ..model.config import OptimadeConfig
 from ..model.request import EndpointResponse, RawRequest
@@ -225,7 +225,6 @@ def create_app(
         baseurl += "/"
 
     cors_origins = _validated_cors_origins(config.cors_origins)
-    process_init(config, query_function, schema, debug=debug)
 
     app = Starlette(debug=debug, routes=[Route("/{path:path}", _handle_request, methods=["GET"])])
     # The embedding application owns logging configuration; core preserves

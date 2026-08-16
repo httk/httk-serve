@@ -158,6 +158,7 @@ def generate_entry_endpoint_reply(
     request: ValidatedRequest,
     config: OptimadeConfig,
     data: QueryResults,
+    data_available: int | None = None,
     related_resolver: RelatedResolver | None = None,
 ) -> dict[str, Any]:
     """Build a JSON:API collection response for an entry endpoint.
@@ -165,6 +166,7 @@ def generate_entry_endpoint_reply(
     :param request: Validated request controlling links and field selection.
     :param config: Service configuration for metadata and links.
     :param data: Query results for the current page.
+    :param data_available: Unfiltered endpoint total for the current instant, or ``None`` to omit it.
     :param related_resolver: Optional depth-one resolver for included resources.
     :return: JSON:API collection document.
     """
@@ -195,9 +197,9 @@ def generate_entry_endpoint_reply(
             representation=request.representation,
             api_version=request.version,
             config=config,
-            data_count=len(data_part),
+            data_returned=data.count(),
             more_data_available=data.more_data_available,
-            data_available=data.count(),
+            data_available=data_available,
             warnings=request.warnings or None,
             last_id=last_id,
         ),
@@ -213,6 +215,7 @@ def generate_single_entry_endpoint_reply(
     request: ValidatedRequest,
     config: OptimadeConfig,
     data: QueryResults,
+    data_available: int | None = None,
     related_resolver: RelatedResolver | None = None,
 ) -> dict[str, Any]:
     """Build a JSON:API single-resource response for an entry identifier.
@@ -220,6 +223,7 @@ def generate_single_entry_endpoint_reply(
     :param request: Validated request controlling links and field selection.
     :param config: Service configuration for metadata and links.
     :param data: Query results expected to contain at most one row.
+    :param data_available: Unfiltered endpoint total for the current instant, or ``None`` to omit it.
     :param related_resolver: Optional depth-one resolver for included resources.
     :return: JSON:API single-resource document.
     :raises httk.serve.optimade.model.errors.OptimadeError: If the query yields multiple rows or another page.
@@ -264,9 +268,9 @@ def generate_single_entry_endpoint_reply(
             representation=request.representation,
             api_version=request.version,
             config=config,
-            data_count=ndata,
+            data_returned=ndata,
             more_data_available=False,
-            data_available=data.count(),
+            data_available=data_available,
             warnings=request.warnings or None,
         ),
     }

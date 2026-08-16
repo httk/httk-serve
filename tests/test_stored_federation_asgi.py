@@ -144,8 +144,12 @@ def test_multiple_sources_push_filter_sort_and_pagination() -> None:
             )
             assert response.status_code == 200
             first_page = response.json()
-            assert first_page["meta"]["data_available"] == 2
-            assert first_page["meta"]["data_returned"] == 1
+            # Two of the four stored structures match nelements=1: data_returned is
+            # that filtered total across all pages, data_available the unfiltered
+            # endpoint total, and the first page holds only page_limit=1 resource.
+            assert first_page["meta"]["data_available"] == 4
+            assert first_page["meta"]["data_returned"] == 2
+            assert len(first_page["data"]) == 1
             assert first_page["meta"]["more_data_available"] is True
             first_id = first_page["data"][0]["id"]
 

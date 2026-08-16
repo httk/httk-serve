@@ -88,6 +88,8 @@ def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -
         assert client.get("/structures").json()["meta"]["data_available"] == 1
         assert client.get("/dsp-publications").status_code == 404
         store.save(entries[1])
+        # data_available is computed live per request, so a post-construction save
+        # is reflected immediately.
         assert client.get("/structures").json()["meta"]["data_available"] == 2
 
 
@@ -281,7 +283,8 @@ def test_structure_provider_standard_filters_reach_asgi(structure_api, filter_st
     assert response.status_code == 200
     payload = response.json()
     assert [resource["id"] for resource in payload["data"]] == ["mixed"]
-    assert payload["meta"]["data_available"] == 1
+    assert payload["meta"]["data_returned"] == 1
+    assert payload["meta"]["data_available"] == 2
 
 
 def test_structure_provider_single_resource_response_fields(structure_api) -> None:

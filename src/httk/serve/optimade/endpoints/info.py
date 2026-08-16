@@ -183,7 +183,7 @@ def generate_links_endpoint_reply(request: ValidatedRequest, config: OptimadeCon
             representation=request.representation,
             api_version=request.version,
             config=config,
-            data_count=len(links) + 1,
+            data_returned=len(links) + 1,
             more_data_available=False,
             warnings=request.warnings or None,
         ),

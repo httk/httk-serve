@@ -128,9 +128,7 @@ def make_validated(endpoint: str, include_paths: list[str] | None = None, **quer
 
 
 def make_config() -> OptimadeConfig:
-    config = OptimadeConfig()
-    config.data_available = {"structures": 1, "references": 2}
-    return config
+    return OptimadeConfig()
 
 
 def test_entry_reply_emits_relationships_with_meta() -> None:
@@ -163,7 +161,7 @@ def test_entry_reply_included_via_resolver() -> None:
         make_validated("structures", include_paths=["references"]),
         make_config(),
         StubResults([row]),
-        resolver,
+        related_resolver=resolver,
     )
     assert calls == [{"references": {"ref-1"}}]
     assert reply["included"] == [{"type": "references", "id": "ref-1", "attributes": {"title": "T"}}]
@@ -182,7 +180,7 @@ def test_entry_reply_no_included_when_path_excluded() -> None:
         make_validated("structures", include_paths=[]),
         make_config(),
         StubResults([row]),
-        resolver,
+        related_resolver=resolver,
     )
     assert "included" not in reply
 

@@ -484,9 +484,8 @@ function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, 
   if (!Array.isArray(root.data) || root.data.length > pageSize) {
     throw protocol("page", "OPTIMADE page data must be an array no larger than page_limit");
   }
-  if (Object.hasOwn(root.meta, "data_returned") && (!Number.isSafeInteger(root.meta.data_returned) || root.meta.data_returned < 0 || root.meta.data_returned !== root.data.length)) {
-    throw protocol("page", "OPTIMADE page has invalid meta.data_returned");
-  }
+  const dataReturned = validateCount(root.meta, "data_returned");
+  const dataAvailable = validateCount(root.meta, "data_available");
   const more = Object.hasOwn(root.meta, "more_data_available") ? root.meta.more_data_available : false;
   if (typeof more !== "boolean") throw protocol("page", "OPTIMADE page has invalid meta.more_data_available");
   for (const resource of root.data) {
@@ -507,7 +506,14 @@ function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, 
     }
   }
   if (more !== (next !== null)) throw protocol("page", "OPTIMADE page has inconsistent more_data_available and links.next");
-  return Object.freeze({ resources: Object.freeze(root.data), nextUrl: next, moreDataAvailable: more, responseUrl: responseUrl.href });
+  return Object.freeze({ resources: Object.freeze(root.data), nextUrl: next, moreDataAvailable: more, dataReturned, dataAvailable, responseUrl: responseUrl.href });
+}
+
+function validateCount(meta, key) {
+  if (!Object.hasOwn(meta, key)) return null;
+  const value = meta[key];
+  if (!Number.isSafeInteger(value) || value < 0) throw protocol("page", `OPTIMADE page has invalid meta.${key}`);
+  return value;
 }
 
 function validateMeta(root, label) {

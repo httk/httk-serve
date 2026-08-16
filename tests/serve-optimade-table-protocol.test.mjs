@@ -245,10 +245,12 @@ test("page fetch forwards its AbortSignal without cancelling shared discovery", 
   assert.equal(network.requests.at(-1).options.signal, signal);
 });
 
-test("page validation is strict, data_returned is optional, and links accept relative href objects", async () => {
+test("page validation is strict, data counts are optional, and links accept relative href objects", async () => {
   const first = `${BASE}/v1/structures?response_fields=nsites&page_limit=2`;
   const final = `${BASE}/v1/structures?response_fields=nsites&page_limit=2`;
-  const valid = page({ meta: { api_version: "1.3.0", more_data_available: true }, links: { next: { href: "?page_offset=2" } } });
+  // data_returned is the filtered total independent of pagination, so it may
+  // exceed this single-resource page; data_available is the unfiltered total.
+  const valid = page({ meta: { api_version: "1.3.0", more_data_available: true, data_returned: 7, data_available: 42 }, links: { next: { href: "?page_offset=2" } } });
   const network = routes({
     [`${BASE}/versions`]: text("version\n1\n", `${BASE}/versions`),
     [`${BASE}/v1/info`]: json(info(), `${BASE}/v1/info`),
@@ -258,15 +260,33 @@ test("page validation is strict, data_returned is optional, and links accept rel
   const result = await transport(network.fetch).fetchPage();
   assert.equal(result.nextUrl, `${BASE}/v1/structures?page_offset=2`);
   assert.equal(result.moreDataAvailable, true);
+  assert.equal(result.dataReturned, 7);
+  assert.equal(result.dataAvailable, 42);
 
-  const invalid = page({ data: [{ id: "one", type: "structures", attributes: {} }], meta: { api_version: "1.3.0", data_returned: 2 } });
-  const bad = routes({
+  // Both counts are optional (SHOULD, not MUST); absent counts surface as null.
+  const bare = page({ meta: { api_version: "1.3.0", more_data_available: false } });
+  const bareNetwork = routes({
     [`${BASE}/versions`]: text("version\n1\n", `${BASE}/versions`),
     [`${BASE}/v1/info`]: json(info(), `${BASE}/v1/info`),
     [`${BASE}/v1/info/structures`]: json(entry(), `${BASE}/v1/info/structures`),
-    [first]: json(invalid, first),
+    [first]: json(bare, first),
   });
-  await assert.rejects(transport(bad.fetch).fetchPage(), (error) => error.code === "page");
+  const bareResult = await transport(bareNetwork.fetch).fetchPage();
+  assert.equal(bareResult.dataReturned, null);
+  assert.equal(bareResult.dataAvailable, null);
+
+  for (const field of ["data_returned", "data_available"]) {
+    for (const value of [-1, 1.5, true, "3"]) {
+      const invalid = page({ data: [{ id: "one", type: "structures", attributes: {} }], meta: { api_version: "1.3.0", more_data_available: false, [field]: value } });
+      const bad = routes({
+        [`${BASE}/versions`]: text("version\n1\n", `${BASE}/versions`),
+        [`${BASE}/v1/info`]: json(info(), `${BASE}/v1/info`),
+        [`${BASE}/v1/info/structures`]: json(entry(), `${BASE}/v1/info/structures`),
+        [first]: json(invalid, first),
+      });
+      await assert.rejects(transport(bad.fetch).fetchPage(), (error) => error.code === "page");
+    }
+  }
 
   const inconsistent = page({ meta: { api_version: "1.3.0", more_data_available: false, data_returned: 1 }, links: { next: "?page_offset=2" } });
   const mismatch = routes({

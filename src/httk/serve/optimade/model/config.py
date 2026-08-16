@@ -24,8 +24,7 @@ class OptimadeConfig:
     populate the corresponding optional ``meta`` fields (OPTIMADE v1.2+)
     when set. ``license``, ``available_licenses``, and
     ``available_licenses_for_entries`` populate the corresponding optional
-    base-info attributes when set. ``data_available`` is filled in by
-    ``process_init`` with the number of available entries per entry endpoint.
+    base-info attributes when set.
 
     :param provider: Provider metadata for the OPTIMADE response envelope.
     :param links: Provider links exposed by the ``/links`` endpoint.
@@ -36,7 +35,6 @@ class OptimadeConfig:
     :param license: License metadata exposed by the base-info endpoint.
     :param available_licenses: Licenses advertised for the service.
     :param available_licenses_for_entries: Licenses advertised for entries.
-    :param data_available: Per-entry-type counts populated during app creation.
     :param partial_data_chunk_size: Number of outer items emitted per partial-data page.
     :param cors_origins: Exact browser origins allowed to make cross-origin requests.
     """
@@ -50,7 +48,6 @@ class OptimadeConfig:
     license: dict[str, Any] | str | None = None
     available_licenses: list[str] | None = None
     available_licenses_for_entries: list[str] | None = None
-    data_available: dict[str, int] = field(default_factory=dict)
     partial_data_chunk_size: int = 1000
     cors_origins: tuple[str, ...] = ()
 

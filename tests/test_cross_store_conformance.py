@@ -242,7 +242,7 @@ def test_same_portable_structure_query_across_memory_sql_and_real_asgi_remote(di
     """The normal portable profile has identical results through every store.
 
     It also verifies the client observes the server's filtered
-    ``meta.data_available`` count, not its page's returned count.
+    ``meta.data_returned`` count, independent of its page's length.
     """
 
     provider = _provider()

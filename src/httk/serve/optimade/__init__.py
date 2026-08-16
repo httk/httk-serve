@@ -24,7 +24,7 @@ from .client import (
     OptimadeVersionNegotiationError,
     RemoteEntryType,
 )
-from .engine.processing import process, process_init
+from .engine.processing import process
 from .model import (
     EndpointResponse,
     OptimadeConfig,
@@ -81,7 +81,6 @@ __all__ = [
     "create_index_asgi_app",
     "parse_optimade_filter",
     "process",
-    "process_init",
     "providers_from_registry",
     "serve",
 ]

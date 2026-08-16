@@ -53,7 +53,7 @@ class OptimadePaginationError(OptimadeResponseError):
 
 
 class CountUnavailableError(OptimadeResponseError, NeutralCountUnavailableError):
-    """The service omitted a valid filtered ``meta.data_available`` count."""
+    """The service omitted a valid filtered ``meta.data_returned`` count."""
 
 
 @dataclass(slots=True)
@@ -753,10 +753,10 @@ class RemoteSearcher:
         """Validate a complete successful entry envelope before yielding it.
 
         OPTIMADE list responses use an array ``data`` member and an object
-        ``meta`` member.  When present, ``data_returned`` is the server's
-        explicit statement of the array size, so accepting a different value
-        would let a malformed page look internally consistent to a caller.
-        OPTIMADE makes that member a SHOULD rather than a MUST. Resource-level checks
+        ``meta`` member.  When present, ``data_returned`` is the total number of
+        data objects for the current filter query independent of pagination, so
+        it is a nonnegative integer bearing no fixed relation to this page's
+        length.  Resource-level checks
         intentionally stop at JSON:API envelope shapes: extension members and
         arbitrary link objects remain lossless raw data rather than being
         interpreted or rejected here.
@@ -770,10 +770,7 @@ class RemoteSearcher:
             raise OptimadeResponseError(f"OPTIMADE response from {_safe_source(source_url)!r} has no object meta")
         data_returned = meta.get("data_returned")
         if "data_returned" in meta and (
-            not isinstance(data_returned, int)
-            or isinstance(data_returned, bool)
-            or data_returned < 0
-            or data_returned != len(raw_data)
+            not isinstance(data_returned, int) or isinstance(data_returned, bool) or data_returned < 0
         ):
             raise OptimadeResponseError(
                 f"OPTIMADE response from {_safe_source(source_url)!r} has invalid meta.data_returned"
@@ -899,7 +896,7 @@ class RemoteSearcher:
     def count(self) -> int:
         """Return the filtered remote count.
 
-        :return: ``meta.data_available`` reported by the service.
+        :return: ``meta.data_returned`` reported by the service.
         :raises CountUnavailableError: If the service omits a valid count.
         """
         self._require_variable()
@@ -915,9 +912,9 @@ class RemoteSearcher:
         meta = root.get("meta")
         if not isinstance(meta, dict):
             raise CountUnavailableError("OPTIMADE count response has no object meta")
-        value = meta.get("data_available")
+        value = meta.get("data_returned")
         if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-            raise CountUnavailableError("OPTIMADE count response has no valid nonnegative meta.data_available")
+            raise CountUnavailableError("OPTIMADE count response has no valid nonnegative meta.data_returned")
         self._count_cache.value = value
         return value
 

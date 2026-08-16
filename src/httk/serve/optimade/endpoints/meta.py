@@ -50,7 +50,7 @@ def generate_meta(
     representation: str,
     api_version: str,
     config: OptimadeConfig,
-    data_count: int | None = None,
+    data_returned: int | None = None,
     more_data_available: bool = False,
     data_available: int | None = None,
     warnings: list[dict[str, Any]] | None = None,
@@ -61,9 +61,9 @@ def generate_meta(
     :param representation: Request representation recorded in metadata.
     :param api_version: OPTIMADE version used for the response.
     :param config: Service metadata configuration.
-    :param data_count: Number of entries returned in this response.
+    :param data_returned: Total data objects for the current filter query, independent of pagination.
     :param more_data_available: Whether another page is available.
-    :param data_available: Total matches for the current query.
+    :param data_available: Total data objects available in the database for the endpoint (unfiltered).
     :param warnings: Warnings already associated with the request.
     :param last_id: Identifier of the final returned entry.
     :return: OPTIMADE metadata mapping.
@@ -93,8 +93,8 @@ def generate_meta(
         meta['database'] = config.database
     if config.request_delay is not None:
         meta['request_delay'] = config.request_delay
-    if data_count is not None:
-        meta['data_returned'] = data_count
+    if data_returned is not None:
+        meta['data_returned'] = data_returned
     if data_available is not None:
         meta['data_available'] = data_available
     if warnings:

@@ -61,7 +61,13 @@ def main() -> None:
 
         store.save(structure("C", 3))
         live = show(client, "/v1/structures", response_fields="elements")
-        print("\nentries visible after a post-construction save:", live["meta"]["data_available"])
+        meta = live["meta"]
+        print(
+            "\nentries visible after a post-construction save:",
+            meta["data_returned"],
+            "(unfiltered endpoint total:",
+            f"{meta['data_available']})",
+        )
 
 
 if __name__ == "__main__":

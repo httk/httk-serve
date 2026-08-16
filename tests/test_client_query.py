@@ -536,8 +536,8 @@ def test_backend_class_requires_an_unambiguous_endpoint() -> None:
     assert variable.id is not None
 
 
-def test_count_uses_data_available_and_len_applies_offset_limit_and_cache() -> None:
-    store, client = make_files([page([], available=9, returned=0)])
+def test_count_uses_data_returned_and_len_applies_offset_limit_and_cache() -> None:
+    store, client = make_files([page([], available=99, returned=9)])
     searcher = store.searcher()
     variable = searcher.variable(store.entry_types[0])
     searcher.output(variable, "record")
@@ -554,9 +554,9 @@ def test_count_uses_data_available_and_len_applies_offset_limit_and_cache() -> N
     assert params["response_fields"] == ["id"]
 
 
-@pytest.mark.parametrize("available", [None, True, -1, "9"])
-def test_count_requires_valid_data_available(available: object | None) -> None:
-    store, _client = make_files([page([], available=available)])
+@pytest.mark.parametrize("returned", [None, True, -1, "9"])
+def test_count_requires_valid_data_returned(returned: object | None) -> None:
+    store, _client = make_files([page([], returned=returned)])
     searcher = store.searcher()
     searcher.variable(store.entry_types[0])
     with pytest.raises(CountUnavailableError):
@@ -575,7 +575,7 @@ def test_first_one_and_slice_use_small_frozen_probes() -> None:
             page(rows),
             page(rows),
             page(rows),
-            page([], available=3),
+            page([], returned=3),
         ]
     )
     searcher = store.searcher()
@@ -797,7 +797,8 @@ def test_frozen_result_survives_refresh_and_slicing_with_old_schema_snapshot() -
     "bad_page",
     [
         {"data": [], "meta": {"data_returned": True}},
-        {"data": [], "meta": {"data_returned": 1}},
+        {"data": [], "meta": {"data_returned": -1}},
+        {"data": [], "meta": {"data_returned": "1"}},
         {"data": [resource("x", "other-endpoint")], "meta": {"data_returned": 1}},
         {
             "data": [resource("x", "renamed-files", attributes=["not", "an", "object"])],
@@ -808,7 +809,7 @@ def test_frozen_result_survives_refresh_and_slicing_with_old_schema_snapshot() -
             "meta": {"data_returned": 1},
         },
         {
-            "data": [resource("x", "renamed-files", attributes=None)],
+            "data": [{"id": "x", "type": "renamed-files", "attributes": None}],
             "meta": {"data_returned": 1},
         },
         {
@@ -822,8 +823,11 @@ def test_entry_envelope_validation_rejects_inconsistent_page_shapes(bad_page: di
     searcher = store.searcher()
     variable = searcher.variable(store.entry_types[0])
 
+    # Iterate without list()'s length hint, which would call __len__/count() and
+    # consume the single fake response before the page shape is validated.
     with pytest.raises(OptimadeResponseError):
-        list(searcher.results(record=variable))
+        for _ in searcher.results(record=variable):
+            pass
 
 
 @pytest.mark.parametrize(
@@ -831,6 +835,9 @@ def test_entry_envelope_validation_rejects_inconsistent_page_shapes(bad_page: di
     [
         {"more_data_available": False},
         {"more_data_available": False, "data_returned": 1},
+        # data_returned is the filtered total independent of pagination, so it
+        # legitimately exceeds this single-resource page.
+        {"more_data_available": False, "data_returned": 5},
     ],
 )
 def test_entry_envelope_accepts_missing_or_valid_data_returned(meta: dict[str, object]) -> None:

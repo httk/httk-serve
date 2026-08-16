@@ -122,9 +122,7 @@ def make_request(representation: str) -> RawRequest:
 
 
 def make_config() -> OptimadeConfig:
-    config = OptimadeConfig()
-    config.data_available = {"files": len(FILES)}
-    return config
+    return OptimadeConfig()
 
 
 def make_files_client() -> TestClient:

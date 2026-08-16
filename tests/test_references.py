@@ -93,9 +93,7 @@ def make_request(representation: str) -> RawRequest:
 
 
 def make_config() -> OptimadeConfig:
-    config = OptimadeConfig()
-    config.data_available = {"references": len(REFERENCES)}
-    return config
+    return OptimadeConfig()
 
 
 def make_client() -> TestClient:

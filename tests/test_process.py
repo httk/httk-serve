@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from materials_fixtures import materials_schema
 
-from httk.serve.optimade.engine import process, process_init
+from httk.serve.optimade.engine import process
 from httk.serve.optimade.model import OptimadeConfig, OptimadeError, RawRequest, ResultRow
 
 
@@ -58,9 +58,7 @@ def make_request(representation: str) -> RawRequest:
 
 
 def make_config() -> OptimadeConfig:
-    config = OptimadeConfig()
-    config.data_available = {"structures": 3, "calculations": 2}
-    return config
+    return OptimadeConfig()
 
 
 def test_base_endpoint_is_html() -> None:
@@ -205,9 +203,13 @@ def test_versioned_request_with_caller_supplied_endpoint_preserves_next_link() -
     assert output.json_response["links"]["next"].startswith("http://localhost/outer/v1/v1/structures?")
 
 
-def test_process_init_fills_data_available() -> None:
-    config = OptimadeConfig()
+def test_entry_endpoint_computes_unfiltered_data_available_per_request() -> None:
+    # data_available is computed live per request via an unfiltered count query
+    # (page_limit=0), not a startup snapshot.
     query_function = StubQueryFunction([{"id": "a", "type": "structures"}, {"id": "b", "type": "structures"}])
-    process_init(config, query_function, materials_schema())
-    assert config.data_available == {"structures": 2, "calculations": 2}
-    assert all(call["page_limit"] == 0 for call in query_function.calls)
+    output = process(make_request("/structures"), query_function, "1.3.0", make_config(), materials_schema())
+    assert output.json_response is not None
+    assert output.json_response["meta"]["data_available"] == 2
+    assert output.json_response["meta"]["data_returned"] == 2
+    # One page query plus one unfiltered count query (page_limit=0).
+    assert any(call["page_limit"] == 0 for call in query_function.calls)

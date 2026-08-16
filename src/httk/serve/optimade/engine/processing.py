@@ -295,10 +295,23 @@ def process(
             debug=debug,
         )
 
+        # meta.data_available is the unfiltered endpoint total, computed per request
+        # with the same as_of as the filtered page. With an explicit _httk_as_of
+        # snapshot the envelope is arithmetically consistent (data_available >=
+        # data_returned); without one (as_of None) the two reads are back-to-back
+        # and a delete interleaved between them can still skew the pair for that
+        # one response. ponytail: an extra count query per entry request; memoize
+        # per (endpoint, as_of) if it ever shows up in a profile.
+        data_available = query_function(entries, [], [], 0, 0, as_of=validated_parameters.as_of, debug=debug).count()
+
         if request_id is not None:
-            response = generate_single_entry_endpoint_reply(validated_request, config, results, related_resolver)
+            response = generate_single_entry_endpoint_reply(
+                validated_request, config, results, data_available, related_resolver
+            )
         else:
-            response = generate_entry_endpoint_reply(validated_request, config, results, related_resolver)
+            response = generate_entry_endpoint_reply(
+                validated_request, config, results, data_available, related_resolver
+            )
 
         if _LOG.isEnabledFor(logging.DEBUG):
             _LOG.debug("==== END RESULT: %s", pformat(response), extra={"context": "optimade"})
@@ -320,19 +333,3 @@ def process(
         response_code=200,
         response_msg='OK',
     )
-
-
-def process_init(
-    config: OptimadeConfig, query_function: QueryFunction, schema: ServedSchema, *, debug: bool = False
-) -> None:
-    """Precompute entry counts for endpoint metadata.
-
-    :param config: Service configuration to populate.
-    :param query_function: Backend callback used to count entries.
-    :param schema: Explicit served schema whose entry types are counted.
-    :param debug: Enable backend diagnostics.
-    """
-    config.data_available = {}
-    for endpoint in schema.all_entries:
-        results = query_function([endpoint], [], [], 0, 0, debug=debug)
-        config.data_available[endpoint] = results.count()
