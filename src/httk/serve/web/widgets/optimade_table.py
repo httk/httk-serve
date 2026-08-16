@@ -436,6 +436,7 @@ def _advanced_filter_help_url(value: object) -> str | None:
 def _advanced_filter_shell(spec: Mapping[str, object], filter_query: str) -> str:
     label = escape(cast(str, spec["label"]), quote=False)
     name = escape(filter_query, quote=True)
+    marker = escape(f"{filter_query}_advanced", quote=True)
     help_url = spec["help_url"]
     help_link = (
         f'<a class="httk-serve-optimade-table__advanced-help" '
@@ -447,6 +448,7 @@ def _advanced_filter_shell(spec: Mapping[str, object], filter_query: str) -> str
         '<details class="httk-serve-optimade-table__advanced" data-httk-serve-optimade-advanced>'
         f"<summary>{label}</summary>"
         '<form method="get" class="httk-serve-optimade-table__advanced-form">'
+        f'<input type="hidden" name="{marker}" value="1">'
         '<label class="httk-serve-optimade-table__advanced-label">OPTIMADE filter '
         f'<input type="text" name="{name}" class="httk-serve-optimade-table__advanced-input" '
         'data-httk-serve-optimade-advanced-filter autocomplete="off" spellcheck="false"></label>'

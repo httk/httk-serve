@@ -230,6 +230,8 @@ def test_optimade_advanced_filter_disclosure_is_off_by_default_and_validated() -
     assert "<summary>Advanced OPTIMADE filter</summary>" in enabled.html
     assert '<form method="get"' in enabled.html
     assert 'name="filter"' in enabled.html
+    # The submit marker (filter_query + "_advanced") lets the browser reopen the disclosure.
+    assert '<input type="hidden" name="filter_advanced" value="1">' in enabled.html
     assert "Available fields" not in enabled.html
 
     # Mapping: custom label and a site-relative help link.
@@ -241,6 +243,7 @@ def test_optimade_advanced_filter_disclosure_is_off_by_default_and_validated() -
         advanced_filter={"label": "Custom filter", "help_url": "/fields"},
     )
     assert _optimade_config(mapped.html)["advanced_filter"] == {"label": "Custom filter", "help_url": "/fields"}
+    assert '<input type="hidden" name="q_advanced" value="1">' in mapped.html
     assert "<summary>Custom filter</summary>" in mapped.html
     assert 'href="/fields" target="_blank" rel="noopener noreferrer"' in mapped.html
     assert 'name="q"' in mapped.html

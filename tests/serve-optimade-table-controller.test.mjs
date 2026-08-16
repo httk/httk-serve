@@ -222,7 +222,7 @@ test("a controller exposes no enumerable state that can contain continuation URL
   assert.equal(Object.values(controller).some((value) => Array.isArray(value) || String(value).includes("opaque=")), false);
 });
 
-test("the advanced disclosure opens only when the filter_query URL parameter is present and non-empty", () => {
+test("the advanced disclosure opens only when its own submit marker is present", () => {
   const button = { addEventListener() {}, setAttribute() {} };
   const build = (search) => {
     const details = { open: false, querySelector: () => null };
@@ -234,7 +234,10 @@ test("the advanced disclosure opens only when the filter_query URL parameter is 
     });
     return details.open;
   };
-  assert.equal(build("?filter=nsites+%3E%3D+1"), true);
-  assert.equal(build("?filter="), false);
+  // The marker (filter_query is "filter" → "filter_advanced") drives open, alongside a filter or alone.
+  assert.equal(build("?filter=nsites+%3E%3D+1&filter_advanced=1"), true);
+  assert.equal(build("?filter_advanced=1"), true);
+  // A bare sidebar-style filter with no marker stays closed.
+  assert.equal(build("?filter=nsites+%3E%3D+1"), false);
   assert.equal(build("?other=1"), false);
 });

@@ -423,10 +423,11 @@ export class OptimadeTableController {
     try {
       const details = this.#shell.querySelector?.("[data-httk-serve-optimade-advanced]");
       if (!details) return;
-      // Open the disclosure when the URL carries an active filter (specifically the URL
-      // param, not a merely-authored base filter) so the user sees the raw filter in play.
+      // Open the disclosure only when the search came from this advanced form itself,
+      // marked by the `{filter_query}_advanced` URL parameter the form submits. A sidebar
+      // search writing `?filter=` (no marker) leaves the disclosure closed.
       const filterQuery = this.#configuration.filter_query;
-      if (filterQuery && new URLSearchParams(this.#search).get(filterQuery)) details.open = true;
+      if (filterQuery && new URLSearchParams(this.#search).get(`${filterQuery}_advanced`)) details.open = true;
       const input = details.querySelector?.("[data-httk-serve-optimade-advanced-filter]");
       // The effective filter is the URL param or authored value; assign only .value.
       if (input) input.value = this.#configuration.filter ?? "";

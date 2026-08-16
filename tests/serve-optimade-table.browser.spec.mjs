@@ -152,8 +152,8 @@ test("the advanced-filter disclosure prefills the filter and carries the raw sor
   // The input is prefilled with the effective (URL-selected) filter value.
   await input.waitFor();
   assert.equal(await input.inputValue(), "nsites >= 9");
-  // An active URL filter opens the disclosure so the raw filter is visible.
-  assert.equal(await details.evaluate((el) => el.open), true);
+  // A bare sidebar-style filter (no advanced marker) leaves the disclosure closed.
+  assert.equal(await details.evaluate((el) => el.open), false);
   // The raw URL sort alias is preserved in a hidden field so the GET form round-trips it verbatim.
   assert.equal(await details.locator('form input[type="hidden"][name="sort"]').inputValue(), "best");
   const help = details.locator("a.httk-serve-optimade-table__advanced-help");
@@ -161,10 +161,25 @@ test("the advanced-filter disclosure prefills the filter and carries the raw sor
   assert.equal(await help.getAttribute("target"), "_blank");
   assert.equal(await help.getAttribute("rel"), "noopener noreferrer");
 
-  // With no filter parameter in the URL, the disclosure stays closed.
+  // A URL carrying the advanced submit marker opens the disclosure on load.
+  await page.goto(`${origin}/?filter=nsites%20%3E%3D%205&filter_advanced=1`);
+  await page.locator("#advanced [data-httk-serve-optimade-advanced-filter]").waitFor();
+  assert.equal(await page.locator("#advanced [data-httk-serve-optimade-advanced]").evaluate((el) => el.open), true);
+
+  // Submitting the advanced form itself lands the marker in the URL and reopens it.
   await page.goto(`${origin}/`);
+  const closed = page.locator("#advanced [data-httk-serve-optimade-advanced]");
   await page.locator("#advanced [data-httk-serve-optimade-status]").getByText("1 results loaded.").waitFor();
-  assert.equal(await page.locator("#advanced [data-httk-serve-optimade-advanced]").evaluate((el) => el.open), false);
+  assert.equal(await closed.evaluate((el) => el.open), false);
+  await page.locator("#advanced summary").click();
+  await closed.locator("[data-httk-serve-optimade-advanced-filter]").fill("nsites >= 7");
+  await closed.locator('button[type="submit"]').click();
+  await page.waitForURL(/filter_advanced=1/);
+  const url = new URL(page.url());
+  assert.equal(url.searchParams.get("filter_advanced"), "1");
+  assert.equal(url.searchParams.get("filter"), "nsites >= 7");
+  await page.locator("#advanced [data-httk-serve-optimade-advanced-filter]").waitFor();
+  assert.equal(await page.locator("#advanced [data-httk-serve-optimade-advanced]").evaluate((el) => el.open), true);
 });
 
 function page() {
@@ -189,7 +204,7 @@ function shell(id, configuration) {
   const heads = configuration.columns.map((column) => `<th>${column.label}</th>`).join("");
   const summary = configuration.summary ? '<div class="httk-serve-optimade-table__summary" data-httk-serve-optimade-summary hidden></div>' : "";
   const advanced = configuration.advanced_filter
-    ? `<details class="httk-serve-optimade-table__advanced" data-httk-serve-optimade-advanced><summary>${configuration.advanced_filter.label}</summary><form method="get" class="httk-serve-optimade-table__advanced-form"><label class="httk-serve-optimade-table__advanced-label">OPTIMADE filter <input type="text" name="${configuration.filter_query}" class="httk-serve-optimade-table__advanced-input" data-httk-serve-optimade-advanced-filter autocomplete="off" spellcheck="false"></label><button type="submit">Search</button>${configuration.advanced_filter.help_url ? `<a class="httk-serve-optimade-table__advanced-help" href="${configuration.advanced_filter.help_url}" target="_blank" rel="noopener noreferrer">Available fields</a>` : ""}</form></details>`
+    ? `<details class="httk-serve-optimade-table__advanced" data-httk-serve-optimade-advanced><summary>${configuration.advanced_filter.label}</summary><form method="get" class="httk-serve-optimade-table__advanced-form"><input type="hidden" name="${configuration.filter_query}_advanced" value="1"><label class="httk-serve-optimade-table__advanced-label">OPTIMADE filter <input type="text" name="${configuration.filter_query}" class="httk-serve-optimade-table__advanced-input" data-httk-serve-optimade-advanced-filter autocomplete="off" spellcheck="false"></label><button type="submit">Search</button>${configuration.advanced_filter.help_url ? `<a class="httk-serve-optimade-table__advanced-help" href="${configuration.advanced_filter.help_url}" target="_blank" rel="noopener noreferrer">Available fields</a>` : ""}</form></details>`
     : "";
   return `<section id="${id}" class="httk-serve-optimade-table" data-httk-serve-optimade-table="1" data-config-id="${id}-config" aria-busy="true">${summary}${advanced}<table><thead><tr>${heads}</tr></thead><tbody></tbody></table><nav class="httk-serve-optimade-table__pager"><button type="button" data-httk-serve-optimade-previous disabled aria-disabled="true">Previous</button><span data-httk-serve-optimade-status role="status" aria-live="polite">Loading OPTIMADE results.</span><button type="button" data-httk-serve-optimade-next disabled aria-disabled="true">Next</button></nav><script id="${id}-config" type="application/json">${config}</script></section>`;
 }
