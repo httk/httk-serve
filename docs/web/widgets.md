@@ -338,7 +338,7 @@ passes its `ServedSchema.property_definitions[entry]` mapping straight in.
 
 Rows are sorted alphabetically by name. Each row shows the property name in a
 `<code>` element and the **first paragraph** of its `description` (the text up
-to the first blank line, bounded like other display text). A missing or
+to the first blank line, truncated — not rejected — at the display-text bound). A missing or
 non-string `description` renders an empty cell rather than raising. The name is
 linked to the human-readable definition page at the property's `$id` (opened in
 a new tab) when that `$id` is an HTTP(S) URL with a host and no credentials;

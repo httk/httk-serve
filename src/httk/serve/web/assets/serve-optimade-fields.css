@@ -1,0 +1,22 @@
+.httk-serve-optimade-fields {
+  --httk-serve-rule: color-mix(in srgb, currentColor 26%, transparent);
+  --httk-serve-muted: color-mix(in srgb, currentColor 68%, transparent);
+  --httk-serve-accent: #007d79;
+  --httk-serve-wash: color-mix(in srgb, var(--httk-serve-accent) 8%, transparent);
+  color: inherit;
+  font: inherit;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.httk-serve-optimade-fields table { border-collapse: collapse; inline-size: 100%; min-inline-size: 28rem; }
+.httk-serve-optimade-fields caption { caption-side: top; font-weight: 650; padding: .35rem 0 .6rem; text-align: start; }
+.httk-serve-optimade-fields th,
+.httk-serve-optimade-fields td { border-block-end: 1px solid var(--httk-serve-rule, currentColor); padding: .46rem .62rem; text-align: start; vertical-align: top; }
+.httk-serve-optimade-fields th { border-block-start: 2px solid var(--httk-serve-accent); font-size: .82em; font-variant-caps: all-small-caps; font-weight: 700; letter-spacing: .045em; }
+.httk-serve-optimade-fields td:first-child { white-space: nowrap; }
+.httk-serve-optimade-fields td:last-child { color: var(--httk-serve-muted); max-inline-size: 52ch; overflow-wrap: anywhere; }
+.httk-serve-optimade-fields code { font-size: .95em; overflow-wrap: anywhere; }
+.httk-serve-optimade-fields tbody tr:hover { background: var(--httk-serve-wash); }
+.httk-serve-optimade-fields a { color: inherit; text-decoration-color: var(--httk-serve-accent); text-decoration-thickness: .12em; text-underline-offset: .18em; }
+.httk-serve-optimade-fields a:focus-visible { outline: 2px solid var(--httk-serve-accent); outline-offset: 2px; }
