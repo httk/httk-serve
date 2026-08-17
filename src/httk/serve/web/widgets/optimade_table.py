@@ -152,7 +152,8 @@ def render(
     widget_id = escape(context.widget_id, quote=True)
     config_id = escape(f"httk-serve-optimade-table-{context.widget_id}-config", quote=True)
     headers = "".join(
-        f'<th scope="col" class="httk-serve-optimade-table__header httk-serve-optimade-table__header--{column["align"]}">'
+        f'<th scope="col" title="{escape(_header_title(column), quote=True)}" '
+        f'class="httk-serve-optimade-table__header httk-serve-optimade-table__header--{column["align"]}">'
         f'{escape(cast(str, column["label"]), quote=False)}</th>'
         for column in normalized_columns
     )
@@ -282,8 +283,10 @@ def _columns(value: object) -> list[dict[str, object]]:
             label = key
             align = "start"
         elif isinstance(column, Mapping):
-            if set(column) - {"key", "label", "align", "format"} or "key" not in column:
-                raise OptimadeTableProtocolError("column mappings may contain only key, label, align, and format")
+            if set(column) - {"key", "label", "align", "format", "description"} or "key" not in column:
+                raise OptimadeTableProtocolError(
+                    "column mappings may contain only key, label, align, format, and description"
+                )
             key = _identifier(column["key"], field="column key")
             label = _text(column.get("label", key), field="column label", maximum=MAX_OPTIMADE_LABEL_CHARS)
             align = column.get("align", "start")
@@ -294,6 +297,11 @@ def _columns(value: object) -> list[dict[str, object]]:
         normalized_format = (
             _column_format(column.get("format")) if isinstance(column, Mapping) and "format" in column else None
         )
+        normalized_description = (
+            _text(column["description"], field="column description", maximum=MAX_OPTIMADE_TEXT_CHARS)
+            if isinstance(column, Mapping) and "description" in column
+            else None
+        )
         if key in keys:
             raise OptimadeTableProtocolError("column keys must be unique")
         keys.add(key)
@@ -303,9 +311,16 @@ def _columns(value: object) -> list[dict[str, object]]:
                 "label": label,
                 "align": align,
                 **({"format": normalized_format} if normalized_format is not None else {}),
+                **({"description": normalized_description} if normalized_description is not None else {}),
             }
         )
     return result
+
+
+def _header_title(column: Mapping[str, object]) -> str:
+    key = cast(str, column["key"])
+    description = column.get("description")
+    return f"{key} — {description}" if description is not None else key
 
 
 def _column_format(value: object) -> str | dict[str, object]:

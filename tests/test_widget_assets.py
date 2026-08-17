@@ -19,7 +19,23 @@ from httk.serve.web.widgets import (
     optimade_protocol_href,
 )
 from httk.serve.web.widgets.assets import WidgetAssetRegistry
+from httk.serve.web.widgets.optimade_fields import render as render_optimade_fields
+from httk.serve.web.widgets.optimade_table import MAX_OPTIMADE_TEXT_CHARS
 from httk.serve.web.widgets.optimade_table import render as render_optimade_table
+
+
+def _widget_context() -> WidgetContext:
+    return WidgetContext(
+        route="index",
+        render_mode="serve",
+        widget_id="fields",
+        query={},
+        postvars={},
+        page={"relbaseurl": "."},
+        source_path=Path("index.md"),
+        url_for=lambda route: route,
+        absolute_url_for=lambda route: route,
+    )
 
 
 def _src(tmp_path: Path, content: str) -> Path:
@@ -161,7 +177,11 @@ def test_optimade_summary_is_off_by_default_and_normalizes_when_enabled() -> Non
         "noun": "entries",
         "fields": {
             "nsites": {"label": "Sites", "format": None, "values": None},
-            "energy": {"label": "energy", "format": {"name": "number", "digits": 2, "scale": 1.0, "suffix": " eV"}, "values": None},
+            "energy": {
+                "label": "energy",
+                "format": {"name": "number", "digits": 2, "scale": 1.0, "suffix": " eV"},
+                "values": None,
+            },
         },
     }
 
@@ -183,7 +203,11 @@ def test_optimade_summary_is_off_by_default_and_normalizes_when_enabled() -> Non
         "noun": "screened entries",
         "fields": {
             "nsites": {"label": "Number of sites", "format": None, "values": None},
-            "energy": {"label": "energy", "format": {"name": "number", "digits": 0, "scale": 100.0, "suffix": " %"}, "values": None},
+            "energy": {
+                "label": "energy",
+                "format": {"name": "number", "digits": 0, "scale": 100.0, "suffix": " %"},
+                "values": None,
+            },
             "_amdb_collinearity": {"label": "Collinearity", "format": None, "values": {"collinear": "Collinear"}},
         },
     }
@@ -300,7 +324,12 @@ def test_optimade_page_size_options_normalize_and_render_only_when_wired() -> No
 
     # The current page_size is injected into the options when missing (and kept sorted).
     injected = render_optimade_table(
-        context, base_url="/optimade/v1", columns=["nsites"], page_size=75, page_size_options=[50, 100], page_size_query="ps"
+        context,
+        base_url="/optimade/v1",
+        columns=["nsites"],
+        page_size=75,
+        page_size_options=[50, 100],
+        page_size_query="ps",
     )
     assert _optimade_config(injected.html)["page_size_options"] == [50, 75, 100]
 
@@ -492,3 +521,83 @@ def _optimade_config(html: str) -> dict[str, object]:
     match = re.search(r'<script id="[^"]+" type="application/json">(.*?)</script>', html)
     assert match is not None
     return json.loads(match.group(1))
+
+
+def test_optimade_fields_renders_static_linked_definition_table() -> None:
+    properties = {
+        "nsites": {
+            "$id": "https://schemas.optimade.org/defs/v1.2/properties/optimade/structures/nsites",
+            "description": "Number of sites.\n\nSecond paragraph is dropped.",
+        },
+        "_exmpl_thing": {
+            "$id": "https://schemas.anyterial.se/defs/x/_exmpl_thing",
+            "description": "An <script>alert(1)</script> example field.",
+        },
+        "_httk_adhoc": {
+            "$id": "https://schemas.httk.org/ad-hoc/defs/properties/_httk_adhoc",
+            "description": "Ad-hoc field.",
+        },
+        "_bad_js": {"$id": "javascript:alert(1)", "description": "Bad id field."},
+        "chemical_formula_reduced": {"description": None},
+    }
+    result = render_optimade_fields(_widget_context(), properties=properties, caption="Fields")
+    html = result.html
+    assert result.assets == render_optimade_fields(_widget_context(), properties=properties).assets
+    assert any(asset.path == "serve-optimade-fields.css" for asset in result.assets)
+    assert "serve-optimade-fields.css" in html
+    assert "<caption>Fields</caption>" in html
+    # Linked standard property.
+    assert (
+        '<td><a href="https://schemas.optimade.org/defs/v1.2/properties/optimade/structures/nsites" '
+        'target="_blank" rel="noopener noreferrer"><code>nsites</code></a></td>' in html
+    )
+    # Ad-hoc and javascript ids render unlinked.
+    assert "<td><code>_httk_adhoc</code></td>" in html
+    assert "<td><code>_bad_js</code></td>" in html
+    assert "/ad-hoc/" not in html
+    assert "javascript:" not in html
+    # First paragraph only, and description escaping.
+    assert "Number of sites." in html and "Second paragraph is dropped." not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html and "<script>alert(1)</script>" not in html
+    # Missing description renders an empty cell.
+    assert "<td><code>chemical_formula_reduced</code></td><td></td></tr>" in html
+    # Alphabetical name order.
+    order = [
+        html.index(f"<code>{name}</code>")
+        for name in ("_bad_js", "_exmpl_thing", "_httk_adhoc", "chemical_formula_reduced", "nsites")
+    ]
+    assert order == sorted(order)
+
+
+def test_optimade_fields_validates_properties_mapping() -> None:
+    context = _widget_context()
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_fields(context, properties=[])  # type: ignore[arg-type]
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_fields(context, properties={})
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_fields(context, properties={"nsites": "not-a-mapping"})
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_fields(context, properties={f"p{index}": {} for index in range(513)})
+
+
+def test_optimade_table_column_titles_hint_field_names() -> None:
+    context = _widget_context()
+    bare = render_optimade_table(context, base_url="/optimade/v1", columns=["nsites"])
+    assert '<th scope="col" title="nsites"' in bare.html
+    described = render_optimade_table(
+        context,
+        base_url="/optimade/v1",
+        columns=[{"key": "nsites", "label": "Sites", "description": "Number of sites in the unit cell."}],
+    )
+    assert '<th scope="col" title="nsites — Number of sites in the unit cell."' in described.html
+    assert _optimade_config(described.html)["columns"][0]["description"] == "Number of sites in the unit cell."
+    assert "description" not in _optimade_config(bare.html)["columns"][0]
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_table(context, base_url="/optimade/v1", columns=[{"key": "nsites", "description": 5}])
+    with pytest.raises(OptimadeTableProtocolError):
+        render_optimade_table(
+            context,
+            base_url="/optimade/v1",
+            columns=[{"key": "nsites", "description": "x" * (MAX_OPTIMADE_TEXT_CHARS + 1)}],
+        )

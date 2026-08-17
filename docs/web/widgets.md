@@ -189,6 +189,14 @@ links require both a safe site-local `detail_route` and a selected
 `{"name": "join", "separator": ", "}`. Formula digit runs are rendered in
 `sub` elements; all formatter output remains text-only.
 
+A column mapping may also carry an optional `description`. Every column header
+always gets a `title` hover hint that starts with the prefixed OPTIMADE field
+name (its `key`), so a reader can discover the exact filterable field name by
+hovering the header; when `description` is set, the hint becomes
+`<key> — <description>`. The hint is baked into the `<th>` at render time and
+needs no JavaScript. The `description` is bounded like other display text and,
+when present, is also carried in the inert configuration.
+
 At page load, the browser validates the local configuration and negotiates the
 remote OPTIMADE API. An unversioned base is negotiated through `/versions` for
 OPTIMADE major 1; an explicit `/v1`, `/v1.3`, or `/v1.3.0` base is checked
@@ -311,6 +319,33 @@ The achievable page size is capped by the OPTIMADE service's own maximum page
 limit — for httk-serve services this is `OptimadeConfig.page_limit_max` (default
 50), and a larger `page_limit` is rejected with HTTP 403 per the OPTIMADE spec —
 so pick `page_size_options` your service actually accepts.
+
+## OPTIMADE field definitions
+
+`httk.serve.optimade_fields` (also available as `optimade_fields`) renders a
+static, server-side table of OPTIMADE property definitions. Unlike
+`optimade_table` it performs no browser fetch and ships no JavaScript: a served
+site knows its property definitions at startup, so the table is rendered once
+from a `properties` mapping the site supplies. Its only asset is a stylesheet.
+
+The declaration accepts `properties` and `caption="Field definitions"`.
+`properties` is a mapping of served property name to that property's OPTIMADE
+property-definition mapping — the same `{served_name: definition}` shape a
+served schema exposes, where each definition carries `$id`, `title`,
+`description`, and `sortable`. It must be a non-empty mapping of at most 512
+identifier-named entries, each value itself a mapping. A site wrapper normally
+passes its `ServedSchema.property_definitions[entry]` mapping straight in.
+
+Rows are sorted alphabetically by name. Each row shows the property name in a
+`<code>` element and the **first paragraph** of its `description` (the text up
+to the first blank line, bounded like other display text). A missing or
+non-string `description` renders an empty cell rather than raising. The name is
+linked to the human-readable definition page at the property's `$id` (opened in
+a new tab) when that `$id` is an HTTP(S) URL with a host and no credentials;
+ad-hoc synthesized ids — those whose path contains `/ad-hoc/`, which are not
+published anywhere — and any non-HTTP(S) or malformed id render the name as
+plain unlinked text. A bad `$id` never raises. All names, links, and text are
+escaped.
 
 Widget invocations must occupy their complete source paragraph/block. Code
 examples in Markdown fences or indented code, RST literal/doctest blocks, and

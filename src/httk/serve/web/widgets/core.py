@@ -242,6 +242,7 @@ BUILTIN_WIDGETS.register(
 
 # Imported after the public contracts above so the table implementation can use
 # the same WidgetContext and WidgetRenderResult types without an import cycle.
+from .optimade_fields import render as _render_optimade_fields
 from .optimade_table import render as _render_optimade_table
 from .table import TableWidget
 
@@ -253,4 +254,12 @@ BUILTIN_WIDGETS.register(
         source="httk.serve.web.widgets.optimade_table",
     ),
     alias="optimade_table",
+)
+BUILTIN_WIDGETS.register(
+    FunctionWidget(
+        name="httk.serve.optimade_fields",
+        render_function=_render_optimade_fields,
+        source="httk.serve.web.widgets.optimade_fields",
+    ),
+    alias="optimade_fields",
 )
