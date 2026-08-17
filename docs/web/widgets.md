@@ -178,11 +178,15 @@ and its three internal assets in both live and published output:
 The declaration accepts `base_url`, `entry_type="structures"`, `columns`,
 `page_size=50`, `page_size_options`, `page_size_query`, `caption="OPTIMADE results"`,
 `filter`, `filter_query`,
-`sort`, `sort_query`, `allowed_origins=()`, `detail_route`, `detail_column`,
+`sort`, `sort_query`, `sort_aliases`, `allowed_origins=()`, `detail_route`, `detail_column`,
 `detail_query="id"`, `summary`, and `advanced_filter`. URLs, identifiers, columns, origins, and display text are
 strictly bounded and validated. `filter_query` names a browser URL parameter
 whose complete value overrides `filter`, while `sort_query` similarly overrides
-`sort`; neither is access control. Detail
+`sort`; neither is access control. `sort_aliases` maps display sort values (a
+human-facing `"rank"`) to complete OPTIMADE sort expressions: the browser
+resolves an authored or URL-supplied sort through it before querying, so a
+display alias is never sent to OPTIMADE and unmapped values pass through
+unchanged. Detail
 links require both a safe site-local `detail_route` and a selected
 `detail_column`. A column mapping may set `format="formula"`, or use
 `{"name": "number", "digits": 2, "scale": 1, "suffix": " eV"}` or
