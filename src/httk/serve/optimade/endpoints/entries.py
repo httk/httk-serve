@@ -205,7 +205,12 @@ def generate_entry_endpoint_reply(
         ),
     }
 
-    if related_resolver is not None and collected:
+    # The OPTIMADE references include-default (include=references when the client
+    # sends nothing) is honored only for single-resource replies; on a collection
+    # with more than one primary resource a defaulted include is suppressed.
+    # An explicit include=... always wins.
+    include_defaulted = request.query.include is None
+    if related_resolver is not None and collected and not (include_defaulted and len(data_part) > 1):
         response["included"] = related_resolver(collected)
 
     return response

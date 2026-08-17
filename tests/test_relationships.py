@@ -185,6 +185,65 @@ def test_entry_reply_no_included_when_path_excluded() -> None:
     assert "included" not in reply
 
 
+# --- collection include-default gating ----------------------------------------
+# The OPTIMADE references include-default is suppressed on a collection reply
+# with more than one primary resource when the client did not send include;
+# an explicit include=... always resolves, and single-resource replies keep the
+# default. These pin generate_entry_endpoint_reply's gate.
+
+
+def _two_related_rows() -> list[ResultRow]:
+    return [
+        ResultRow(values={"id": "demo-1", "type": "structures"}, relationships={"references": [{"id": "ref-1"}]}),
+        ResultRow(values={"id": "demo-2", "type": "structures"}, relationships={"references": [{"id": "ref-2"}]}),
+    ]
+
+
+def test_entry_reply_multi_row_defaulted_include_suppresses_included() -> None:
+    def resolver(collected: dict[str, set[str]]) -> list[dict[str, Any]]:
+        raise AssertionError("resolver must not run for a defaulted multi-row include")
+
+    reply = generate_entry_endpoint_reply(
+        make_validated("structures", include_paths=["references"]),  # query.include left None -> defaulted
+        make_config(),
+        StubResults(_two_related_rows()),
+        related_resolver=resolver,
+    )
+    assert "included" not in reply
+
+
+def test_entry_reply_multi_row_explicit_include_still_resolves() -> None:
+    calls: list[dict[str, set[str]]] = []
+
+    def resolver(collected: dict[str, set[str]]) -> list[dict[str, Any]]:
+        calls.append(collected)
+        return [{"type": "references", "id": "ref-1"}]
+
+    reply = generate_entry_endpoint_reply(
+        make_validated("structures", include_paths=["references"], include="references"),
+        make_config(),
+        StubResults(_two_related_rows()),
+        related_resolver=resolver,
+    )
+    assert len(calls) == 1
+    assert "included" in reply
+
+
+def test_entry_reply_single_row_defaulted_include_keeps_included() -> None:
+    row = ResultRow(values={"id": "demo-1", "type": "structures"}, relationships={"references": [{"id": "ref-1"}]})
+
+    def resolver(collected: dict[str, set[str]]) -> list[dict[str, Any]]:
+        return [{"type": "references", "id": "ref-1"}]
+
+    reply = generate_entry_endpoint_reply(
+        make_validated("structures", include_paths=["references"]),
+        make_config(),
+        StubResults([row]),
+        related_resolver=resolver,
+    )
+    assert "included" in reply
+
+
 # --- resolver dedupe ----------------------------------------------------------
 
 
@@ -381,6 +440,17 @@ def test_asgi_auto_include_references_compound_document() -> None:
     assert [obj["id"] for obj in payload["included"]] == ["ref-1"]
     assert payload["included"][0]["type"] == "references"
     assert payload["included"][0]["attributes"]["title"] == "T"
+
+
+def test_asgi_collection_defaulted_include_suppressed_but_explicit_kept() -> None:
+    client = make_auto_client()
+    # Three structures matched, client sends no include -> defaulted -> suppressed.
+    default_reply = client.get("/structures").json()
+    assert len(default_reply["data"]) >= 2
+    assert "included" not in default_reply
+    # Explicit include on the same collection resolves references across all rows.
+    explicit = client.get("/structures", params={"include": "references"}).json()
+    assert {obj["id"] for obj in explicit["included"]} == {"ref-1", "ref-2", "ref-3"}
 
 
 def test_asgi_include_bogus_400() -> None:

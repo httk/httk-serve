@@ -56,6 +56,82 @@ def _client(adapter) -> TestClient:
     )
 
 
+def _child_table_names() -> tuple[str, ...]:
+    """Resolve every child-table name of the fixture record without hardcoding strings."""
+    from httk.store.db.schema import resolve_schema
+
+    resolved = resolve_schema(UnitcellStructureRecord)
+    names = tuple(
+        field.child.table_name for field in resolved.fields if field.role == "child" and field.child is not None
+    )
+    assert names, "fixture record unexpectedly has no child table"
+    return names
+
+
+def test_response_fields_forwarded_as_fields_to_federation(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = _structure("Na", "Cl")
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store.save(source)
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
+        federation = adapter.federations["structures"]
+        original_query = federation.query
+        captured: list[object] = []
+
+        def tracked_query(*args: object, **kwargs: object):
+            captured.append(kwargs.get("fields"))
+            return original_query(*args, **kwargs)
+
+        monkeypatch.setattr(federation, "query", tracked_query)
+        with _client(adapter) as client:
+            response = client.get("/structures", params={"response_fields": "id"})
+            assert response.status_code == 200
+
+        assert captured
+        fields = captured[0]
+        assert fields is not None
+        assert "id" in fields
+        # nelements is served by the fixture but was not requested, so it must be pruned.
+        assert "nelements" not in fields
+
+
+def _collect_sql(database, client, params: dict[str, str]) -> list[str]:  # type: ignore[no-untyped-def]
+    import sqlalchemy
+
+    statements: list[str] = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        statements.append(statement)
+
+    sqlalchemy.event.listen(database.engine, "before_cursor_execute", record)
+    try:
+        response = client.get("/structures", params=params)
+        assert response.status_code == 200
+    finally:
+        sqlalchemy.event.remove(database.engine, "before_cursor_execute", record)
+    assert statements
+    return statements
+
+
+def test_response_fields_id_only_skips_child_table_hydration() -> None:
+    child_tables = _child_table_names()
+    source = _structure("Na", "Cl")
+    with Database.sqlite() as database:
+        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store.save(source)
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
+
+        with _client(adapter) as client:
+            # Positive control: a full render must hydrate at least one child table,
+            # so the pruning assertion below fails loudly if the fixture ever stops.
+            full = _collect_sql(database, client, {})
+            assert any(table in statement for table in child_tables for statement in full)
+
+            # id-only: pruning must skip every child table.
+            pruned = _collect_sql(database, client, {"response_fields": "id"})
+            assert not any(table in statement for table in child_tables for statement in pruned)
+
+
 def test_single_store_preserves_public_prefix_and_prefixed_property_name() -> None:
     source = _structure("Na", basis_precision=Fraction(1, 1000))
     with Database.sqlite() as database:

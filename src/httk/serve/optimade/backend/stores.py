@@ -94,7 +94,7 @@ class StoredBackendAdapter:
             try:
                 public_id = _exact_id_filter(filter_ast)
                 if public_id is not None and offset == 0 and limit > 0:
-                    found = federation.fetch(public_id, as_of=as_of)
+                    found = federation.fetch(public_id, as_of=as_of, fields=response_fields)
                     total_count = 0 if found is None else 1
                     page_rows = () if found is None or offset or limit == 0 else (found,)
                     more_data_available = False
@@ -105,6 +105,7 @@ class StoredBackendAdapter:
                         offset=offset,
                         limit=limit,
                         as_of=as_of,
+                        fields=response_fields,
                     )
                     page_rows = page.rows
                     more_data_available = page.more_data_available
