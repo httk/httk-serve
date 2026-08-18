@@ -1,0 +1,199 @@
+httk.serve.http.openapi.binding
+===============================
+
+.. py:module:: httk.serve.http.openapi.binding
+
+.. autoapi-nested-parse::
+
+   Bind declared OpenAPI operation inputs to plain handler parameters by name.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.binding.OperationBinding
+   httk.serve.http.openapi.binding.OperationContext
+   httk.serve.http.openapi.binding.BoundParameter
+   httk.serve.http.openapi.binding.BoundOperation
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.binding.normalize_parameter_name
+   httk.serve.http.openapi.binding.operation
+   httk.serve.http.openapi.binding.convert_result
+   httk.serve.http.openapi.binding.bind_operation
+
+
+Module Contents
+---------------
+
+.. py:function:: normalize_parameter_name(name)
+
+   Normalize an OpenAPI wire parameter name to a Python identifier form.
+
+   Hyphens become underscores, ``camelCase`` and ``ACRONYMCase`` boundaries are
+   split, the result is lowercased, repeated underscores collapse, and leading
+   and trailing underscores are stripped. The returned string is not guaranteed
+   to be a valid identifier; a wire name that does not normalize to one (for
+   example ``filter[name]``) is not auto-bindable and requires an explicit alias.
+
+   :param name: OpenAPI wire parameter name.
+   :return: Normalized handler-parameter name candidate.
+
+
+.. py:class:: OperationBinding
+
+   Declare how one operation's declared inputs bind to a handler callable.
+
+   :param target: Callable implementing the operation. A bound method or
+       module-level function is used directly; a plain function defined on a
+       class is resolved against ``implementation`` when the application is
+       created.
+   :param aliases: Wire parameter name to handler parameter name overrides. The
+       reserved wire name ``body`` remaps the request body.
+   :param extras: Names of request-scope values this operation consumes.
+
+
+   .. py:attribute:: target
+      :type:  collections.abc.Callable[Ellipsis, Any]
+
+
+   .. py:attribute:: aliases
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: extras
+      :type:  tuple[str, Ellipsis]
+      :value: ()
+
+
+
+.. py:function:: operation(target, *, aliases = None, extras = ())
+
+   Declare an operation binding with optional aliases and request-scope extras.
+
+   :param target: Callable implementing the operation.
+   :param aliases: Wire parameter name to handler parameter name overrides.
+   :param extras: Names of request-scope values this operation consumes.
+   :return: The declared operation binding.
+
+
+.. py:class:: OperationContext
+
+   Carry per-request values between a request scope and one operation handler.
+
+   The scope populates :attr:`extras` before the handler runs; the framework
+   passes each extra the operation declares to the handler by name. After the
+   handler returns, the scope may set :attr:`media_type`, :attr:`headers`, and
+   :attr:`after_response`, which the framework folds into the response on normal
+   completion only. The context is mutable by design so the scope can both
+   supply inputs and collect response metadata.
+
+   :param extras: Request-scope values keyed by the extra name each declares.
+   :param media_type: Exact response media type the scope contributes, if any.
+   :param headers: Additional response headers the scope contributes.
+   :param after_response: Zero-argument coroutine callback the scope contributes
+       to run once after the response has been sent, if any.
+
+
+   .. py:attribute:: extras
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: media_type
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: headers
+      :type:  dict[str, str]
+
+
+   .. py:attribute:: after_response
+      :type:  httk.serve.http.apptypes.ResponseHook | None
+      :value: None
+
+
+
+.. py:class:: BoundParameter
+
+   Describe where one handler parameter's value is resolved from per request.
+
+   :param param: Handler parameter name that receives the value.
+   :param kind: Source kind: ``path``, ``query``, ``header``, ``body``,
+       ``request``, or ``extra``.
+   :param key: Lookup key within the source; the wire parameter name (lowercased
+       for headers) for parameter sources, the scope name for ``extra``, and
+       unused for ``body`` and ``request``.
+
+
+   .. py:attribute:: param
+      :type:  str
+
+
+   .. py:attribute:: kind
+      :type:  str
+
+
+   .. py:attribute:: key
+      :type:  str
+
+
+.. py:class:: BoundOperation(operation, target, sources)
+
+   A validated binding of one operation to its resolved handler callable.
+
+   :param operation: The operation this binding serves.
+   :param target: Resolved handler callable to invoke.
+   :param sources: Per-request sources for the handler's bound parameters.
+
+
+   .. py:property:: operation_id
+      :type: str
+
+
+      Return the bound operation's identifier.
+
+      :return: The operation id.
+
+
+.. py:function:: convert_result(operation_id, result)
+   :async:
+
+
+   Convert a handler return value into a constrained operation response.
+
+   An awaitable is awaited first, so both synchronous and asynchronous handlers
+   are supported. ``None`` becomes the bodyless success response, a mapping or
+   list becomes a response body, and an
+   :class:`~httk.serve.http.openapi.OpenAPIResponse` is used as is.
+
+   :param operation_id: Operation identifier used in error messages.
+   :param result: Raw handler return value or awaitable of one.
+   :return: The constrained operation response.
+   :raises TypeError: If the result is not a supported response value.
+
+
+.. py:function:: bind_operation(operation, entry, *, implementation = None, scope_names = ())
+
+   Validate and bind one operation's declared inputs to its handler by name.
+
+   :param operation: The declared operation to bind.
+   :param entry: A bare handler callable, or an
+       :class:`~httk.serve.http.openapi.OperationBinding`.
+   :param implementation: Object whose methods resolve class-defined function
+       entries; ``None`` uses each entry callable directly.
+   :param scope_names: Request-scope value names available to ``extras``.
+   :return: The validated per-request binding.
+   :raises OpenAPIContractError: If the handler cannot satisfy the operation's
+       declared inputs by name.
+
+

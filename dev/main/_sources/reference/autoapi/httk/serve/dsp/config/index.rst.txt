@@ -1,0 +1,304 @@
+httk.serve.dsp.config
+=====================
+
+.. py:module:: httk.serve.dsp.config
+
+.. autoapi-nested-parse::
+
+   Validated configuration and durable publication records for DSP serving.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.config.DSP_CONTEXT
+   httk.serve.dsp.config.DSP_VERSION
+   httk.serve.dsp.config.HTTP_ENDPOINT_TYPE
+   httk.serve.dsp.config.DSP_2025_1_SPECIFICATION
+   httk.serve.dsp.config.DCAT_AP_3_0_1_PROFILE
+   httk.serve.dsp.config.DSP_MINIMAL_PROFILE
+   httk.serve.dsp.config.DCAT_AP_MINIMAL_PROFILE
+   httk.serve.dsp.config.DCAT_AP_MINIMAL_CONTENT_NEGOTIATION
+   httk.serve.dsp.config.EU_FILE_TYPE_CSV
+   httk.serve.dsp.config.EU_FILE_TYPE_JSON
+   httk.serve.dsp.config.IANA_MEDIA_TYPE_CSV
+   httk.serve.dsp.config.IANA_MEDIA_TYPE_JSON
+   httk.serve.dsp.config.SPDX_SHA256
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.dsp.config.DspDatasetPublication
+   httk.serve.dsp.config.DspPublicationRecord
+   httk.serve.dsp.config.DspPublicationEntry
+   httk.serve.dsp.config.DspProviderConfig
+
+
+Module Contents
+---------------
+
+.. py:data:: DSP_CONTEXT
+   :value: 'https://w3id.org/dspace/2025/1/context.jsonld'
+
+
+   Protected official DSP JSON-LD context required by the 2025-1 schemas.
+
+.. py:data:: DSP_VERSION
+   :value: '2025-1'
+
+
+   Implemented Data Space Protocol version.
+
+.. py:data:: HTTP_ENDPOINT_TYPE
+   :value: 'https://w3id.org/idsa/v4.1/HTTP'
+
+
+   Official DSP endpoint type used by HTTPS-pull data addresses.
+
+.. py:data:: DSP_2025_1_SPECIFICATION
+   :value: 'https://eclipse-dataspace-protocol-base.github.io/DataspaceProtocol/2025-1-err1/'
+
+
+.. py:data:: DCAT_AP_3_0_1_PROFILE
+   :value: 'https://semiceu.github.io/DCAT-AP/releases/3.0.1/'
+
+
+.. py:data:: DSP_MINIMAL_PROFILE
+   :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal'
+
+
+.. py:data:: DCAT_AP_MINIMAL_PROFILE
+   :value: 'https://schemas.httk.org/profiles/dcat-ap/3.0.1/minimal'
+
+
+.. py:data:: DCAT_AP_MINIMAL_CONTENT_NEGOTIATION
+   :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal#dcat-ap-content-negotiation'
+
+
+.. py:data:: EU_FILE_TYPE_CSV
+   :value: 'http://publications.europa.eu/resource/authority/file-type/CSV'
+
+
+.. py:data:: EU_FILE_TYPE_JSON
+   :value: 'http://publications.europa.eu/resource/authority/file-type/JSON'
+
+
+.. py:data:: IANA_MEDIA_TYPE_CSV
+   :value: 'https://www.iana.org/assignments/media-types/text/csv'
+
+
+.. py:data:: IANA_MEDIA_TYPE_JSON
+   :value: 'https://www.iana.org/assignments/media-types/application/json'
+
+
+.. py:data:: SPDX_SHA256
+   :value: 'https://spdx.org/rdf/terms#checksumAlgorithm_sha256'
+
+
+.. py:class:: DspDatasetPublication(dataset, offer_id = None)
+
+   Attach the one DSP-specific offer identifier to a neutral dataset.
+
+   The dataset owns its distribution metadata.  The minimal DSP profile
+   accepts exactly one downloadable distribution and infers its CSV or JSON
+   format/media-type IRIs only when either is absent.  Other representations
+   must provide both IRIs in the neutral distribution.  No file is opened,
+   measured, or hashed by this envelope.
+
+
+   .. py:attribute:: dataset
+      :type:  httk.core.DatasetRecord
+
+
+   .. py:attribute:: offer_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:property:: distribution
+      :type: httk.core.DatasetDistribution
+
+
+      Return the sole neutral distribution accepted by this profile.
+
+
+   .. py:property:: distribution_id
+      :type: str
+
+
+      Return the declared distribution IRI or the profile default.
+
+
+   .. py:property:: file_format
+      :type: str
+
+
+      Return the explicit or CSV/JSON-inferred EU file-type IRI.
+
+
+   .. py:property:: media_type
+      :type: str
+
+
+      Return the explicit or CSV/JSON-inferred IANA media-type IRI.
+
+
+   .. py:property:: access_url
+      :type: str
+
+
+      Return the sole distribution's validated HTTPS access URL.
+
+
+   .. py:property:: byte_size
+      :type: int | None
+
+
+      Return publisher-supplied size metadata from the distribution.
+
+
+   .. py:property:: sha256
+      :type: str | None
+
+
+      Return publisher-supplied checksum metadata from the distribution.
+
+
+   .. py:method:: create(obj)
+      :classmethod:
+
+
+
+.. py:class:: DspPublicationRecord(dataset = None, service = None)
+
+   Store exactly one dataset publication or catalogue service envelope.
+
+
+   .. py:attribute:: dataset
+      :type:  DspDatasetPublication | None
+      :value: None
+
+
+
+   .. py:attribute:: service
+      :type:  httk.core.ServiceRecord | None
+      :value: None
+
+
+
+   .. py:method:: create(obj)
+      :classmethod:
+
+
+
+.. py:class:: DspPublicationEntry
+
+   Non-OPTIMADE logical family for durable DSP publication records.
+
+
+   .. py:attribute:: type
+      :value: 'dsp-publications'
+
+
+
+   .. py:attribute:: definition_id
+      :value: None
+
+
+
+.. py:class:: DspProviderConfig
+
+   Configure global DSP minimal service and catalogue metadata.
+
+
+   .. py:attribute:: public_base_url
+      :type:  str
+
+
+   .. py:attribute:: service_id
+      :type:  str
+
+
+   .. py:attribute:: service_title
+      :type:  str
+
+
+   .. py:attribute:: participant_id
+      :type:  str
+
+
+   .. py:attribute:: catalog_id
+      :type:  str
+
+
+   .. py:attribute:: catalog_title
+      :type:  str
+
+
+   .. py:attribute:: catalog_description
+      :type:  str
+
+
+   .. py:attribute:: dsp_mount
+      :type:  str
+      :value: '/dsp'
+
+
+
+   .. py:attribute:: automatic_progression
+      :type:  bool
+      :value: True
+
+
+
+   .. py:attribute:: dcat_ap_content_negotiation
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: dsp_profile
+      :type:  str
+      :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal'
+
+
+
+   .. py:attribute:: dcat_ap_profile
+      :type:  str
+      :value: 'https://schemas.httk.org/profiles/dcat-ap/3.0.1/minimal'
+
+
+
+   .. py:attribute:: dcat_ap_content_negotiation_profile
+      :type:  str
+      :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal#dcat-ap-content-negotiation'
+
+
+
+   .. py:property:: connector_root_url
+      :type: str
+
+
+      Return the externally visible DSP connector root.
+
+
+   .. py:property:: service_endpoint_url
+      :type: str
+
+
+      Return the externally visible versioned DSP endpoint.
+
+
+   .. py:method:: resolve_access_url(access_url)
+
+      Resolve one validated publication URL against the public origin.
+
+
+

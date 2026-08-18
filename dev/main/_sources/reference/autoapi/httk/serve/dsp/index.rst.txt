@@ -1,0 +1,1347 @@
+httk.serve.dsp
+==============
+
+.. py:module:: httk.serve.dsp
+
+.. autoapi-nested-parse::
+
+   Serve the DSP 2025-1 minimal public-catalogue profile.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/dsp/api/index
+   /reference/autoapi/httk/serve/dsp/callbacks/index
+   /reference/autoapi/httk/serve/dsp/catalogue/index
+   /reference/autoapi/httk/serve/dsp/config/index
+   /reference/autoapi/httk/serve/dsp/models/index
+   /reference/autoapi/httk/serve/dsp/provider/index
+   /reference/autoapi/httk/serve/dsp/serializers/index
+   /reference/autoapi/httk/serve/dsp/state/index
+   /reference/autoapi/httk/serve/dsp/validation/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.CallbackSender
+   httk.serve.dsp.CallbackTransportError
+   httk.serve.dsp.DefaultCallbackSender
+   httk.serve.dsp.callback_url
+   httk.serve.dsp.DCAT_MEDIA_TYPE
+   httk.serve.dsp.DCAT_PROFILE
+   httk.serve.dsp.DCAT_AP_3_0_1_PROFILE
+   httk.serve.dsp.DCAT_AP_MINIMAL_CONTENT_NEGOTIATION
+   httk.serve.dsp.DCAT_AP_MINIMAL_PROFILE
+   httk.serve.dsp.DSP_2025_1_SPECIFICATION
+   httk.serve.dsp.DSP_CONTEXT
+   httk.serve.dsp.DSP_MINIMAL_PROFILE
+   httk.serve.dsp.DSP_VERSION
+   httk.serve.dsp.EU_FILE_TYPE_CSV
+   httk.serve.dsp.EU_FILE_TYPE_JSON
+   httk.serve.dsp.HTTP_ENDPOINT_TYPE
+   httk.serve.dsp.IANA_MEDIA_TYPE_CSV
+   httk.serve.dsp.IANA_MEDIA_TYPE_JSON
+   httk.serve.dsp.SPDX_SHA256
+   httk.serve.dsp.JsonValue
+   httk.serve.dsp.UtcClock
+   httk.serve.dsp.UuidFactory
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.DspProtocolError
+   httk.serve.dsp.DspTransitionSuperseded
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.dsp.DspCataloguePolicy
+   httk.serve.dsp.DspCatalogueRepresentation
+   httk.serve.dsp.MinimalDspCataloguePolicy
+   httk.serve.dsp.DspDatasetPublication
+   httk.serve.dsp.DspProviderConfig
+   httk.serve.dsp.DspPublicationEntry
+   httk.serve.dsp.DspPublicationRecord
+   httk.serve.dsp.AgreementRecord
+   httk.serve.dsp.CatalogueProfile
+   httk.serve.dsp.DataServiceProfile
+   httk.serve.dsp.DatasetProfile
+   httk.serve.dsp.DcatDataServiceProfile
+   httk.serve.dsp.DeliveryStatus
+   httk.serve.dsp.DistributionProfile
+   httk.serve.dsp.NegotiationRecord
+   httk.serve.dsp.OfferProfile
+   httk.serve.dsp.TransferRecord
+   httk.serve.dsp.DspProvider
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.dsp.create_dsp_app
+
+
+Package Contents
+----------------
+
+.. py:function:: create_dsp_app(provider, *, debug = False)
+
+   Create a mountable serving application for one DSP provider.
+
+   Routes, methods, body schemas, status codes, and media types are loaded from
+   the packaged OpenAPI 3.1 contract. Request and response validation resolves
+   only the packaged offline schema registry.
+
+   :param provider: In-memory provider whose business operations are exposed.
+   :param debug: Whether Starlette debug responses are enabled for unexpected failures.
+   :return: Mountable serving application with the provider on ``app.state``.
+   :raises TypeError: If ``provider`` is not a :class:`DspProvider`.
+   :raises RuntimeError: If the packaged contract uses an unsupported construct.
+
+
+.. py:data:: CallbackSender
+
+.. py:data:: CallbackTransportError
+
+.. py:data:: DefaultCallbackSender
+
+.. py:data:: callback_url
+
+.. py:data:: DCAT_MEDIA_TYPE
+   :value: 'application/ld+json; profile="https://semiceu.github.io/DCAT-AP/releases/3.0.1/"'
+
+
+   Full media type of the built-in alternate catalogue representation.
+
+.. py:data:: DCAT_PROFILE
+   :value: 'https://semiceu.github.io/DCAT-AP/releases/3.0.1/'
+
+
+   DCAT-AP profile parameter used by the built-in alternate representation.
+
+.. py:class:: DspCataloguePolicy
+
+   Bases: :py:obj:`Protocol`
+
+
+   Define the replaceable publication-profile part of a DSP provider.
+
+   Implementations own catalogue snapshot requirements, catalogue and dataset
+   serialization, offer serialization, filter policy, and selection of an
+   optional alternate catalogue representation. The provider continues to own
+   live publication retrieval and all DSP negotiation and transfer mechanics.
+
+
+   .. py:method:: build_profile(config, publications)
+
+      Build and validate one immutable live catalogue snapshot.
+
+
+
+   .. py:method:: validate_catalogue_request(config, message)
+
+      Validate profile-specific catalogue request constraints.
+
+
+
+   .. py:method:: select_catalogue_representation(config, accept)
+
+      Select the catalogue HTTP representation for an Accept field.
+
+
+
+   .. py:method:: serialize_catalogue(profile, *, alternate)
+
+      Serialize one catalogue snapshot in the selected projection.
+
+
+
+   .. py:method:: serialize_dataset(profile)
+
+      Serialize one dataset root response.
+
+
+
+   .. py:method:: serialize_offer(offer, *, include_target)
+
+      Serialize an offer consistently for catalogues and negotiations.
+
+
+
+.. py:class:: DspCatalogueRepresentation
+
+   Describe one selected HTTP representation of a catalogue response.
+
+   :param media_type: Exact response media type declared by the DSP OpenAPI contract.
+   :param alternate: Whether the policy should render its alternate catalogue projection.
+   :param headers: Additional response headers as immutable name-value pairs.
+
+
+   .. py:attribute:: media_type
+      :type:  str
+
+
+   .. py:attribute:: alternate
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: headers
+      :type:  tuple[tuple[str, str], Ellipsis]
+      :value: ()
+
+
+
+.. py:class:: MinimalDspCataloguePolicy
+
+   Implement the built-in stable DSP minimal catalogue profile.
+
+
+   .. py:method:: build_profile(config, publications)
+
+      Build and cross-validate the built-in immutable snapshot.
+
+
+
+   .. py:method:: validate_catalogue_request(config, message)
+
+      Reject catalogue filtering in the built-in minimal profile.
+
+
+
+   .. py:method:: select_catalogue_representation(config, accept)
+
+      Apply the built-in exact alternate-representation negotiation rule.
+
+
+
+   .. py:method:: serialize_catalogue(profile, *, alternate)
+
+      Serialize the built-in DSP or context-substituted catalogue.
+
+
+
+   .. py:method:: serialize_dataset(profile)
+
+      Serialize one built-in DSP dataset document.
+
+
+
+   .. py:method:: serialize_offer(offer, *, include_target)
+
+      Serialize one built-in unconditional-use offer.
+
+
+
+.. py:data:: DCAT_AP_3_0_1_PROFILE
+   :value: 'https://semiceu.github.io/DCAT-AP/releases/3.0.1/'
+
+
+.. py:data:: DCAT_AP_MINIMAL_CONTENT_NEGOTIATION
+   :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal#dcat-ap-content-negotiation'
+
+
+.. py:data:: DCAT_AP_MINIMAL_PROFILE
+   :value: 'https://schemas.httk.org/profiles/dcat-ap/3.0.1/minimal'
+
+
+.. py:data:: DSP_2025_1_SPECIFICATION
+   :value: 'https://eclipse-dataspace-protocol-base.github.io/DataspaceProtocol/2025-1-err1/'
+
+
+.. py:data:: DSP_CONTEXT
+   :value: 'https://w3id.org/dspace/2025/1/context.jsonld'
+
+
+   Protected official DSP JSON-LD context required by the 2025-1 schemas.
+
+.. py:data:: DSP_MINIMAL_PROFILE
+   :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal'
+
+
+.. py:data:: DSP_VERSION
+   :value: '2025-1'
+
+
+   Implemented Data Space Protocol version.
+
+.. py:data:: EU_FILE_TYPE_CSV
+   :value: 'http://publications.europa.eu/resource/authority/file-type/CSV'
+
+
+.. py:data:: EU_FILE_TYPE_JSON
+   :value: 'http://publications.europa.eu/resource/authority/file-type/JSON'
+
+
+.. py:data:: HTTP_ENDPOINT_TYPE
+   :value: 'https://w3id.org/idsa/v4.1/HTTP'
+
+
+   Official DSP endpoint type used by HTTPS-pull data addresses.
+
+.. py:data:: IANA_MEDIA_TYPE_CSV
+   :value: 'https://www.iana.org/assignments/media-types/text/csv'
+
+
+.. py:data:: IANA_MEDIA_TYPE_JSON
+   :value: 'https://www.iana.org/assignments/media-types/application/json'
+
+
+.. py:data:: SPDX_SHA256
+   :value: 'https://spdx.org/rdf/terms#checksumAlgorithm_sha256'
+
+
+.. py:class:: DspDatasetPublication(dataset, offer_id = None)
+
+   Attach the one DSP-specific offer identifier to a neutral dataset.
+
+   The dataset owns its distribution metadata.  The minimal DSP profile
+   accepts exactly one downloadable distribution and infers its CSV or JSON
+   format/media-type IRIs only when either is absent.  Other representations
+   must provide both IRIs in the neutral distribution.  No file is opened,
+   measured, or hashed by this envelope.
+
+
+   .. py:attribute:: dataset
+      :type:  httk.core.DatasetRecord
+
+
+   .. py:attribute:: offer_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:property:: distribution
+      :type: httk.core.DatasetDistribution
+
+
+      Return the sole neutral distribution accepted by this profile.
+
+
+   .. py:property:: distribution_id
+      :type: str
+
+
+      Return the declared distribution IRI or the profile default.
+
+
+   .. py:property:: file_format
+      :type: str
+
+
+      Return the explicit or CSV/JSON-inferred EU file-type IRI.
+
+
+   .. py:property:: media_type
+      :type: str
+
+
+      Return the explicit or CSV/JSON-inferred IANA media-type IRI.
+
+
+   .. py:property:: access_url
+      :type: str
+
+
+      Return the sole distribution's validated HTTPS access URL.
+
+
+   .. py:property:: byte_size
+      :type: int | None
+
+
+      Return publisher-supplied size metadata from the distribution.
+
+
+   .. py:property:: sha256
+      :type: str | None
+
+
+      Return publisher-supplied checksum metadata from the distribution.
+
+
+   .. py:method:: create(obj)
+      :classmethod:
+
+
+
+.. py:class:: DspProviderConfig
+
+   Configure global DSP minimal service and catalogue metadata.
+
+
+   .. py:attribute:: public_base_url
+      :type:  str
+
+
+   .. py:attribute:: service_id
+      :type:  str
+
+
+   .. py:attribute:: service_title
+      :type:  str
+
+
+   .. py:attribute:: participant_id
+      :type:  str
+
+
+   .. py:attribute:: catalog_id
+      :type:  str
+
+
+   .. py:attribute:: catalog_title
+      :type:  str
+
+
+   .. py:attribute:: catalog_description
+      :type:  str
+
+
+   .. py:attribute:: dsp_mount
+      :type:  str
+      :value: '/dsp'
+
+
+
+   .. py:attribute:: automatic_progression
+      :type:  bool
+      :value: True
+
+
+
+   .. py:attribute:: dcat_ap_content_negotiation
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: dsp_profile
+      :type:  str
+      :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal'
+
+
+
+   .. py:attribute:: dcat_ap_profile
+      :type:  str
+      :value: 'https://schemas.httk.org/profiles/dcat-ap/3.0.1/minimal'
+
+
+
+   .. py:attribute:: dcat_ap_content_negotiation_profile
+      :type:  str
+      :value: 'https://schemas.httk.org/profiles/dsp/2025-1/minimal#dcat-ap-content-negotiation'
+
+
+
+   .. py:property:: connector_root_url
+      :type: str
+
+
+      Return the externally visible DSP connector root.
+
+
+   .. py:property:: service_endpoint_url
+      :type: str
+
+
+      Return the externally visible versioned DSP endpoint.
+
+
+   .. py:method:: resolve_access_url(access_url)
+
+      Resolve one validated publication URL against the public origin.
+
+
+
+.. py:class:: DspPublicationEntry
+
+   Non-OPTIMADE logical family for durable DSP publication records.
+
+
+   .. py:attribute:: type
+      :value: 'dsp-publications'
+
+
+
+   .. py:attribute:: definition_id
+      :value: None
+
+
+
+.. py:class:: DspPublicationRecord(dataset = None, service = None)
+
+   Store exactly one dataset publication or catalogue service envelope.
+
+
+   .. py:attribute:: dataset
+      :type:  DspDatasetPublication | None
+      :value: None
+
+
+
+   .. py:attribute:: service
+      :type:  httk.core.ServiceRecord | None
+      :value: None
+
+
+
+   .. py:method:: create(obj)
+      :classmethod:
+
+
+
+.. py:class:: AgreementRecord
+
+   Record the provider-created agreement associated with a negotiation.
+
+   :param id: Unique agreement identifier in ``urn:uuid:`` form.
+   :param policy: Immutable agreement policy JSON.
+   :param target: Dataset identifier covered by the agreement.
+   :param assigner: Provider participant identifier.
+   :param assignee: Consumer participant identifier.
+   :param timestamp: UTC XML Schema date-time at which the agreement was created.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: policy
+      :type:  collections.abc.Mapping[str, httk.serve.jsondata.FrozenJsonValue]
+
+
+   .. py:attribute:: target
+      :type:  str
+
+
+   .. py:attribute:: assigner
+      :type:  str
+
+
+   .. py:attribute:: assignee
+      :type:  str
+
+
+   .. py:attribute:: timestamp
+      :type:  str
+
+
+.. py:class:: CatalogueProfile
+
+   Describe the immutable multi-dataset catalogue served by this provider.
+
+   :param id: Stable catalogue identifier.
+   :param title: Human-readable catalogue title.
+   :param description: Human-readable catalogue description.
+   :param participant_id: Provider participant identifier.
+   :param dcat_ap_profile: Configured minimal DCAT-AP profile IRI.
+   :param datasets: Dataset publication profiles in stable declaration order.
+   :param dcat_data_services: Additional public APIs for the DCAT projection.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: title
+      :type:  str
+
+
+   .. py:attribute:: description
+      :type:  str
+
+
+   .. py:attribute:: participant_id
+      :type:  str
+
+
+   .. py:attribute:: dcat_ap_profile
+      :type:  str
+
+
+   .. py:attribute:: datasets
+      :type:  tuple[DatasetProfile, Ellipsis]
+
+
+   .. py:attribute:: dcat_data_services
+      :type:  tuple[DcatDataServiceProfile, Ellipsis]
+
+
+.. py:class:: DataServiceProfile
+
+   Describe the single service through which the dataset is delivered.
+
+   :param id: Stable data-service identifier.
+   :param title: Human-readable service title.
+   :param endpoint_url: HTTPS endpoint used for data delivery.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: title
+      :type:  str
+
+
+   .. py:attribute:: endpoint_url
+      :type:  str
+
+
+   .. py:attribute:: conforms_to
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: serves_dataset_ids
+      :type:  tuple[str, Ellipsis]
+
+
+.. py:class:: DatasetProfile
+
+   Group one dataset with its DSP offer, distribution, and data address.
+
+   :param dataset: Protocol-neutral dataset metadata.
+   :param offer: Unconditional ODRL use offer for this dataset.
+   :param distribution: Pull distribution advertised for this dataset.
+   :param data_service: Service embedded in the distribution.
+   :param data_address: Immutable pull address returned for authorized transfers.
+
+
+   .. py:attribute:: dataset
+      :type:  httk.core.Dataset
+
+
+   .. py:attribute:: offer
+      :type:  OfferProfile
+
+
+   .. py:attribute:: distribution
+      :type:  DistributionProfile
+
+
+   .. py:attribute:: data_service
+      :type:  DataServiceProfile
+
+
+   .. py:attribute:: data_address
+      :type:  collections.abc.Mapping[str, httk.serve.jsondata.FrozenJsonValue]
+
+
+.. py:class:: DcatDataServiceProfile
+
+   Describe a public API included only in the owned DCAT projection.
+
+   :param id: Stable service identifier.
+   :param title: Human-readable service title.
+   :param endpoint_url: Public HTTPS API endpoint.
+   :param conforms_to: Technical standards implemented by the service.
+   :param serves_dataset_ids: Catalogue dataset identifiers served by the API.
+   :param endpoint_description: Optional IRI describing the API interface.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: title
+      :type:  str
+
+
+   .. py:attribute:: endpoint_url
+      :type:  str
+
+
+   .. py:attribute:: conforms_to
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: serves_dataset_ids
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: endpoint_description
+      :type:  str | None
+
+
+.. py:class:: DeliveryStatus
+
+   Describe delivery health without claiming an unacknowledged DSP transition.
+
+   :param last_error: Most recent callback failure, if any.
+   :param retry_count: Number of delivery attempts made for the last callback.
+   :param out_of_sync: Whether the remote peer may not have the acknowledged local state.
+
+
+   .. py:attribute:: last_error
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: retry_count
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: out_of_sync
+      :type:  bool
+      :value: False
+
+
+
+.. py:class:: DistributionProfile
+
+   Describe the one pull distribution for the provider dataset.
+
+   :param id: Stable distribution identifier.
+   :param format: DSP transfer format advertised for the distribution.
+   :param access_url: HTTPS URL from which data are pulled.
+   :param data_service: Embedded service description for DSP catalogue output.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: format
+      :type:  str
+
+
+   .. py:attribute:: file_format
+      :type:  str
+
+
+   .. py:attribute:: media_type
+      :type:  str
+
+
+   .. py:attribute:: access_url
+      :type:  str
+
+
+   .. py:attribute:: data_service
+      :type:  DataServiceProfile
+
+
+   .. py:attribute:: byte_size
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: sha256
+      :type:  str | None
+      :value: None
+
+
+
+.. py:exception:: DspProtocolError(kind, status_code, detail, *, code = None, provider_pid = None, consumer_pid = None)
+
+   Bases: :py:obj:`Exception`
+
+
+   Represent a protocol failure that an HTTP adapter can serialize directly.
+
+   :param kind: DSP area whose official error document must be emitted.
+   :param status_code: HTTP status suitable for the adapter response.
+   :param detail: Safe human-readable failure detail.
+   :param code: Optional machine-readable DSP error code.
+   :param provider_pid: Provider process identifier, when one is known.
+   :param consumer_pid: Consumer process identifier, when one is known.
+
+
+   .. py:attribute:: kind
+
+
+   .. py:attribute:: status_code
+
+
+   .. py:attribute:: detail
+
+
+   .. py:attribute:: code
+      :value: None
+
+
+
+   .. py:attribute:: provider_pid
+      :value: None
+
+
+
+   .. py:attribute:: consumer_pid
+      :value: None
+
+
+
+   .. py:method:: as_document()
+
+      Serialize this failure as the official DSP JSON error document.
+
+      :return: Error document for the exception's DSP area.
+
+
+
+.. py:exception:: DspTransitionSuperseded
+
+   Bases: :py:obj:`RuntimeError`
+
+
+   Report that a callback was delivered but a concurrent transition won the commit.
+
+   This is not a protocol error: by the time it is raised the peer callback has
+   already been delivered successfully, and only the local commit lost a race
+   with a concurrent state transition. There is nothing to report on the wire
+   and no HTTP status to carry, so it deliberately does not subclass
+   :class:`DspProtocolError`.
+
+
+.. py:type:: JsonValue
+   :canonical: JsonScalar | list['JsonValue'] | dict[str, 'JsonValue']
+
+
+   An arbitrary JSON value modelled with ordinary mutable containers.
+
+.. py:class:: NegotiationRecord
+
+   Record an in-memory contract negotiation and its acknowledged state.
+
+   :param provider_pid: Provider process identifier.
+   :param consumer_pid: Consumer process identifier.
+   :param callback_address: Consumer callback base URL.
+   :param state: Last state acknowledged by both protocol processing and callback delivery.
+   :param policy: Immutable message offer accepted for the negotiation.
+   :param agreement: Created agreement after an agreement callback is acknowledged.
+   :param pending_transition: Reserved transition token, if a callback is currently in flight.
+   :param delivery: Local delivery health for the latest callback.
+
+
+   .. py:attribute:: provider_pid
+      :type:  str
+
+
+   .. py:attribute:: consumer_pid
+      :type:  str
+
+
+   .. py:attribute:: callback_address
+      :type:  str
+
+
+   .. py:attribute:: state
+      :type:  str
+
+
+   .. py:attribute:: policy
+      :type:  collections.abc.Mapping[str, httk.serve.jsondata.FrozenJsonValue]
+
+
+   .. py:attribute:: agreement
+      :type:  AgreementRecord | None
+      :value: None
+
+
+
+   .. py:attribute:: pending_transition
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: delivery
+      :type:  DeliveryStatus
+
+
+.. py:class:: OfferProfile
+
+   Describe the one static, unconditional offer exposed by the provider.
+
+   :param id: Stable offer identifier.
+   :param target: Dataset identifier to which a message offer must refer.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: target
+      :type:  str
+
+
+.. py:class:: TransferRecord
+
+   Record an in-memory transfer process and its acknowledged state.
+
+   :param provider_pid: Provider transfer-process identifier.
+   :param consumer_pid: Consumer transfer-process identifier.
+   :param callback_address: Consumer callback base URL.
+   :param agreement_id: Finalized agreement authorizing this transfer.
+   :param format: Requested transfer format.
+   :param state: Last state acknowledged by both protocol processing and callback delivery.
+   :param pending_transition: Reserved transition token, if a callback is currently in flight.
+   :param delivery: Local delivery health for the latest callback.
+
+
+   .. py:attribute:: provider_pid
+      :type:  str
+
+
+   .. py:attribute:: consumer_pid
+      :type:  str
+
+
+   .. py:attribute:: callback_address
+      :type:  str
+
+
+   .. py:attribute:: agreement_id
+      :type:  str
+
+
+   .. py:attribute:: format
+      :type:  str
+
+
+   .. py:attribute:: state
+      :type:  str
+
+
+   .. py:attribute:: pending_transition
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: delivery
+      :type:  DeliveryStatus
+
+
+.. py:class:: DspProvider(config, *, store = None, publications = None, catalogue_policy = None, callback_sender = None, uuid_factory = uuid4, utc_clock = None)
+
+   Serve a live dataset catalogue and manage non-durable DSP processes.
+
+   Business methods accept and return only ordinary JSON dictionaries; a thin
+   HTTP adapter is responsible for route and response-code presentation. All
+   process state is in memory and is lost on restart. Callback transitions are
+   never committed until a peer acknowledges a 2xx response.
+
+   :param config: Validated fixed provider configuration.
+   :param store: Caller-owned entry store containing the DSP publication
+       family. Exactly one of ``store`` and ``publications`` is required.
+   :param publications: Inline dataset and service publication envelopes.
+       Exactly one of ``publications`` and ``store`` is required.
+   :param catalogue_policy: Optional replaceable catalogue requirements and
+       serialization policy. The built-in minimal policy is used by default.
+   :param callback_sender: Optional asynchronous callback transport. Supplying
+       one bypasses default network policy and is useful for deterministic tests.
+   :param uuid_factory: Optional source for provider and agreement identifiers.
+   :param utc_clock: Optional UTC clock used for agreement timestamps.
+
+
+   .. py:attribute:: config
+
+
+   .. py:attribute:: catalogue_policy
+
+
+   .. py:property:: profile
+      :type: httk.serve.dsp.models.CatalogueProfile
+
+
+      Return a freshly validated catalogue snapshot.
+
+
+   .. py:method:: automatic_batch()
+
+      Create a response-local holder for automatic callback actions.
+
+      The HTTP adapter uses the returned private holder to release callbacks
+      only from that response's background hook.  Ordinary callers do not
+      need this seam: their automatic callbacks are managed immediately after
+      the business method returns.
+
+      :return: An empty response-local automatic callback holder.
+
+
+
+   .. py:method:: has_automatic_actions(batch)
+
+      Report whether a response-local holder has callbacks to release.
+
+      :param batch: Holder returned by :meth:`automatic_batch`.
+      :return: Whether the holder contains at least one action.
+
+
+
+   .. py:method:: release_automatic(batch)
+      :async:
+
+
+      Start one response's automatic callbacks after its body was sent.
+
+      :param batch: Holder returned by :meth:`automatic_batch`.
+
+
+
+   .. py:method:: drain_automatic()
+      :async:
+
+
+      Wait until all provider-managed automatic callback tasks settle.
+
+
+
+   .. py:method:: cancel_automatic()
+      :async:
+
+
+      Cancel and drain provider-managed automatic callbacks at shutdown.
+
+
+
+   .. py:method:: version_document()
+
+      Return the DSP 2025-1 HTTPS version-discovery document.
+
+      :return: Plain DSP protocol-version document.
+
+
+
+   .. py:method:: dsp_catalogue(request)
+
+      Return the DSP catalogue snapshot for an empty catalogue filter.
+
+      :param request: Catalog request message JSON.
+      :return: Plain DSP catalogue document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the request is malformed or filters are unsupported.
+
+
+
+   .. py:method:: catalogue(request, representation)
+
+      Return a catalogue in a representation selected by the policy.
+
+      :param request: Catalog request message JSON.
+      :param representation: Value returned by :meth:`select_catalogue_representation`.
+      :return: Plain catalogue document.
+
+
+
+   .. py:method:: select_catalogue_representation(accept)
+
+      Select a catalogue response representation through the active policy.
+
+      :param accept: Raw HTTP ``Accept`` field, or ``None`` when absent.
+      :return: Selected representation metadata.
+
+
+
+   .. py:method:: validate_catalogue_request(request)
+
+      Validate the one unfiltered catalogue request supported by DSP minimal.
+
+
+
+   .. py:method:: dsp_dataset(dataset_id)
+
+      Return one DSP dataset only when its ID exactly matches.
+
+      :param dataset_id: Requested dataset identifier.
+      :return: Plain DSP dataset document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the identifier is absent or unknown.
+
+
+
+   .. py:method:: dcat_catalogue()
+
+      Return the separate strict owned-context DCAT-AP projection.
+
+      :return: Plain DCAT-AP-compatible JSON-LD catalogue document.
+
+
+
+   .. py:method:: get_negotiation(provider_pid)
+      :async:
+
+
+      Return one acknowledged negotiation process.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :return: Plain DSP negotiation document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the process is unknown.
+
+
+
+   .. py:method:: request_negotiation(message, *, _automatic_batch = None)
+      :async:
+
+
+      Accept an initial consumer contract request.
+
+      The initial request must omit ``providerPid``, identify the configured
+      offer and dataset exactly, and provide an HTTPS callback. With automatic
+      progression enabled, the agreement callback is scheduled only after
+      the returned process snapshot has been acknowledged to the caller.
+
+      :param message: Contract request message JSON.
+      :param _automatic_batch: Optional response-local holder used by the HTTP adapter.
+      :return: Newly created DSP negotiation document.
+      :raises httk.serve.dsp.models.DspProtocolError: If message validation fails.
+
+
+
+   .. py:method:: counter_request(provider_pid, message)
+      :async:
+
+
+      Receive a consumer counter-request after a provider offer.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Consumer contract request message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs, policy, or the transition are invalid.
+
+
+
+   .. py:method:: negotiation_event(provider_pid, message)
+      :async:
+
+
+      Receive the only permitted consumer negotiation event, ``ACCEPTED``.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Contract-negotiation event message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs, event, or transition are invalid.
+
+
+
+   .. py:method:: verify_agreement(provider_pid, message, *, _automatic_batch = None)
+      :async:
+
+
+      Receive consumer verification of an acknowledged agreement.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Agreement-verification message JSON.
+      :param _automatic_batch: Optional response-local holder used by the HTTP adapter.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs, state, or finalization delivery are invalid.
+
+
+
+   .. py:method:: receive_negotiation_termination(provider_pid, message)
+      :async:
+
+
+      Receive consumer termination of a nonterminal negotiation.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Negotiation-termination message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: get_transfer(provider_pid)
+      :async:
+
+
+      Return one acknowledged transfer process.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :return: Plain DSP transfer-process document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the process is unknown.
+
+
+
+   .. py:method:: request_transfer(message, *, _automatic_batch = None)
+      :async:
+
+
+      Accept a consumer pull transfer request under a finalized agreement.
+
+      Identical repeated consumer process IDs return the original transfer.
+      A reuse with different agreement, callback, or format is rejected.
+
+      :param message: Transfer request message JSON.
+      :param _automatic_batch: Optional response-local holder used by the HTTP adapter.
+      :return: Newly created or idempotently recovered transfer-process document.
+      :raises httk.serve.dsp.models.DspProtocolError: If request validation or callback delivery fails.
+
+
+
+   .. py:method:: resume_transfer(provider_pid, message)
+      :async:
+
+
+      Receive a consumer start message that resumes a suspended transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-start message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: receive_transfer_suspension(provider_pid, message)
+      :async:
+
+
+      Receive consumer suspension of a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-suspension message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: receive_transfer_completion(provider_pid, message)
+      :async:
+
+
+      Receive consumer completion of a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-completion message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: receive_transfer_termination(provider_pid, message)
+      :async:
+
+
+      Receive consumer termination of a nonterminal transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-termination message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: send_offer(provider_pid)
+      :async:
+
+
+      Send a provider contract offer and acknowledge ``REQUESTED`` to ``OFFERED``.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: send_agreement(provider_pid)
+      :async:
+
+
+      Send a provider agreement from ``REQUESTED`` or ``ACCEPTED``.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: finalize_negotiation(provider_pid)
+      :async:
+
+
+      Send provider finalization after consumer agreement verification.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: terminate_negotiation(provider_pid, *, code = 'terminated', reason = 'negotiation terminated by provider')
+      :async:
+
+
+      Send provider termination for any nonterminal negotiation state.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :param code: Machine-readable termination code.
+      :param reason: Human-readable termination reason.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: start_transfer(provider_pid)
+      :async:
+
+
+      Send provider transfer start with the configured pull data address.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: suspend_transfer(provider_pid, *, code = 'suspended', reason = 'transfer suspended by provider')
+      :async:
+
+
+      Send provider suspension for a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :param code: Machine-readable suspension code.
+      :param reason: Human-readable suspension reason.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: complete_transfer(provider_pid)
+      :async:
+
+
+      Send provider completion for a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: terminate_transfer(provider_pid, *, code = 'terminated', reason = 'transfer terminated by provider')
+      :async:
+
+
+      Send provider termination for any nonterminal transfer state.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :param code: Machine-readable termination code.
+      :param reason: Human-readable termination reason.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+.. py:type:: UtcClock
+   :canonical: Callable[[], datetime]
+
+
+.. py:type:: UuidFactory
+   :canonical: Callable[[], UUID | str]
+
+

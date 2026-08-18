@@ -1,0 +1,75 @@
+httk.serve.http.openapi.schemas
+===============================
+
+.. py:module:: httk.serve.http.openapi.schemas
+
+.. autoapi-nested-parse::
+
+   Offline JSON Schema registries for OpenAPI applications.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.schemas.OpenAPISchemaError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.schemas.OpenAPISchemaRegistry
+
+
+Module Contents
+---------------
+
+.. py:exception:: OpenAPISchemaError
+
+   Bases: :py:obj:`ValueError`
+
+
+   Report an unavailable or invalid JSON Schema document.
+
+
+.. py:class:: OpenAPISchemaRegistry(documents)
+
+   Validate caller-supplied JSON Schema documents without network retrieval.
+
+   The registry deep-copies supplied documents, so later caller mutations do
+   not alter validation or offline reference resolution.
+
+   :param documents: JSON Schema documents, each with a non-empty ``$id``.
+
+
+   .. py:method:: lookup(identifier)
+
+      Return a schema document by its canonical identifier.
+
+      :param identifier: Schema ``$id``.
+      :return: Independent copy of the registered schema mapping.
+      :raises OpenAPISchemaError: If no supplied schema has that identifier.
+
+
+
+   .. py:method:: validate(identifier, value)
+
+      Validate a JSON-compatible value against an offline schema.
+
+      :param identifier: Schema ``$id``.
+      :param value: JSON-compatible value to validate.
+      :raises OpenAPISchemaError: If the schema is unavailable or validation fails.
+
+
+
+   .. py:property:: identifiers
+      :type: tuple[str, Ellipsis]
+
+
+      Return supplied schema identifiers in caller order.
+
+

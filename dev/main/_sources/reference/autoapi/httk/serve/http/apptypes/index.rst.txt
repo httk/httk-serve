@@ -1,0 +1,38 @@
+httk.serve.http.apptypes
+========================
+
+.. py:module:: httk.serve.http.apptypes
+
+.. autoapi-nested-parse::
+
+   Branded httk-serve app/callback types so API implementations avoid importing Starlette directly.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.apptypes.ServeApp
+   httk.serve.http.apptypes.ResponseHook
+
+
+Module Contents
+---------------
+
+.. py:type:: ServeApp
+   :canonical: Starlette
+
+
+   The httk-serve serving application type (a Starlette app; branded so consumers need not import Starlette).
+
+   Annotation-only: this is a type alias, not the ``Starlette`` class, so use ``Starlette``
+   itself for ``isinstance``/subclass checks.
+
+.. py:type:: ResponseHook
+   :canonical: Callable[[], Awaitable[None]]
+
+
+   A zero-argument coroutine callback run once, after the response has been sent.
+

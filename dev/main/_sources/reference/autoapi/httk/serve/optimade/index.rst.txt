@@ -1,0 +1,1280 @@
+httk.serve.optimade
+===================
+
+.. py:module:: httk.serve.optimade
+
+.. autoapi-nested-parse::
+
+   Public generic OPTIMADE serving, client, and query APIs.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/optimade/api/index
+   /reference/autoapi/httk/serve/optimade/backend/index
+   /reference/autoapi/httk/serve/optimade/client/index
+   /reference/autoapi/httk/serve/optimade/endpoints/index
+   /reference/autoapi/httk/serve/optimade/engine/index
+   /reference/autoapi/httk/serve/optimade/filter/index
+   /reference/autoapi/httk/serve/optimade/model/index
+   /reference/autoapi/httk/serve/optimade/remote_query/index
+   /reference/autoapi/httk/serve/optimade/runtime/index
+   /reference/autoapi/httk/serve/optimade/schema/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.ALL_ADVERTISED
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.OptimadeClientError
+   httk.serve.optimade.OptimadeDiscoveryError
+   httk.serve.optimade.OptimadeErrorDocumentError
+   httk.serve.optimade.OptimadeHTTPError
+   httk.serve.optimade.OptimadeTransportError
+   httk.serve.optimade.OptimadeVersionNegotiationError
+   httk.serve.optimade.OptimadeError
+   httk.serve.optimade.TranslatorError
+   httk.serve.optimade.CountUnavailableError
+   httk.serve.optimade.OptimadePaginationError
+   httk.serve.optimade.OptimadeResponseError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.BackendAdapter
+   httk.serve.optimade.EntrySource
+   httk.serve.optimade.InMemoryStore
+   httk.serve.optimade.StoredBackendAdapter
+   httk.serve.optimade.OptimadeStore
+   httk.serve.optimade.RemoteEntryType
+   httk.serve.optimade.EndpointResponse
+   httk.serve.optimade.OptimadeConfig
+   httk.serve.optimade.OptimadeIndexConfig
+   httk.serve.optimade.RawRequest
+   httk.serve.optimade.ValidatedParameters
+   httk.serve.optimade.ValidatedRequest
+   httk.serve.optimade.RemoteResultColumn
+   httk.serve.optimade.RemoteResultSet
+   httk.serve.optimade.RemoteSearcher
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.create_asgi_app
+   httk.serve.optimade.create_index_asgi_app
+   httk.serve.optimade.serve
+   httk.serve.optimade.adapter_from_providers
+   httk.serve.optimade.adapter_from_store
+   httk.serve.optimade.adapter_from_stores
+   httk.serve.optimade.providers_from_registry
+   httk.serve.optimade.process
+
+
+Package Contents
+----------------
+
+.. py:function:: create_asgi_app(adapter, config = None, *, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Create an ASGI application serving an OPTIMADE API for a backend or store.
+
+   An absent ``baseurl`` makes the application derive a mount-aware URL from
+   the request. An explicit value is authoritative.
+
+   :param adapter: Backend providing the served schema/query callback, or an
+       entry store whose configured OPTIMADE families are discovered lazily.
+   :param config: Optional service configuration.
+   :param baseurl: Public API base URL, or ``None`` for request-based derivation.
+   :param debug: Enable application and backend diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+   :return: Configured serving application.
+
+
+.. py:function:: create_index_asgi_app(config, *, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Create an ASGI application for an OPTIMADE index meta-database.
+
+   The index serves only discovery, links, and unversioned version
+   negotiation. It has no backend adapter and performs no query calls. The
+   supplied configuration is retained as the response metadata source; the
+   composed application's caller owns its lifetime and configuration.
+
+   :param config: Validated index metadata and configured database links.
+   :param baseurl: Authoritative public index URL, or ``None`` for
+       mount-aware derivation from each request.
+   :param debug: Enable Starlette diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+   :return: Configured serving application.
+   :raises TypeError: If ``config`` is not an
+       :class:`~httk.serve.optimade.model.config.OptimadeIndexConfig`.
+
+
+.. py:function:: serve(adapter, config = None, *, host = '127.0.0.1', port = 8080, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Serve an OPTIMADE API for a backend or entry store with a development server.
+
+   :param adapter: Backend providing the served schema/query callback, or an
+       entry store whose configured OPTIMADE families are discovered lazily.
+   :param config: Optional service configuration.
+   :param host: Interface or hostname to bind.
+   :param port: TCP port to bind.
+   :param baseurl: Public API base URL, or ``None`` to derive the local URL.
+   :param debug: Enable application and backend diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+
+
+.. py:class:: BackendAdapter
+
+   Bind a store to the OPTIMADE entry endpoints it serves.
+
+   ``sources`` maps entry endpoint names (e.g. ``'structures'``) to the
+   sources queried for that endpoint; an endpoint with several sources (e.g.
+   several calculation result types) is queried across all of them.
+
+   ``schema`` is required: it declares the served entry types and properties.
+   ``field_handlers`` maps each entry type to its filter-handler table. When
+   omitted (left empty) it is derived from ``schema`` via
+   :func:`~httk.store.query.optimade_filters.simple_property_handlers`, using an
+   identity property-key map (each property is filtered against a backend field
+   of the same name); a backend whose field names differ, or that wants finer
+   control, supplies its own tables instead.
+
+   :param store: Store implementing the neutral query protocol.
+   :param sources: Queryable sources keyed by entry endpoint.
+   :param schema: Required schema describing served entries and properties.
+   :param field_handlers: Optional filter handlers keyed by entry endpoint.
+
+
+   .. py:attribute:: store
+      :type:  httk.store.query.Store
+
+
+   .. py:attribute:: sources
+      :type:  collections.abc.Mapping[str, collections.abc.Sequence[EntrySource]]
+
+
+   .. py:attribute:: schema
+      :type:  httk.serve.optimade.schema.served.ServedSchema
+
+
+   .. py:attribute:: field_handlers
+      :type:  collections.abc.Mapping[str, httk.store.query.optimade_filters.HandlerTable]
+
+
+   .. py:method:: query_function()
+
+      Return the callback that executes queries through this adapter.
+
+      :return: Query callback consumed by the OPTIMADE request engine.
+
+
+
+.. py:class:: EntrySource
+
+   Describe one queryable source behind an OPTIMADE entry endpoint.
+
+   ``target`` is what gets passed to ``searcher.variable()``; ``fields`` maps
+   OPTIMADE response-field names to extractors applied to matched row objects.
+   ``relationships``, when set, is an extractor mapping a matched row to a
+   dictionary keyed by related entry type, each value a list of
+   ``{'id': str, 'description': str?, 'role': str?}`` dictionaries.
+   ``sort_keys`` maps response-field names to the backend field names to sort
+   on. ``property_metadata`` maps response-field names to extractors returning
+   the per-property metadata dictionary for a matched row (or ``None`` when
+   there is no metadata for that row).
+
+   :param target: Store-specific target passed to ``searcher.variable``.
+   :param fields: Response-field extractors applied to matched rows.
+   :param sort_keys: Response-field to backend-sort-field mappings.
+   :param relationships: Optional extractor for related-resource data.
+   :param property_metadata: Optional per-property metadata extractors.
+
+
+   .. py:attribute:: target
+      :type:  Any
+
+
+   .. py:attribute:: fields
+      :type:  collections.abc.Mapping[str, FieldExtractor]
+
+
+   .. py:attribute:: sort_keys
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: relationships
+      :type:  FieldExtractor | None
+      :value: None
+
+
+
+   .. py:attribute:: property_metadata
+      :type:  collections.abc.Mapping[str, FieldExtractor]
+
+
+.. py:class:: InMemoryStore(tables)
+
+   Provide a store over dictionary rows.
+
+   :param tables: Row lists keyed by table name.
+
+
+   .. py:attribute:: tables
+
+
+   .. py:method:: searcher(*, as_of = None)
+
+      Create a searcher over this store's tables.
+
+      :param as_of: Optional historic timestamp cutoff; unsupported here.
+      :return: Fresh in-memory searcher.
+      :raises ValueError: If a historic cutoff is requested.
+
+
+
+.. py:class:: StoredBackendAdapter
+
+   Serve one data federation per OPTIMADE entry type.
+
+   :param federations: Durable federations keyed by entry endpoint.
+   :param schema: Schema describing the federations' served entries.
+
+
+   .. py:attribute:: federations
+      :type:  collections.abc.Mapping[str, Any]
+
+
+   .. py:attribute:: schema
+      :type:  httk.serve.optimade.schema.served.ServedSchema
+
+
+   .. py:method:: snapshot_cutoff_ns(entry_type, now_ns)
+
+      Return the resolution-aware snapshot cutoff for one entry type.
+
+
+
+   .. py:method:: query_function()
+
+      Return the callback that queries the configured federations.
+
+      :return: Query callback consumed by the OPTIMADE request engine.
+
+
+
+.. py:function:: adapter_from_providers(providers, **options)
+
+   Build a :class:`~httk.serve.optimade.backend.adapter.BackendAdapter` serving the given entry providers.
+
+   Every provider's :meth:`~httk.core.EntryProvider.entry_types` become served
+   entry types (described by their :class:`~httk.core.EntryTypeDefinition`), its
+   :meth:`~httk.core.EntryProvider.property_keys` name the served subset and drive
+   both the filter handlers (via
+   :func:`~httk.store.query.optimade_filters.simple_property_handlers`) and the
+   response-field extractors, and its
+   :meth:`~httk.core.EntryProvider.records` are loaded into an
+   :class:`~httk.serve.optimade.backend.memory_store.InMemoryStore`. Every served
+   property MUST be described by the entry type's definition (a custom property
+   must therefore live in an
+   :meth:`~httk.core.EntryTypeDefinition.extended` definition); a
+   :class:`ValueError` names any offender. All served properties beyond
+   ``id``/``type`` are marked default-response. Extra keyword ``options`` (e.g.
+   ``sortable``, ``recognized_prefixes``) are forwarded to
+   :func:`~httk.serve.optimade.schema.served.build_served_schema`; every served
+   property is sortable-capable, since the provider's property-key map is
+   passed through as the source's
+   :attr:`~httk.serve.optimade.backend.adapter.EntrySource.sort_keys`.
+
+   Declared relationships (:meth:`~httk.core.EntryProvider.relationships`) are
+   fully auto-wired for serving *and* filtering: for each entry type with
+   declared relationships, a synthetic ``__rel_<related_type>`` id-list field
+   is materialized on EVERY row of that entry type (an empty list when the row
+   has no related entries of that type, so inverse set semantics are
+   well-defined), and a ``'<related_type>.id'`` entry built with
+   :func:`~httk.store.query.optimade_filters.relationship_id_handler` is merged into the
+   entry type's derived filter-handler table (never overwriting an entry
+   already present, mirroring how :class:`~httk.serve.optimade.backend.adapter.BackendAdapter`
+   respects explicitly supplied handler tables). ``<related_type>.id HAS ...``
+   filters — and, through the related-property resolver of
+   :func:`~httk.serve.optimade.backend.translation.translate_filter`, depth-1
+   relationship-property filters such as ``references.doi CONTAINS "10.1"`` —
+   therefore work without any hand-wiring.
+
+   :param providers: Generic entry providers supplying definitions, keys, records, and relationships.
+   :param \*\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+   :return: Fully wired in-memory backend adapter.
+   :raises ValueError: If provider keys or served properties are invalid.
+
+
+.. py:function:: adapter_from_store(store, **options)
+
+   Build a lazy OPTIMADE adapter from every described family in one store.
+
+   Families declared without an entry-type definition are deliberately
+   ignored.  This lets application-specific records, such as DSP publication
+   declarations, coexist with OPTIMADE records in one durable layout.
+
+   :param store: Entry store whose configured layout is discovered.
+   :param \*\*options: Schema options forwarded to :func:`adapter_from_stores`.
+   :return: Lazy adapter over all configured OPTIMADE families.
+   :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
+   :raises ValueError: If the store contains no OPTIMADE-described family.
+
+
+.. py:function:: adapter_from_stores(sources, **options)
+
+   Build a lazy store-backed adapter from durable entry sources.
+
+   Sources with the same exact logical family are federated under one entry
+   endpoint.  The data layer owns all source/backing traversal and global
+   pagination; this adapter advertises the family's definition and turns only
+   the returned page into OPTIMADE result rows.
+
+   :param sources: Durable entry sources to federate by entry type.
+   :param \*\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+   :return: Lazy adapter over the supplied durable sources.
+   :raises ValueError: If sources conflict or expose incomplete sort mappings.
+   :raises TypeError: If a source is not a stored entry source.
+
+
+.. py:function:: providers_from_registry()
+
+   Return the registered entry-provider factories keyed by their registered name.
+
+   Resolves each factory registered via
+   :func:`httk.core.register_entry_provider` (through ``httk.registry.*``
+   self-registration) into a callable. Providers need data, so applications
+   instantiate them: ``providers_from_registry()["atomistic-structures"](data)``.
+
+   :return: Registered provider factories keyed by registry name.
+
+
+.. py:data:: ALL_ADVERTISED
+
+.. py:exception:: OptimadeClientError
+
+   Bases: :py:obj:`RuntimeError`
+
+
+   Base class for safe, client-side OPTIMADE failures.
+
+
+.. py:exception:: OptimadeDiscoveryError(source_url, detail)
+
+   Bases: :py:obj:`OptimadeClientError`
+
+
+   Report a malformed or inconsistent ``/info`` discovery document.
+
+   :param source_url: Redacted URL of the malformed document.
+   :param detail: Safe discovery detail.
+
+
+   .. py:attribute:: source_url
+
+
+   .. py:attribute:: detail
+
+
+.. py:exception:: OptimadeErrorDocumentError(source_url, status_code, detail = None)
+
+   Bases: :py:obj:`OptimadeHTTPError`
+
+
+   Report a non-success response with a parseable OPTIMADE error document.
+
+
+.. py:exception:: OptimadeHTTPError(source_url, status_code, detail = None)
+
+   Bases: :py:obj:`OptimadeClientError`
+
+
+   Report a non-success HTTP status from a remote endpoint.
+
+   :param source_url: Redacted URL of the response.
+   :param status_code: HTTP status code returned by the service.
+   :param detail: Optional safe error detail.
+
+
+   .. py:attribute:: source_url
+
+
+   .. py:attribute:: status_code
+
+
+   .. py:attribute:: detail
+      :value: None
+
+
+
+.. py:class:: OptimadeStore(base_url, *, client = None, page_limit = 50, max_pages = 10000, allow_cross_origin_pagination = False, response_fields = None)
+
+   Connect synchronously to a read-only OPTIMADE service and discover it eagerly.
+
+   Unversioned bases negotiate strictly through the preference-ordered
+   ``/versions`` CSV. Query pagination validates complete pages before yielding,
+   uses lazy one-root exact-literal requests, and bounds continuation links by
+   page count and origin.
+
+   :param base_url: Absolute HTTP(S) service base URL.
+   :param client: Optional borrowed synchronous HTTP client.
+   :param page_limit: Default remote page size.
+   :param max_pages: Maximum continuation pages followed by one query.
+   :param allow_cross_origin_pagination: Permit continuation links on another origin.
+   :param response_fields: Default response-field selection for new searchers.
+   :raises OptimadeVersionNegotiationError: If the service cannot select a supported version.
+   :raises OptimadeDiscoveryError: If discovery documents are malformed.
+
+
+   .. py:attribute:: requested_base_url
+
+
+   .. py:attribute:: base_url
+
+
+   .. py:attribute:: page_limit
+      :value: 50
+
+
+
+   .. py:attribute:: max_pages
+      :value: 10000
+
+
+
+   .. py:attribute:: allow_cross_origin_pagination
+      :value: False
+
+
+
+   .. py:attribute:: response_fields
+      :value: None
+
+
+
+   .. py:attribute:: api_version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:property:: entry_types
+      :type: tuple[RemoteEntryType, Ellipsis]
+
+
+      Discovered entry endpoints in the service-advertised order.
+
+
+   .. py:property:: entry_types_by_name
+      :type: collections.abc.Mapping[str, RemoteEntryType]
+
+
+      An immutable transport-name lookup for :attr:`entry_types`.
+
+
+   .. py:method:: entry_type(name)
+
+      Return one discovered endpoint by transport name.
+
+      :param name: Service-advertised endpoint name.
+      :return: Discovered endpoint descriptor.
+      :raises KeyError: If no endpoint has that name.
+
+
+
+   .. py:method:: refresh()
+
+      Refresh discovery state after a fully successful rediscovery.
+
+      :raises OptimadeClientError: If the store is closed or discovery fails.
+
+
+
+   .. py:method:: close()
+
+      Close an internally owned HTTP client; borrowed clients stay open.
+
+
+
+   .. py:method:: searcher(*, response_fields = ..., as_of = None)
+
+      Create one synchronous, read-only remote search plan.
+
+      Passing ``response_fields`` overrides the store-level selection. An
+      omitted value inherits it, while explicit ``None`` requests the
+      service default.
+
+      :param response_fields: Per-search field selection override.
+      :param as_of: Historic cutoff; unsupported because remote snapshot negotiation is unavailable.
+      :return: New remote search plan.
+      :raises OptimadeClientError: If the store is closed.
+      :raises ValueError: If a historic cutoff is requested.
+
+
+
+.. py:exception:: OptimadeTransportError(source_url, detail)
+
+   Bases: :py:obj:`OptimadeClientError`
+
+
+   Report that the HTTP client could not complete a request.
+
+   :param source_url: Redacted URL of the failed request.
+   :param detail: Safe transport detail.
+
+
+   .. py:attribute:: source_url
+
+
+   .. py:attribute:: detail
+
+
+.. py:exception:: OptimadeVersionNegotiationError(source_url, detail)
+
+   Bases: :py:obj:`OptimadeClientError`
+
+
+   Report failure to negotiate a supported OPTIMADE API version.
+
+   :param source_url: Redacted URL used for negotiation.
+   :param detail: Safe negotiation detail.
+
+
+   .. py:attribute:: source_url
+
+
+   .. py:attribute:: detail
+
+
+.. py:class:: RemoteEntryType
+
+   Describe one immutable remote entry endpoint discovered from ``/info``.
+
+   ``name`` is solely the service's transport endpoint name.  Semantic
+   recognition is intentionally represented by ``binding`` and is derived
+   exclusively from definition IRIs.
+
+   :param name: Transport endpoint name.
+   :param definition_id: Entry-definition IRI, when advertised.
+   :param schema: Lossless schema snapshot from discovery.
+   :param property_iris: Transport property names keyed by definition IRI.
+   :param property_names: Local property names keyed by definition IRI.
+   :param property_types: Property kinds keyed by transport name.
+   :param advertised_properties: Properties advertised by the service.
+   :param default_response_properties: Properties returned by default.
+   :param sortable_properties: Properties accepted by remote sorting.
+   :param binding: Recognized semantic binding, when available.
+   :param backend: Backend class associated with the binding.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: definition_id
+      :type:  str | None
+
+
+   .. py:attribute:: schema
+      :type:  httk.core.optimade.OptimadeSchemaSnapshot
+
+
+   .. py:attribute:: property_iris
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: property_names
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: property_types
+      :type:  collections.abc.Mapping[str, tuple[str, str | None]]
+
+
+   .. py:attribute:: advertised_properties
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: default_response_properties
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: sortable_properties
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: binding
+      :type:  httk.core.register.OptimadeEntryBinding | None
+
+
+   .. py:attribute:: backend
+      :type:  type
+
+
+.. py:function:: process(request, query_function, version, config, schema, *, snapshot_cutoff_ns = None, debug = False)
+
+   Process one OPTIMADE query.
+
+   ``request`` carries the incoming request; only ``baseurl`` and
+   ``representation`` must be set, missing information is derived from
+   ``representation``. ``query_function`` is the callback used to execute
+   entry queries against the backend. ``schema`` describes the served entry
+   types and properties.
+
+   :param request: Raw request to validate and dispatch.
+   :param query_function: Backend callback used for entry queries.
+   :param version: API version selected for the request.
+   :param config: Service response configuration.
+   :param schema: Explicit served schema for endpoint validation.
+   :param snapshot_cutoff_ns: Optional stored-backend snapshot capability.
+   :param debug: Enable backend diagnostics.
+   :return: Endpoint response before web serialization.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If request validation or endpoint processing fails.
+
+
+.. py:class:: EndpointResponse
+
+   Represent an endpoint response for serialization by the web layer.
+
+   Either ``json_response`` (a JSON:API document) or ``content`` (a raw body)
+   is set.
+
+   :param response_code: HTTP status code.
+   :param response_msg: HTTP status title.
+   :param content_type: Response media type.
+   :param encoding: Response character encoding.
+   :param content: Raw response body, when the response is not JSON.
+   :param json_response: JSON:API response document, when the response is JSON.
+
+
+   .. py:attribute:: response_code
+      :type:  int
+      :value: 200
+
+
+
+   .. py:attribute:: response_msg
+      :type:  str
+      :value: 'OK'
+
+
+
+   .. py:attribute:: content_type
+      :type:  str
+      :value: 'application/vnd.api+json'
+
+
+
+   .. py:attribute:: encoding
+      :type:  str
+      :value: 'utf-8'
+
+
+
+   .. py:attribute:: content
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: json_response
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+.. py:class:: OptimadeConfig
+
+   Configure a served OPTIMADE database.
+
+   ``implementation`` extends/overrides the fields of the ``meta`` ->
+   ``implementation`` dictionary (e.g. ``issue_tracker``, ``source_url``,
+   ``maintainer``). ``database``, ``schema_url``, and ``request_delay``
+   populate the corresponding optional ``meta`` fields (OPTIMADE v1.2+)
+   when set. ``license``, ``available_licenses``, and
+   ``available_licenses_for_entries`` populate the corresponding optional
+   base-info attributes when set.
+
+   :param provider: Provider metadata for the OPTIMADE response envelope.
+   :param links: Provider links exposed by the ``/links`` endpoint.
+   :param implementation: Implementation metadata merged into response metadata.
+   :param database: Optional database metadata for response metadata.
+   :param schema_url: URL of the served schema, when one is available.
+   :param request_delay: Optional advertised request delay.
+   :param license: License metadata exposed by the base-info endpoint.
+   :param available_licenses: Licenses advertised for the service.
+   :param available_licenses_for_entries: Licenses advertised for entries.
+   :param page_limit_max: Largest ``page_limit`` accepted; larger requests get a 403.
+   :param partial_data_chunk_size: Number of outer items emitted per partial-data page.
+   :param cors_origins: Exact browser origins allowed to make cross-origin requests.
+   :raises ValueError: If ``page_limit_max`` is not an integer >= 1.
+
+
+   .. py:attribute:: provider
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: links
+      :type:  list[dict[str, Any]]
+      :value: []
+
+
+
+   .. py:attribute:: implementation
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: database
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+   .. py:attribute:: schema_url
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_delay
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: license
+      :type:  dict[str, Any] | str | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses_for_entries
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: page_limit_max
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: partial_data_chunk_size
+      :type:  int
+      :value: 1000
+
+
+
+   .. py:attribute:: cors_origins
+      :type:  tuple[str, Ellipsis]
+      :value: ()
+
+
+
+.. py:exception:: OptimadeError(message, response_code, response_message, longmsg = None)
+
+   Bases: :py:obj:`Exception`
+
+
+   Represent an OPTIMADE response error.
+
+   :param message: Short error detail used as the exception message.
+   :param response_code: HTTP status code returned to the client.
+   :param response_message: HTTP status title returned to the client.
+   :param longmsg: Optional longer error detail returned in the response.
+
+
+   .. py:attribute:: response_code
+
+
+   .. py:attribute:: response_msg
+
+
+   .. py:attribute:: content
+
+
+.. py:class:: OptimadeIndexConfig
+
+   Bases: :py:obj:`OptimadeConfig`
+
+
+   Configure an OPTIMADE index meta-database.
+
+   The links are the configured databases advertised by the index. Exactly
+   one must have ``link_type == "root"``; child links are the databases that
+   may be selected as the index's default relationship. The regular
+   :class:`OptimadeConfig` remains a non-index service configuration.
+
+   :param default_link_id: Identifier of the default configured child link,
+       or ``None`` when the index has no default.
+   :raises ValueError: If configured links do not satisfy the links schema or
+       the root/default-link constraints.
+
+
+   .. py:attribute:: default_link_id
+      :type:  str | None
+      :value: None
+
+
+
+.. py:class:: RawRequest
+
+   Represent an incoming OPTIMADE request from the web layer.
+
+   Only ``baseurl`` and ``representation`` are mandatory; missing information
+   is derived from ``representation`` during validation.
+
+   :param baseurl: Base URL used when generating response links.
+   :param representation: Request path and query representation.
+   :param relurl: Relative request URL, when supplied by the web layer.
+   :param querystr: Raw query string.
+   :param query: Parsed query parameters.
+   :param endpoint: Preselected endpoint, when supplied by the caller.
+   :param request_id: Preselected entry identifier, when supplied by the caller.
+   :param version: API version declared by the caller.
+
+
+   .. py:attribute:: baseurl
+      :type:  str
+
+
+   .. py:attribute:: representation
+      :type:  str
+
+
+   .. py:attribute:: relurl
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: querystr
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: query
+      :type:  dict[str, str] | None
+      :value: None
+
+
+
+   .. py:attribute:: endpoint
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: version
+      :type:  str | None
+      :value: None
+
+
+
+.. py:exception:: TranslatorError(message, response_code, response_message, longmsg = None)
+
+   Bases: :py:obj:`OptimadeError`
+
+
+   Represent a filter translation failure with an HTTP response contract.
+
+
+.. py:class:: ValidatedParameters
+
+   Represent validated URL query parameters of an OPTIMADE request.
+
+   :param response_format: Requested response format.
+   :param page_limit: Maximum number of entries in a page.
+   :param page_offset: Number of matching entries to skip.
+   :param response_fields: Comma-separated requested response fields.
+   :param filter: Raw OPTIMADE filter expression.
+   :param sort: Raw OPTIMADE sort expression.
+   :param include: Raw related-entry inclusion request.
+   :param as_of: Nanosecond timestamp cutoff for timestamp-capable stored sources;
+       timestamp-disabled sources may serve current state and generic providers ignore it.
+   :param dimension_slices: Requested slices keyed by dimension name.
+
+
+   .. py:attribute:: response_format
+      :type:  str
+      :value: 'json'
+
+
+
+   .. py:attribute:: page_limit
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: page_offset
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: response_fields
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: filter
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: sort
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: include
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: as_of
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: dimension_slices
+      :type:  dict[str, RequestedSlice]
+
+
+   .. py:method:: as_query_dict()
+
+      Return the parameters as a URL query mapping.
+
+      :return: Query values with unset optional parameters omitted.
+
+
+
+.. py:class:: ValidatedRequest
+
+   Represent the result of validating a :class:`RawRequest`.
+
+   :param baseurl: Base URL used when generating response links.
+   :param representation: Original request representation.
+   :param endpoint: Validated endpoint name.
+   :param version: Validated OPTIMADE version.
+   :param query: Validated query parameters.
+   :param url_version: Version segment present in the request URL.
+   :param request_id: Validated entry identifier.
+   :param recognized_response_fields: Requested fields known to the schema.
+   :param unrecognized_response_fields: Requested fields not known to the schema.
+   :param sort_fields: Validated sort fields and directions.
+   :param include_paths: Validated related-entry paths.
+   :param property_metadata_requested: Whether property metadata was requested.
+   :param partial_data_parts: Entry, identifier, and property for partial data.
+   :param partial_data_offset: Offset into a partial-data response.
+   :param warnings: Warnings collected while processing the request.
+
+
+   .. py:attribute:: baseurl
+      :type:  str
+
+
+   .. py:attribute:: representation
+      :type:  str
+
+
+   .. py:attribute:: endpoint
+      :type:  str
+
+
+   .. py:attribute:: version
+      :type:  str
+
+
+   .. py:attribute:: query
+      :type:  ValidatedParameters
+
+
+   .. py:attribute:: url_version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: recognized_response_fields
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: unrecognized_response_fields
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: sort_fields
+      :type:  list[tuple[str, bool]]
+      :value: []
+
+
+
+   .. py:attribute:: include_paths
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: property_metadata_requested
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: partial_data_parts
+      :type:  tuple[str, str, str] | None
+      :value: None
+
+
+
+   .. py:attribute:: partial_data_offset
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: warnings
+      :type:  list[dict[str, Any]]
+      :value: []
+
+
+
+.. py:exception:: CountUnavailableError
+
+   Bases: :py:obj:`OptimadeResponseError`, :py:obj:`httk.store.CountUnavailableError`
+
+
+   The service omitted a valid filtered ``meta.data_returned`` count.
+
+
+.. py:exception:: OptimadePaginationError
+
+   Bases: :py:obj:`OptimadeResponseError`
+
+
+   A remote continuation was unsafe, malformed, or non-terminating.
+
+
+.. py:exception:: OptimadeResponseError
+
+   Bases: :py:obj:`httk.serve.optimade.client.OptimadeClientError`
+
+
+   A successful HTTP response was not a usable OPTIMADE entry document.
+
+
+.. py:class:: RemoteResultColumn(result, index)
+
+   Expose one named scalar projection from a lazy result set.
+
+   :param result: Result set owning the projection.
+   :param index: Zero-based projection index.
+
+
+   .. py:attribute:: name
+
+
+.. py:class:: RemoteResultSet(searcher, outputs = None)
+
+   Represent a frozen, lazy, and re-iterable remote result plan.
+
+   :param searcher: Search plan to clone.
+   :param outputs: Optional output names mapped to the searcher's projections.
+
+
+   .. py:attribute:: names
+
+
+   .. py:method:: first()
+
+      Return the first result, if present.
+
+      :return: First row or ``None``.
+
+
+
+   .. py:method:: one()
+
+      Return the only result.
+
+      :return: Sole result row.
+      :raises httk.store.NoResultError: If no result exists.
+      :raises httk.store.MultipleResultsError: If more than one result exists.
+
+
+
+   .. py:method:: scalars(name = None)
+
+      Iterate one named scalar output from each result.
+
+      :param name: Output name, or ``None`` when exactly one exists.
+      :return: Iterator over scalar values.
+      :raises KeyError: If the named output is unknown.
+      :raises ValueError: If no name is given and multiple outputs exist.
+
+
+
+   .. py:method:: column(name)
+
+      Return a lazy column for a scalar output.
+
+      :param name: Scalar output name.
+      :return: Lazy result column.
+      :raises KeyError: If the output is unknown.
+      :raises TypeError: If the output is a whole-record projection.
+
+
+
+   .. py:method:: cursor()
+      :abstractmethod:
+
+
+      Reject unsupported cursor access.
+
+      :return: Never; remote OPTIMADE cursors are unsupported.
+      :raises NotImplementedError: Remote OPTIMADE cursors are unavailable.
+
+
+
+.. py:class:: RemoteSearcher(store, *, response_fields = None)
+
+   Build one portable single-root OPTIMADE query.
+
+   :param store: Remote OPTIMADE store used for discovery and requests.
+   :param response_fields: Optional field-selection policy for this search.
+
+
+   .. py:attribute:: offset
+      :value: 0
+
+
+
+   .. py:method:: variable(target)
+
+      Bind the query to one discovered remote entry type.
+
+      :param target: Discovered entry descriptor or registered backend class.
+      :return: Query variable exposing portable fields.
+      :raises httk.store.query.protocols.UnsupportedQueryError: If the target is not recognized or a root variable is already bound.
+
+
+
+   .. py:method:: add(expression)
+
+      Add a filter expression to the query.
+
+      :param expression: Expression created by this searcher.
+      :raises ValueError: If no query variable is bound.
+      :raises httk.store.UnsupportedQueryError: If the expression belongs elsewhere.
+
+
+
+   .. py:method:: output(variable, name)
+
+      Declare a whole-record or scalar output.
+
+      :param variable: Root variable or field to project.
+      :param name: Output name.
+      :raises ValueError: If the name is empty or duplicated.
+      :raises httk.store.UnsupportedQueryError: If the output belongs elsewhere.
+
+
+
+   .. py:method:: add_sort(field, descending = False)
+
+      Append a sortable field to the remote query.
+
+      :param field: Field exposed by this searcher's variable.
+      :param descending: Sort in descending order when true.
+      :raises httk.store.UnsupportedQueryError: If the field is not portable or sortable.
+
+
+
+   .. py:method:: set_limit(limit)
+
+      Set the query result limit.
+
+      :param limit: Nonnegative limit, or a negative value for no bound.
+
+
+
+   .. py:method:: add_offset(offset)
+
+      Advance the query offset.
+
+      :param offset: Nonnegative number of matching rows to skip.
+
+
+
+   .. py:method:: count()
+
+      Return the filtered remote count.
+
+      :return: ``meta.data_returned`` reported by the service.
+      :raises CountUnavailableError: If the service omits a valid count.
+
+
+
+   .. py:method:: results(**outputs)
+
+      Freeze the query as a lazy, re-iterable result set.
+
+      :param \*\*outputs: Optional output names mapped to this searcher's projections.
+      :return: Frozen remote result plan.
+      :raises ValueError: If no outputs are declared.
+
+
+

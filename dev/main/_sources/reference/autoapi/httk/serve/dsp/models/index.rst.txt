@@ -1,0 +1,526 @@
+httk.serve.dsp.models
+=====================
+
+.. py:module:: httk.serve.dsp.models
+
+.. autoapi-nested-parse::
+
+   Immutable records and protocol errors for the Data Space Protocol provider.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.models.FrozenJsonValue
+   httk.serve.dsp.models.JsonScalar
+   httk.serve.dsp.models.JsonValue
+   httk.serve.dsp.models.ErrorKind
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.models.DspProtocolError
+   httk.serve.dsp.models.DspTransitionSuperseded
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.dsp.models.DeliveryStatus
+   httk.serve.dsp.models.OfferProfile
+   httk.serve.dsp.models.DataServiceProfile
+   httk.serve.dsp.models.DcatDataServiceProfile
+   httk.serve.dsp.models.DistributionProfile
+   httk.serve.dsp.models.DatasetProfile
+   httk.serve.dsp.models.CatalogueProfile
+   httk.serve.dsp.models.AgreementRecord
+   httk.serve.dsp.models.NegotiationRecord
+   httk.serve.dsp.models.TransferRecord
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.dsp.models.freeze_json
+   httk.serve.dsp.models.thaw_json
+
+
+Module Contents
+---------------
+
+.. py:type:: FrozenJsonValue
+   :canonical: JsonScalar | tuple['FrozenJsonValue', ...] | Mapping[str, 'FrozenJsonValue']
+
+
+   An immutable JSON value snapshot.
+
+   The mapping arm is typed as :class:`~collections.abc.Mapping` so a plain
+   mutable :class:`dict` satisfies it statically, while :func:`freeze_json`
+   guarantees a :class:`~types.MappingProxyType` at runtime. This static/runtime
+   gap is intentional and is not closed here.
+
+.. py:type:: JsonScalar
+   :canonical: str | int | float | bool | None
+
+
+   A JSON scalar -- string, number, boolean, or null.
+
+.. py:type:: JsonValue
+   :canonical: JsonScalar | list['JsonValue'] | dict[str, 'JsonValue']
+
+
+   An arbitrary JSON value modelled with ordinary mutable containers.
+
+.. py:function:: freeze_json(value)
+
+   Freeze a JSON-compatible value without retaining caller-owned containers.
+
+   :param value: JSON-compatible value to copy into an immutable representation.
+   :return: An immutable JSON-compatible value.
+   :raises TypeError: If ``value`` is not JSON-compatible.
+   :raises ValueError: If a floating-point value is non-finite.
+
+
+.. py:function:: thaw_json(value)
+
+   Return an independent ordinary JSON value from an immutable snapshot.
+
+   :param value: Immutable JSON-compatible value to copy.
+   :return: Plain JSON-compatible lists and dictionaries.
+
+
+.. py:type:: ErrorKind
+   :canonical: Literal['catalog', 'negotiation', 'transfer']
+
+
+.. py:class:: DeliveryStatus
+
+   Describe delivery health without claiming an unacknowledged DSP transition.
+
+   :param last_error: Most recent callback failure, if any.
+   :param retry_count: Number of delivery attempts made for the last callback.
+   :param out_of_sync: Whether the remote peer may not have the acknowledged local state.
+
+
+   .. py:attribute:: last_error
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: retry_count
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: out_of_sync
+      :type:  bool
+      :value: False
+
+
+
+.. py:class:: OfferProfile
+
+   Describe the one static, unconditional offer exposed by the provider.
+
+   :param id: Stable offer identifier.
+   :param target: Dataset identifier to which a message offer must refer.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: target
+      :type:  str
+
+
+.. py:class:: DataServiceProfile
+
+   Describe the single service through which the dataset is delivered.
+
+   :param id: Stable data-service identifier.
+   :param title: Human-readable service title.
+   :param endpoint_url: HTTPS endpoint used for data delivery.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: title
+      :type:  str
+
+
+   .. py:attribute:: endpoint_url
+      :type:  str
+
+
+   .. py:attribute:: conforms_to
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: serves_dataset_ids
+      :type:  tuple[str, Ellipsis]
+
+
+.. py:class:: DcatDataServiceProfile
+
+   Describe a public API included only in the owned DCAT projection.
+
+   :param id: Stable service identifier.
+   :param title: Human-readable service title.
+   :param endpoint_url: Public HTTPS API endpoint.
+   :param conforms_to: Technical standards implemented by the service.
+   :param serves_dataset_ids: Catalogue dataset identifiers served by the API.
+   :param endpoint_description: Optional IRI describing the API interface.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: title
+      :type:  str
+
+
+   .. py:attribute:: endpoint_url
+      :type:  str
+
+
+   .. py:attribute:: conforms_to
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: serves_dataset_ids
+      :type:  tuple[str, Ellipsis]
+
+
+   .. py:attribute:: endpoint_description
+      :type:  str | None
+
+
+.. py:class:: DistributionProfile
+
+   Describe the one pull distribution for the provider dataset.
+
+   :param id: Stable distribution identifier.
+   :param format: DSP transfer format advertised for the distribution.
+   :param access_url: HTTPS URL from which data are pulled.
+   :param data_service: Embedded service description for DSP catalogue output.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: format
+      :type:  str
+
+
+   .. py:attribute:: file_format
+      :type:  str
+
+
+   .. py:attribute:: media_type
+      :type:  str
+
+
+   .. py:attribute:: access_url
+      :type:  str
+
+
+   .. py:attribute:: data_service
+      :type:  DataServiceProfile
+
+
+   .. py:attribute:: byte_size
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: sha256
+      :type:  str | None
+      :value: None
+
+
+
+.. py:class:: DatasetProfile
+
+   Group one dataset with its DSP offer, distribution, and data address.
+
+   :param dataset: Protocol-neutral dataset metadata.
+   :param offer: Unconditional ODRL use offer for this dataset.
+   :param distribution: Pull distribution advertised for this dataset.
+   :param data_service: Service embedded in the distribution.
+   :param data_address: Immutable pull address returned for authorized transfers.
+
+
+   .. py:attribute:: dataset
+      :type:  httk.core.Dataset
+
+
+   .. py:attribute:: offer
+      :type:  OfferProfile
+
+
+   .. py:attribute:: distribution
+      :type:  DistributionProfile
+
+
+   .. py:attribute:: data_service
+      :type:  DataServiceProfile
+
+
+   .. py:attribute:: data_address
+      :type:  collections.abc.Mapping[str, httk.serve.jsondata.FrozenJsonValue]
+
+
+.. py:class:: CatalogueProfile
+
+   Describe the immutable multi-dataset catalogue served by this provider.
+
+   :param id: Stable catalogue identifier.
+   :param title: Human-readable catalogue title.
+   :param description: Human-readable catalogue description.
+   :param participant_id: Provider participant identifier.
+   :param dcat_ap_profile: Configured minimal DCAT-AP profile IRI.
+   :param datasets: Dataset publication profiles in stable declaration order.
+   :param dcat_data_services: Additional public APIs for the DCAT projection.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: title
+      :type:  str
+
+
+   .. py:attribute:: description
+      :type:  str
+
+
+   .. py:attribute:: participant_id
+      :type:  str
+
+
+   .. py:attribute:: dcat_ap_profile
+      :type:  str
+
+
+   .. py:attribute:: datasets
+      :type:  tuple[DatasetProfile, Ellipsis]
+
+
+   .. py:attribute:: dcat_data_services
+      :type:  tuple[DcatDataServiceProfile, Ellipsis]
+
+
+.. py:class:: AgreementRecord
+
+   Record the provider-created agreement associated with a negotiation.
+
+   :param id: Unique agreement identifier in ``urn:uuid:`` form.
+   :param policy: Immutable agreement policy JSON.
+   :param target: Dataset identifier covered by the agreement.
+   :param assigner: Provider participant identifier.
+   :param assignee: Consumer participant identifier.
+   :param timestamp: UTC XML Schema date-time at which the agreement was created.
+
+
+   .. py:attribute:: id
+      :type:  str
+
+
+   .. py:attribute:: policy
+      :type:  collections.abc.Mapping[str, httk.serve.jsondata.FrozenJsonValue]
+
+
+   .. py:attribute:: target
+      :type:  str
+
+
+   .. py:attribute:: assigner
+      :type:  str
+
+
+   .. py:attribute:: assignee
+      :type:  str
+
+
+   .. py:attribute:: timestamp
+      :type:  str
+
+
+.. py:class:: NegotiationRecord
+
+   Record an in-memory contract negotiation and its acknowledged state.
+
+   :param provider_pid: Provider process identifier.
+   :param consumer_pid: Consumer process identifier.
+   :param callback_address: Consumer callback base URL.
+   :param state: Last state acknowledged by both protocol processing and callback delivery.
+   :param policy: Immutable message offer accepted for the negotiation.
+   :param agreement: Created agreement after an agreement callback is acknowledged.
+   :param pending_transition: Reserved transition token, if a callback is currently in flight.
+   :param delivery: Local delivery health for the latest callback.
+
+
+   .. py:attribute:: provider_pid
+      :type:  str
+
+
+   .. py:attribute:: consumer_pid
+      :type:  str
+
+
+   .. py:attribute:: callback_address
+      :type:  str
+
+
+   .. py:attribute:: state
+      :type:  str
+
+
+   .. py:attribute:: policy
+      :type:  collections.abc.Mapping[str, httk.serve.jsondata.FrozenJsonValue]
+
+
+   .. py:attribute:: agreement
+      :type:  AgreementRecord | None
+      :value: None
+
+
+
+   .. py:attribute:: pending_transition
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: delivery
+      :type:  DeliveryStatus
+
+
+.. py:class:: TransferRecord
+
+   Record an in-memory transfer process and its acknowledged state.
+
+   :param provider_pid: Provider transfer-process identifier.
+   :param consumer_pid: Consumer transfer-process identifier.
+   :param callback_address: Consumer callback base URL.
+   :param agreement_id: Finalized agreement authorizing this transfer.
+   :param format: Requested transfer format.
+   :param state: Last state acknowledged by both protocol processing and callback delivery.
+   :param pending_transition: Reserved transition token, if a callback is currently in flight.
+   :param delivery: Local delivery health for the latest callback.
+
+
+   .. py:attribute:: provider_pid
+      :type:  str
+
+
+   .. py:attribute:: consumer_pid
+      :type:  str
+
+
+   .. py:attribute:: callback_address
+      :type:  str
+
+
+   .. py:attribute:: agreement_id
+      :type:  str
+
+
+   .. py:attribute:: format
+      :type:  str
+
+
+   .. py:attribute:: state
+      :type:  str
+
+
+   .. py:attribute:: pending_transition
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: delivery
+      :type:  DeliveryStatus
+
+
+.. py:exception:: DspProtocolError(kind, status_code, detail, *, code = None, provider_pid = None, consumer_pid = None)
+
+   Bases: :py:obj:`Exception`
+
+
+   Represent a protocol failure that an HTTP adapter can serialize directly.
+
+   :param kind: DSP area whose official error document must be emitted.
+   :param status_code: HTTP status suitable for the adapter response.
+   :param detail: Safe human-readable failure detail.
+   :param code: Optional machine-readable DSP error code.
+   :param provider_pid: Provider process identifier, when one is known.
+   :param consumer_pid: Consumer process identifier, when one is known.
+
+
+   .. py:attribute:: kind
+
+
+   .. py:attribute:: status_code
+
+
+   .. py:attribute:: detail
+
+
+   .. py:attribute:: code
+      :value: None
+
+
+
+   .. py:attribute:: provider_pid
+      :value: None
+
+
+
+   .. py:attribute:: consumer_pid
+      :value: None
+
+
+
+   .. py:method:: as_document()
+
+      Serialize this failure as the official DSP JSON error document.
+
+      :return: Error document for the exception's DSP area.
+
+
+
+.. py:exception:: DspTransitionSuperseded
+
+   Bases: :py:obj:`RuntimeError`
+
+
+   Report that a callback was delivered but a concurrent transition won the commit.
+
+   This is not a protocol error: by the time it is raised the peer callback has
+   already been delivered successfully, and only the local commit lost a race
+   with a concurrent state transition. There is nothing to report on the wire
+   and no HTTP status to carry, so it deliberately does not subclass
+   :class:`DspProtocolError`.
+
+

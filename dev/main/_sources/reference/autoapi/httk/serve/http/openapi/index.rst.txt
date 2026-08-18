@@ -1,0 +1,686 @@
+httk.serve.http.openapi
+=======================
+
+.. py:module:: httk.serve.http.openapi
+
+.. autoapi-nested-parse::
+
+   A constrained, offline OpenAPI 3.1 adapter for Starlette.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/http/openapi/app/index
+   /reference/autoapi/httk/serve/http/openapi/binding/index
+   /reference/autoapi/httk/serve/http/openapi/contract/index
+   /reference/autoapi/httk/serve/http/openapi/resources/index
+   /reference/autoapi/httk/serve/http/openapi/schemas/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.ResponseHook
+   httk.serve.http.openapi.ServeApp
+   httk.serve.http.openapi.ExceptionHandler
+   httk.serve.http.openapi.RequestErrorHandler
+   httk.serve.http.openapi.RequestScope
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.OpenAPIContractError
+   httk.serve.http.openapi.OpenAPIRequestError
+   httk.serve.http.openapi.OpenAPISchemaError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.OpenAPIOperation
+   httk.serve.http.openapi.OpenAPIParameter
+   httk.serve.http.openapi.OpenAPIRequest
+   httk.serve.http.openapi.OpenAPIResponse
+   httk.serve.http.openapi.BoundOperation
+   httk.serve.http.openapi.BoundParameter
+   httk.serve.http.openapi.OperationBinding
+   httk.serve.http.openapi.OperationContext
+   httk.serve.http.openapi.OpenAPIContract
+   httk.serve.http.openapi.OpenAPISchemaRegistry
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.create_openapi_app
+   httk.serve.http.openapi.parse_openapi_operations
+   httk.serve.http.openapi.bind_operation
+   httk.serve.http.openapi.convert_result
+   httk.serve.http.openapi.normalize_parameter_name
+   httk.serve.http.openapi.operation
+   httk.serve.http.openapi.load_packaged_contract
+   httk.serve.http.openapi.packaged_schema_documents
+   httk.serve.http.openapi.packaged_schema_registry
+
+
+Package Contents
+----------------
+
+.. py:type:: ResponseHook
+   :canonical: Callable[[], Awaitable[None]]
+
+
+   A zero-argument coroutine callback run once, after the response has been sent.
+
+.. py:type:: ServeApp
+   :canonical: Starlette
+
+
+   The httk-serve serving application type (a Starlette app; branded so consumers need not import Starlette).
+
+   Annotation-only: this is a type alias, not the ``Starlette`` class, so use ``Starlette``
+   itself for ``isinstance``/subclass checks.
+
+.. py:type:: ExceptionHandler
+   :canonical: Callable[[Exception, 'OpenAPIRequest'], 'OpenAPIResponse | Awaitable[OpenAPIResponse]']
+
+
+.. py:exception:: OpenAPIContractError
+
+   Bases: :py:obj:`ValueError`
+
+
+   Report an unsupported or internally inconsistent OpenAPI contract.
+
+
+.. py:class:: OpenAPIOperation
+
+   Describe one supported OpenAPI operation.
+
+   :param method: Lowercase HTTP method.
+   :param path: OpenAPI path template.
+   :param operation_id: Unique operation identifier.
+   :param parameters: Supported path, query, and header parameter contracts.
+   :param request_schema: Required JSON request schema identifier, if any.
+   :param responses: Exact status, media type, and schema response contracts.
+   :param success_status: The single declared 2xx status, or ``None`` when the
+       operation declares zero or more than one.
+
+
+   .. py:attribute:: method
+      :type:  str
+
+
+   .. py:attribute:: path
+      :type:  str
+
+
+   .. py:attribute:: operation_id
+      :type:  str
+
+
+   .. py:attribute:: parameters
+      :type:  tuple[OpenAPIParameter, Ellipsis]
+
+
+   .. py:attribute:: request_schema
+      :type:  str | None
+
+
+   .. py:attribute:: responses
+      :type:  collections.abc.Mapping[int, tuple[tuple[str | None, str | None], Ellipsis]]
+
+
+   .. py:attribute:: success_status
+      :type:  int | None
+
+
+   .. py:property:: success_contracts
+      :type: tuple[tuple[str | None, str | None], Ellipsis]
+
+
+      Return the media type and schema contracts declared for the success status.
+
+      :return: The declared ``(media type, schema id)`` pairs for
+          :attr:`success_status`, or an empty tuple when there is no single
+          declared success status.
+
+
+   .. py:method:: response_contracts(status)
+
+      Return the media type and schema contracts declared for one status.
+
+      :param status: Exact HTTP status to look up.
+      :return: The declared ``(media type, schema id)`` pairs for ``status``,
+          or an empty tuple when the status is not declared.
+
+
+
+.. py:class:: OpenAPIParameter
+
+   Describe one supported string OpenAPI parameter.
+
+   :param name: Parameter name as declared by OpenAPI.
+   :param location: ``path``, ``query``, or ``header``.
+   :param required: Whether the parameter must be sent.
+   :param enum: Optional exact set of accepted string values.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: location
+      :type:  str
+
+
+   .. py:attribute:: required
+      :type:  bool
+
+
+   .. py:attribute:: enum
+      :type:  tuple[str, Ellipsis] | None
+      :value: None
+
+
+
+.. py:class:: OpenAPIRequest
+
+   Normalized values passed to an OpenAPI operation handler.
+
+   :param operation: Matched OpenAPI operation.
+   :param path_params: Normalized route parameters.
+   :param query: Query parameters, retaining Starlette's last-value semantics.
+   :param headers: Lowercase HTTP header names and values.
+   :param body: Validated JSON body, or ``None`` for bodyless operations.
+
+
+   .. py:attribute:: operation
+      :type:  OpenAPIOperation
+
+
+   .. py:attribute:: path_params
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: query
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: headers
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: body
+      :type:  Any
+      :value: None
+
+
+
+   .. py:method:: header(name)
+
+      Return one request header case-insensitively.
+
+      :param name: Header name.
+      :return: Header value, if sent.
+
+
+
+.. py:exception:: OpenAPIRequestError(operation, detail, request)
+
+   Bases: :py:obj:`ValueError`
+
+
+   Report adapter-generated request parsing or validation failure.
+
+   :param operation: The matching operation.
+   :param detail: Human-readable request failure detail.
+   :param request: Partial normalized request values.
+
+
+   .. py:attribute:: operation
+
+
+   .. py:attribute:: detail
+
+
+   .. py:attribute:: request
+
+
+.. py:class:: OpenAPIResponse
+
+   A handler response constrained by the matched OpenAPI operation.
+
+   :param status: Exact declared HTTP status, or ``None`` to use the matched
+       operation's declared success status.
+   :param body: Optional JSON-compatible response body.
+   :param media_type: Exact declared media type; inferred only when unambiguous.
+   :param headers: Additional HTTP response headers.
+   :param after_response: Optional zero-argument coroutine callback run once
+       after the response has been sent.
+
+
+   .. py:attribute:: status
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: body
+      :type:  Any
+      :value: None
+
+
+
+   .. py:attribute:: media_type
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: headers
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: after_response
+      :type:  httk.serve.http.apptypes.ResponseHook | None
+      :value: None
+
+
+
+.. py:type:: RequestErrorHandler
+   :canonical: Callable[['OpenAPIRequestError'], 'OpenAPIResponse']
+
+
+.. py:type:: RequestScope
+   :canonical: Callable[['OpenAPIRequest'], contextlib.AbstractAsyncContextManager['OperationContext']]
+
+
+.. py:function:: create_openapi_app(contract, operations, *, implementation = None, schemas = None, request_error_handler, exception_handlers = None, request_scope = None, scope_names = (), lifespan = None, debug = False, path_converters = None)
+
+   Create a Starlette app from a constrained OpenAPI 3.1 contract.
+
+   ``contract`` accepts either an :class:`~httk.serve.http.openapi.OpenAPIContract`,
+   which already bundles its offline schema registry, or a plain OpenAPI document
+   mapping paired with a separate ``schemas`` registry.
+
+   Each ``operations`` entry is a bare handler callable or an
+   :class:`~httk.serve.http.openapi.OperationBinding`. The framework binds the
+   operation's declared path, query, and header parameters, the validated request
+   body, and any whole-request injection to the handler's parameters by name; see
+   :func:`~httk.serve.http.openapi.operation`.
+
+   :param contract: Parsed contract, or a caller-owned OpenAPI path document.
+   :param operations: Operation-id-to-handler mapping.
+   :param implementation: Object whose methods resolve class-defined function
+       entries; ``None`` uses each entry callable directly.
+   :param schemas: Offline JSON Schema registry for external body references.
+       Required and used when ``contract`` is a plain mapping; must not be
+       supplied when ``contract`` is an
+       :class:`~httk.serve.http.openapi.OpenAPIContract`.
+   :param request_error_handler: Converts request parsing or schema errors to a response.
+   :param exception_handlers: Exact protocol exception classes converted to responses.
+   :param request_scope: Optional per-request async context manager entered around
+       each handler call. It populates the :class:`~httk.serve.http.openapi.OperationContext`
+       extras before the handler runs and may set response metadata after it
+       returns; that metadata is folded into the response on normal completion
+       only, never onto an error or adapted-exception response.
+   :param scope_names: Names of the request-scope values the scope may supply,
+       against which each operation's declared extras are validated.
+   :param lifespan: Optional Starlette lifespan callable.
+   :param debug: Whether Starlette debug responses are enabled.
+   :param path_converters: OpenAPI path parameter to Starlette converter mapping.
+   :return: Mountable Starlette application.
+   :raises OpenAPIContractError: If the operations or the contract are incomplete
+       or unsupported, if a handler cannot satisfy an operation's declared inputs
+       by name, or if ``contract`` and ``schemas`` disagree about which schema
+       registry to use.
+
+
+.. py:function:: parse_openapi_operations(document)
+
+   Parse the supported OpenAPI 3.1 path subset.
+
+   Local references may be used for path items, operations, parameters, request
+   bodies, and responses. Bodies use external JSON Schema references. Supported
+   parameters are path, query, and header parameters with a simple schema.
+
+   :param document: Caller-owned OpenAPI document mapping.
+   :return: Operations in document order.
+   :raises OpenAPIContractError: If the document uses an unsupported construct.
+
+
+.. py:class:: BoundOperation(operation, target, sources)
+
+   A validated binding of one operation to its resolved handler callable.
+
+   :param operation: The operation this binding serves.
+   :param target: Resolved handler callable to invoke.
+   :param sources: Per-request sources for the handler's bound parameters.
+
+
+   .. py:property:: operation_id
+      :type: str
+
+
+      Return the bound operation's identifier.
+
+      :return: The operation id.
+
+
+.. py:class:: BoundParameter
+
+   Describe where one handler parameter's value is resolved from per request.
+
+   :param param: Handler parameter name that receives the value.
+   :param kind: Source kind: ``path``, ``query``, ``header``, ``body``,
+       ``request``, or ``extra``.
+   :param key: Lookup key within the source; the wire parameter name (lowercased
+       for headers) for parameter sources, the scope name for ``extra``, and
+       unused for ``body`` and ``request``.
+
+
+   .. py:attribute:: param
+      :type:  str
+
+
+   .. py:attribute:: kind
+      :type:  str
+
+
+   .. py:attribute:: key
+      :type:  str
+
+
+.. py:class:: OperationBinding
+
+   Declare how one operation's declared inputs bind to a handler callable.
+
+   :param target: Callable implementing the operation. A bound method or
+       module-level function is used directly; a plain function defined on a
+       class is resolved against ``implementation`` when the application is
+       created.
+   :param aliases: Wire parameter name to handler parameter name overrides. The
+       reserved wire name ``body`` remaps the request body.
+   :param extras: Names of request-scope values this operation consumes.
+
+
+   .. py:attribute:: target
+      :type:  collections.abc.Callable[Ellipsis, Any]
+
+
+   .. py:attribute:: aliases
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: extras
+      :type:  tuple[str, Ellipsis]
+      :value: ()
+
+
+
+.. py:class:: OperationContext
+
+   Carry per-request values between a request scope and one operation handler.
+
+   The scope populates :attr:`extras` before the handler runs; the framework
+   passes each extra the operation declares to the handler by name. After the
+   handler returns, the scope may set :attr:`media_type`, :attr:`headers`, and
+   :attr:`after_response`, which the framework folds into the response on normal
+   completion only. The context is mutable by design so the scope can both
+   supply inputs and collect response metadata.
+
+   :param extras: Request-scope values keyed by the extra name each declares.
+   :param media_type: Exact response media type the scope contributes, if any.
+   :param headers: Additional response headers the scope contributes.
+   :param after_response: Zero-argument coroutine callback the scope contributes
+       to run once after the response has been sent, if any.
+
+
+   .. py:attribute:: extras
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: media_type
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: headers
+      :type:  dict[str, str]
+
+
+   .. py:attribute:: after_response
+      :type:  httk.serve.http.apptypes.ResponseHook | None
+      :value: None
+
+
+
+.. py:function:: bind_operation(operation, entry, *, implementation = None, scope_names = ())
+
+   Validate and bind one operation's declared inputs to its handler by name.
+
+   :param operation: The declared operation to bind.
+   :param entry: A bare handler callable, or an
+       :class:`~httk.serve.http.openapi.OperationBinding`.
+   :param implementation: Object whose methods resolve class-defined function
+       entries; ``None`` uses each entry callable directly.
+   :param scope_names: Request-scope value names available to ``extras``.
+   :return: The validated per-request binding.
+   :raises OpenAPIContractError: If the handler cannot satisfy the operation's
+       declared inputs by name.
+
+
+.. py:function:: convert_result(operation_id, result)
+   :async:
+
+
+   Convert a handler return value into a constrained operation response.
+
+   An awaitable is awaited first, so both synchronous and asynchronous handlers
+   are supported. ``None`` becomes the bodyless success response, a mapping or
+   list becomes a response body, and an
+   :class:`~httk.serve.http.openapi.OpenAPIResponse` is used as is.
+
+   :param operation_id: Operation identifier used in error messages.
+   :param result: Raw handler return value or awaitable of one.
+   :return: The constrained operation response.
+   :raises TypeError: If the result is not a supported response value.
+
+
+.. py:function:: normalize_parameter_name(name)
+
+   Normalize an OpenAPI wire parameter name to a Python identifier form.
+
+   Hyphens become underscores, ``camelCase`` and ``ACRONYMCase`` boundaries are
+   split, the result is lowercased, repeated underscores collapse, and leading
+   and trailing underscores are stripped. The returned string is not guaranteed
+   to be a valid identifier; a wire name that does not normalize to one (for
+   example ``filter[name]``) is not auto-bindable and requires an explicit alias.
+
+   :param name: OpenAPI wire parameter name.
+   :return: Normalized handler-parameter name candidate.
+
+
+.. py:function:: operation(target, *, aliases = None, extras = ())
+
+   Declare an operation binding with optional aliases and request-scope extras.
+
+   :param target: Callable implementing the operation.
+   :param aliases: Wire parameter name to handler parameter name overrides.
+   :param extras: Names of request-scope values this operation consumes.
+   :return: The declared operation binding.
+
+
+.. py:class:: OpenAPIContract
+
+   Bundle a parsed OpenAPI contract with its offline JSON Schema registry.
+
+   :param operations: Supported operations in document order.
+   :param schemas: Offline schema registry for external body references.
+
+
+   .. py:attribute:: operations
+      :type:  tuple[httk.serve.http.openapi.app.OpenAPIOperation, Ellipsis]
+
+
+   .. py:attribute:: schemas
+      :type:  httk.serve.http.openapi.schemas.OpenAPISchemaRegistry
+
+
+   .. py:method:: from_package(package, *, contract = ('schemas', 'openapi.yaml'), schemas = ('schemas', ), schema_transform = None)
+      :classmethod:
+
+
+      Load and parse a packaged OpenAPI contract and its bundled schemas.
+
+      Results are cached by the exact ``package``, ``contract``, ``schemas``,
+      and ``schema_transform`` arguments, so repeated calls with the same
+      arguments do not re-parse or re-validate the packaged data.
+
+      :param package: Importable package that ships the contract as package data.
+      :param contract: Path segments below the package to the OpenAPI document.
+      :param schemas: Path segments below the package to the schema root.
+      :param schema_transform: Optional per-document transform applied to each
+          bundled JSON Schema document before it is registered. It is not
+          applied to the OpenAPI document itself. Must be a stable
+          module-level function: it is part of the cache key by identity,
+          so a lambda or closure never hits the cache and instead retains a
+          fully parsed contract for its own lifetime.
+      :return: The parsed contract and its offline schema registry.
+      :raises httk.serve.http.openapi.OpenAPIContractError: If the OpenAPI
+          document uses an unsupported construct.
+      :raises httk.serve.http.openapi.OpenAPISchemaError: If any bundled
+          schema document is invalid.
+
+
+
+   .. py:method:: document()
+
+      Return an independent deep copy of the parsed OpenAPI document.
+
+      :return: Caller-owned copy of the OpenAPI document mapping.
+
+
+
+   .. py:method:: operation(operation_id)
+
+      Return the operation registered under an operation id.
+
+      :param operation_id: Operation identifier to look up.
+      :return: The matching operation.
+      :raises httk.serve.http.openapi.OpenAPIContractError: If no operation
+          has that id.
+
+
+
+   .. py:method:: validate(schema_id, document)
+
+      Validate a JSON-compatible value against a bundled schema.
+
+      :param schema_id: Schema ``$id``.
+      :param document: JSON-compatible value to validate.
+      :raises httk.serve.http.openapi.OpenAPISchemaError: If the schema is
+          unavailable or validation fails.
+
+
+
+.. py:function:: load_packaged_contract(package, *path)
+
+   Load an OpenAPI contract from package data without network access.
+
+   The resource is read as UTF-8 and parsed according to its suffix:
+   ``.yaml`` and ``.yml`` through ``yaml.safe_load``, ``.json`` through
+   :func:`json.loads`. Both formats yield the same mapping shape that
+   :func:`httk.serve.http.openapi.create_openapi_app` consumes.
+
+   :param package: Importable package that ships the contract as package data.
+   :param \*path: Path segments joined below the package to reach the resource.
+   :return: Parsed contract mapping.
+   :raises ValueError: If the resource suffix is not a supported contract format.
+   :raises RuntimeError: If the parsed contract is not a JSON object.
+
+
+.. py:function:: packaged_schema_documents(package, *path)
+
+   Load every bundled JSON Schema document below a package resource.
+
+   The resource tree is walked in stable sorted order; every ``*.json`` file
+   is parsed, and those that decode to a mapping carrying a ``$schema`` key are
+   returned unchanged.
+
+   :param package: Importable package that ships the schema documents.
+   :param \*path: Path segments joined below the package to reach the schema root.
+   :return: Parsed JSON Schema documents in stable order.
+
+
+.. py:function:: packaged_schema_registry(package, *path)
+
+   Build an offline schema registry from bundled JSON Schema documents.
+
+   :param package: Importable package that ships the schema documents.
+   :param \*path: Path segments joined below the package to reach the schema root.
+   :return: Registry over the bundled documents.
+   :raises httk.serve.http.openapi.OpenAPISchemaError: If any document is invalid.
+
+
+.. py:exception:: OpenAPISchemaError
+
+   Bases: :py:obj:`ValueError`
+
+
+   Report an unavailable or invalid JSON Schema document.
+
+
+.. py:class:: OpenAPISchemaRegistry(documents)
+
+   Validate caller-supplied JSON Schema documents without network retrieval.
+
+   The registry deep-copies supplied documents, so later caller mutations do
+   not alter validation or offline reference resolution.
+
+   :param documents: JSON Schema documents, each with a non-empty ``$id``.
+
+
+   .. py:method:: lookup(identifier)
+
+      Return a schema document by its canonical identifier.
+
+      :param identifier: Schema ``$id``.
+      :return: Independent copy of the registered schema mapping.
+      :raises OpenAPISchemaError: If no supplied schema has that identifier.
+
+
+
+   .. py:method:: validate(identifier, value)
+
+      Validate a JSON-compatible value against an offline schema.
+
+      :param identifier: Schema ``$id``.
+      :param value: JSON-compatible value to validate.
+      :raises OpenAPISchemaError: If the schema is unavailable or validation fails.
+
+
+
+   .. py:property:: identifiers
+      :type: tuple[str, Ellipsis]
+
+
+      Return supplied schema identifiers in caller order.
+
+

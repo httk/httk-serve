@@ -1,0 +1,86 @@
+httk.serve.optimade.backend.providers
+=====================================
+
+.. py:module:: httk.serve.optimade.backend.providers
+
+.. autoapi-nested-parse::
+
+   Build a :class:`~httk.serve.optimade.backend.adapter.BackendAdapter` from :class:`~httk.core.EntryProvider` sources.
+
+   This is the bridge from the neutral httk-core entry-provider contract to an
+   OPTIMADE-serving backend: it turns one or more providers into a fully wired
+   :class:`~httk.serve.optimade.backend.adapter.BackendAdapter` over an in-memory store, deriving the served schema,
+   the filter handlers, and the response-field extractors from each provider's
+   descriptions, property keys, and records. It is httk-serve's only dependency on
+   ``httk.core`` beyond the shared runtime.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.providers.adapter_from_providers
+   httk.serve.optimade.backend.providers.providers_from_registry
+
+
+Module Contents
+---------------
+
+.. py:function:: adapter_from_providers(providers, **options)
+
+   Build a :class:`~httk.serve.optimade.backend.adapter.BackendAdapter` serving the given entry providers.
+
+   Every provider's :meth:`~httk.core.EntryProvider.entry_types` become served
+   entry types (described by their :class:`~httk.core.EntryTypeDefinition`), its
+   :meth:`~httk.core.EntryProvider.property_keys` name the served subset and drive
+   both the filter handlers (via
+   :func:`~httk.store.query.optimade_filters.simple_property_handlers`) and the
+   response-field extractors, and its
+   :meth:`~httk.core.EntryProvider.records` are loaded into an
+   :class:`~httk.serve.optimade.backend.memory_store.InMemoryStore`. Every served
+   property MUST be described by the entry type's definition (a custom property
+   must therefore live in an
+   :meth:`~httk.core.EntryTypeDefinition.extended` definition); a
+   :class:`ValueError` names any offender. All served properties beyond
+   ``id``/``type`` are marked default-response. Extra keyword ``options`` (e.g.
+   ``sortable``, ``recognized_prefixes``) are forwarded to
+   :func:`~httk.serve.optimade.schema.served.build_served_schema`; every served
+   property is sortable-capable, since the provider's property-key map is
+   passed through as the source's
+   :attr:`~httk.serve.optimade.backend.adapter.EntrySource.sort_keys`.
+
+   Declared relationships (:meth:`~httk.core.EntryProvider.relationships`) are
+   fully auto-wired for serving *and* filtering: for each entry type with
+   declared relationships, a synthetic ``__rel_<related_type>`` id-list field
+   is materialized on EVERY row of that entry type (an empty list when the row
+   has no related entries of that type, so inverse set semantics are
+   well-defined), and a ``'<related_type>.id'`` entry built with
+   :func:`~httk.store.query.optimade_filters.relationship_id_handler` is merged into the
+   entry type's derived filter-handler table (never overwriting an entry
+   already present, mirroring how :class:`~httk.serve.optimade.backend.adapter.BackendAdapter`
+   respects explicitly supplied handler tables). ``<related_type>.id HAS ...``
+   filters — and, through the related-property resolver of
+   :func:`~httk.serve.optimade.backend.translation.translate_filter`, depth-1
+   relationship-property filters such as ``references.doi CONTAINS "10.1"`` —
+   therefore work without any hand-wiring.
+
+   :param providers: Generic entry providers supplying definitions, keys, records, and relationships.
+   :param \*\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+   :return: Fully wired in-memory backend adapter.
+   :raises ValueError: If provider keys or served properties are invalid.
+
+
+.. py:function:: providers_from_registry()
+
+   Return the registered entry-provider factories keyed by their registered name.
+
+   Resolves each factory registered via
+   :func:`httk.core.register_entry_provider` (through ``httk.registry.*``
+   self-registration) into a callable. Providers need data, so applications
+   instantiate them: ``providers_from_registry()["atomistic-structures"](data)``.
+
+   :return: Registered provider factories keyed by registry name.
+
+

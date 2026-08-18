@@ -1,0 +1,341 @@
+httk.serve.optimade.model.request
+=================================
+
+.. py:module:: httk.serve.optimade.model.request
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.request.RawRequest
+   httk.serve.optimade.model.request.RequestedSlice
+   httk.serve.optimade.model.request.ValidatedParameters
+   httk.serve.optimade.model.request.ValidatedRequest
+   httk.serve.optimade.model.request.EndpointResponse
+
+
+Module Contents
+---------------
+
+.. py:class:: RawRequest
+
+   Represent an incoming OPTIMADE request from the web layer.
+
+   Only ``baseurl`` and ``representation`` are mandatory; missing information
+   is derived from ``representation`` during validation.
+
+   :param baseurl: Base URL used when generating response links.
+   :param representation: Request path and query representation.
+   :param relurl: Relative request URL, when supplied by the web layer.
+   :param querystr: Raw query string.
+   :param query: Parsed query parameters.
+   :param endpoint: Preselected endpoint, when supplied by the caller.
+   :param request_id: Preselected entry identifier, when supplied by the caller.
+   :param version: API version declared by the caller.
+
+
+   .. py:attribute:: baseurl
+      :type:  str
+
+
+   .. py:attribute:: representation
+      :type:  str
+
+
+   .. py:attribute:: relurl
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: querystr
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: query
+      :type:  dict[str, str] | None
+      :value: None
+
+
+
+   .. py:attribute:: endpoint
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: version
+      :type:  str | None
+      :value: None
+
+
+
+.. py:class:: RequestedSlice
+
+   Represent a slice requested via ``dimension_slices``.
+
+   The values are stored exactly as given (a ``None`` component means the
+   client omitted it and the default applies). Per the OPTIMADE specification,
+   ``stop`` is *inclusive*.
+
+   :param start: Inclusive first index, or ``None`` for the default.
+   :param stop: Inclusive last index, or ``None`` for the default.
+   :param step: Slice step, or ``None`` for the default.
+
+
+   .. py:attribute:: start
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: stop
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: step
+      :type:  int | None
+      :value: None
+
+
+
+.. py:class:: ValidatedParameters
+
+   Represent validated URL query parameters of an OPTIMADE request.
+
+   :param response_format: Requested response format.
+   :param page_limit: Maximum number of entries in a page.
+   :param page_offset: Number of matching entries to skip.
+   :param response_fields: Comma-separated requested response fields.
+   :param filter: Raw OPTIMADE filter expression.
+   :param sort: Raw OPTIMADE sort expression.
+   :param include: Raw related-entry inclusion request.
+   :param as_of: Nanosecond timestamp cutoff for timestamp-capable stored sources;
+       timestamp-disabled sources may serve current state and generic providers ignore it.
+   :param dimension_slices: Requested slices keyed by dimension name.
+
+
+   .. py:attribute:: response_format
+      :type:  str
+      :value: 'json'
+
+
+
+   .. py:attribute:: page_limit
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: page_offset
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: response_fields
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: filter
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: sort
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: include
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: as_of
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: dimension_slices
+      :type:  dict[str, RequestedSlice]
+
+
+   .. py:method:: as_query_dict()
+
+      Return the parameters as a URL query mapping.
+
+      :return: Query values with unset optional parameters omitted.
+
+
+
+.. py:class:: ValidatedRequest
+
+   Represent the result of validating a :class:`RawRequest`.
+
+   :param baseurl: Base URL used when generating response links.
+   :param representation: Original request representation.
+   :param endpoint: Validated endpoint name.
+   :param version: Validated OPTIMADE version.
+   :param query: Validated query parameters.
+   :param url_version: Version segment present in the request URL.
+   :param request_id: Validated entry identifier.
+   :param recognized_response_fields: Requested fields known to the schema.
+   :param unrecognized_response_fields: Requested fields not known to the schema.
+   :param sort_fields: Validated sort fields and directions.
+   :param include_paths: Validated related-entry paths.
+   :param property_metadata_requested: Whether property metadata was requested.
+   :param partial_data_parts: Entry, identifier, and property for partial data.
+   :param partial_data_offset: Offset into a partial-data response.
+   :param warnings: Warnings collected while processing the request.
+
+
+   .. py:attribute:: baseurl
+      :type:  str
+
+
+   .. py:attribute:: representation
+      :type:  str
+
+
+   .. py:attribute:: endpoint
+      :type:  str
+
+
+   .. py:attribute:: version
+      :type:  str
+
+
+   .. py:attribute:: query
+      :type:  ValidatedParameters
+
+
+   .. py:attribute:: url_version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: recognized_response_fields
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: unrecognized_response_fields
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: sort_fields
+      :type:  list[tuple[str, bool]]
+      :value: []
+
+
+
+   .. py:attribute:: include_paths
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: property_metadata_requested
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: partial_data_parts
+      :type:  tuple[str, str, str] | None
+      :value: None
+
+
+
+   .. py:attribute:: partial_data_offset
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: warnings
+      :type:  list[dict[str, Any]]
+      :value: []
+
+
+
+.. py:class:: EndpointResponse
+
+   Represent an endpoint response for serialization by the web layer.
+
+   Either ``json_response`` (a JSON:API document) or ``content`` (a raw body)
+   is set.
+
+   :param response_code: HTTP status code.
+   :param response_msg: HTTP status title.
+   :param content_type: Response media type.
+   :param encoding: Response character encoding.
+   :param content: Raw response body, when the response is not JSON.
+   :param json_response: JSON:API response document, when the response is JSON.
+
+
+   .. py:attribute:: response_code
+      :type:  int
+      :value: 200
+
+
+
+   .. py:attribute:: response_msg
+      :type:  str
+      :value: 'OK'
+
+
+
+   .. py:attribute:: content_type
+      :type:  str
+      :value: 'application/vnd.api+json'
+
+
+
+   .. py:attribute:: encoding
+      :type:  str
+      :value: 'utf-8'
+
+
+
+   .. py:attribute:: content
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: json_response
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+

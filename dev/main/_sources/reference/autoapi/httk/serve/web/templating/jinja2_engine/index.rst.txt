@@ -1,0 +1,70 @@
+httk.serve.web.templating.jinja2_engine
+=======================================
+
+.. py:module:: httk.serve.web.templating.jinja2_engine
+
+.. autoapi-nested-parse::
+
+   Render pages and fragments with Jinja templates.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.templating.jinja2_engine.TEMPLATE_SUFFIXES
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.templating.jinja2_engine.JinjaTemplateEngine
+
+
+Module Contents
+---------------
+
+.. py:data:: TEMPLATE_SUFFIXES
+   :type:  tuple[str, Ellipsis]
+   :value: ('.html.j2', '.jinja', '.j2', '.html', '.httkweb.html')
+
+
+.. py:class:: JinjaTemplateEngine(template_dir, *, template_suffixes = TEMPLATE_SUFFIXES)
+
+   Resolve and render Jinja templates from a site directory.
+
+   :param template_dir: Directory containing site templates.
+   :param template_suffixes: Suffixes probed for bare template names.
+
+
+   .. py:attribute:: template_dir
+
+
+   .. py:attribute:: template_suffixes
+      :value: ('.html.j2', '.jinja', '.j2', '.html', '.httkweb.html')
+
+
+
+   .. py:method:: render(render_input)
+
+      Render page content through optional content and base templates.
+
+      :param render_input: Content, template names, and template context.
+      :return: Rendered HTML.
+
+
+
+   .. py:method:: render_fragment(*, template_name, context)
+
+      Render an optional named fragment template.
+
+      :param template_name: Fragment template name.
+      :param context: Values exposed to the fragment.
+      :return: Rendered fragment, or ``None`` when no template exists.
+
+
+

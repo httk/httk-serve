@@ -1,0 +1,397 @@
+httk.serve.web.model
+====================
+
+.. py:module:: httk.serve.web.model
+
+.. autoapi-nested-parse::
+
+   Provide configuration, request, result, and error models for web sites.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/model/config/index
+   /reference/autoapi/httk/serve/web/model/errors/index
+   /reference/autoapi/httk/serve/web/model/page/index
+   /reference/autoapi/httk/serve/web/model/request/index
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.model.FunctionInjectionError
+   httk.serve.web.model.NotFoundError
+   httk.serve.web.model.WebError
+   httk.serve.web.model.WidgetDiscoveryError
+   httk.serve.web.model.WidgetError
+   httk.serve.web.model.WidgetParseError
+   httk.serve.web.model.WidgetRenderingError
+   httk.serve.web.model.WidgetValidationError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.model.SiteConfig
+   httk.serve.web.model.PageResult
+   httk.serve.web.model.PublishReport
+   httk.serve.web.model.ResolvedRoute
+   httk.serve.web.model.HttpRequestContext
+
+
+Package Contents
+----------------
+
+.. py:class:: SiteConfig
+
+   Describe the directories and URL policy used by a site engine.
+
+   :param srcdir: Absolute or relative site source directory.
+   :param content_subdir: Content directory name relative to ``srcdir``.
+   :param static_subdir: Static directory name relative to ``srcdir``.
+   :param template_subdir: Template directory name relative to ``srcdir``.
+   :param functions_subdir: Function directory name relative to ``srcdir``.
+   :param widgets_subdir: Widget directory name relative to ``srcdir``.
+   :param baseurl: Optional site base URL.
+   :param host_static: Optional host URL for static assets.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param publish_use_urls_without_ext: Whether published page links omit extensions.
+
+
+   .. py:attribute:: srcdir
+      :type:  pathlib.Path
+
+
+   .. py:attribute:: content_subdir
+      :type:  str
+      :value: 'content'
+
+
+
+   .. py:attribute:: static_subdir
+      :type:  str
+      :value: 'static'
+
+
+
+   .. py:attribute:: template_subdir
+      :type:  str
+      :value: 'templates'
+
+
+
+   .. py:attribute:: functions_subdir
+      :type:  str
+      :value: 'functions'
+
+
+
+   .. py:attribute:: widgets_subdir
+      :type:  str
+      :value: 'widgets'
+
+
+
+   .. py:attribute:: baseurl
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: host_static
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: compatibility_mode
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: config_name
+      :type:  str
+      :value: 'config'
+
+
+
+   .. py:attribute:: publish_use_urls_without_ext
+      :type:  bool
+      :value: True
+
+
+
+   .. py:method:: from_srcdir(srcdir, *, baseurl = None, host_static = None, compatibility_mode = False, config_name = 'config', publish_use_urls_without_ext = True)
+      :classmethod:
+
+
+      Build site configuration from a source directory.
+
+      :param srcdir: Site source directory.
+      :param baseurl: Optional site base URL.
+      :param host_static: Optional host URL for static assets.
+      :param compatibility_mode: Whether to use legacy site conventions.
+      :param config_name: Configuration module name.
+      :param publish_use_urls_without_ext: Whether published page links omit extensions.
+      :return: Immutable site configuration.
+
+
+
+   .. py:property:: content_dir
+      :type: pathlib.Path
+
+
+      Return the configured content directory.
+
+
+   .. py:property:: static_dir
+      :type: pathlib.Path
+
+
+      Return the configured static directory.
+
+
+   .. py:property:: template_dir
+      :type: pathlib.Path
+
+
+      Return the configured template directory.
+
+
+   .. py:property:: functions_dir
+      :type: pathlib.Path
+
+
+      Return the active site function directory.
+
+
+   .. py:property:: widgets_dir
+      :type: pathlib.Path
+
+
+      Return the configured widget directory.
+
+
+.. py:exception:: FunctionInjectionError(message)
+
+   Bases: :py:obj:`WebError`
+
+
+   Represent a failure while injecting a site function result.
+
+   :param message: Human-readable failure message.
+
+
+.. py:exception:: NotFoundError(message = 'Not Found')
+
+   Bases: :py:obj:`WebError`
+
+
+   Represent a route or site resource that cannot be found.
+
+   :param message: Human-readable not-found message.
+
+
+.. py:exception:: WebError(message, *, status_code = 500)
+
+   Bases: :py:obj:`Exception`
+
+
+   Represent a handled web failure with an HTTP status code.
+
+   :param message: Human-readable failure message.
+   :param status_code: HTTP status code associated with the failure.
+
+
+   .. py:attribute:: status_code
+      :value: 500
+
+
+
+.. py:exception:: WidgetDiscoveryError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget that cannot be discovered or loaded.
+
+
+   .. py:attribute:: phase
+      :value: 'discovery'
+
+
+
+.. py:exception:: WidgetError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WebError`
+
+
+   Base error for a widget invocation with source-aware diagnostics.
+
+
+   .. py:attribute:: phase
+      :value: 'widget'
+
+
+
+.. py:exception:: WidgetParseError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget invocation that cannot be parsed.
+
+
+   .. py:attribute:: phase
+      :value: 'parse'
+
+
+
+.. py:exception:: WidgetRenderingError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget that failed while producing output.
+
+
+   .. py:attribute:: phase
+      :value: 'rendering'
+
+
+
+.. py:exception:: WidgetValidationError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget declaration that violates its contract.
+
+
+   .. py:attribute:: phase
+      :value: 'validation'
+
+
+
+.. py:class:: PageResult
+
+   Carry one rendered page response and its publication metadata.
+
+   :param status_code: HTTP status code for the rendered page.
+   :param content_type: Response content type.
+   :param body: Rendered response bytes.
+   :param metadata: Page metadata exposed to templates.
+   :param warnings: Non-fatal rendering warnings.
+   :param assets: Trusted widget assets used by the page.
+
+
+   .. py:attribute:: status_code
+      :type:  int
+
+
+   .. py:attribute:: content_type
+      :type:  str
+
+
+   .. py:attribute:: body
+      :type:  bytes
+
+
+   .. py:attribute:: metadata
+      :type:  dict[str, object]
+
+
+   .. py:attribute:: warnings
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: assets
+      :type:  tuple[httk.serve.web.widgets.core.WidgetAsset, Ellipsis]
+      :value: ()
+
+
+
+.. py:class:: PublishReport
+
+   Report files written and warnings collected during publication.
+
+   :param written_files: Output files written by publication.
+   :param warnings: Non-fatal publication warnings.
+
+
+   .. py:attribute:: written_files
+      :type:  list[pathlib.Path]
+      :value: []
+
+
+
+   .. py:attribute:: warnings
+      :type:  list[str]
+      :value: []
+
+
+
+.. py:class:: ResolvedRoute
+
+   Describe how a requested route was resolved.
+
+   :param kind: Resolution kind: static, content, or missing.
+   :param route: Normalized route text.
+   :param source_path: Matching source path when one exists.
+
+
+   .. py:attribute:: kind
+      :type:  Literal['static', 'content', 'missing']
+
+
+   .. py:attribute:: route
+      :type:  str
+
+
+   .. py:attribute:: source_path
+      :type:  pathlib.Path | None
+      :value: None
+
+
+
+.. py:class:: HttpRequestContext
+
+   Carry the request values exposed to a rendered site page.
+
+   :param method: HTTP method.
+   :param query: Query-string values.
+   :param postvars: Parsed POST values.
+   :param headers: Lower-case request headers.
+
+
+   .. py:attribute:: method
+      :type:  str
+      :value: 'GET'
+
+
+
+   .. py:attribute:: query
+      :type:  dict[str, str]
+
+
+   .. py:attribute:: postvars
+      :type:  dict[str, str]
+
+
+   .. py:attribute:: headers
+      :type:  dict[str, str]
+
+

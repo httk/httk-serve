@@ -1,0 +1,588 @@
+httk.serve.optimade.model
+=========================
+
+.. py:module:: httk.serve.optimade.model
+
+.. autoapi-nested-parse::
+
+   Public request, response, configuration, and result models.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/optimade/model/config/index
+   /reference/autoapi/httk/serve/optimade/model/errors/index
+   /reference/autoapi/httk/serve/optimade/model/request/index
+   /reference/autoapi/httk/serve/optimade/model/results/index
+   /reference/autoapi/httk/serve/optimade/model/versions/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.optimade_default_version
+   httk.serve.optimade.model.optimade_supported_versions
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.OptimadeError
+   httk.serve.optimade.model.TranslatorError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.OptimadeConfig
+   httk.serve.optimade.model.OptimadeIndexConfig
+   httk.serve.optimade.model.EndpointResponse
+   httk.serve.optimade.model.RawRequest
+   httk.serve.optimade.model.ValidatedParameters
+   httk.serve.optimade.model.ValidatedRequest
+   httk.serve.optimade.model.OptimadeAdapter
+   httk.serve.optimade.model.QueryFunction
+   httk.serve.optimade.model.QueryResults
+   httk.serve.optimade.model.ResultRow
+
+
+Package Contents
+----------------
+
+.. py:class:: OptimadeConfig
+
+   Configure a served OPTIMADE database.
+
+   ``implementation`` extends/overrides the fields of the ``meta`` ->
+   ``implementation`` dictionary (e.g. ``issue_tracker``, ``source_url``,
+   ``maintainer``). ``database``, ``schema_url``, and ``request_delay``
+   populate the corresponding optional ``meta`` fields (OPTIMADE v1.2+)
+   when set. ``license``, ``available_licenses``, and
+   ``available_licenses_for_entries`` populate the corresponding optional
+   base-info attributes when set.
+
+   :param provider: Provider metadata for the OPTIMADE response envelope.
+   :param links: Provider links exposed by the ``/links`` endpoint.
+   :param implementation: Implementation metadata merged into response metadata.
+   :param database: Optional database metadata for response metadata.
+   :param schema_url: URL of the served schema, when one is available.
+   :param request_delay: Optional advertised request delay.
+   :param license: License metadata exposed by the base-info endpoint.
+   :param available_licenses: Licenses advertised for the service.
+   :param available_licenses_for_entries: Licenses advertised for entries.
+   :param page_limit_max: Largest ``page_limit`` accepted; larger requests get a 403.
+   :param partial_data_chunk_size: Number of outer items emitted per partial-data page.
+   :param cors_origins: Exact browser origins allowed to make cross-origin requests.
+   :raises ValueError: If ``page_limit_max`` is not an integer >= 1.
+
+
+   .. py:attribute:: provider
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: links
+      :type:  list[dict[str, Any]]
+      :value: []
+
+
+
+   .. py:attribute:: implementation
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: database
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+   .. py:attribute:: schema_url
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_delay
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: license
+      :type:  dict[str, Any] | str | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses_for_entries
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: page_limit_max
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: partial_data_chunk_size
+      :type:  int
+      :value: 1000
+
+
+
+   .. py:attribute:: cors_origins
+      :type:  tuple[str, Ellipsis]
+      :value: ()
+
+
+
+.. py:class:: OptimadeIndexConfig
+
+   Bases: :py:obj:`OptimadeConfig`
+
+
+   Configure an OPTIMADE index meta-database.
+
+   The links are the configured databases advertised by the index. Exactly
+   one must have ``link_type == "root"``; child links are the databases that
+   may be selected as the index's default relationship. The regular
+   :class:`OptimadeConfig` remains a non-index service configuration.
+
+   :param default_link_id: Identifier of the default configured child link,
+       or ``None`` when the index has no default.
+   :raises ValueError: If configured links do not satisfy the links schema or
+       the root/default-link constraints.
+
+
+   .. py:attribute:: default_link_id
+      :type:  str | None
+      :value: None
+
+
+
+.. py:exception:: OptimadeError(message, response_code, response_message, longmsg = None)
+
+   Bases: :py:obj:`Exception`
+
+
+   Represent an OPTIMADE response error.
+
+   :param message: Short error detail used as the exception message.
+   :param response_code: HTTP status code returned to the client.
+   :param response_message: HTTP status title returned to the client.
+   :param longmsg: Optional longer error detail returned in the response.
+
+
+   .. py:attribute:: response_code
+
+
+   .. py:attribute:: response_msg
+
+
+   .. py:attribute:: content
+
+
+.. py:exception:: TranslatorError(message, response_code, response_message, longmsg = None)
+
+   Bases: :py:obj:`OptimadeError`
+
+
+   Represent a filter translation failure with an HTTP response contract.
+
+
+.. py:class:: EndpointResponse
+
+   Represent an endpoint response for serialization by the web layer.
+
+   Either ``json_response`` (a JSON:API document) or ``content`` (a raw body)
+   is set.
+
+   :param response_code: HTTP status code.
+   :param response_msg: HTTP status title.
+   :param content_type: Response media type.
+   :param encoding: Response character encoding.
+   :param content: Raw response body, when the response is not JSON.
+   :param json_response: JSON:API response document, when the response is JSON.
+
+
+   .. py:attribute:: response_code
+      :type:  int
+      :value: 200
+
+
+
+   .. py:attribute:: response_msg
+      :type:  str
+      :value: 'OK'
+
+
+
+   .. py:attribute:: content_type
+      :type:  str
+      :value: 'application/vnd.api+json'
+
+
+
+   .. py:attribute:: encoding
+      :type:  str
+      :value: 'utf-8'
+
+
+
+   .. py:attribute:: content
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: json_response
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+.. py:class:: RawRequest
+
+   Represent an incoming OPTIMADE request from the web layer.
+
+   Only ``baseurl`` and ``representation`` are mandatory; missing information
+   is derived from ``representation`` during validation.
+
+   :param baseurl: Base URL used when generating response links.
+   :param representation: Request path and query representation.
+   :param relurl: Relative request URL, when supplied by the web layer.
+   :param querystr: Raw query string.
+   :param query: Parsed query parameters.
+   :param endpoint: Preselected endpoint, when supplied by the caller.
+   :param request_id: Preselected entry identifier, when supplied by the caller.
+   :param version: API version declared by the caller.
+
+
+   .. py:attribute:: baseurl
+      :type:  str
+
+
+   .. py:attribute:: representation
+      :type:  str
+
+
+   .. py:attribute:: relurl
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: querystr
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: query
+      :type:  dict[str, str] | None
+      :value: None
+
+
+
+   .. py:attribute:: endpoint
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: version
+      :type:  str | None
+      :value: None
+
+
+
+.. py:class:: ValidatedParameters
+
+   Represent validated URL query parameters of an OPTIMADE request.
+
+   :param response_format: Requested response format.
+   :param page_limit: Maximum number of entries in a page.
+   :param page_offset: Number of matching entries to skip.
+   :param response_fields: Comma-separated requested response fields.
+   :param filter: Raw OPTIMADE filter expression.
+   :param sort: Raw OPTIMADE sort expression.
+   :param include: Raw related-entry inclusion request.
+   :param as_of: Nanosecond timestamp cutoff for timestamp-capable stored sources;
+       timestamp-disabled sources may serve current state and generic providers ignore it.
+   :param dimension_slices: Requested slices keyed by dimension name.
+
+
+   .. py:attribute:: response_format
+      :type:  str
+      :value: 'json'
+
+
+
+   .. py:attribute:: page_limit
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: page_offset
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: response_fields
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: filter
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: sort
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: include
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: as_of
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: dimension_slices
+      :type:  dict[str, RequestedSlice]
+
+
+   .. py:method:: as_query_dict()
+
+      Return the parameters as a URL query mapping.
+
+      :return: Query values with unset optional parameters omitted.
+
+
+
+.. py:class:: ValidatedRequest
+
+   Represent the result of validating a :class:`RawRequest`.
+
+   :param baseurl: Base URL used when generating response links.
+   :param representation: Original request representation.
+   :param endpoint: Validated endpoint name.
+   :param version: Validated OPTIMADE version.
+   :param query: Validated query parameters.
+   :param url_version: Version segment present in the request URL.
+   :param request_id: Validated entry identifier.
+   :param recognized_response_fields: Requested fields known to the schema.
+   :param unrecognized_response_fields: Requested fields not known to the schema.
+   :param sort_fields: Validated sort fields and directions.
+   :param include_paths: Validated related-entry paths.
+   :param property_metadata_requested: Whether property metadata was requested.
+   :param partial_data_parts: Entry, identifier, and property for partial data.
+   :param partial_data_offset: Offset into a partial-data response.
+   :param warnings: Warnings collected while processing the request.
+
+
+   .. py:attribute:: baseurl
+      :type:  str
+
+
+   .. py:attribute:: representation
+      :type:  str
+
+
+   .. py:attribute:: endpoint
+      :type:  str
+
+
+   .. py:attribute:: version
+      :type:  str
+
+
+   .. py:attribute:: query
+      :type:  ValidatedParameters
+
+
+   .. py:attribute:: url_version
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_id
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: recognized_response_fields
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: unrecognized_response_fields
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: sort_fields
+      :type:  list[tuple[str, bool]]
+      :value: []
+
+
+
+   .. py:attribute:: include_paths
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: property_metadata_requested
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: partial_data_parts
+      :type:  tuple[str, str, str] | None
+      :value: None
+
+
+
+   .. py:attribute:: partial_data_offset
+      :type:  int
+      :value: 0
+
+
+
+   .. py:attribute:: warnings
+      :type:  list[dict[str, Any]]
+      :value: []
+
+
+
+.. py:class:: OptimadeAdapter
+
+   Bases: :py:obj:`Protocol`
+
+
+   Structural adapter contract consumed by the public serving helpers.
+
+   Query execution may be backed by the ordinary Store/Searcher adapter or a
+   storage federation with its own bounded paging policy.  The HTTP layer only
+   needs the served schema and a callback implementing
+   :class:`~httk.serve.optimade.model.results.QueryFunction`.
+
+
+   .. py:property:: schema
+      :type: httk.serve.optimade.schema.served.ServedSchema
+
+
+      Return the schema supplied by the adapter.
+
+
+   .. py:method:: query_function()
+
+      Return the callback used to execute entry queries.
+
+
+
+.. py:class:: QueryFunction
+
+   Bases: :py:obj:`Protocol`
+
+
+   The callback seam through which the request engine runs queries on a backend.
+
+
+.. py:class:: QueryResults
+
+   Bases: :py:obj:`Protocol`
+
+
+   The results of a query against a backend, as consumed by the entry endpoints.
+
+   Iteration yields one :class:`~httk.serve.optimade.model.results.ResultRow` per entry; its ``values`` map
+   OPTIMADE response-field names to values, and the ``id`` and ``type`` keys
+   are always present.
+
+
+   .. py:property:: more_data_available
+      :type: bool
+
+
+      Report whether another page is available.
+
+
+   .. py:method:: count()
+
+      Return the total number of matches before pagination.
+
+
+
+.. py:class:: ResultRow
+
+   Represent one entry result and its envelope data.
+
+   :param values: Response-field values keyed by OPTIMADE property name.
+   :param relationships: Related resources keyed by entry type.
+   :param property_metadata: Per-property metadata keyed by response field.
+
+
+   .. py:attribute:: values
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: relationships
+      :type:  dict[str, list[dict[str, Any]]]
+
+
+   .. py:attribute:: property_metadata
+      :type:  dict[str, Any]
+
+
+.. py:data:: optimade_default_version
+   :type:  Final[str]
+   :value: '1.3.0'
+
+
+.. py:data:: optimade_supported_versions
+   :type:  Final[dict[str, str]]
+

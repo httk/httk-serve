@@ -1,0 +1,130 @@
+httk.serve.http.accept
+======================
+
+.. py:module:: httk.serve.http.accept
+
+.. autoapi-nested-parse::
+
+   Parse and select against RFC 9110 ``Accept`` media ranges.
+
+   This module consolidates the RFC 9110 ``Accept``-header parsing shared by the
+   lightweight JSON applications and the DSP catalogue policy. Parsing is common;
+   selection deliberately is not, so two separately named selectors are exposed:
+   one keeps parameterised ranges and matches their parameters, the other discards
+   any range that carries a parameter.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.http.accept.MediaRange
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.accept.split_http_list
+   httk.serve.http.accept.http_parameter_value
+   httk.serve.http.accept.parse_media_type
+   httk.serve.http.accept.parse_accept
+   httk.serve.http.accept.best_quality_matching_parameters
+   httk.serve.http.accept.best_quality_ignoring_parameterised
+
+
+Module Contents
+---------------
+
+.. py:class:: MediaRange
+
+   One valid media range parsed from an HTTP ``Accept`` header.
+
+   :param major: Lowercase major type, or ``"*"`` for a wildcard.
+   :param minor: Lowercase minor type, or ``"*"`` for a wildcard.
+   :param parameters: Non-``q`` parameters as immutable lowercase name-value pairs.
+   :param quality: The ``q`` weight, defaulting to ``1.0`` when absent.
+
+
+   .. py:attribute:: major
+      :type:  str
+
+
+   .. py:attribute:: minor
+      :type:  str
+
+
+   .. py:attribute:: parameters
+      :type:  tuple[tuple[str, str], Ellipsis]
+
+
+   .. py:attribute:: quality
+      :type:  float
+
+
+.. py:function:: split_http_list(value, delimiter)
+
+   Split an HTTP field outside quoted strings, rejecting broken quoting.
+
+   :param value: The raw HTTP field value to split.
+   :param delimiter: The single-character separator to split on outside quotes.
+   :return: The delimited parts, or ``None`` when a quoted string is unterminated.
+
+
+.. py:function:: http_parameter_value(value)
+
+   Decode one token or quoted-string parameter value.
+
+   :param value: The raw parameter value, possibly a quoted string.
+   :return: The decoded value, or ``None`` when the value is malformed.
+
+
+.. py:function:: parse_media_type(value)
+
+   Parse a JSON media type into its major, minor, and parameters.
+
+   :param value: The declared media type; only ``application/json`` and
+       ``application/*+json`` types with unique parameters are accepted.
+   :return: The lowercase major type, lowercase minor type, and parameter mapping.
+
+
+.. py:function:: parse_accept(header)
+
+   Parse an ``Accept`` header into its valid media ranges.
+
+   :param header: The raw ``Accept`` header value.
+   :return: The valid parsed media ranges, or ``()`` when the header cannot be split.
+
+
+.. py:function:: best_quality_matching_parameters(ranges, major, minor, parameters)
+
+   Select the best range that keeps and matches its parameters.
+
+   A parameterised range is kept only when every one of its parameters is
+   present and equal in ``parameters``. The specificity tiebreak favours a more
+   specific major/minor match and then a range carrying more parameters.
+
+   :param ranges: The parsed media ranges to select among.
+   :param major: The response major type to match.
+   :param minor: The response minor type to match.
+   :param parameters: The response media-type parameters to match against.
+   :return: The winning range's quality, or ``None`` when nothing matches.
+
+
+.. py:function:: best_quality_ignoring_parameterised(ranges, major, minor)
+
+   Select the best range, discarding any range carrying a parameter.
+
+   Any range that carries a parameter is discarded outright. The specificity
+   tiebreak favours a more specific major/minor match, with a constant second
+   component.
+
+   :param ranges: The parsed media ranges to select among.
+   :param major: The response major type to match.
+   :param minor: The response minor type to match.
+   :return: The winning range's quality, or ``None`` when nothing matches.
+
+

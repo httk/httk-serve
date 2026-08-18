@@ -1,0 +1,78 @@
+httk.serve.http.api
+===================
+
+.. py:module:: httk.serve.http.api
+
+.. autoapi-nested-parse::
+
+   Provide lightweight HTTP applications independent of website sources.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.api.JsonDocument
+   httk.serve.http.api.JsonDocumentFactory
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.api.json_get_app
+   httk.serve.http.api.jsonld_get_app
+   httk.serve.http.api.create_file_map_app
+
+
+Module Contents
+---------------
+
+.. py:type:: JsonDocument
+   :canonical: Mapping[str, object]
+
+
+.. py:type:: JsonDocumentFactory
+   :canonical: Callable[[], JsonDocument | Awaitable[JsonDocument]]
+
+
+.. py:function:: json_get_app(document, *, path = '/', media_type = 'application/json', profile = None, cache_control = 'public, max-age=60', cors_allow_origin = '*', debug = False)
+
+   Create a lightweight application serving one live JSON document.
+
+   :param document: JSON mapping or live zero-argument document factory.
+   :param path: Canonical root-relative route, normally ``/`` for mounting.
+   :param media_type: JSON response media type, including optional parameters.
+   :param profile: Optional profile IRI emitted as an RFC 6906 ``Link`` header.
+   :param cache_control: Optional ``Cache-Control`` response value.
+   :param cors_allow_origin: Optional ``Access-Control-Allow-Origin`` value.
+   :param debug: Whether Starlette debug responses are enabled.
+   :return: A mountable application serving the declared JSON resource.
+
+
+.. py:function:: jsonld_get_app(document, *, path = '/', media_type = 'application/ld+json', profile = None, cache_control = 'public, max-age=60', cors_allow_origin = '*', debug = False)
+
+   Create a lightweight application serving one live JSON-LD document.
+
+   :param document: JSON-LD mapping or live zero-argument document factory.
+   :param path: Canonical root-relative route, normally ``/`` for mounting.
+   :param media_type: JSON-LD response media type, including optional parameters.
+   :param profile: Optional profile IRI emitted as an RFC 6906 ``Link`` header.
+   :param cache_control: Optional ``Cache-Control`` response value.
+   :param cors_allow_origin: Optional ``Access-Control-Allow-Origin`` value.
+   :param debug: Whether Starlette debug responses are enabled.
+   :return: A mountable application serving the declared JSON-LD resource.
+
+
+.. py:function:: create_file_map_app(files, *, debug = False)
+
+   Create an application exposing only explicitly mapped files.
+
+   :param files: Root-relative URL paths mapped to filesystem paths.
+   :param debug: Whether Starlette debug responses are enabled.
+   :return: A mountable application serving the declared files.
+
+

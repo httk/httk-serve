@@ -1,0 +1,336 @@
+httk.serve.web
+==============
+
+.. py:module:: httk.serve.web
+
+.. autoapi-nested-parse::
+
+   Provide the public API for serving and publishing httk web sites.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/api/index
+   /reference/autoapi/httk/serve/web/cli/index
+   /reference/autoapi/httk/serve/web/compat/index
+   /reference/autoapi/httk/serve/web/engine/index
+   /reference/autoapi/httk/serve/web/functions/index
+   /reference/autoapi/httk/serve/web/model/index
+   /reference/autoapi/httk/serve/web/providers/index
+   /reference/autoapi/httk/serve/web/publishing/index
+   /reference/autoapi/httk/serve/web/renderers/index
+   /reference/autoapi/httk/serve/web/resources/index
+   /reference/autoapi/httk/serve/web/runtime/index
+   /reference/autoapi/httk/serve/web/templating/index
+   /reference/autoapi/httk/serve/web/widgets/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.SITE_RESOURCES_KEY
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.ProviderContext
+   httk.serve.web.TableColumn
+   httk.serve.web.TablePage
+   httk.serve.web.TableRequest
+   httk.serve.web.SiteResources
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.create_asgi_app
+   httk.serve.web.publish
+   httk.serve.web.serve
+
+
+Package Contents
+----------------
+
+.. py:function:: create_asgi_app(srcdir, *, baseurl = None, compatibility_mode = False, config_name = 'config', debug = False, table_token_secret = None)
+
+   Create an ASGI application for a site source directory.
+
+   :param srcdir: Site source directory.
+   :param baseurl: Optional site base URL used when building links.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param debug: Whether to enable Starlette debug responses.
+   :param table_token_secret: Secret used to authenticate table continuation tokens.
+   :return: Configured serving application.
+
+
+.. py:function:: publish(srcdir, outdir, baseurl, *, host_static = None, compatibility_mode = False, config_name = 'config', use_urls_without_ext = None)
+
+   Render a site source directory into static output files.
+
+   :param srcdir: Site source directory.
+   :param outdir: Destination directory for published files.
+   :param baseurl: Site base URL used when building links.
+   :param host_static: Optional host URL for static assets.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param use_urls_without_ext: Whether published page links omit extensions.
+   :return: Report of files written and rendering warnings.
+
+
+.. py:function:: serve(srcdir, *, host = '127.0.0.1', port = 8080, baseurl = None, compatibility_mode = False, config_name = 'config', debug = False, table_token_secret = None)
+
+   Run a development server for a site source directory.
+
+   :param srcdir: Site source directory.
+   :param host: Interface on which to listen.
+   :param port: TCP port on which to listen.
+   :param baseurl: Optional site base URL used when building links.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param debug: Whether to enable Starlette debug responses.
+   :param table_token_secret: Secret used to authenticate table continuation tokens.
+
+
+.. py:class:: ProviderContext
+
+   Provide immutable site-local context to a table provider.
+
+   :param route: Route containing the table widget.
+   :param widget_id: Stable identifier of the table widget on the route.
+   :param query: Request query values.
+   :param page: Page context supplied by the site.
+   :param global_data: Site-global data supplied by startup code.
+
+
+   .. py:attribute:: route
+      :type:  str
+
+
+   .. py:attribute:: widget_id
+      :type:  str
+
+
+   .. py:attribute:: query
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: page
+      :type:  collections.abc.Mapping[str, object]
+
+
+   .. py:attribute:: global_data
+      :type:  collections.abc.Mapping[str, object]
+
+
+   .. py:method:: url_for(route, *, query = None)
+
+      Build a site-local route URL without exposing the ASGI request.
+
+      :param route: Relative site route to link to.
+      :param query: Optional string query values.
+      :return: Site-local URL for the route.
+      :raises ValueError: If the route is not a safe relative site route.
+      :raises TypeError: If query keys or values are not strings.
+
+
+
+.. py:class:: TableColumn
+
+   Describe one table column and its presentation-only metadata.
+
+   :param key: Stable row value key.
+   :param label: Accessible column label.
+   :param align: Optional horizontal alignment.
+   :param class_name: Optional whitespace-free CSS class name.
+
+
+   .. py:attribute:: key
+      :type:  str
+
+
+   .. py:attribute:: label
+      :type:  str
+
+
+   .. py:attribute:: align
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: class_name
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:method:: from_value(value)
+      :classmethod:
+
+
+      Adapt a compact column declaration to a table column.
+
+      :param value: Existing column, string key, or explicit field mapping.
+      :return: Normalized table column.
+      :raises TypeError: If the declaration has an unsupported shape.
+      :raises ValueError: If the declaration contains unknown or invalid fields.
+
+
+
+.. py:class:: TablePage
+
+   Represent one bounded page of presentation rows and opaque cursors.
+
+   :param rows: Presentation-only row mappings.
+   :param columns: Table columns.
+   :param next_cursor: Opaque cursor for the next page.
+   :param previous_cursor: Opaque cursor for the previous page.
+   :param total: Optional exact total row count.
+   :param revision: Optional provider revision for stable pagination.
+
+
+   .. py:attribute:: rows
+      :type:  tuple[collections.abc.Mapping[str, object], Ellipsis]
+
+
+   .. py:attribute:: columns
+      :type:  tuple[TableColumn, Ellipsis]
+
+
+   .. py:attribute:: next_cursor
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: previous_cursor
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: total
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: revision
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:method:: from_rows(rows, *, columns, next_cursor = None, previous_cursor = None, total = None, revision = None)
+      :classmethod:
+
+
+      Construct a page while adapting compact column declarations.
+
+      :param rows: Presentation-only row mappings.
+      :param columns: Column declarations.
+      :param next_cursor: Opaque cursor for the next page.
+      :param previous_cursor: Opaque cursor for the previous page.
+      :param total: Optional exact total row count.
+      :param revision: Optional provider revision for stable pagination.
+      :return: Normalized table page.
+
+
+
+   .. py:method:: from_result(value)
+      :classmethod:
+
+
+      Normalize a table page or equivalent explicit mapping.
+
+      :param value: Provider result to normalize.
+      :return: Normalized table page.
+      :raises TypeError: If the result is not a table page or mapping.
+      :raises ValueError: If the mapping contains invalid fields or values.
+
+
+
+.. py:class:: TableRequest
+
+   Describe one bounded page request passed to a table provider.
+
+   :param page_size: Maximum number of rows requested.
+   :param cursor: Opaque provider cursor for continuation.
+   :param revision: Optional provider revision pinned across pages.
+
+
+   .. py:attribute:: page_size
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: cursor
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: revision
+      :type:  str | None
+      :value: None
+
+
+
+.. py:data:: SITE_RESOURCES_KEY
+   :value: 'httk_serve_resources'
+
+
+   Stable ``global_data`` key through which site startup code gets resources.
+
+.. py:class:: SiteResources
+
+   Callbacks owned by one :class:`httk.serve.web.engine.site_engine.SiteEngine`.
+
+   Site ``functions/init.py`` code can obtain this object from
+   ``global_data[SITE_RESOURCES_KEY]`` and call :meth:`register` for every
+   persistent resource it opens.  Callbacks run in reverse registration order
+   when the :class:`httk.serve.web.engine.site_engine.SiteEngine` closes.  Closing is
+   idempotent, so ASGI lifespan shutdown and an enclosing helper may both
+   safely close the same engine.
+
+
+   .. py:property:: closed
+      :type: bool
+
+
+      Whether cleanup has started for this registry.
+
+
+   .. py:method:: register(callback)
+
+      Register one synchronous callback to run during :meth:`close`.
+
+      Registration after close is a programming error: the callback could no
+      longer be guaranteed to run.
+
+
+
+   .. py:method:: close()
+
+      Run pending callbacks in LIFO order exactly once.
+
+      Every callback gets a chance to run.  If cleanup fails, the first
+      exception is re-raised after the remaining callbacks have executed;
+      additional failures are attached as notes for diagnosis.
+
+
+

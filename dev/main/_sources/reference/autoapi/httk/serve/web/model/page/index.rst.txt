@@ -1,0 +1,107 @@
+httk.serve.web.model.page
+=========================
+
+.. py:module:: httk.serve.web.model.page
+
+.. autoapi-nested-parse::
+
+   Define immutable route, render, and publication result models.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.model.page.ResolvedRoute
+   httk.serve.web.model.page.PageResult
+   httk.serve.web.model.page.PublishReport
+
+
+Module Contents
+---------------
+
+.. py:class:: ResolvedRoute
+
+   Describe how a requested route was resolved.
+
+   :param kind: Resolution kind: static, content, or missing.
+   :param route: Normalized route text.
+   :param source_path: Matching source path when one exists.
+
+
+   .. py:attribute:: kind
+      :type:  Literal['static', 'content', 'missing']
+
+
+   .. py:attribute:: route
+      :type:  str
+
+
+   .. py:attribute:: source_path
+      :type:  pathlib.Path | None
+      :value: None
+
+
+
+.. py:class:: PageResult
+
+   Carry one rendered page response and its publication metadata.
+
+   :param status_code: HTTP status code for the rendered page.
+   :param content_type: Response content type.
+   :param body: Rendered response bytes.
+   :param metadata: Page metadata exposed to templates.
+   :param warnings: Non-fatal rendering warnings.
+   :param assets: Trusted widget assets used by the page.
+
+
+   .. py:attribute:: status_code
+      :type:  int
+
+
+   .. py:attribute:: content_type
+      :type:  str
+
+
+   .. py:attribute:: body
+      :type:  bytes
+
+
+   .. py:attribute:: metadata
+      :type:  dict[str, object]
+
+
+   .. py:attribute:: warnings
+      :type:  list[str]
+      :value: []
+
+
+
+   .. py:attribute:: assets
+      :type:  tuple[httk.serve.web.widgets.core.WidgetAsset, Ellipsis]
+      :value: ()
+
+
+
+.. py:class:: PublishReport
+
+   Report files written and warnings collected during publication.
+
+   :param written_files: Output files written by publication.
+   :param warnings: Non-fatal publication warnings.
+
+
+   .. py:attribute:: written_files
+      :type:  list[pathlib.Path]
+      :value: []
+
+
+
+   .. py:attribute:: warnings
+      :type:  list[str]
+      :value: []
+
+
+
