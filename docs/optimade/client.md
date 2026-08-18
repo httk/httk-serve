@@ -211,9 +211,9 @@ Remote reads never write local state. To retain a resource for offline work,
 opt into the database capability and save the exact object yourself:
 
 ```python
-from httk.store.db import Database, SqlStore
+from httk.store import Backend, SqlStore
 
-cache = SqlStore(Database.sqlite("optimade-cache.sqlite"), entry_records={})
+cache = SqlStore(Backend.sqlite("optimade-cache.sqlite"), entry_records={})
 backend = rows.one().reference  # a typed backend from a prior result
 sid = cache.save(backend)
 offline = cache.fetch(type(backend), sid)

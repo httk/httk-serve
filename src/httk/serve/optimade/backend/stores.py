@@ -1,12 +1,12 @@
 """Build an OPTIMADE adapter over lazy SQL-backed entry federation.
 
 The durable layout, SQL translation, collision policy, and bounded global
-pagination live in :mod:`httk.store.db`.  This module owns only the serving
+pagination live in :mod:`httk.store.backend.sql`.  This module owns only the serving
 boundary: the advertised OPTIMADE schema, request-error translation, public
 response-field projection, and :class:`~httk.serve.optimade.model.ResultRow`
 objects consumed by the endpoint envelope code.
 
-Imports from ``httk.store.db`` deliberately remain inside call sites.  Importing
+Imports from ``httk.store.backend.sql`` deliberately remain inside call sites.  Importing
 ``httk.serve.optimade`` therefore does not initialize a database backend or
 load optional SQL dialects.
 """
@@ -26,7 +26,7 @@ from ..model.results import QueryFunction, QueryResults, ResultRow
 from ..schema.served import ServedSchema, build_served_schema
 
 if TYPE_CHECKING:
-    from httk.store.db import StoredEntrySource
+    from httk.store.backend.sql import StoredEntrySource
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,7 +187,7 @@ def _project_public_row(
 
 def _raise_stored_error(error: Exception) -> NoReturn:
     """Translate data-owned federation failures without leaking SQL details."""
-    from httk.store.db import DuplicateEntryIdError
+    from httk.store.backend.sql import DuplicateEntryIdError
 
     if isinstance(error, DuplicateEntryIdError):
         public_id = getattr(error, "public_id", None)
@@ -259,7 +259,7 @@ def adapter_from_stores(
     :raises ValueError: If sources conflict or expose incomplete sort mappings.
     :raises TypeError: If a source is not a stored entry source.
     """
-    from httk.store.db import StoredEntryFederation, StoredEntrySource, stored_property_sql_plan
+    from httk.store.backend.sql import StoredEntryFederation, StoredEntrySource, stored_property_sql_plan
 
     values = tuple(sources)
     if not values:
@@ -323,7 +323,7 @@ def adapter_from_store(store: EntryStore, **options: Any) -> StoredBackendAdapte
     :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
     :raises ValueError: If the store contains no OPTIMADE-described family.
     """
-    from httk.store.db import StoredEntrySource
+    from httk.store.backend.sql import StoredEntrySource
 
     if not isinstance(store, EntryStore):
         raise TypeError("adapter_from_store requires an EntryStore")

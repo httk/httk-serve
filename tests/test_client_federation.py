@@ -14,8 +14,7 @@ import httpx
 import pytest
 from httk.atomistic import OptimadeStructure
 from httk.core import EntryProvider, EntryTypeDefinition, load_entry_type_definition
-from httk.store import FederatedSourceError, FederatedStore, MultipleResultsError
-from httk.store.db import Database, SqlStore
+from httk.store import Backend, FederatedSourceError, FederatedStore, MultipleResultsError, SqlStore
 
 from httk.serve.optimade import OptimadeStore, OptimadeTransportError, adapter_from_providers, create_asgi_app
 
@@ -224,7 +223,7 @@ def test_federated_remote_and_sqlite_share_a_typed_backend_with_filter_projectio
     remote_backends = [row.record for row in direct_searcher.results(record=direct_structure)]
     saved = remote_backends[0]
 
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         local = SqlStore(database, entry_records={})
         local.save(saved)
         federation = FederatedStore({"remote": remote, "local": local})

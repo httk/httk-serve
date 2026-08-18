@@ -10,7 +10,7 @@ from pathlib import Path
 
 import uvicorn
 from httk.core import Dataset, DatasetDistribution, Service
-from httk.store.db import Database, SqlStore
+from httk.store import Backend, SqlStore
 
 from httk.serve import ASGIAppMount, compose_asgi_apps
 from httk.serve.dsp import (
@@ -75,7 +75,7 @@ publications = (
 )
 
 store = SqlStore(
-    Database.sqlite(),
+    Backend.sqlite(),
     entry_records={DspPublicationEntry: DspPublicationRecord},
 )
 for publication in publications:

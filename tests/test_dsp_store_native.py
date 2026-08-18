@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 from httk.core import Dataset, DatasetDistribution, DatasetRecord, Service, ServiceRecord
-from httk.store.db import Database, SqlStore
+from httk.store import Backend, SqlStore
 from starlette.testclient import TestClient
 
 from httk.serve.dsp import (
@@ -112,7 +112,7 @@ def test_config_rejects_noncanonical_mounts(mount: str) -> None:
 
 
 def test_store_catalogue_is_live_and_store_is_caller_owned() -> None:
-    database = Database.sqlite()
+    database = Backend.sqlite()
     store = SqlStore(database, entry_records={DspPublicationEntry: DspPublicationRecord})
     store.save(DspPublicationRecord(dataset=publication("one")))
     provider = DspProvider(config(), store=store)
@@ -128,7 +128,7 @@ def test_store_catalogue_is_live_and_store_is_caller_owned() -> None:
 
 
 def test_store_hydrates_dataset_and_service_envelopes_and_validates_services_live() -> None:
-    store = SqlStore(Database.sqlite(), entry_records={DspPublicationEntry: DspPublicationRecord})
+    store = SqlStore(Backend.sqlite(), entry_records={DspPublicationEntry: DspPublicationRecord})
     store.save(DspPublicationRecord(dataset=publication("one")))
     provider = DspProvider(config(dcat_ap_content_negotiation=True), store=store)
     with pytest.raises(ValueError, match="qualifying published"):
@@ -155,11 +155,11 @@ def test_store_hydrates_dataset_and_service_envelopes_and_validates_services_liv
 
 
 def test_store_source_requires_publication_family_and_revalidates_duplicates() -> None:
-    missing = SqlStore(Database.sqlite(), entry_records={})
+    missing = SqlStore(Backend.sqlite(), entry_records={})
     with pytest.raises(ValueError, match="DspPublicationEntry"):
         DspProvider(config(), store=missing)
 
-    store = SqlStore(Database.sqlite(), entry_records={DspPublicationEntry: DspPublicationRecord})
+    store = SqlStore(Backend.sqlite(), entry_records={DspPublicationEntry: DspPublicationRecord})
     first = publication("same")
     store.save(DspPublicationRecord(dataset=first))
     replacement_distribution = replace(first.distribution, access_url="https://provider.example/files/replacement.csv")

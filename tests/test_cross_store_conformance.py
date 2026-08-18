@@ -19,8 +19,8 @@ import pytest
 from httk.atomistic import Species, StructureEntryProvider, UnitcellStructure
 from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry, load_entry_type_definition
 from httk.core.optimade import OptimadeResource
-from httk.store.db import Database, SqlStore
-from httk.store.db.rows import is_lazy_row
+from httk.store import Backend, SqlStore
+from httk.store.backend.sql.rows import is_lazy_row
 
 from httk.serve.optimade import OptimadeStore, adapter_from_providers, create_asgi_app
 from httk.serve.optimade.backend.memory_store import InMemoryStore
@@ -230,12 +230,12 @@ def _all_remote_backends(store: OptimadeStore) -> list[Any]:
     return [row.record for row in searcher.results(record=variable)]
 
 
-def _database(dialect: str) -> Database:
+def _database(dialect: str) -> Backend:
     if dialect == "duckdb":
         pytest.importorskip("duckdb_engine")
-        return Database.duckdb()
+        return Backend.duckdb()
     assert dialect == "sqlite"
-    return Database.sqlite()
+    return Backend.sqlite()
 
 
 @pytest.mark.parametrize("dialect", ("sqlite", "duckdb"))
@@ -327,7 +327,7 @@ def test_remote_typed_and_generic_resources_copy_to_sqlite_without_losing_source
     assert nacl.resource.document.text
     assert nacl.resource.schema.info_document.text
 
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={})
         typed_sid = store.save(nacl)
         generic_sid = store.save(nacl.resource)

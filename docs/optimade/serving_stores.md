@@ -6,11 +6,11 @@ store:
 
 ```python
 from httk.atomistic import StructureEntry, UnitcellStructure, UnitcellStructureRecord
-from httk.store.db import Database, SqlStore
+from httk.store import Backend, SqlStore
 from httk.serve.optimade import create_asgi_app
 
 store = SqlStore(
-    Database.duckdb("materials.duckdb"),
+    Backend.duckdb("materials.duckdb"),
     entry_records={StructureEntry: UnitcellStructureRecord},
 )
 store.save(UnitcellStructure(...))
@@ -65,7 +65,7 @@ Use `adapter_from_stores` only when an endpoint must federate explicitly named
 stores or needs public-ID prefixes:
 
 ```python
-from httk.store.db import StoredEntrySource
+from httk.store.backend.sql import StoredEntrySource
 from httk.serve.optimade import adapter_from_stores
 
 adapter = adapter_from_stores(

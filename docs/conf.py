@@ -134,7 +134,7 @@ nitpick_ignore = [
     ("py:class", "EntryStore"),
     # StoredEntrySource is new in the sibling httk-store workspace; the
     # committed release inventory cannot name it until httk-store is released.
-    ("py:class", "httk.store.db.StoredEntrySource"),
+    ("py:class", "httk.store.backend.sql.StoredEntrySource"),
     # Starlette's published inventory does not expose this response class even
     # though it is part of the runtime API used by create_file_map_app.
     ("py:class", "starlette.responses.FileResponse"),

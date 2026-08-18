@@ -18,7 +18,8 @@ from fake_backend import FakeStore
 from httk.core import EntryTypeDefinition, PropertyDefinition, load_entry_type_definition
 from httk.core.register import register_entry_family, register_entry_record
 from httk.core.storage import StorageInfo, StoredPropertyProjection
-from httk.store.db import Database, SqlStore, StoredEntrySource
+from httk.store import Backend, SqlStore
+from httk.store.backend.sql import StoredEntrySource
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import adapter_from_stores, create_asgi_app
@@ -199,7 +200,7 @@ def _stored_client(store: SqlStore) -> TestClient:
 
 
 def test_stored_queryable_property_filters() -> None:
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={SecretCalculation: SecretRecord})
         with _stored_client(store) as client:
             response = client.get("/calculations", params={"filter": '_httk_public = "open"'})

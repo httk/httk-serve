@@ -15,8 +15,8 @@ from httk.atomistic import (
     UnitcellStructureView,
 )
 from httk.core import Dataset, DatasetDistribution
-from httk.store import EntryFamilyDeclaration, EntryRecordDeclaration
-from httk.store.db import Database, SqlStore, StoredEntrySource
+from httk.store import Backend, EntryFamilyDeclaration, EntryRecordDeclaration, SqlStore
+from httk.store.backend.sql import StoredEntrySource
 from starlette.testclient import TestClient
 
 from httk.serve.dsp import DspDatasetPublication, DspPublicationEntry, DspPublicationRecord
@@ -59,7 +59,7 @@ STANDARD_STRUCTURE_PROPERTIES = {
 def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -> None:
     entries = tuple(_entries().values())
     store = SqlStore(
-        Database.sqlite(),
+        Backend.sqlite(),
         entry_records={
             StructureEntry: UnitcellStructureRecord,
             DspPublicationEntry: DspPublicationRecord,
@@ -106,7 +106,7 @@ def test_adapter_discovers_an_application_owned_optimade_family_from_layout() ->
             ),
         ),
     )
-    store = SqlStore(Database.sqlite(), entry_families=(declaration,))
+    store = SqlStore(Backend.sqlite(), entry_families=(declaration,))
     store.save(entries[0])
 
     adapter = adapter_from_store(store)
@@ -158,7 +158,7 @@ def test_stored_structure_preserves_signed_zero_through_view_and_asgi() -> None:
         ["Si"],
     )
     key = structure.id
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord}).save(structure)
         reopened = SqlStore(database)
         record = reopened.fetch_entry(StructureEntry, key)
@@ -189,7 +189,7 @@ def structure_api(request):
             yield request.param, client
         return
 
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         with store.transaction():
             sids = {entry_id: store.save(structure) for entry_id, structure in entries.items()}

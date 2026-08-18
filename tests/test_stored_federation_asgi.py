@@ -16,12 +16,8 @@ from httk.atomistic import (
     UnitcellStructureRecord,
     WyckoffSite,
 )
-from httk.store.db import (
-    Database,
-    DuplicateEntryIdError,
-    SqlStore,
-    StoredEntrySource,
-)
+from httk.store import Backend, SqlStore
+from httk.store.backend.sql import DuplicateEntryIdError, StoredEntrySource
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import adapter_from_stores, create_asgi_app
@@ -58,7 +54,7 @@ def _client(adapter) -> TestClient:
 
 def _child_table_names() -> tuple[str, ...]:
     """Resolve every child-table name of the fixture record without hardcoding strings."""
-    from httk.store.db.schema import resolve_schema
+    from httk.store.backend.sql.schema import resolve_schema
 
     resolved = resolve_schema(UnitcellStructureRecord)
     names = tuple(
@@ -70,7 +66,7 @@ def _child_table_names() -> tuple[str, ...]:
 
 def test_response_fields_forwarded_as_fields_to_federation(monkeypatch: pytest.MonkeyPatch) -> None:
     source = _structure("Na", "Cl")
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
@@ -116,7 +112,7 @@ def _collect_sql(database, client, params: dict[str, str]) -> list[str]:  # type
 def test_response_fields_id_only_skips_child_table_hydration() -> None:
     child_tables = _child_table_names()
     source = _structure("Na", "Cl")
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
@@ -134,7 +130,7 @@ def test_response_fields_id_only_skips_child_table_hydration() -> None:
 
 def test_single_store_preserves_public_prefix_and_prefixed_property_name() -> None:
     source = _structure("Na", basis_precision=Fraction(1, 1000))
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store.save(source)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "alpha", "alpha-"),))
@@ -165,7 +161,7 @@ def test_single_store_preserves_public_prefix_and_prefixed_property_name() -> No
 def test_one_store_serves_multiple_concrete_backings() -> None:
     unitcell = _structure("Na", "Cl")
     asu = _asu()
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(
             database,
             entry_records={StructureEntry: (UnitcellStructureRecord, ASUStructureRecord)},
@@ -191,8 +187,8 @@ def test_one_store_serves_multiple_concrete_backings() -> None:
 
 def test_multiple_sources_push_filter_sort_and_pagination() -> None:
     with ExitStack() as stack:
-        first_database = stack.enter_context(Database.sqlite())
-        second_database = stack.enter_context(Database.sqlite())
+        first_database = stack.enter_context(Backend.sqlite())
+        second_database = stack.enter_context(Backend.sqlite())
         first = SqlStore(first_database, entry_records={StructureEntry: UnitcellStructureRecord})
         second = SqlStore(second_database, entry_records={StructureEntry: UnitcellStructureRecord})
         first_sources = (_structure("Na"), _structure("Na", "Cl"))
@@ -257,8 +253,8 @@ def test_multiple_sources_push_filter_sort_and_pagination() -> None:
 def test_duplicate_public_ids_map_to_safe_http_500_and_remain_auditable() -> None:
     duplicated = _structure("Na")
     with ExitStack() as stack:
-        first_database = stack.enter_context(Database.sqlite())
-        second_database = stack.enter_context(Database.sqlite())
+        first_database = stack.enter_context(Backend.sqlite())
+        second_database = stack.enter_context(Backend.sqlite())
         first = SqlStore(first_database, entry_records={StructureEntry: UnitcellStructureRecord})
         second = SqlStore(second_database, entry_records={StructureEntry: UnitcellStructureRecord})
         first.save(duplicated)
@@ -292,7 +288,7 @@ def test_duplicate_public_ids_map_to_safe_http_500_and_remain_auditable() -> Non
 
 
 def test_as_of_link_stabilizes_stored_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store._clock = lambda: 1_000_000_000
         first = _structure("Na")
@@ -328,7 +324,7 @@ def test_as_of_link_stabilizes_stored_pagination(monkeypatch: pytest.MonkeyPatch
 
 
 def test_resolution_aware_snapshot_excludes_later_row_in_current_second(monkeypatch: pytest.MonkeyPatch) -> None:
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(
             database,
             entry_records={StructureEntry: UnitcellStructureRecord},
@@ -355,7 +351,7 @@ def test_resolution_aware_snapshot_excludes_later_row_in_current_second(monkeypa
 def test_microsecond_snapshot_includes_previous_unit_and_excludes_current_unit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(
             database,
             entry_records={StructureEntry: UnitcellStructureRecord},
@@ -376,7 +372,7 @@ def test_microsecond_snapshot_includes_previous_unit_and_excludes_current_unit(
 
 
 def test_timestamp_disabled_federation_skips_snapshot_links_and_cutoff(monkeypatch: pytest.MonkeyPatch) -> None:
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(
             database,
             entry_records={StructureEntry: UnitcellStructureRecord},
@@ -405,7 +401,7 @@ def test_timestamp_disabled_federation_skips_snapshot_links_and_cutoff(monkeypat
 
 
 def test_as_of_single_entry_fetch_hides_later_store_rows(monkeypatch: pytest.MonkeyPatch) -> None:
-    with Database.sqlite() as database:
+    with Backend.sqlite() as database:
         store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
         store._clock = lambda: 1_000_000_000
         saved = _structure("Na")
