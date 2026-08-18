@@ -54,7 +54,7 @@ def _client(adapter) -> TestClient:
 
 def _child_table_names() -> tuple[str, ...]:
     """Resolve every child-table name of the fixture record without hardcoding strings."""
-    from httk.store.backend.sql.schema import resolve_schema
+    from httk.store.backend.schema import resolve_schema
 
     resolved = resolve_schema(UnitcellStructureRecord)
     names = tuple(
