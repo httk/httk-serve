@@ -108,8 +108,8 @@ class DspDatasetPublication:
     """
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="serve_dsp_publication_v1",
-        identity_name="serve_dsp_publication_v1",
+        storage_name="serve_dsp_publication",
+        identity_name="serve_dsp_publication",
     )
 
     dataset: DatasetRecord
@@ -220,8 +220,8 @@ class DspPublicationRecord:
     """Store exactly one dataset publication or catalogue service envelope."""
 
     __httk_storage__: ClassVar[StorageInfo] = StorageInfo(
-        storage_name="serve_dsp_publication_envelope_v1",
-        identity_name="serve_dsp_publication_envelope_v1",
+        storage_name="serve_dsp_publication_envelope",
+        identity_name="serve_dsp_publication_envelope",
     )
 
     dataset: DspDatasetPublication | None = None
