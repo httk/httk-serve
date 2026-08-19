@@ -307,6 +307,9 @@ class OptimadeStore:
         self._entry_types = entry_types
         self._entry_types_by_name = by_name
 
+    def __repr__(self) -> str:
+        return f"OptimadeStore(base_url={self.base_url!r}, api_version={self.api_version!r})"
+
     @staticmethod
     def _positive_int(value: int, name: str) -> int:
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:

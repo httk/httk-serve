@@ -66,6 +66,9 @@ class SiteEngine:
             self._close_after_failed_initialization(exc)
             raise
 
+    def __repr__(self) -> str:
+        return f"SiteEngine(srcdir={str(self.config.srcdir)!r})"
+
     def close(self) -> None:
         """Release resources registered by site startup code exactly once."""
 
