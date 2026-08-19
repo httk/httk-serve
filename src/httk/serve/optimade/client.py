@@ -459,7 +459,7 @@ class OptimadeStore:
 
     def _discover(self) -> tuple[str | None, tuple[RemoteEntryType, ...], Mapping[str, RemoteEntryType]]:
         info_url = self._transport_base_url + "/info"
-        info_document = OptimadeDocument.create(self._get(info_url), info_url)
+        info_document = OptimadeDocument.from_response(self._get(info_url), info_url)
         info_root = _parse_json(info_document, label="/info response")
         data = _mapping(info_root.get("data"), source_url=info_document.source_url, label="/info data")
         if data.get("type") != "info":
@@ -488,7 +488,7 @@ class OptimadeStore:
         by_name: dict[str, RemoteEntryType] = {}
         for name in endpoint_names:
             endpoint_url = self._transport_base_url + "/info/" + quote(name, safe="")
-            document = OptimadeDocument.create(self._get(endpoint_url), endpoint_url)
+            document = OptimadeDocument.from_response(self._get(endpoint_url), endpoint_url)
             descriptor = self._entry_descriptor(
                 name,
                 document,

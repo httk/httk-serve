@@ -151,7 +151,7 @@ def test_store_hydrates_dataset_and_service_envelopes_and_validates_services_liv
     values = tuple(row.values[0] for row in searcher)
     assert values[0].dataset == publication("one")
     assert isinstance(values[0].dataset.dataset, DatasetRecord)
-    assert values[1].service == ServiceRecord.create(service)
+    assert values[1].service == ServiceRecord.from_obj(service)
 
 
 def test_store_source_requires_publication_family_and_revalidates_duplicates() -> None:

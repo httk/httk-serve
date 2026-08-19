@@ -152,7 +152,7 @@ class DspProvider:
                 raise ValueError("DspPublicationEntry must be mapped solely to DspPublicationRecord in this store")
         if publications is not None:
             try:
-                inline = tuple(DspPublicationRecord.create(item) for item in publications)
+                inline = tuple(DspPublicationRecord.from_obj(item) for item in publications)
             except TypeError as error:
                 raise TypeError("publications must be an iterable of DspPublicationRecord values") from error
         else:
@@ -191,7 +191,7 @@ class DspProvider:
         searcher = self._store.searcher()
         publication = searcher.variable(DspPublicationRecord)
         searcher.output(publication, "publication")
-        return tuple(DspPublicationRecord.create(row.values[0]) for row in searcher)
+        return tuple(DspPublicationRecord.from_obj(row.values[0]) for row in searcher)
 
     @property
     def profile(self) -> CatalogueProfile:

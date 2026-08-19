@@ -80,11 +80,11 @@ def test_publication_envelope_requires_exactly_one_link_and_normalizes_mappings(
         DspPublicationRecord()
     with pytest.raises(ValueError, match="exactly one"):
         DspPublicationRecord(dataset=publication(), service=companion())
-    value = DspPublicationRecord.create({"dataset": publication()})
+    value = DspPublicationRecord.from_obj({"dataset": publication()})
     assert value.dataset == publication()
     assert value.service is None
-    service = DspPublicationRecord.create({"service": companion()})
-    assert service.service == ServiceRecord.create(companion())
+    service = DspPublicationRecord.from_obj({"service": companion()})
+    assert service.service == ServiceRecord.from_obj(companion())
 
 
 def test_public_constructors_accept_neutral_dataset_and_service_values() -> None:

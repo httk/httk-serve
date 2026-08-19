@@ -116,12 +116,12 @@ class DspDatasetPublication:
     offer_id: str | None = None
 
     def __init__(self, dataset: Dataset | DatasetRecord, offer_id: str | None = None) -> None:
-        object.__setattr__(self, "dataset", DatasetRecord.create(dataset))
+        object.__setattr__(self, "dataset", DatasetRecord.from_obj(dataset))
         object.__setattr__(self, "offer_id", offer_id)
         self.__post_init__()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "dataset", DatasetRecord.create(self.dataset))
+        object.__setattr__(self, "dataset", DatasetRecord.from_obj(self.dataset))
         if len(self.dataset.distributions) != 1:
             raise ValueError("DSP minimal publications must contain exactly one dataset distribution")
         distribution = self.dataset.distributions[0]
@@ -192,7 +192,7 @@ class DspDatasetPublication:
         return self.distribution.sha256
 
     @classmethod
-    def create(cls, obj: Self | Mapping[str, Any]) -> Self:
+    def from_obj(cls, obj: Self | Mapping[str, Any]) -> Self:
         if isinstance(obj, cls):
             return obj
         if not isinstance(obj, Mapping):
@@ -240,12 +240,12 @@ class DspPublicationRecord:
         if (self.dataset is None) == (self.service is None):
             raise ValueError("DspPublicationRecord must contain exactly one of dataset or service")
         if self.dataset is not None:
-            object.__setattr__(self, "dataset", DspDatasetPublication.create(self.dataset))
+            object.__setattr__(self, "dataset", DspDatasetPublication.from_obj(self.dataset))
         if self.service is not None:
-            object.__setattr__(self, "service", ServiceRecord.create(self.service))
+            object.__setattr__(self, "service", ServiceRecord.from_obj(self.service))
 
     @classmethod
-    def create(cls, obj: Self | Mapping[str, Any]) -> Self:
+    def from_obj(cls, obj: Self | Mapping[str, Any]) -> Self:
         if isinstance(obj, cls):
             return obj
         if not isinstance(obj, Mapping):

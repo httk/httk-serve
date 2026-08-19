@@ -847,7 +847,7 @@ class RemoteSearcher:
                 # redacted document below is retained by yielded resources.
                 raw_root = self._raw_root(raw_text, next_url)
                 raw_data = self._validate_entry_page(raw_root, next_url, descriptor.name)
-                document = OptimadeDocument.create(raw_text, next_url)
+                document = OptimadeDocument.from_response(raw_text, next_url)
                 safe_root = optimade_document_root(document)
                 safe_data = safe_root.get("data")
                 if not isinstance(safe_data, tuple) or len(safe_data) != len(raw_data):
