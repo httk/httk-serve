@@ -1,5 +1,13 @@
 # httk-serve
 
+![Status: Early beta](https://img.shields.io/badge/status-early--beta-orange)
+
+> **⚠️ EARLY BETA**
+>
+> This is an early beta release of *httk₂*. The organization of the packages
+> and their APIs should not yet be regarded as stable, and may change between
+> releases.
+
 *httk-serve* is a [*httk₂*](https://github.com/httk/httk2) distribution providing a generic implementation of the [OPTIMADE](https://www.optimade.org/) protocol. Durable deployments can pass an `httk.store.EntryStore` directly to `create_asgi_app`, which discovers registered OPTIMADE families and queries them lazily; `EntryProvider` remains the in-memory path for generated and compatibility datasets.
 
 The served API version is **OPTIMADE v1.3.0**. Implemented optional parts of the

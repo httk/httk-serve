@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "httk-serve"
-version = "0.2.0"
+version = "2.1.0"
 description = "HTTP, web, DSP, and OPTIMADE serving tooling for httk₂"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -12,8 +12,8 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Rickard Armiento", email = "rickard-gpg@armiento.net" }]
 dependencies = [
-  "httk-core>=2.0.2,<3",
-  "httk-store>=0.2.0,<1",
+  "httk-core>=2.1.0,<3",
+  "httk-store>=2.1.0,<3",
   "httpx>=0.27",
   "jsonschema>=4.23,<5",
   "referencing>=0.35,<1",
