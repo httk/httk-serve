@@ -38,28 +38,39 @@ class CLIContextLike(Protocol):
 
 
 def build_parser(program: str) -> argparse.ArgumentParser:
-    """Build the public ``httk serve web`` argument parser.
+    """Build the public ``httk serve`` argument parser.
 
     :param program: Program name displayed in command-line help.
     :return: Configured argument parser.
     """
 
-    parser = argparse.ArgumentParser(prog=program, description="Serve and validate httk-serve sites")
-    subparsers = parser.add_subparsers(dest="subcommand", metavar="COMMAND")
+    parser = argparse.ArgumentParser(prog=program, description="Serve httk applications")
+    parser.set_defaults(handler=None, help_parser=parser)
+    groups = parser.add_subparsers(metavar="GROUP")
+    web = groups.add_parser("web", help="serve and validate httk-serve sites")
+    web.set_defaults(help_parser=web)
+    subparsers = web.add_subparsers(metavar="COMMAND")
     serve_parser = subparsers.add_parser("serve", help="serve a site")
+    serve_parser.set_defaults(handler=_serve, help_parser=serve_parser)
     _site_arguments(serve_parser)
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8080)
     serve_parser.add_argument("--reload", action="store_true", help="restart the uvicorn process on source changes")
     check_parser = subparsers.add_parser("check", help="validate all content pages and widgets")
-    _site_arguments(check_parser)
+    check_parser.set_defaults(handler=_check, help_parser=check_parser)
+    _site_arguments(check_parser, multiple=True)
     list_parser = subparsers.add_parser("list", help="list available widgets")
-    _site_arguments(list_parser)
+    list_parser.set_defaults(handler=_list, help_parser=list_parser)
+    _site_arguments(list_parser, multiple=True)
     return parser
 
 
-def _site_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("srcdir", metavar="SRCDIR")
+def _site_arguments(parser: argparse.ArgumentParser, *, multiple: bool = False) -> None:
+    parser.add_argument(
+        "srcdirs" if multiple else "srcdir",
+        metavar="SRCDIR",
+        nargs="+" if multiple else None,
+    )
     parser.add_argument("--compatibility-mode", action="store_true")
     parser.add_argument("--config-name", default="config")
 
@@ -72,21 +83,16 @@ def command(argv: Sequence[str], context: CLIContextLike) -> int:
     :return: Process-style command status code.
     """
 
-    if argv and argv[0] == "web":
-        argv = argv[1:]
-    parser = build_parser(f"{context.program} serve web")
+    parser = build_parser(f"{context.program} serve")
     try:
         arguments = parser.parse_args(list(argv))
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 1
-    if arguments.subcommand is None:
-        parser.print_help()
+    handler = getattr(arguments, "handler", None)
+    if handler is None:
+        getattr(arguments, "help_parser", parser).print_help()
         return 0
-    if arguments.subcommand == "serve":
-        return _serve(arguments)
-    if arguments.subcommand == "check":
-        return _check(arguments)
-    return _list(arguments)
+    return handler(arguments)
 
 
 def _serve(arguments: argparse.Namespace) -> int:
@@ -142,6 +148,17 @@ def _engine(arguments: argparse.Namespace) -> SiteEngine:
 
 
 def _check(arguments: argparse.Namespace) -> int:
+    failed = False
+    for srcdir in arguments.srcdirs:
+        arguments.srcdir = srcdir
+        if len(arguments.srcdirs) > 1:
+            print(f"==> {srcdir} <==")
+        if _check_one(arguments) != 0:
+            failed = True
+    return 1 if failed else 0
+
+
+def _check_one(arguments: argparse.Namespace) -> int:
     try:
         engine = _engine(arguments)
     except (OSError, ValueError, WebError) as exc:
@@ -165,6 +182,17 @@ def _check(arguments: argparse.Namespace) -> int:
 
 
 def _list(arguments: argparse.Namespace) -> int:
+    failed = False
+    for srcdir in arguments.srcdirs:
+        arguments.srcdir = srcdir
+        if len(arguments.srcdirs) > 1:
+            print(f"==> {srcdir} <==")
+        if _list_one(arguments) != 0:
+            failed = True
+    return 1 if failed else 0
+
+
+def _list_one(arguments: argparse.Namespace) -> int:
     try:
         engine = _engine(arguments)
     except (OSError, ValueError, WebError) as exc:

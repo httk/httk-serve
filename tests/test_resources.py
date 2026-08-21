@@ -135,7 +135,7 @@ def test_check_command_closes_engine_resources(tmp_path: Path) -> None:
     marker = tmp_path / "closed"
     _startup_cleanup(src, marker)
 
-    assert command(["check", str(src)], CLIContext("httk", tmp_path)) == 0
+    assert command(["web", "check", str(src)], CLIContext("httk", tmp_path)) == 0
 
     assert marker.read_text(encoding="utf-8") == "closed"
 
@@ -157,6 +157,6 @@ def test_check_command_surfaces_a_cleanup_failure(tmp_path: Path) -> None:
     _startup_cleanup(src, marker, cleanup_fails=True)
 
     with pytest.raises(RuntimeError, match="cleanup failed"):
-        command(["check", str(src)], CLIContext("httk", tmp_path))
+        command(["web", "check", str(src)], CLIContext("httk", tmp_path))
 
     assert marker.read_text(encoding="utf-8") == "closed"

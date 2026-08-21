@@ -363,9 +363,9 @@ Prefix an otherwise standalone invocation with a backslash to render it literall
 Use the umbrella command during authoring:
 
 ```console
-httk serve web list src
-httk serve web check src
-httk serve web serve src --reload
+httk serve web list src other-site/src
+httk serve web check src other-site/src
+httk serve web serve --reload src
 ```
 
 `check` validates every content page, including widget parsing, names, local

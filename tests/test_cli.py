@@ -17,9 +17,9 @@ def _src(tmp_path: Path) -> Path:
 def test_check_and_list_commands(tmp_path: Path, capsys) -> None:
     src = _src(tmp_path)
     context = CLIContext("httk", tmp_path)
-    assert command(["check", str(src)], context) == 0
+    assert command(["web", "check", str(src)], context) == 0
     assert "valid" in capsys.readouterr().out
-    assert command(["list", str(src)], context) == 0
+    assert command(["web", "list", str(src)], context) == 0
     output = capsys.readouterr().out
     assert "httk.text" in output
     assert "httk.serve.table" in output
@@ -31,7 +31,7 @@ def test_check_rejects_reserved_runtime_route_collisions(tmp_path: Path, capsys)
     (src / "static" / "_httk").mkdir()
     context = CLIContext("httk", tmp_path)
 
-    assert command(["check", str(src)], context) == 1
+    assert command(["web", "check", str(src)], context) == 1
     assert "Reserved httk-serve route collision" in capsys.readouterr().err
 
 
@@ -50,3 +50,16 @@ def test_umbrella_cli_dispatches_web_list(tmp_path: Path, capsys) -> None:
 
     assert main(["serve", "web", "list", str(_src(tmp_path))]) == 0
     assert "site.hello" in capsys.readouterr().out
+
+
+def test_check_batches_sites_and_rejects_omitted_web_group(tmp_path: Path, capsys) -> None:
+    first = _src(tmp_path / "first")
+    second = _src(tmp_path / "second")
+    context = CLIContext("httk", tmp_path)
+
+    assert command(["web", "check", str(first), str(second)], context) == 0
+    output = capsys.readouterr().out
+    assert f"==> {first} <==" in output
+    assert f"==> {second} <==" in output
+
+    assert command(["check", str(first)], context) == 2
