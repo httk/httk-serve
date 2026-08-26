@@ -39,8 +39,15 @@ def generate_partial_data_reply(
     assert request.partial_data_parts is not None
     entry, entry_id, prop = request.partial_data_parts
 
-    filter_ast: FilterAst = ('=', ('Identifier', 'id'), ('String', entry_id))
-    results = query_function([entry], ['id', 'type', prop], [], 1, 0, filter_ast)
+    revisions = entry in schema.revision_endpoints
+    base_entry = schema.revision_base.get(entry, entry)
+    filter_ast: FilterAst | None = None
+    query_kwargs: dict[str, Any] = {}
+    if revisions:
+        query_kwargs = {"revisions": True, "immutable_id": entry_id}
+    else:
+        filter_ast = ('=', ('Identifier', 'id'), ('String', entry_id))
+    results = query_function([base_entry], ['id', 'type', prop], [], 1, 0, filter_ast, **query_kwargs)
 
     row = None
     for result in results:
@@ -66,7 +73,7 @@ def generate_partial_data_reply(
         "optimade-partial-data": {"format": "1.2"},
         "layout": "dense",
         "property_name": prop,
-        "entry": {"id": entry_id, "type": entry},
+        "entry": {"id": entry_id, "type": base_entry},
         "has_references": False,
     }
     if items:

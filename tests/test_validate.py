@@ -1,4 +1,5 @@
 import pytest
+from definition_fixtures import structures_definition
 from materials_fixtures import materials_schema
 
 from httk.serve.optimade.engine.validate import (
@@ -6,8 +7,10 @@ from httk.serve.optimade.engine.validate import (
     validate_optimade_request,
 )
 from httk.serve.optimade.model import OptimadeError, RawRequest
+from httk.serve.optimade.schema.served import build_served_schema
 
 SCHEMA = materials_schema()
+REVISION_SCHEMA = build_served_schema({"structures": structures_definition()}, revisions=("structures",))
 
 
 def make_request(representation: str, **kwargs: object) -> RawRequest:
@@ -59,6 +62,48 @@ def test_entry_endpoint_with_bad_id() -> None:
     assert excinfo.value.response_code == 400
 
 
+@pytest.mark.parametrize(
+    ("path", "request_id", "immutable_id", "endpoint_path"),
+    (
+        ("/structures/httk.test-1-1/_httk_revs", "httk.test-1-1", None, "structures/httk.test-1-1/_httk_revs"),
+        ("/structures/httk.test-1-1/_httk_revs/", "httk.test-1-1", None, "structures/httk.test-1-1/_httk_revs"),
+        (
+            "/structures/httk.test-1-1/_httk_revs/3",
+            "httk.test-1-1",
+            "httk.test-1-1~3",
+            "structures/httk.test-1-1/_httk_revs",
+        ),
+        ("/_httk_structures~revs", None, None, None),
+        ("/_httk_structures~revs/httk.test-1-1~3", None, "httk.test-1-1~3", None),
+    ),
+)
+def test_revision_paths(path: str, request_id: str | None, immutable_id: str | None, endpoint_path: str | None) -> None:
+    validated = validate_optimade_request(make_request(path), "1.3.0", REVISION_SCHEMA)
+    assert validated.endpoint == "_httk_structures~revs"
+    assert validated.revisions is True
+    assert validated.request_id == request_id
+    assert validated.request_immutable_id == immutable_id
+    assert validated.endpoint_path == endpoint_path
+
+
+@pytest.mark.parametrize(
+    "path",
+    (
+        "/structures/httk.test-1-1/_httk_revs/0",
+        "/structures/httk.test-1-1/_httk_revs/07",
+        "/structures/httk.test-1-1/_httk_revs/abc",
+        "/widgets/httk.test-1-1/_httk_revs",
+        "/structures/httk.test-1-1/_httk_revs",
+        "/_httk_structures~revs",
+    ),
+)
+def test_invalid_or_unsupported_revision_paths_are_404(path: str) -> None:
+    schema = REVISION_SCHEMA if path.endswith(("/0", "/07", "/abc")) else SCHEMA
+    with pytest.raises(OptimadeError) as excinfo:
+        validate_optimade_request(make_request(path), "1.3.0", schema)
+    assert excinfo.value.response_code == 404
+
+
 def test_versions_endpoint_only_unversioned() -> None:
     validated = validate_optimade_request(make_request("/versions"), "1.3.0", SCHEMA)
     assert validated.endpoint == "versions"
@@ -80,7 +125,9 @@ def test_page_limit_over_max_is_forbidden() -> None:
 
 
 def test_page_limit_max_is_configurable() -> None:
-    validated = validate_optimade_request(make_request("/structures?page_limit=500"), "1.3.0", SCHEMA, page_limit_max=500)
+    validated = validate_optimade_request(
+        make_request("/structures?page_limit=500"), "1.3.0", SCHEMA, page_limit_max=500
+    )
     assert validated.query.page_limit == 500
     with pytest.raises(OptimadeError) as excinfo:
         validate_optimade_request(make_request("/structures?page_limit=501"), "1.3.0", SCHEMA, page_limit_max=500)

@@ -1,9 +1,14 @@
 """ASGI coverage for the lazy stored-entry federation adapter."""
 
+import asyncio
 import warnings
+from collections.abc import Mapping
 from contextlib import ExitStack
 from fractions import Fraction
+from typing import Any
+from urllib.parse import urlsplit
 
+import httpx
 import pytest
 from httk.atomistic import (
     ASUStructure,
@@ -16,7 +21,7 @@ from httk.atomistic import (
     UnitcellStructureRecord,
     WyckoffSite,
 )
-from httk.store import Backend, SqlStore
+from httk.store import Backend, EntryIdScheme, SqlStore
 from httk.store.backend.sql import DuplicateEntryIdError, StoredEntrySource
 from starlette.testclient import TestClient
 
@@ -52,6 +57,44 @@ def _client(adapter) -> TestClient:
     )
 
 
+class AsgiSyncClient:
+    """Minimal synchronous ASGI client with no network escape hatch."""
+
+    def __init__(self, app: Any, *, base_url: str) -> None:
+        self.app = app
+        self.base_url = base_url
+
+    def get(self, url: str) -> httpx.Response:
+        """GET one local ASGI URL."""
+        assert urlsplit(url).netloc == urlsplit(self.base_url).netloc
+
+        async def request() -> httpx.Response:
+            transport = httpx.ASGITransport(app=self.app)
+            async with httpx.AsyncClient(transport=transport) as client:
+                return await client.get(url)
+
+        return asyncio.run(request())
+
+
+def _store(database: Backend, **options: object) -> SqlStore:
+    """Build the revision-capable structure store used by this module."""
+    return SqlStore(
+        database,
+        entry_records={StructureEntry: UnitcellStructureRecord},
+        entry_ids=EntryIdScheme("httk.test", "1"),
+        **options,
+    )
+
+
+def _save_entry(store: SqlStore, entry: UnitcellStructure | ASUStructure) -> str:
+    """Save one structure and return its store-minted lineage id."""
+    store.save(entry)
+    record = store.fetch_entry(StructureEntry, entry.id)
+    assert record is not None
+    assert isinstance(record.id, str)
+    return record.id
+
+
 def _child_table_names() -> tuple[str, ...]:
     """Resolve every child-table name of the fixture record without hardcoding strings."""
     from httk.store.backend.schema import resolve_schema
@@ -67,8 +110,8 @@ def _child_table_names() -> tuple[str, ...]:
 def test_response_fields_forwarded_as_fields_to_federation(monkeypatch: pytest.MonkeyPatch) -> None:
     source = _structure("Na", "Cl")
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
-        store.save(source)
+        store = _store(database)
+        _save_entry(store, source)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
         federation = adapter.federations["structures"]
         original_query = federation.query
@@ -113,8 +156,8 @@ def test_response_fields_id_only_skips_child_table_hydration() -> None:
     child_tables = _child_table_names()
     source = _structure("Na", "Cl")
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
-        store.save(source)
+        store = _store(database)
+        _save_entry(store, source)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
 
         with _client(adapter) as client:
@@ -131,12 +174,12 @@ def test_response_fields_id_only_skips_child_table_hydration() -> None:
 def test_single_store_preserves_public_prefix_and_prefixed_property_name() -> None:
     source = _structure("Na", basis_precision=Fraction(1, 1000))
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
-        store.save(source)
+        store = _store(database)
+        entry_id = _save_entry(store, source)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "alpha", "alpha-"),))
 
         assert {"id", "type"} <= set(adapter.schema.sortable_response_fields["structures"])
-        public_id = "alpha-" + source.id
+        public_id = "alpha-" + entry_id
         with _client(adapter) as client:
             response = client.get(
                 "/structures",
@@ -165,9 +208,10 @@ def test_one_store_serves_multiple_concrete_backings() -> None:
         store = SqlStore(
             database,
             entry_records={StructureEntry: (UnitcellStructureRecord, ASUStructureRecord)},
+            entry_ids=EntryIdScheme("httk.test", "1"),
         )
-        store.save(unitcell)
-        store.save(asu)
+        unitcell_id = _save_entry(store, unitcell)
+        asu_id = _save_entry(store, asu)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "mixed"),))
 
         with _client(adapter) as client:
@@ -178,7 +222,7 @@ def test_one_store_serves_multiple_concrete_backings() -> None:
             assert response.status_code == 200
             payload = response.json()
             assert payload["meta"]["data_available"] == 2
-            assert [item["id"] for item in payload["data"]] == sorted((unitcell.id, asu.id))
+            assert [item["id"] for item in payload["data"]] == sorted((unitcell_id, asu_id))
             assert {item["attributes"]["site_coordinate_span"] for item in payload["data"]} == {
                 "unit_cell",
                 "asymmetric_unit",
@@ -189,14 +233,12 @@ def test_multiple_sources_push_filter_sort_and_pagination() -> None:
     with ExitStack() as stack:
         first_database = stack.enter_context(Backend.sqlite())
         second_database = stack.enter_context(Backend.sqlite())
-        first = SqlStore(first_database, entry_records={StructureEntry: UnitcellStructureRecord})
-        second = SqlStore(second_database, entry_records={StructureEntry: UnitcellStructureRecord})
+        first = _store(first_database)
+        second = _store(second_database)
         first_sources = (_structure("Na"), _structure("Na", "Cl"))
         second_sources = (_structure("Si"), _structure("Si", "O"))
-        for structure in first_sources:
-            first.save(structure)
-        for structure in second_sources:
-            second.save(structure)
+        first_ids = tuple(_save_entry(first, structure) for structure in first_sources)
+        second_ids = tuple(_save_entry(second, structure) for structure in second_sources)
 
         adapter = adapter_from_stores(
             (
@@ -229,7 +271,7 @@ def test_multiple_sources_push_filter_sort_and_pagination() -> None:
             assert next_response.status_code == 200
             second_page = next_response.json()
             second_id = second_page["data"][0]["id"]
-            assert [first_id, second_id] == sorted(("a-" + first_sources[0].id, "b-" + second_sources[0].id))
+            assert [first_id, second_id] == sorted(("a-" + first_ids[0], "b-" + second_ids[0]))
             assert second_page["meta"]["more_data_available"] is False
 
             descending = client.get(
@@ -255,10 +297,10 @@ def test_duplicate_public_ids_map_to_safe_http_500_and_remain_auditable() -> Non
     with ExitStack() as stack:
         first_database = stack.enter_context(Backend.sqlite())
         second_database = stack.enter_context(Backend.sqlite())
-        first = SqlStore(first_database, entry_records={StructureEntry: UnitcellStructureRecord})
-        second = SqlStore(second_database, entry_records={StructureEntry: UnitcellStructureRecord})
-        first.save(duplicated)
-        second.save(duplicated)
+        first = _store(first_database)
+        second = _store(second_database)
+        duplicate_id = _save_entry(first, duplicated)
+        assert _save_entry(second, duplicated) == duplicate_id
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             adapter = adapter_from_stores(
@@ -270,10 +312,10 @@ def test_duplicate_public_ids_map_to_safe_http_500_and_remain_auditable() -> Non
         assert caught
 
         with _client(adapter) as client:
-            direct = client.get(f"/structures/{duplicated.id}")
+            direct = client.get(f"/structures/{duplicate_id}")
             assert direct.status_code == 500
             detail = direct.json()["errors"][0]["detail"]
-            assert duplicated.id in detail
+            assert duplicate_id in detail
             assert "first" in detail and "second" in detail
             assert "audit_duplicate_ids" in detail
             assert "SELECT" not in detail.upper()
@@ -289,12 +331,12 @@ def test_duplicate_public_ids_map_to_safe_http_500_and_remain_auditable() -> Non
 
 def test_as_of_link_stabilizes_stored_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = _store(database)
         store._clock = lambda: 1_000_000_000
         first = _structure("Na")
         second = _structure("Na", "Cl")
-        store.save(first)
-        store.save(second)
+        first_id = _save_entry(store, first)
+        second_id = _save_entry(store, second)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
 
         monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 3_000_000_000)
@@ -305,79 +347,67 @@ def test_as_of_link_stabilizes_stored_pagination(monkeypatch: pytest.MonkeyPatch
 
             store._clock = lambda: 4_000_000_000
             added = _structure("Si")
-            store.save(added)
+            added_id = _save_entry(store, added)
 
             pages = [first_page]
             while pages[-1]["links"]["next"] is not None:
                 pages.append(client.get(pages[-1]["links"]["next"]).json())
 
             second_page = pages[-1]
-            assert [item["id"] for item in second_page["data"]] == [max(first.id, second.id)]
+            assert [item["id"] for item in second_page["data"]] == [max(first_id, second_id)]
             assert second_page["meta"]["data_available"] == 2
             assert second_page["meta"]["more_data_available"] is False
             assert second_page["links"]["next"] is None
-            assert {item["id"] for page in pages for item in page["data"]} == {first.id, second.id}
+            assert {item["id"] for page in pages for item in page["data"]} == {first_id, second_id}
 
             monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 5_000_000_000)
             fresh = client.get("/structures", params={"sort": "id"}).json()
-            assert {item["id"] for item in fresh["data"]} == {first.id, second.id, added.id}
+            assert {item["id"] for item in fresh["data"]} == {first_id, second_id, added_id}
 
 
 def test_resolution_aware_snapshot_excludes_later_row_in_current_second(monkeypatch: pytest.MonkeyPatch) -> None:
     with Backend.sqlite() as database:
-        store = SqlStore(
-            database,
-            entry_records={StructureEntry: UnitcellStructureRecord},
-            store_timestamp_resolution=1_000_000_000,
-        )
+        store = _store(database, store_timestamp_resolution=1_000_000_000)
         store._clock = lambda: 9_900_000_000
         old = _structure("Na")
-        store.save(old)
+        old_id = _save_entry(store, old)
         store._clock = lambda: 10_500_000_000
         later = _structure("Si")
-        store.save(later)
+        later_id = _save_entry(store, later)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
 
         monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 10_900_000_000)
         with _client(adapter) as client:
             snapshot = client.get("/structures", params={"sort": "id"}).json()
-            assert {item["id"] for item in snapshot["data"]} == {old.id}
+            assert {item["id"] for item in snapshot["data"]} == {old_id}
 
             monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 11_100_000_000)
             fresh = client.get("/structures", params={"sort": "id"}).json()
-            assert {item["id"] for item in fresh["data"]} == {old.id, later.id}
+            assert {item["id"] for item in fresh["data"]} == {old_id, later_id}
 
 
 def test_microsecond_snapshot_includes_previous_unit_and_excludes_current_unit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with Backend.sqlite() as database:
-        store = SqlStore(
-            database,
-            entry_records={StructureEntry: UnitcellStructureRecord},
-            store_timestamp_resolution=1_000,
-        )
+        store = _store(database, store_timestamp_resolution=1_000)
         store._clock = lambda: 2_000_000_999
         previous = _structure("Na")
-        store.save(previous)
+        previous_id = _save_entry(store, previous)
         store._clock = lambda: 2_000_001_000
         current = _structure("Si")
-        store.save(current)
+        _save_entry(store, current)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
 
         monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 2_000_001_999)
         with _client(adapter) as client:
             snapshot = client.get("/structures", params={"sort": "id"}).json()
-            assert {item["id"] for item in snapshot["data"]} == {previous.id}
+            assert {item["id"] for item in snapshot["data"]} == {previous_id}
 
 
 def test_timestamp_disabled_federation_skips_snapshot_links_and_cutoff(monkeypatch: pytest.MonkeyPatch) -> None:
     with Backend.sqlite() as database:
-        store = SqlStore(
-            database,
-            entry_records={StructureEntry: UnitcellStructureRecord},
-            store_timestamps=False,
-        )
+        store = _store(database, store_timestamps=False)
         store.save(_structure("Na"))
         store.save(_structure("Si"))
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
@@ -402,20 +432,80 @@ def test_timestamp_disabled_federation_skips_snapshot_links_and_cutoff(monkeypat
 
 def test_as_of_single_entry_fetch_hides_later_store_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = _store(database)
         store._clock = lambda: 1_000_000_000
         saved = _structure("Na")
-        store.save(saved)
+        _save_entry(store, saved)
         store._clock = lambda: 3_000_000_000
         later = _structure("Si")
-        store.save(later)
+        later_id = _save_entry(store, later)
         adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),))
 
         with _client(adapter) as client:
-            hidden = client.get(f"/structures/{later.id}", params={"_httk_as_of": 2_000_000_000})
+            hidden = client.get(f"/structures/{later_id}", params={"_httk_as_of": 2_000_000_000})
             assert hidden.status_code == 200
             assert hidden.json()["data"] is None
             monkeypatch.setattr("httk.serve.optimade.engine.processing.time.time_ns", lambda: 4_000_000_000)
-            visible = client.get(f"/structures/{later.id}")
+            visible = client.get(f"/structures/{later_id}")
             assert visible.status_code == 200
-            assert visible.json()["data"]["id"] == later.id
+            assert visible.json()["data"]["id"] == later_id
+
+
+def test_structure_revisions_are_available_over_the_stored_federation() -> None:
+    """Store-backed structure routes expose latest and immutable revisions."""
+    with Backend.sqlite() as database:
+        store = _store(database)
+        first = _structure("Na")
+        first_id = _save_entry(store, first)
+        predecessor = store.fetch_entry(StructureEntry, first.id)
+        assert predecessor is not None
+        store.replace(predecessor, _structure("Na", "Cl"))
+        second_id = _save_entry(store, _structure("Si", "O"))
+        app = create_asgi_app(
+            adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),)),
+            baseurl="http://testserver",
+        )
+        client = AsgiSyncClient(app, base_url="http://testserver")
+
+        latest = client.get("http://testserver/structures").json()
+        assert latest["meta"]["data_returned"] == 2
+        latest_first = next(item for item in latest["data"] if item["id"] == first_id)
+        assert latest_first["attributes"]["immutable_id"] == first_id + "~2"
+
+        direct = client.get("http://testserver/structures/" + first_id)
+        assert direct.status_code == 200
+        assert direct.json()["data"]["attributes"]["immutable_id"] == first_id + "~2"
+
+        lineage_revisions = client.get("http://testserver/structures/" + first_id + "/_httk_revs")
+        assert lineage_revisions.status_code == 200
+        lineage_payload: Mapping[str, Any] = lineage_revisions.json()
+        assert [item["id"] for item in lineage_payload["data"]] == [first_id + "~1", first_id + "~2"]
+        assert {item["attributes"]["_httk_id"] for item in lineage_payload["data"]} == {first_id}
+        assert lineage_payload["meta"]["data_returned"] == 2
+        assert lineage_payload["meta"]["data_available"] == 2
+
+        first_revision = client.get("http://testserver/structures/" + first_id + "/_httk_revs/1")
+        assert first_revision.status_code == 200
+        assert first_revision.json()["data"]["id"] == first_id + "~1"
+        assert client.get("http://testserver/structures/" + first_id + "/_httk_revs/7").status_code == 404
+        assert client.get("http://testserver/structures/" + second_id + "/_httk_revs/2").status_code == 404
+
+        all_revisions = client.get("http://testserver/_httk_structures~revs")
+        assert all_revisions.status_code == 200
+        all_payload: Mapping[str, Any] = all_revisions.json()
+        assert all_payload["meta"]["data_available"] == 3
+        assert len(all_payload["data"]) == 3
+        filtered = client.get("http://testserver/_httk_structures~revs?filter=nelements%3D1").json()
+        assert [item["id"] for item in filtered["data"]] == [first_id + "~1"]
+        global_revision = client.get("http://testserver/_httk_structures~revs/" + first_id + "~1")
+        assert global_revision.status_code == 200
+        assert global_revision.json()["data"]["id"] == first_id + "~1"
+
+        info = client.get("http://testserver/info").json()
+        assert "_httk_structures~revs" in info["data"]["attributes"]["available_endpoints"]
+        revision_info = client.get("http://testserver/info/_httk_structures~revs").json()
+        assert "_httk_id" in revision_info["data"]["properties"]
+        next_link = client.get("http://testserver/structures/" + first_id + "/_httk_revs?page_limit=1").json()["links"][
+            "next"
+        ]
+        assert "/structures/" + first_id + "/_httk_revs?" in next_link

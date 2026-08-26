@@ -2,7 +2,7 @@
 """Serve a live OPTIMADE structures endpoint directly from ``SqlStore``."""
 
 from httk.atomistic import Species, StructureEntry, UnitcellStructure, UnitcellStructureRecord
-from httk.store import Backend, SqlStore
+from httk.store import Backend, EntryIdScheme, SqlStore
 
 from httk.serve.optimade import serve
 
@@ -11,6 +11,7 @@ from httk.serve.optimade import serve
 store = SqlStore(
     Backend.sqlite(),
     entry_records={StructureEntry: UnitcellStructureRecord},
+    entry_ids=EntryIdScheme("httk.example", "1"),
 )
 store.save(
     UnitcellStructure(

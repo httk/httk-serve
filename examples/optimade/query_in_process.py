@@ -10,7 +10,7 @@ import json
 from typing import Any
 
 from httk.atomistic import Species, StructureEntry, UnitcellStructure, UnitcellStructureRecord
-from httk.store import Backend, SqlStore
+from httk.store import Backend, EntryIdScheme, SqlStore
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import create_asgi_app
@@ -40,6 +40,7 @@ def main() -> None:
     store = SqlStore(
         Backend.sqlite(),
         entry_records={StructureEntry: UnitcellStructureRecord},
+        entry_ids=EntryIdScheme("httk.example", "1"),
     )
     store.save(structure("Si", 4))
     store.save(structure("Ge", 5))

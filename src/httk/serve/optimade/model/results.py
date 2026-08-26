@@ -61,6 +61,8 @@ class QueryFunction(Protocol):
         *,
         as_of: int | None = None,
         sort: Sequence[tuple[str, bool]] | None = None,
+        revisions: bool = False,
+        immutable_id: str | None = None,
         debug: bool = False,
     ) -> QueryResults:
         """Execute one validated entry query.
@@ -76,6 +78,8 @@ class QueryFunction(Protocol):
             timestamp-disabled federation sources, and ignored by generic
             provider backends.
         :param sort: Field names paired with descending flags.
+        :param revisions: Select all stored revisions rather than latest lineages.
+        :param immutable_id: Select one immutable stored revision when supplied.
         :param debug: Enable backend diagnostics.
         :return: Query results for the requested page.
         """

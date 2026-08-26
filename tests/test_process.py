@@ -2,10 +2,13 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from definition_fixtures import references_definition, structures_definition
 from materials_fixtures import materials_schema
 
 from httk.serve.optimade.engine import process
+from httk.serve.optimade.backend.partial import PartialDimension, PartialValue
 from httk.serve.optimade.model import OptimadeConfig, OptimadeError, RawRequest, ResultRow
+from httk.serve.optimade.schema.served import build_served_schema
 
 
 class StubResults:
@@ -36,6 +39,8 @@ class StubQueryFunction:
         *,
         as_of: int | None = None,
         sort: Any = None,
+        revisions: bool = False,
+        immutable_id: str | None = None,
         debug: bool = False,
     ) -> StubResults:
         self.calls.append(
@@ -48,6 +53,8 @@ class StubQueryFunction:
                 "filter_ast": filter_ast,
                 "as_of": as_of,
                 "sort": sort,
+                "revisions": revisions,
+                "immutable_id": immutable_id,
             }
         )
         return StubResults([dict(row) for row in self.rows])
@@ -59,6 +66,11 @@ def make_request(representation: str) -> RawRequest:
 
 def make_config() -> OptimadeConfig:
     return OptimadeConfig()
+
+
+def revision_schema():
+    """Return a minimal schema exposing the stored revision endpoint."""
+    return build_served_schema({"structures": structures_definition()}, revisions=("structures",))
 
 
 def test_base_endpoint_is_html() -> None:
@@ -106,6 +118,139 @@ def test_entry_endpoint_with_filter_parses_ast() -> None:
     query_function = StubQueryFunction()
     process(make_request("/structures?filter=nelements=3"), query_function, "1.3.0", make_config(), materials_schema())
     assert query_function.calls[0]["filter_ast"] == ("=", ("Identifier", "nelements"), ("Number", "3"))
+
+
+def test_revision_collection_uses_lineage_filter_and_revision_query_contract() -> None:
+    query_function = StubQueryFunction([{"id": "httk.test-1-1~1", "type": "structures", "_httk_id": "httk.test-1-1"}])
+    output = process(
+        make_request("/structures/httk.test-1-1/_httk_revs?filter=nelements=3"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        revision_schema(),
+    )
+    assert output.json_response is not None
+    assert query_function.calls[0]["entries"] == ["structures"]
+    assert query_function.calls[0]["revisions"] is True
+    assert query_function.calls[0]["immutable_id"] is None
+    assert query_function.calls[0]["filter_ast"] == (
+        "AND",
+        ("=", ("Identifier", "_httk_id"), ("String", "httk.test-1-1")),
+        ("=", ("Identifier", "nelements"), ("Number", "3")),
+    )
+    assert query_function.calls[1]["revisions"] is True
+    assert query_function.calls[1]["filter_ast"] == ("=", ("Identifier", "_httk_id"), ("String", "httk.test-1-1"))
+    assert output.json_response["links"]["next"] is None
+
+
+def test_single_revision_uses_immutable_id_and_lineage_filter() -> None:
+    query_function = StubQueryFunction([{"id": "httk.test-1-1~3", "type": "structures", "_httk_id": "httk.test-1-1"}])
+    output = process(
+        make_request("/structures/httk.test-1-1/_httk_revs/3"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        revision_schema(),
+    )
+    assert output.json_response is not None
+    assert output.json_response["data"]["id"] == "httk.test-1-1~3"
+    assert query_function.calls[0]["filter_ast"] == (
+        "=",
+        ("Identifier", "id"),
+        ("String", "httk.test-1-1"),
+    )
+    assert query_function.calls[0]["immutable_id"] == "httk.test-1-1~3"
+
+
+def test_global_single_revision_uses_immutable_id_without_lineage_filter() -> None:
+    query_function = StubQueryFunction([{"id": "httk.test-1-1~3", "type": "structures", "_httk_id": "httk.test-1-1"}])
+    output = process(
+        make_request("/_httk_structures~revs/httk.test-1-1~3"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        revision_schema(),
+    )
+    assert output.json_response is not None
+    assert query_function.calls[0]["filter_ast"] is None
+    assert query_function.calls[0]["immutable_id"] == "httk.test-1-1~3"
+
+
+def test_revision_partial_data_queries_by_immutable_id() -> None:
+    value = PartialValue(
+        dimensions=(PartialDimension(name="dim_sites", length=1, sliceable=True),),
+        fetch=lambda _slices: [[0.0, 0.0, 0.0]],
+    )
+    query_function = StubQueryFunction(
+        [{"id": "httk.test-1-1~3", "type": "structures", "cartesian_site_positions": value}]
+    )
+    output = process(
+        make_request("/partial_data/_httk_structures~revs/httk.test-1-1~3/cartesian_site_positions"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        revision_schema(),
+    )
+    assert output.content_type == "application/jsonlines"
+    assert query_function.calls == [
+        {
+            "entries": ["structures"],
+            "response_fields": ["id", "type", "cartesian_site_positions"],
+            "unknown_response_fields": [],
+            "page_limit": 1,
+            "page_offset": 0,
+            "filter_ast": None,
+            "as_of": None,
+            "sort": None,
+            "revisions": True,
+            "immutable_id": "httk.test-1-1~3",
+        }
+    ]
+
+
+def test_revision_collection_next_link_preserves_lineage_path() -> None:
+    class MoreResultsQuery(StubQueryFunction):
+        def __call__(self, *args: Any, **kwargs: Any) -> StubResults:
+            result = super().__call__(*args, **kwargs)
+            result.more_data_available = True
+            return result
+
+    output = process(
+        make_request("/structures/httk.test-1-1/_httk_revs?page_limit=1"),
+        MoreResultsQuery([{"id": "httk.test-1-1~1", "type": "structures", "_httk_id": "httk.test-1-1"}]),
+        "1.3.0",
+        make_config(),
+        revision_schema(),
+    )
+    assert output.json_response is not None
+    assert "/structures/httk.test-1-1/_httk_revs?" in output.json_response["links"]["next"]
+
+
+def test_revision_entry_info_includes_lineage_id() -> None:
+    schema = build_served_schema({"references": references_definition()}, revisions=("references",))
+    output = process(
+        make_request("/info/_httk_references~revs"),
+        StubQueryFunction(),
+        "1.3.0",
+        make_config(),
+        schema,
+    )
+    assert output.json_response is not None
+    assert "_httk_id" in output.json_response["data"]["properties"]
+    assert "links" not in output.json_response
+
+
+def test_base_entry_info_retains_its_definition_link() -> None:
+    schema = build_served_schema({"references": references_definition()}, revisions=("references",))
+    output = process(
+        make_request("/info/references"),
+        StubQueryFunction(),
+        "1.3.0",
+        make_config(),
+        schema,
+    )
+    assert output.json_response is not None
+    assert output.json_response["links"]["describedby"] == references_definition().definition_id
 
 
 def test_entry_endpoint_captures_and_reuses_microsecond_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:

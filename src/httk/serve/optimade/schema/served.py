@@ -158,6 +158,8 @@ class ServedSchema:
     :param entry_definition_ids: Definition IRIs keyed by entry type.
     :param recognized_prefixes: Property-definition prefixes recognized in requests.
     :param all_entries: Served entry endpoint names in declaration order.
+    :param revision_endpoints: Store-backed revision endpoint names.
+    :param revision_base: Base entry type keyed by revision endpoint.
     :param valid_endpoints: Fixed and entry endpoint names accepted by validation.
     :param properties_by_entry: Served property names keyed by entry type.
     :param default_response_fields: Default response fields keyed by entry type.
@@ -171,6 +173,8 @@ class ServedSchema:
     entry_definition_ids: dict[str, str]
     recognized_prefixes: tuple[str, ...]
     all_entries: tuple[str, ...]
+    revision_endpoints: tuple[str, ...]
+    revision_base: dict[str, str]
     valid_endpoints: tuple[str, ...]
     properties_by_entry: dict[str, tuple[str, ...]]
     default_response_fields: dict[str, tuple[str, ...]]
@@ -187,6 +191,7 @@ def build_served_schema(
     default_response_overrides: Mapping[str, Sequence[str]] | None = None,
     sortable: Mapping[str, Sequence[str]] | None = None,
     recognized_prefixes: tuple[str, ...] | None = None,
+    revisions: Sequence[str] = (),
 ) -> ServedSchema:
     """Build a :class:`ServedSchema` from entry-type definitions.
 
@@ -206,11 +211,48 @@ def build_served_schema(
     :param default_response_overrides: Additional default fields keyed by entry type.
     :param sortable: Sortable fields keyed by entry type.
     :param recognized_prefixes: Prefixes recognized in response-field requests.
+    :param revisions: Base entries for which stored revision endpoints are served.
     :return: Derived schema and lookup tables.
     :raises ValueError: If a requested served property is not defined.
     """
     if recognized_prefixes is None:
         recognized_prefixes = known_definition_prefixes()
+    revision_bases = tuple(revisions)
+    unknown_revisions = [entry for entry in revision_bases if entry not in definitions]
+    if unknown_revisions:
+        raise ValueError("Revision endpoint requested for undefined entry type(s): " + ", ".join(unknown_revisions))
+    if len(set(revision_bases)) != len(revision_bases):
+        raise ValueError("Revision endpoint entries must be unique.")
+
+    revision_endpoints = tuple(f"_httk_{entry}~revs" for entry in revision_bases)
+    fixed_endpoints = {"", "info", "links", "partial_data", "versions"}
+    collisions = [endpoint for endpoint in revision_endpoints if endpoint in definitions or endpoint in fixed_endpoints]
+    if collisions:
+        raise ValueError("Generated revision endpoint name collision(s): " + ", ".join(collisions))
+    revision_base = dict(zip(revision_endpoints, revision_bases, strict=True))
+    expanded_definitions = dict(definitions)
+    expanded_served: dict[str, Sequence[str]] = dict(served or {})
+    expanded_defaults: dict[str, Sequence[str]] = dict(default_response_overrides or {})
+    expanded_sortable: dict[str, Sequence[str]] = dict(sortable or {})
+    for revision_endpoint, entry in revision_base.items():
+        expanded_definitions[revision_endpoint] = definitions[entry].extended(
+            {
+                "_httk_id": PropertyDefinition.from_simple(
+                    "_httk_id",
+                    description="The lineage (logical) entry id shared by all revisions of this entry.",
+                )
+            }
+        )
+        base_served = (
+            list(served[entry]) if served is not None and entry in served else list(definitions[entry].properties)
+        )
+        expanded_served[revision_endpoint] = tuple(base_served + ["_httk_id"])
+        base_defaults = (
+            list(default_response_overrides.get(entry, ())) if default_response_overrides is not None else []
+        )
+        expanded_defaults[revision_endpoint] = tuple(base_defaults + ["_httk_id"])
+        base_sortable = list(sortable.get(entry, ())) if sortable is not None else []
+        expanded_sortable[revision_endpoint] = tuple(base_sortable + ["_httk_id"])
     entry_info: dict[str, dict[str, Any]] = {}
     entry_definition_ids: dict[str, str] = {}
     property_definitions: dict[str, dict[str, dict[str, Any]]] = {}
@@ -220,11 +262,11 @@ def build_served_schema(
     unknown_response_fields: dict[str, tuple[str, ...]] = {}
     sortable_response_fields: dict[str, tuple[str, ...]] = {}
 
-    for entry, definition in definitions.items():
+    for entry, definition in expanded_definitions.items():
         if definition.definition_id is not None:
             entry_definition_ids[entry] = definition.definition_id
         described = definition.properties
-        served_names = list(served[entry]) if served is not None and entry in served else list(described)
+        served_names = list(expanded_served[entry]) if entry in expanded_served else list(described)
 
         missing = [name for name in served_names if name not in described]
         if missing:
@@ -236,10 +278,8 @@ def build_served_schema(
                 + "."
             )
 
-        sortable_names = set(sortable.get(entry, ())) if sortable is not None else set()
-        default_names = (
-            set(default_response_overrides.get(entry, ())) if default_response_overrides is not None else set()
-        )
+        sortable_names = set(expanded_sortable.get(entry, ()))
+        default_names = set(expanded_defaults.get(entry, ()))
 
         simplified: dict[str, Any] = {}
         prop_defs: dict[str, dict[str, Any]] = {}
@@ -276,13 +316,20 @@ def build_served_schema(
         unknown_response_fields[entry] = tuple(name for name in described if name not in served_names)
 
     all_entries = tuple(definitions)
-
     return ServedSchema(
         entry_info=entry_info,
         entry_definition_ids=entry_definition_ids,
         recognized_prefixes=recognized_prefixes,
         all_entries=all_entries,
-        valid_endpoints=tuple(["info", "links"] + list(all_entries) + ["info/" + x for x in all_entries] + [""]),
+        revision_endpoints=revision_endpoints,
+        revision_base=revision_base,
+        valid_endpoints=tuple(
+            ["info", "links"]
+            + list(all_entries)
+            + list(revision_endpoints)
+            + ["info/" + x for x in all_entries + revision_endpoints]
+            + [""]
+        ),
         properties_by_entry=properties_by_entry,
         default_response_fields=default_response_fields,
         required_response_fields=required_response_fields,

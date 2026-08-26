@@ -81,6 +81,31 @@ def test_build_served_schema_rejects_undescribed_served_property() -> None:
     assert "bogus" in str(excinfo.value)
 
 
+def test_build_served_schema_adds_store_revision_endpoint() -> None:
+    schema = build_served_schema({"widgets": widgets_definition()}, revisions=("widgets",))
+    revision_endpoint = "_httk_widgets~revs"
+    assert schema.all_entries == ("widgets",)
+    assert schema.revision_endpoints == (revision_endpoint,)
+    assert schema.revision_base == {revision_endpoint: "widgets"}
+    assert revision_endpoint in schema.valid_endpoints
+    assert "info/" + revision_endpoint in schema.valid_endpoints
+    assert "_httk_id" in schema.properties_by_entry[revision_endpoint]
+    assert "_httk_id" in schema.default_response_fields[revision_endpoint]
+    assert "_httk_id" in schema.sortable_response_fields[revision_endpoint]
+    assert revision_endpoint not in schema.entry_definition_ids
+
+
+def test_build_served_schema_rejects_revision_endpoint_name_collision() -> None:
+    with pytest.raises(ValueError, match="Generated revision endpoint name collision"):
+        build_served_schema(
+            {
+                "structures": structures_definition(),
+                "_httk_structures~revs": widgets_definition(),
+            },
+            revisions=("structures",),
+        )
+
+
 def test_response_should_not_is_excluded_from_defaults_but_explicitly_retrievable() -> None:
     hidden = PropertyDefinition.from_optimade(
         "hidden",

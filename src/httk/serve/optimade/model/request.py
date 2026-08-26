@@ -115,6 +115,9 @@ class ValidatedRequest:
     :param query: Validated query parameters.
     :param url_version: Version segment present in the request URL.
     :param request_id: Validated entry identifier.
+    :param revisions: Whether this is a stored revision request.
+    :param request_immutable_id: Immutable revision identifier for a single revision request.
+    :param endpoint_path: Exact entry path used for collection-link generation.
     :param recognized_response_fields: Requested fields known to the schema.
     :param unrecognized_response_fields: Requested fields not known to the schema.
     :param sort_fields: Validated sort fields and directions.
@@ -132,6 +135,9 @@ class ValidatedRequest:
     query: ValidatedParameters
     url_version: str | None = None
     request_id: str | None = None
+    revisions: bool = False
+    request_immutable_id: str | None = None
+    endpoint_path: str | None = None
     recognized_response_fields: list[str] = field(default_factory=list)
     unrecognized_response_fields: list[str] = field(default_factory=list)
     sort_fields: list[tuple[str, bool]] = field(default_factory=list)

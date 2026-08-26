@@ -6,12 +6,13 @@ store:
 
 ```python
 from httk.atomistic import StructureEntry, UnitcellStructure, UnitcellStructureRecord
-from httk.store import Backend, SqlStore
+from httk.store import Backend, EntryIdScheme, SqlStore
 from httk.serve.optimade import create_asgi_app
 
 store = SqlStore(
     Backend.duckdb("materials.duckdb"),
     entry_records={StructureEntry: UnitcellStructureRecord},
+    entry_ids=EntryIdScheme("materials.example", "1"),
 )
 store.save(UnitcellStructure(...))
 
@@ -56,8 +57,30 @@ families this endpoint should publish.
 All concrete record classes configured for one family are served together.
 Each record class owns its exact response/query/sort behavior through
 `StoredPropertyProjection`; properties lacking an exact query or sort mapping
-are not silently approximated. Public IDs are the canonical content IDs,
-optionally prefixed when constructing an explicit `StoredEntrySource` federation.
+are not silently approximated. Public IDs are minted lineage IDs; configured
+`StoredEntrySource` federations may additionally prepend a public prefix.
+
+## Entry ids and revisions
+
+Defined entry families need an `EntryIdScheme` (or explicit record IDs). The
+normal entry endpoint serves the latest revision for each lineage:
+
+| URL | Result |
+| --- | --- |
+| `/<entry>` | Latest revision of every lineage. |
+| `/<entry>/<id>` | Latest revision of one lineage. |
+| `/<entry>/<id>/_httk_revs` | Every revision of that lineage. |
+| `/<entry>/<id>/_httk_revs/<revision>` | One positive, canonical revision number. |
+| `/_httk_<entry>~revs` | Every revision of every lineage. |
+| `/_httk_<entry>~revs/<immutable_id>` | One revision by its complete immutable ID. |
+| `/info/_httk_<entry>~revs` | Metadata for the revision endpoint. |
+
+Revision collections support the usual `filter`, `sort`, and paging query
+parameters. Their resource `id` is the immutable ID (for example,
+`httk.mydb-1-42~3`) while `_httk_id` is the shared lineage ID
+(`httk.mydb-1-42`). The ordinary endpoint continues to render `id` as the
+lineage ID and any declared `immutable_id` property as the current immutable
+revision. These revision URLs are available only for store-backed adapters.
 
 ## Several stores
 

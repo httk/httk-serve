@@ -190,6 +190,10 @@ extra entry types by passing them in and wiring an `EntrySource` for each:
 The `examples/optimade/demo_server/` backend registers `references`, `files`, and
 `trajectories` this way alongside `structures` and `calculations`.
 
+Store-backed schemas additionally route revision paths through their derived
+`_httk_<entry>~revs` endpoint, while preserving the base entry type for data
+federation and response resource types.
+
 ## Large properties and slicing
 
 Field extractors may return a `PartialValue` (`backend/partial.py`) instead of

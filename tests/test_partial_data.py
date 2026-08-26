@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 import pytest
-from definition_fixtures import served_schema
+from definition_fixtures import served_schema, structures_definition
 from fake_backend import FakeStore
 from starlette.testclient import TestClient
 
@@ -18,6 +18,7 @@ from httk.serve.optimade.backend.partial import PartialDimension, PartialValue
 from httk.serve.optimade.engine.validate import validate_optimade_request
 from httk.serve.optimade.model import ValidatedParameters
 from httk.serve.optimade.model.request import RequestedSlice
+from httk.serve.optimade.schema.served import build_served_schema
 
 
 def make_request(representation: str) -> RawRequest:
@@ -28,6 +29,16 @@ def _schema() -> Any:
     return served_schema(
         {"structures": ["id", "type", "nelements", "cartesian_site_positions"]},
         default_response_overrides={"structures": ["nelements", "cartesian_site_positions"]},
+    )
+
+
+def _revision_schema() -> Any:
+    """Return the partial-data schema with the stored revision endpoint."""
+    return build_served_schema(
+        {"structures": structures_definition()},
+        {"structures": ["id", "type", "nelements", "cartesian_site_positions"]},
+        default_response_overrides={"structures": ["nelements", "cartesian_site_positions"]},
+        revisions=("structures",),
     )
 
 
@@ -131,6 +142,16 @@ def test_partial_data_route_parsed() -> None:
     assert validated.partial_data_offset == 4
 
 
+def test_revision_partial_data_route_parsed() -> None:
+    validated = validate_optimade_request(
+        make_request("/partial_data/_httk_structures~revs/demo-1~1/cartesian_site_positions"),
+        "1.3.0",
+        _revision_schema(),
+    )
+    assert validated.endpoint == "partial_data"
+    assert validated.partial_data_parts == ("_httk_structures~revs", "demo-1~1", "cartesian_site_positions")
+
+
 def test_partial_data_bad_property_404() -> None:
     schema = _schema()
     with pytest.raises(OptimadeError) as excinfo:
@@ -178,16 +199,19 @@ def _partial_positions(row: Row) -> PartialValue:
     )
 
 
-def make_client(chunk_size: int = 1000) -> TestClient:
+def make_client(chunk_size: int = 1000, *, revisions: bool = False) -> TestClient:
     positions = [[float(i), float(i) + 0.1, float(i) + 0.2] for i in range(5)]
-    store = FakeStore(rows_by_target={"structure-table": [Row("demo-1", positions)]})
-    schema = _schema()
+    row_id = "demo-1~1" if revisions else "demo-1"
+    store = FakeStore(rows_by_target={"structure-table": [Row(row_id, positions)]})
+    schema = _revision_schema() if revisions else _schema()
     fields: dict[str, Any] = {
         "type": lambda x: "structures",
         "id": lambda x: x.sid,
         "nelements": lambda x: 2,
         "cartesian_site_positions": _partial_positions,
     }
+    if revisions:
+        fields["_httk_id"] = lambda _x: "demo-1"
     adapter = BackendAdapter(
         store=store,
         sources={"structures": (EntrySource(target="structure-table", fields=fields),)},
@@ -214,6 +238,17 @@ def test_listing_omits_partial_value_with_links() -> None:
     axes = resource["meta"]["property_metadata"]["cartesian_site_positions"]["list_axes"]
     assert axes[0] == {"dimension_name": "dim_sites", "length": 5, "sliceable": True}
     assert axes[1] == {"dimension_name": "dim_spatial", "length": 3, "sliceable": False}
+
+
+def test_revision_partial_data_link_resolves() -> None:
+    client = make_client(revisions=True)
+    listing = client.get("/_httk_structures~revs")
+    assert listing.status_code == 200
+    link = listing.json()["data"][0]["meta"]["partial_data_links"]["cartesian_site_positions"][0]["link"]
+    assert link == "http://testserver/partial_data/_httk_structures~revs/demo-1~1/cartesian_site_positions"
+    partial = client.get(link)
+    assert partial.status_code == 200
+    assert json.loads(partial.text.splitlines()[0])["entry"] == {"id": "demo-1~1", "type": "structures"}
 
 
 # --- single entry with dimension_slices: inline sliced values -----------------

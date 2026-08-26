@@ -78,6 +78,8 @@ class StoredBackendAdapter:
             *,
             as_of: int | None = None,
             sort: Sequence[tuple[str, bool]] | None = None,
+            revisions: bool = False,
+            immutable_id: str | None = None,
             debug: bool = False,
         ) -> QueryResults:
             del debug
@@ -93,8 +95,16 @@ class StoredBackendAdapter:
             offset = int(page_offset)
             try:
                 public_id = _exact_id_filter(filter_ast)
-                if public_id is not None and offset == 0 and limit > 0:
-                    found = federation.fetch(public_id, as_of=as_of, fields=response_fields)
+                if immutable_id is not None:
+                    if public_id is None:
+                        found = federation.fetch(immutable_id, as_of=as_of, fields=response_fields, revisions=True)
+                    else:
+                        found = federation.fetch_revision(public_id, immutable_id, as_of=as_of, fields=response_fields)
+                    total_count = 0 if found is None else 1
+                    page_rows = () if found is None or offset or limit == 0 else (found,)
+                    more_data_available = False
+                elif public_id is not None and offset == 0 and limit > 0:
+                    found = federation.fetch(public_id, as_of=as_of, fields=response_fields, revisions=revisions)
                     total_count = 0 if found is None else 1
                     page_rows = () if found is None or offset or limit == 0 else (found,)
                     more_data_available = False
@@ -106,6 +116,7 @@ class StoredBackendAdapter:
                         limit=limit,
                         as_of=as_of,
                         fields=response_fields,
+                        revisions=revisions,
                     )
                     page_rows = page.rows
                     more_data_available = page.more_data_available
@@ -214,7 +225,7 @@ def _validate_sortable_backings(
 ) -> None:
     """Fail adapter construction when an advertised sort cannot be exact."""
     for name in sortable:
-        if name in {"id", "type"}:
+        if name in {"id", "type", "immutable_id", "_httk_id"}:
             continue
         for plan in plans:
             for backing in plan.backings:
@@ -230,7 +241,7 @@ def _sortable_intersection(plans: Sequence[Any], property_names: Sequence[str]) 
     """Return properties with an exact sort mapping on every durable backing."""
     sortable: list[str] = []
     for name in property_names:
-        if name in {"id", "type"}:
+        if name in {"id", "type", "immutable_id", "_httk_id"}:
             sortable.append(name)
             continue
         if all(
@@ -299,6 +310,7 @@ def adapter_from_stores(
         definitions,
         served,
         default_response_overrides=defaults,
+        revisions=tuple(definitions),
         **options,
     )
     for entry_type, plans in plans_by_entry.items():

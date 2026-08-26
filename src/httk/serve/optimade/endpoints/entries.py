@@ -114,6 +114,7 @@ def _resource_object(
     row: ResultRow,
     baseurl: str = "",
     dimension_slices: dict[str, RequestedSlice] | None = None,
+    partial_data_entry: str | None = None,
 ) -> dict[str, Any]:
     """Build a JSON:API resource object (attributes/id/type/relationships) from a row."""
     row_id = row.values['id']
@@ -126,7 +127,7 @@ def _resource_object(
             continue
         if isinstance(value, PartialValue):
             attributes[key], links, axes_meta = _resolve_partial_value(
-                key, value, baseurl, row_type, row_id, dimension_slices
+                key, value, baseurl, partial_data_entry or row_type, row_id, dimension_slices
             )
             if links is not None:
                 partial_data_links[key] = links
@@ -173,7 +174,9 @@ def generate_entry_endpoint_reply(
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:
-        data_part += [_resource_object(row, request.baseurl)]
+        data_part += [
+            _resource_object(row, request.baseurl, partial_data_entry=request.endpoint if request.revisions else None)
+        ]
         for etype, rels in row.relationships.items():
             if etype in request.include_paths:
                 collected.setdefault(etype, set()).update(rel["id"] for rel in rels)
@@ -182,7 +185,7 @@ def generate_entry_endpoint_reply(
     if data.more_data_available:
         query = request.query.as_query_dict()
         query['page_offset'] = str(request.query.page_offset + len(data_part))
-        links = {"next": request.baseurl + request.endpoint + "?" + urlencode(query)}
+        links = {"next": request.baseurl + (request.endpoint_path or request.endpoint) + "?" + urlencode(query)}
     else:
         links = {"next": None}
     if config.schema_url is not None:
@@ -236,7 +239,14 @@ def generate_single_entry_endpoint_reply(
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:
-        data_part += [_resource_object(row, request.baseurl, request.query.dimension_slices)]
+        data_part += [
+            _resource_object(
+                row,
+                request.baseurl,
+                request.query.dimension_slices,
+                request.endpoint if request.revisions else None,
+            )
+        ]
         for etype, rels in row.relationships.items():
             if etype in request.include_paths:
                 collected.setdefault(etype, set()).update(rel["id"] for rel in rels)

@@ -15,7 +15,7 @@ from httk.atomistic import (
     UnitcellStructureView,
 )
 from httk.core import Dataset, DatasetDistribution
-from httk.store import Backend, EntryFamilyDeclaration, EntryRecordDeclaration, SqlStore
+from httk.store import Backend, EntryFamilyDeclaration, EntryIdScheme, EntryRecordDeclaration, SqlStore
 from httk.store.backend.sql import StoredEntrySource
 from starlette.testclient import TestClient
 
@@ -64,6 +64,7 @@ def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -
             StructureEntry: UnitcellStructureRecord,
             DspPublicationEntry: DspPublicationRecord,
         },
+        entry_ids=EntryIdScheme("httk.test", "1"),
     )
     store.save(
         DspPublicationRecord(
@@ -106,7 +107,7 @@ def test_adapter_discovers_an_application_owned_optimade_family_from_layout() ->
             ),
         ),
     )
-    store = SqlStore(Backend.sqlite(), entry_families=(declaration,))
+    store = SqlStore(Backend.sqlite(), entry_families=(declaration,), entry_ids=EntryIdScheme("httk.test", "1"))
     store.save(entries[0])
 
     adapter = adapter_from_store(store)
@@ -114,6 +115,14 @@ def test_adapter_discovers_an_application_owned_optimade_family_from_layout() ->
     assert set(adapter.schema.all_entries) == {"structures"}
     with TestClient(create_asgi_app(store, baseurl="http://testserver"), base_url="http://testserver") as client:
         assert client.get("/structures").json()["meta"]["data_available"] == 1
+
+
+def test_provider_backed_structure_app_does_not_expose_revision_routes() -> None:
+    """Revision URLs are a store federation feature, not a provider feature."""
+    app = create_asgi_app(adapter_from_providers([StructureEntryProvider(_entries())]), baseurl="http://testserver")
+    with TestClient(app, base_url="http://testserver") as client:
+        assert client.get("/structures/mixed/_httk_revs").status_code == 404
+        assert client.get("/_httk_structures~revs").status_code == 404
 
 
 def _entries() -> dict[str, UnitcellStructure]:
@@ -157,15 +166,23 @@ def test_stored_structure_preserves_signed_zero_through_view_and_asgi() -> None:
         [species],
         ["Si"],
     )
-    key = structure.id
+    content_id = structure.id
     with Backend.sqlite() as database:
-        SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord}).save(structure)
+        store = SqlStore(
+            database,
+            entry_records={StructureEntry: UnitcellStructureRecord},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        store.save(structure)
+        record = store.fetch_entry(StructureEntry, structure.id)
+        assert isinstance(record, UnitcellStructureRecord)
+        key = record.id
         reopened = SqlStore(database)
-        record = reopened.fetch_entry(StructureEntry, key)
+        record = reopened.fetch_entry(StructureEntry, structure.id)
         assert isinstance(record, UnitcellStructureRecord)
         view = UnitcellStructureView(record)
         assert record.id == key
-        assert view.id == key
+        assert view.id == content_id
         assert math.copysign(1.0, view.species[0].mass[0]) == -1.0
 
         app = create_asgi_app(
@@ -190,7 +207,11 @@ def structure_api(request):
         return
 
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={StructureEntry: UnitcellStructureRecord})
+        store = SqlStore(
+            database,
+            entry_records={StructureEntry: UnitcellStructureRecord},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
         with store.transaction():
             sids = {entry_id: store.save(structure) for entry_id, structure in entries.items()}
         provider = StructureEntryProvider(
@@ -216,7 +237,7 @@ def test_structure_provider_info_exposes_complete_standard_contract(structure_ap
 
 
 def test_structure_provider_listing_preserves_standard_semantics(structure_api) -> None:
-    _mode, client = structure_api
+    mode, client = structure_api
     response = client.get("/structures")
 
     assert response.status_code == 200
@@ -229,7 +250,10 @@ def test_structure_provider_listing_preserves_standard_semantics(structure_api) 
     expected_attributes = STANDARD_STRUCTURE_PROPERTIES - {"id", "type"}
     assert expected_attributes <= set(attributes)
     assert mixed["type"] == "structures"
-    assert attributes["immutable_id"] == "source/mixed"
+    if mode == "sqlite-record":
+        assert attributes["immutable_id"] == "httk.test-1-1~1"
+    else:
+        assert attributes["immutable_id"] == "source/mixed"
     assert attributes["last_modified"] == "2026-01-02T03:04:05+00:00"
     assert attributes["elements"] == ["Ge", "Si"]
     assert attributes["elements_ratios"] == [0.625, 0.375]
@@ -253,7 +277,10 @@ def test_structure_provider_listing_preserves_standard_semantics(structure_api) 
 
     silicon = resources["silicon"]["attributes"]
     assert expected_attributes <= set(silicon)
-    assert silicon["immutable_id"] is None
+    if mode == "sqlite-record":
+        assert silicon["immutable_id"] == "httk.test-1-2~1"
+    else:
+        assert silicon["immutable_id"] is None
     assert silicon["chemical_formula_reduced"] == "Si"
     assert silicon["assemblies"] is None
     assert silicon["wyckoff_positions"] is None

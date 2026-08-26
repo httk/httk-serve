@@ -42,7 +42,7 @@ def generate_info_endpoint_reply(
         "entry_types_by_format": {
             "json": list(schema.all_entries),
         },
-        "available_endpoints": ["info", "links"] + list(schema.all_entries),
+        "available_endpoints": ["info", "links"] + list(schema.all_entries) + list(schema.revision_endpoints),
         "is_index": is_index,
     }
     if config.license is not None:

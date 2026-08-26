@@ -185,11 +185,12 @@ def process(
     request_id = validated_request.request_id
     validated_parameters = validated_request.query
 
-    if endpoint in schema.all_entries:
+    if endpoint in schema.all_entries + schema.revision_endpoints:
+        snapshot_entry = schema.revision_base.get(endpoint, endpoint)
         if snapshot_cutoff_ns is None:
             validated_parameters.as_of = None
         else:
-            cutoff = snapshot_cutoff_ns(endpoint, time.time_ns())
+            cutoff = snapshot_cutoff_ns(snapshot_entry, time.time_ns())
             if cutoff is None:
                 validated_parameters.as_of = None
             elif validated_parameters.as_of is None:
@@ -226,10 +227,10 @@ def process(
     elif endpoint == 'partial_data':
         return generate_partial_data_reply(validated_request, config, query_function, schema)
 
-    elif endpoint in schema.all_entries:
+    elif endpoint in schema.all_entries + schema.revision_endpoints:
         response_fields = validated_request.recognized_response_fields
         unknown_response_fields = validated_request.unrecognized_response_fields
-        entries = [endpoint]
+        entries = [schema.revision_base.get(endpoint, endpoint)]
 
         if not response_fields:
             response_fields = list(schema.default_response_fields[endpoint])
@@ -238,28 +239,39 @@ def process(
             if response_field not in response_fields:
                 response_fields += [response_field]
 
-        input_string = None
         filter_ast: FilterAst | None = None
-        if request_id is not None:
-            input_string = 'filter=id="' + request_id + '"'
+        route_filter_ast: FilterAst | None = None
+        if validated_request.request_immutable_id is not None and request_id is not None:
+            # StoredBackendAdapter uses this synthesized lineage id together
+            # with request_immutable_id to call fetch_revision().
             filter_ast = ('=', ('Identifier', 'id'), ('String', request_id))
-        elif validated_parameters.filter is not None:
-            input_string = validated_parameters.filter
+        elif request_id is not None:
+            if validated_request.revisions:
+                route_filter_ast = ('=', ('Identifier', '_httk_id'), ('String', request_id))
+                filter_ast = route_filter_ast
+            else:
+                filter_ast = ('=', ('Identifier', 'id'), ('String', request_id))
 
-        if input_string is not None:
-            if filter_ast is None:
-                try:
-                    filter_ast = parse_optimade_filter(input_string)
-                except ParserSyntaxError as e:
-                    raise OptimadeError(str(e), 400, "Bad request")
-                # Enforce queryability on the client filter before any backend or
-                # adapter rewriting; the synthesized request_id id-filter above
-                # needs no check.
-                _reject_hidden_filter_properties(filter_ast, endpoint, schema)
+        if validated_parameters.filter is not None and validated_request.request_immutable_id is None:
+            try:
+                client_filter = parse_optimade_filter(validated_parameters.filter)
+            except ParserSyntaxError as e:
+                raise OptimadeError(str(e), 400, "Bad request")
+            _reject_hidden_filter_properties(client_filter, endpoint, schema)
+            filter_ast = client_filter if filter_ast is None else ('AND', filter_ast, client_filter)
 
+        if filter_ast is not None:
             if _LOG.isEnabledFor(logging.DEBUG):
                 _LOG.debug("==== FILTER STRING PARSE RESULT: %s", pformat(filter_ast), extra={"context": "optimade"})
 
+            query_kwargs: dict[str, Any] = {
+                "as_of": validated_parameters.as_of,
+                "sort": validated_request.sort_fields or None,
+                "debug": debug,
+            }
+            if validated_request.revisions:
+                query_kwargs["revisions"] = True
+                query_kwargs["immutable_id"] = validated_request.request_immutable_id
             try:
                 results = query_function(
                     entries,
@@ -268,24 +280,31 @@ def process(
                     validated_parameters.page_limit,
                     validated_parameters.page_offset,
                     filter_ast,
-                    as_of=validated_parameters.as_of,
-                    sort=validated_request.sort_fields or None,
-                    debug=debug,
+                    **query_kwargs,
                 )
             except TranslatorError as e:
                 raise OptimadeError(str(e), e.response_code, e.response_msg)
 
         else:
+            query_kwargs = {
+                "as_of": validated_parameters.as_of,
+                "sort": validated_request.sort_fields or None,
+                "debug": debug,
+            }
+            if validated_request.revisions:
+                query_kwargs["revisions"] = True
+                query_kwargs["immutable_id"] = validated_request.request_immutable_id
             results = query_function(
                 entries,
                 response_fields,
                 unknown_response_fields,
                 validated_parameters.page_limit,
                 validated_parameters.page_offset,
-                as_of=validated_parameters.as_of,
-                sort=validated_request.sort_fields or None,
-                debug=debug,
+                **query_kwargs,
             )
+
+        if validated_request.request_immutable_id is not None and results.count() == 0:
+            raise OptimadeError("Request for non-existing revision.", 404, "Not Found")
 
         related_resolver = _make_related_resolver(
             query_function,
@@ -302,9 +321,14 @@ def process(
         # and a delete interleaved between them can still skew the pair for that
         # one response. ponytail: an extra count query per entry request; memoize
         # per (endpoint, as_of) if it ever shows up in a profile.
-        data_available = query_function(entries, [], [], 0, 0, as_of=validated_parameters.as_of, debug=debug).count()
+        count_kwargs: dict[str, Any] = {"as_of": validated_parameters.as_of, "debug": debug}
+        if validated_request.revisions:
+            count_kwargs["revisions"] = True
+        data_available = query_function(entries, [], [], 0, 0, route_filter_ast, **count_kwargs).count()
 
-        if request_id is not None:
+        if (
+            request_id is not None and not validated_request.revisions
+        ) or validated_request.request_immutable_id is not None:
             response = generate_single_entry_endpoint_reply(
                 validated_request, config, results, data_available, related_resolver
             )
@@ -319,7 +343,7 @@ def process(
     elif endpoint.startswith("info/"):
         info, _sep, base = endpoint.partition("/")
         assert info == "info"
-        if base in schema.all_entries:
+        if base in schema.all_entries + schema.revision_endpoints:
             response = generate_entry_info_endpoint_reply(validated_request, config, base, schema)
         else:
             raise OptimadeError("Internal error: unexpected endpoint.", 500, "Internal server error")

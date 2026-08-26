@@ -10,15 +10,15 @@ permissive for trusted callers, so these tests drive the full engine through a
 and depth-1 relationship identifiers.
 """
 
-from dataclasses import dataclass
-from typing import Any, ClassVar
+from dataclasses import dataclass, field
+from typing import Annotated, Any, ClassVar
 
 import pytest
 from fake_backend import FakeStore
 from httk.core import EntryTypeDefinition, PropertyDefinition, load_entry_type_definition
 from httk.core.register import register_entry_family, register_entry_record
-from httk.core.storage import StorageInfo, StoredPropertyProjection
-from httk.store import Backend, SqlStore
+from httk.core.storage import IdentitySkip, Indexed, StorageInfo, StoredPropertyProjection, Unique
+from httk.store import Backend, EntryIdScheme, SqlStore
 from httk.store.backend.sql import StoredEntrySource
 from starlette.testclient import TestClient
 
@@ -174,6 +174,8 @@ class SecretRecord:
 
     public: str
     secret: str
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
 
     __httk_stored_properties__: ClassVar[Any] = {
         "_httk_public": StoredPropertyProjection(response=lambda record: record.public, query=_string_query("public")),
@@ -201,8 +203,49 @@ def _stored_client(store: SqlStore) -> TestClient:
 
 def test_stored_queryable_property_filters() -> None:
     with Backend.sqlite() as database:
-        store = SqlStore(database, entry_records={SecretCalculation: SecretRecord})
+        store = SqlStore(
+            database,
+            entry_records={SecretCalculation: SecretRecord},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
         with _stored_client(store) as client:
             response = client.get("/calculations", params={"filter": '_httk_public = "open"'})
             assert response.status_code == 200
             assert len(response.json()["data"]) == 1
+
+
+def test_stored_revision_endpoints_render_immutable_and_lineage_ids() -> None:
+    """The generic stored adapter exposes every revision through its derived endpoint."""
+    with Backend.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={SecretCalculation: SecretRecord},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        first_sid = store.save(SecretRecord("open", "classified"))
+        first = store.fetch(SecretRecord, first_sid)
+        store.replace(first, SecretRecord("closed", "classified"))
+        adapter = adapter_from_stores((StoredEntrySource(store, SecretCalculation, "alpha"),))
+        app = create_asgi_app(adapter, baseurl="http://testserver")
+
+        with TestClient(app, base_url="http://testserver") as client:
+            latest = client.get("/calculations")
+            assert latest.status_code == 200
+            assert latest.json()["data"][0]["id"] == "httk.test-1-1"
+
+            revisions = client.get("/calculations/httk.test-1-1/_httk_revs")
+            assert revisions.status_code == 200
+            payload = revisions.json()
+            assert [item["id"] for item in payload["data"]] == ["httk.test-1-1~1", "httk.test-1-1~2"]
+            assert {item["attributes"]["_httk_id"] for item in payload["data"]} == {"httk.test-1-1"}
+
+            single = client.get("/calculations/httk.test-1-1/_httk_revs/1")
+            assert single.status_code == 200
+            assert single.json()["data"]["id"] == "httk.test-1-1~1"
+
+            all_revisions = client.get("/_httk_calculations~revs")
+            assert all_revisions.status_code == 200
+            assert all_revisions.json()["meta"]["data_available"] == 2
+            by_immutable_id = client.get("/_httk_calculations~revs/httk.test-1-1~1")
+            assert by_immutable_id.status_code == 200
+            assert by_immutable_id.json()["data"]["id"] == "httk.test-1-1~1"
