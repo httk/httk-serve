@@ -47,7 +47,11 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=program, description="Serve httk applications")
     parser.set_defaults(handler=None, help_parser=parser)
     groups = parser.add_subparsers(metavar="GROUP")
-    web = groups.add_parser("web", help="serve and validate httk-serve sites")
+    web = groups.add_parser(
+        "web",
+        help="serve and validate httk-serve sites",
+        description="Serve, validate, and list widgets for httk-serve web sites",
+    )
     web.set_defaults(help_parser=web)
     subparsers = web.add_subparsers(metavar="COMMAND")
     serve_parser = subparsers.add_parser("serve", help="serve a site")
