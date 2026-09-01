@@ -74,6 +74,11 @@ normal entry endpoint serves the latest revision for each lineage:
 | `/_httk_<entry>~revs` | Every revision of every lineage. |
 | `/_httk_<entry>~revs/<immutable_id>` | One revision by its complete immutable ID. |
 | `/info/_httk_<entry>~revs` | Metadata for the revision endpoint. |
+| `/<entry>/<id>/_httk_alts` | Every named alternative of that lineage (latest of each kind). |
+| `/<entry>/<id>/_httk_alts/<kind>` | One named alternative by its kind token. |
+| `/_httk_<entry>~alts` | Every named alternative of every lineage. |
+| `/_httk_<entry>~alts/<id>~<kind>` | One named alternative by its composite ID. |
+| `/info/_httk_<entry>~alts` | Metadata for the alternative endpoint. |
 
 Revision collections support the usual `filter`, `sort`, and paging query
 parameters. Their resource `id` is the immutable ID (for example,
@@ -81,6 +86,17 @@ parameters. Their resource `id` is the immutable ID (for example,
 (`httk.mydb-1-42`). The ordinary endpoint continues to render `id` as the
 lineage ID and any declared `immutable_id` property as the current immutable
 revision. These revision URLs are available only for store-backed adapters.
+
+Named alternatives are sibling representations of an entry (kind tokens matching
+`[a-z][a-z0-9_]*`, for example `conventional` or `primitive`). Their resource
+`id` is the composite `<id>~<kind>` addressing the latest revision of that
+alternative, `_httk_id` is the shared lineage ID, and `_httk_kind` is the kind
+token; both `_httk_id` and `_httk_kind` are filterable and sortable, and the
+collections support the usual `filter`, `sort`, and paging query parameters. The
+ordinary `/<entry>` endpoints serve mains only, and the revision endpoints are
+likewise mains-only (an alternative's revision ID such as
+`/_httk_<entry>~revs/<id>~<kind>~<n>` is never served). Like the revision URLs,
+these alternative URLs are available only for store-backed adapters.
 
 ## Several stores
 

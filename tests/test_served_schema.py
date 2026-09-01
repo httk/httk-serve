@@ -95,6 +95,33 @@ def test_build_served_schema_adds_store_revision_endpoint() -> None:
     assert revision_endpoint not in schema.entry_definition_ids
 
 
+def test_build_served_schema_adds_store_alternative_endpoint() -> None:
+    schema = build_served_schema({"widgets": widgets_definition()}, alternatives=("widgets",))
+    alt_endpoint = "_httk_widgets~alts"
+    assert schema.all_entries == ("widgets",)
+    assert schema.alt_endpoints == (alt_endpoint,)
+    assert schema.alt_base == {alt_endpoint: "widgets"}
+    assert alt_endpoint in schema.valid_endpoints
+    assert "info/" + alt_endpoint in schema.valid_endpoints
+    assert "_httk_id" in schema.properties_by_entry[alt_endpoint]
+    assert "_httk_kind" in schema.properties_by_entry[alt_endpoint]
+    assert "_httk_id" in schema.default_response_fields[alt_endpoint]
+    assert "_httk_kind" in schema.default_response_fields[alt_endpoint]
+    assert "_httk_kind" in schema.sortable_response_fields[alt_endpoint]
+    assert alt_endpoint not in schema.entry_definition_ids
+
+
+def test_build_served_schema_rejects_alternative_endpoint_name_collision() -> None:
+    with pytest.raises(ValueError, match="collision"):
+        build_served_schema(
+            {
+                "structures": structures_definition(),
+                "_httk_structures~alts": widgets_definition(),
+            },
+            alternatives=("structures",),
+        )
+
+
 def test_build_served_schema_rejects_revision_endpoint_name_collision() -> None:
     with pytest.raises(ValueError, match="Generated revision endpoint name collision"):
         build_served_schema(

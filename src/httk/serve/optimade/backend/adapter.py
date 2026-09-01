@@ -116,10 +116,12 @@ class BackendAdapter:
             as_of: int | None = None,
             sort: Sequence[tuple[str, bool]] | None = None,
             revisions: bool = False,
+            alternatives: bool = False,
             immutable_id: str | None = None,
             debug: bool = False,
         ) -> QueryResults:
-            del as_of, revisions, immutable_id  # In-memory provider data has no revision or timestamp support.
+            # In-memory provider data has no revision, alternative, or timestamp support.
+            del as_of, revisions, alternatives, immutable_id
             return execute_query(
                 self,
                 entries,

@@ -160,6 +160,8 @@ class ServedSchema:
     :param all_entries: Served entry endpoint names in declaration order.
     :param revision_endpoints: Store-backed revision endpoint names.
     :param revision_base: Base entry type keyed by revision endpoint.
+    :param alt_endpoints: Store-backed alternative endpoint names.
+    :param alt_base: Base entry type keyed by alternative endpoint.
     :param valid_endpoints: Fixed and entry endpoint names accepted by validation.
     :param properties_by_entry: Served property names keyed by entry type.
     :param default_response_fields: Default response fields keyed by entry type.
@@ -175,6 +177,8 @@ class ServedSchema:
     all_entries: tuple[str, ...]
     revision_endpoints: tuple[str, ...]
     revision_base: dict[str, str]
+    alt_endpoints: tuple[str, ...]
+    alt_base: dict[str, str]
     valid_endpoints: tuple[str, ...]
     properties_by_entry: dict[str, tuple[str, ...]]
     default_response_fields: dict[str, tuple[str, ...]]
@@ -192,6 +196,7 @@ def build_served_schema(
     sortable: Mapping[str, Sequence[str]] | None = None,
     recognized_prefixes: tuple[str, ...] | None = None,
     revisions: Sequence[str] = (),
+    alternatives: Sequence[str] = (),
 ) -> ServedSchema:
     """Build a :class:`ServedSchema` from entry-type definitions.
 
@@ -212,6 +217,7 @@ def build_served_schema(
     :param sortable: Sortable fields keyed by entry type.
     :param recognized_prefixes: Prefixes recognized in response-field requests.
     :param revisions: Base entries for which stored revision endpoints are served.
+    :param alternatives: Base entries for which stored alternative endpoints are served.
     :return: Derived schema and lookup tables.
     :raises ValueError: If a requested served property is not defined.
     """
@@ -224,12 +230,27 @@ def build_served_schema(
     if len(set(revision_bases)) != len(revision_bases):
         raise ValueError("Revision endpoint entries must be unique.")
 
+    alt_bases = tuple(alternatives)
+    unknown_alternatives = [entry for entry in alt_bases if entry not in definitions]
+    if unknown_alternatives:
+        raise ValueError(
+            "Alternative endpoint requested for undefined entry type(s): " + ", ".join(unknown_alternatives)
+        )
+    if len(set(alt_bases)) != len(alt_bases):
+        raise ValueError("Alternative endpoint entries must be unique.")
+
     revision_endpoints = tuple(f"_httk_{entry}~revs" for entry in revision_bases)
+    alt_endpoints = tuple(f"_httk_{entry}~alts" for entry in alt_bases)
     fixed_endpoints = {"", "info", "links", "partial_data", "versions"}
-    collisions = [endpoint for endpoint in revision_endpoints if endpoint in definitions or endpoint in fixed_endpoints]
+    collisions = [
+        endpoint
+        for endpoint in revision_endpoints + alt_endpoints
+        if endpoint in definitions or endpoint in fixed_endpoints
+    ]
     if collisions:
         raise ValueError("Generated revision endpoint name collision(s): " + ", ".join(collisions))
     revision_base = dict(zip(revision_endpoints, revision_bases, strict=True))
+    alt_base = dict(zip(alt_endpoints, alt_bases, strict=True))
     expanded_definitions = dict(definitions)
     expanded_served: dict[str, Sequence[str]] = dict(served or {})
     expanded_defaults: dict[str, Sequence[str]] = dict(default_response_overrides or {})
@@ -253,6 +274,29 @@ def build_served_schema(
         expanded_defaults[revision_endpoint] = tuple(base_defaults + ["_httk_id"])
         base_sortable = list(sortable.get(entry, ())) if sortable is not None else []
         expanded_sortable[revision_endpoint] = tuple(base_sortable + ["_httk_id"])
+    for alt_endpoint, entry in alt_base.items():
+        expanded_definitions[alt_endpoint] = definitions[entry].extended(
+            {
+                "_httk_id": PropertyDefinition.from_simple(
+                    "_httk_id",
+                    description="The lineage (logical) entry id of the entry this alternative represents.",
+                ),
+                "_httk_kind": PropertyDefinition.from_simple(
+                    "_httk_kind",
+                    description="The kind token naming this alternative representation of the entry.",
+                ),
+            }
+        )
+        base_served = (
+            list(served[entry]) if served is not None and entry in served else list(definitions[entry].properties)
+        )
+        expanded_served[alt_endpoint] = tuple(base_served + ["_httk_id", "_httk_kind"])
+        base_defaults = (
+            list(default_response_overrides.get(entry, ())) if default_response_overrides is not None else []
+        )
+        expanded_defaults[alt_endpoint] = tuple(base_defaults + ["_httk_id", "_httk_kind"])
+        base_sortable = list(sortable.get(entry, ())) if sortable is not None else []
+        expanded_sortable[alt_endpoint] = tuple(base_sortable + ["_httk_id", "_httk_kind"])
     entry_info: dict[str, dict[str, Any]] = {}
     entry_definition_ids: dict[str, str] = {}
     property_definitions: dict[str, dict[str, dict[str, Any]]] = {}
@@ -323,11 +367,14 @@ def build_served_schema(
         all_entries=all_entries,
         revision_endpoints=revision_endpoints,
         revision_base=revision_base,
+        alt_endpoints=alt_endpoints,
+        alt_base=alt_base,
         valid_endpoints=tuple(
             ["info", "links"]
             + list(all_entries)
             + list(revision_endpoints)
-            + ["info/" + x for x in all_entries + revision_endpoints]
+            + list(alt_endpoints)
+            + ["info/" + x for x in all_entries + revision_endpoints + alt_endpoints]
             + [""]
         ),
         properties_by_entry=properties_by_entry,

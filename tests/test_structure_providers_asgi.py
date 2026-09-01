@@ -125,6 +125,15 @@ def test_provider_backed_structure_app_does_not_expose_revision_routes() -> None
         assert client.get("/_httk_structures~revs").status_code == 404
 
 
+def test_provider_backed_structure_app_does_not_expose_alternative_routes() -> None:
+    """Alternative URLs are a store federation feature, not a provider feature."""
+    app = create_asgi_app(adapter_from_providers([StructureEntryProvider(_entries())]), baseurl="http://testserver")
+    with TestClient(app, base_url="http://testserver") as client:
+        assert client.get("/structures/mixed/_httk_alts").status_code == 404
+        assert client.get("/structures/mixed/_httk_alts/conventional").status_code == 404
+        assert client.get("/_httk_structures~alts").status_code == 404
+
+
 def _entries() -> dict[str, UnitcellStructure]:
     mixed_species = Species(
         name="mixed",

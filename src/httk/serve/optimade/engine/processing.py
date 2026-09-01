@@ -185,8 +185,8 @@ def process(
     request_id = validated_request.request_id
     validated_parameters = validated_request.query
 
-    if endpoint in schema.all_entries + schema.revision_endpoints:
-        snapshot_entry = schema.revision_base.get(endpoint, endpoint)
+    if endpoint in schema.all_entries + schema.revision_endpoints + schema.alt_endpoints:
+        snapshot_entry = schema.revision_base.get(endpoint) or schema.alt_base.get(endpoint) or endpoint
         if snapshot_cutoff_ns is None:
             validated_parameters.as_of = None
         else:
@@ -227,10 +227,10 @@ def process(
     elif endpoint == 'partial_data':
         return generate_partial_data_reply(validated_request, config, query_function, schema)
 
-    elif endpoint in schema.all_entries + schema.revision_endpoints:
+    elif endpoint in schema.all_entries + schema.revision_endpoints + schema.alt_endpoints:
         response_fields = validated_request.recognized_response_fields
         unknown_response_fields = validated_request.unrecognized_response_fields
-        entries = [schema.revision_base.get(endpoint, endpoint)]
+        entries = [schema.revision_base.get(endpoint) or schema.alt_base.get(endpoint) or endpoint]
 
         if not response_fields:
             response_fields = list(schema.default_response_fields[endpoint])
@@ -246,7 +246,7 @@ def process(
             # with request_immutable_id to call fetch_revision().
             filter_ast = ('=', ('Identifier', 'id'), ('String', request_id))
         elif request_id is not None:
-            if validated_request.revisions:
+            if validated_request.revisions or validated_request.alternatives:
                 route_filter_ast = ('=', ('Identifier', '_httk_id'), ('String', request_id))
                 filter_ast = route_filter_ast
             else:
@@ -272,6 +272,9 @@ def process(
             if validated_request.revisions:
                 query_kwargs["revisions"] = True
                 query_kwargs["immutable_id"] = validated_request.request_immutable_id
+            if validated_request.alternatives:
+                query_kwargs["alternatives"] = True
+                query_kwargs["immutable_id"] = validated_request.request_immutable_id
             try:
                 results = query_function(
                     entries,
@@ -293,6 +296,9 @@ def process(
             }
             if validated_request.revisions:
                 query_kwargs["revisions"] = True
+                query_kwargs["immutable_id"] = validated_request.request_immutable_id
+            if validated_request.alternatives:
+                query_kwargs["alternatives"] = True
                 query_kwargs["immutable_id"] = validated_request.request_immutable_id
             results = query_function(
                 entries,
@@ -324,10 +330,12 @@ def process(
         count_kwargs: dict[str, Any] = {"as_of": validated_parameters.as_of, "debug": debug}
         if validated_request.revisions:
             count_kwargs["revisions"] = True
+        if validated_request.alternatives:
+            count_kwargs["alternatives"] = True
         data_available = query_function(entries, [], [], 0, 0, route_filter_ast, **count_kwargs).count()
 
         if (
-            request_id is not None and not validated_request.revisions
+            request_id is not None and not validated_request.revisions and not validated_request.alternatives
         ) or validated_request.request_immutable_id is not None:
             response = generate_single_entry_endpoint_reply(
                 validated_request, config, results, data_available, related_resolver
@@ -343,7 +351,7 @@ def process(
     elif endpoint.startswith("info/"):
         info, _sep, base = endpoint.partition("/")
         assert info == "info"
-        if base in schema.all_entries + schema.revision_endpoints:
+        if base in schema.all_entries + schema.revision_endpoints + schema.alt_endpoints:
             response = generate_entry_info_endpoint_reply(validated_request, config, base, schema)
         else:
             raise OptimadeError("Internal error: unexpected endpoint.", 500, "Internal server error")

@@ -62,6 +62,7 @@ class QueryFunction(Protocol):
         as_of: int | None = None,
         sort: Sequence[tuple[str, bool]] | None = None,
         revisions: bool = False,
+        alternatives: bool = False,
         immutable_id: str | None = None,
         debug: bool = False,
     ) -> QueryResults:
@@ -79,7 +80,8 @@ class QueryFunction(Protocol):
             provider backends.
         :param sort: Field names paired with descending flags.
         :param revisions: Select all stored revisions rather than latest lineages.
-        :param immutable_id: Select one immutable stored revision when supplied.
+        :param alternatives: Select named alternatives with composite ``<id>~<kind>`` ids.
+        :param immutable_id: Select one immutable stored revision, or (in alternatives mode) the composite alternative id, when supplied.
         :param debug: Enable backend diagnostics.
         :return: Query results for the requested page.
         """

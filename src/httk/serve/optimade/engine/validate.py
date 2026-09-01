@@ -24,6 +24,8 @@ FILTER_LENGTH_MAX = 4096
 _DIMENSION_SLICE_RE = re.compile(r'^([^\[\]:]+)\[(\d*):(\d*):(\d*)\]$')
 _CANONICAL_NONNEGATIVE_INTEGER_RE = re.compile(r'[0-9]+')
 _CANONICAL_POSITIVE_INTEGER_RE = re.compile(r'[1-9][0-9]*')
+# An alternative-kind token: a lowercase letter then lowercase alphanumerics/underscores.
+_ALTERNATIVE_KIND_RE = re.compile(r'[a-z][a-z0-9_]*')
 
 
 def _is_printable_ascii(value: str) -> bool:
@@ -126,7 +128,11 @@ def _validate_query(
     # The sort parameter is only meaningful for entry endpoints; on other
     # endpoints it is ignored. The raw string is stored here; parsing into
     # (property, descending) pairs happens in validate_optimade_request.
-    if 'sort' in query and query['sort'] is not None and endpoint in schema.all_entries + schema.revision_endpoints:
+    if (
+        'sort' in query
+        and query['sort'] is not None
+        and endpoint in schema.all_entries + schema.revision_endpoints + schema.alt_endpoints
+    ):
         validated_parameters.sort = query['sort']
 
     # The include parameter is only meaningful for entry endpoints. The raw
@@ -160,6 +166,7 @@ def validate_optimade_request(
     endpoint = request.endpoint
     request_id = request.request_id
     revisions = False
+    alternatives = False
     request_immutable_id: str | None = None
     endpoint_path: str | None = None
     validated_version = request.version if request.version is not None else optimade_default_version
@@ -211,6 +218,15 @@ def validate_optimade_request(
             else:
                 raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
 
+        # Then the global alternatives collection's composite single.
+        elif first_level_endpoint in schema.alt_endpoints:
+            if len(parts) == 2 and _is_printable_ascii(parts[1]):
+                endpoint = schema.alt_endpoints[schema.alt_endpoints.index(first_level_endpoint)]
+                alternatives = True
+                request_immutable_id = parts[1]
+            else:
+                raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
+
         # Then check base entry and stored-revision paths.
         elif first_level_endpoint in schema.all_entries:
             # Defensive programming; don't trust '=='/in to be byte-for-byte equivalent,
@@ -234,6 +250,22 @@ def validate_optimade_request(
                 endpoint_path = "/".join(parts[:3])
                 if len(parts) == 4 and parts[3] != "":
                     if _CANONICAL_POSITIVE_INTEGER_RE.fullmatch(parts[3]) is None:
+                        raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
+                    request_immutable_id = request_id + "~" + parts[3]
+            elif (
+                endpoint in schema.alt_base.values()
+                and len(parts) in (3, 4)
+                and parts[2] == "_httk_alts"
+                and _is_printable_ascii(parts[1])
+                and (len(parts) == 3 or parts[3] == "" or _is_printable_ascii(parts[3]))
+            ):
+                alt_endpoint = f"_httk_{endpoint}~alts"
+                endpoint = alt_endpoint
+                alternatives = True
+                request_id = parts[1]
+                endpoint_path = "/".join(parts[:3])
+                if len(parts) == 4 and parts[3] != "":
+                    if _ALTERNATIVE_KIND_RE.fullmatch(parts[3]) is None:
                         raise OptimadeError("Request for non-existing endpoint.", 404, "Not Found")
                     request_immutable_id = request_id + "~" + parts[3]
             elif len(parts) > 1 and not _is_printable_ascii(parts[1]):
@@ -280,6 +312,8 @@ def validate_optimade_request(
 
     if endpoint in schema.revision_endpoints:
         revisions = True
+    if endpoint in schema.alt_endpoints:
+        alternatives = True
 
     if request.query is not None:
         query = request.query
@@ -298,6 +332,7 @@ def validate_optimade_request(
         url_version=url_version,
         request_id=request_id,
         revisions=revisions,
+        alternatives=alternatives,
         request_immutable_id=request_immutable_id,
         endpoint_path=endpoint_path,
         query=_validate_query(endpoint, query, schema, page_limit_max),
@@ -406,7 +441,7 @@ def validate_optimade_request(
         'dimension_slices' in query
         and query['dimension_slices'] is not None
         and query['dimension_slices'].strip() != ""
-        and endpoint in schema.all_entries + schema.revision_endpoints
+        and endpoint in schema.all_entries + schema.revision_endpoints + schema.alt_endpoints
     ):
         if validated_request.request_id is None:
             raise OptimadeError("dimension_slices is only supported on single-entry endpoints.", 400, "Bad request")

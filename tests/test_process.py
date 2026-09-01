@@ -40,6 +40,7 @@ class StubQueryFunction:
         as_of: int | None = None,
         sort: Any = None,
         revisions: bool = False,
+        alternatives: bool = False,
         immutable_id: str | None = None,
         debug: bool = False,
     ) -> StubResults:
@@ -54,6 +55,7 @@ class StubQueryFunction:
                 "as_of": as_of,
                 "sort": sort,
                 "revisions": revisions,
+                "alternatives": alternatives,
                 "immutable_id": immutable_id,
             }
         )
@@ -71,6 +73,11 @@ def make_config() -> OptimadeConfig:
 def revision_schema():
     """Return a minimal schema exposing the stored revision endpoint."""
     return build_served_schema({"structures": structures_definition()}, revisions=("structures",))
+
+
+def alternative_schema():
+    """Return a minimal schema exposing the stored alternative endpoint."""
+    return build_served_schema({"structures": structures_definition()}, alternatives=("structures",))
 
 
 def test_base_endpoint_is_html() -> None:
@@ -203,6 +210,7 @@ def test_revision_partial_data_queries_by_immutable_id() -> None:
             "as_of": None,
             "sort": None,
             "revisions": True,
+            "alternatives": False,
             "immutable_id": "httk.test-1-1~3",
         }
     ]
@@ -224,6 +232,130 @@ def test_revision_collection_next_link_preserves_lineage_path() -> None:
     )
     assert output.json_response is not None
     assert "/structures/httk.test-1-1/_httk_revs?" in output.json_response["links"]["next"]
+
+
+def test_alternative_collection_uses_lineage_filter_and_alternative_query_contract() -> None:
+    query_function = StubQueryFunction(
+        [
+            {
+                "id": "httk.test-1-1~conventional",
+                "type": "structures",
+                "_httk_id": "httk.test-1-1",
+                "_httk_kind": "conventional",
+            }
+        ]
+    )
+    output = process(
+        make_request("/structures/httk.test-1-1/_httk_alts?filter=nelements=3"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        alternative_schema(),
+    )
+    assert output.json_response is not None
+    assert query_function.calls[0]["entries"] == ["structures"]
+    assert query_function.calls[0]["alternatives"] is True
+    assert query_function.calls[0]["revisions"] is False
+    assert query_function.calls[0]["immutable_id"] is None
+    assert query_function.calls[0]["filter_ast"] == (
+        "AND",
+        ("=", ("Identifier", "_httk_id"), ("String", "httk.test-1-1")),
+        ("=", ("Identifier", "nelements"), ("Number", "3")),
+    )
+    assert query_function.calls[1]["alternatives"] is True
+    assert query_function.calls[1]["filter_ast"] == ("=", ("Identifier", "_httk_id"), ("String", "httk.test-1-1"))
+    assert output.json_response["links"]["next"] is None
+
+
+def test_single_alternative_uses_composite_id_and_lineage_filter() -> None:
+    query_function = StubQueryFunction(
+        [
+            {
+                "id": "httk.test-1-1~conventional",
+                "type": "structures",
+                "_httk_id": "httk.test-1-1",
+                "_httk_kind": "conventional",
+            }
+        ]
+    )
+    output = process(
+        make_request("/structures/httk.test-1-1/_httk_alts/conventional"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        alternative_schema(),
+    )
+    assert output.json_response is not None
+    assert output.json_response["data"]["id"] == "httk.test-1-1~conventional"
+    assert query_function.calls[0]["filter_ast"] == ("=", ("Identifier", "id"), ("String", "httk.test-1-1"))
+    assert query_function.calls[0]["immutable_id"] == "httk.test-1-1~conventional"
+    assert query_function.calls[0]["alternatives"] is True
+
+
+def test_global_single_alternative_uses_composite_id_without_lineage_filter() -> None:
+    query_function = StubQueryFunction(
+        [
+            {
+                "id": "httk.test-1-1~conventional",
+                "type": "structures",
+                "_httk_id": "httk.test-1-1",
+                "_httk_kind": "conventional",
+            }
+        ]
+    )
+    output = process(
+        make_request("/_httk_structures~alts/httk.test-1-1~conventional"),
+        query_function,
+        "1.3.0",
+        make_config(),
+        alternative_schema(),
+    )
+    assert output.json_response is not None
+    assert query_function.calls[0]["filter_ast"] is None
+    assert query_function.calls[0]["immutable_id"] == "httk.test-1-1~conventional"
+    assert query_function.calls[0]["alternatives"] is True
+
+
+def test_alternative_collection_next_link_preserves_lineage_path() -> None:
+    class MoreResultsQuery(StubQueryFunction):
+        def __call__(self, *args: Any, **kwargs: Any) -> StubResults:
+            result = super().__call__(*args, **kwargs)
+            result.more_data_available = True
+            return result
+
+    output = process(
+        make_request("/structures/httk.test-1-1/_httk_alts?page_limit=1"),
+        MoreResultsQuery(
+            [
+                {
+                    "id": "httk.test-1-1~conventional",
+                    "type": "structures",
+                    "_httk_id": "httk.test-1-1",
+                    "_httk_kind": "conventional",
+                }
+            ]
+        ),
+        "1.3.0",
+        make_config(),
+        alternative_schema(),
+    )
+    assert output.json_response is not None
+    assert "/structures/httk.test-1-1/_httk_alts?" in output.json_response["links"]["next"]
+
+
+def test_alternative_entry_info_includes_lineage_and_kind() -> None:
+    schema = build_served_schema({"references": references_definition()}, alternatives=("references",))
+    output = process(
+        make_request("/info/_httk_references~alts"),
+        StubQueryFunction(),
+        "1.3.0",
+        make_config(),
+        schema,
+    )
+    assert output.json_response is not None
+    assert "_httk_id" in output.json_response["data"]["properties"]
+    assert "_httk_kind" in output.json_response["data"]["properties"]
+    assert "links" not in output.json_response
 
 
 def test_revision_entry_info_includes_lineage_id() -> None:

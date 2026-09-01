@@ -509,3 +509,99 @@ def test_structure_revisions_are_available_over_the_stored_federation() -> None:
             "next"
         ]
         assert "/structures/" + first_id + "/_httk_revs?" in next_link
+
+
+def test_structure_alternatives_are_available_over_the_stored_federation() -> None:
+    """Store-backed structure routes expose named alternatives with composite ids, mains-only elsewhere."""
+    with Backend.sqlite() as database:
+        store = _store(database)
+        main = _structure("Na")
+        main_id = _save_entry(store, main)
+        # A conventional alternative, replaced once (latest revision must win), plus a primitive one.
+        conventional_sid = store.save(_structure("Na"), alternative_of=main_id, alternative_kind="conventional")
+        conventional = store.fetch(UnitcellStructureRecord, conventional_sid, eager=True)
+        store.replace(conventional, _structure("Na", "Cl", "O"))
+        store.save(_structure("Si"), alternative_of=main_id, alternative_kind="primitive")
+        other_id = _save_entry(store, _structure("Si", "O"))
+        app = create_asgi_app(
+            adapter_from_stores((StoredEntrySource(store, StructureEntry, "main"),)),
+            baseurl="http://testserver",
+        )
+        client = AsgiSyncClient(app, base_url="http://testserver")
+
+        mains = client.get("http://testserver/structures").json()
+        assert {item["id"] for item in mains["data"]} == {main_id, other_id}
+
+        direct = client.get("http://testserver/structures/" + main_id)
+        assert direct.status_code == 200
+        assert direct.json()["data"]["id"] == main_id
+
+        group = client.get("http://testserver/structures/" + main_id + "/_httk_alts")
+        assert group.status_code == 200
+        group_payload: Mapping[str, Any] = group.json()
+        assert {item["id"] for item in group_payload["data"]} == {
+            main_id + "~conventional",
+            main_id + "~primitive",
+        }
+        assert {item["attributes"]["_httk_id"] for item in group_payload["data"]} == {main_id}
+        assert {item["attributes"]["_httk_kind"] for item in group_payload["data"]} == {"conventional", "primitive"}
+        assert group_payload["meta"]["data_returned"] == 2
+        assert group_payload["meta"]["data_available"] == 2
+
+        conventional_single = client.get("http://testserver/structures/" + main_id + "/_httk_alts/conventional")
+        assert conventional_single.status_code == 200
+        assert conventional_single.json()["data"]["id"] == main_id + "~conventional"
+        assert conventional_single.json()["data"]["attributes"]["_httk_kind"] == "conventional"
+        # The replaced conventional alternative resolves to its latest revision (3 elements).
+        assert conventional_single.json()["data"]["attributes"]["nelements"] == 3
+        assert client.get("http://testserver/structures/" + main_id + "/_httk_alts/tetragonal").status_code == 404
+
+        all_alternatives = client.get("http://testserver/_httk_structures~alts")
+        assert all_alternatives.status_code == 200
+        all_payload: Mapping[str, Any] = all_alternatives.json()
+        assert all_payload["meta"]["data_available"] == 2
+        assert {item["id"] for item in all_payload["data"]} == {
+            main_id + "~conventional",
+            main_id + "~primitive",
+        }
+        filtered = client.get('http://testserver/_httk_structures~alts?filter=_httk_kind%3D%22conventional%22').json()
+        assert [item["id"] for item in filtered["data"]] == [main_id + "~conventional"]
+        global_single = client.get("http://testserver/_httk_structures~alts/" + main_id + "~conventional")
+        assert global_single.status_code == 200
+        assert global_single.json()["data"]["id"] == main_id + "~conventional"
+
+        # Composite ids are not served as mains on the base endpoint (store defaults serve mains only).
+        base_composite = client.get("http://testserver/structures/" + main_id + "~conventional")
+        assert base_composite.status_code == 200
+        assert base_composite.json()["data"] is None
+        # Revision routes remain mains-only: an alternative's composite revision id never resolves.
+        assert client.get("http://testserver/_httk_structures~revs/" + main_id + "~conventional~1").status_code == 404
+
+        info = client.get("http://testserver/info").json()
+        assert "_httk_structures~alts" in info["data"]["attributes"]["available_endpoints"]
+        alternative_info = client.get("http://testserver/info/_httk_structures~alts").json()
+        assert "_httk_kind" in alternative_info["data"]["properties"]
+        assert "_httk_id" in alternative_info["data"]["properties"]
+        next_link = client.get("http://testserver/structures/" + main_id + "/_httk_alts?page_limit=1").json()["links"][
+            "next"
+        ]
+        assert "/structures/" + main_id + "/_httk_alts?" in next_link
+
+
+def test_prefixed_source_resolves_alternatives_by_composite_id() -> None:
+    """A source public prefix (and non-conforming lineage ids) must survive composite alternative routing."""
+    with Backend.sqlite() as database:
+        store = _store(database)
+        main_id = _save_entry(store, _structure("Na"))
+        store.save(_structure("Na", "Cl"), alternative_of=main_id, alternative_kind="conventional")
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "alpha", "alpha-"),))
+        client = AsgiSyncClient(create_asgi_app(adapter, baseurl="http://testserver"), base_url="http://testserver")
+        public_id = "alpha-" + main_id
+
+        per_group = client.get("http://testserver/structures/" + public_id + "/_httk_alts/conventional")
+        assert per_group.status_code == 200
+        assert per_group.json()["data"]["id"] == public_id + "~conventional"
+
+        global_single = client.get("http://testserver/_httk_structures~alts/" + public_id + "~conventional")
+        assert global_single.status_code == 200
+        assert global_single.json()["data"]["id"] == public_id + "~conventional"

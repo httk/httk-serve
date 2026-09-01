@@ -1,7 +1,7 @@
 """Build an OPTIMADE adapter over lazy SQL-backed entry federation.
 
 The durable layout, SQL translation, collision policy, and bounded global
-pagination live in :mod:`httk.store.backend.sql`.  This module owns only the serving
+pagination live in ``httk.store.backend.sql``.  This module owns only the serving
 boundary: the advertised OPTIMADE schema, request-error translation, public
 response-field projection, and :class:`~httk.serve.optimade.model.ResultRow`
 objects consumed by the endpoint envelope code.
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 
-from httk.core import EntryTypeDefinition
+from httk.core import ALTERNATIVE_KIND_PATTERN, EntryTypeDefinition
 from httk.core.optimade import FilterAst
 from httk.core.storage import stored_property_projections
 from httk.store import EntryStore, FilterTranslationError
@@ -79,6 +79,7 @@ class StoredBackendAdapter:
             as_of: int | None = None,
             sort: Sequence[tuple[str, bool]] | None = None,
             revisions: bool = False,
+            alternatives: bool = False,
             immutable_id: str | None = None,
             debug: bool = False,
         ) -> QueryResults:
@@ -95,7 +96,35 @@ class StoredBackendAdapter:
             offset = int(page_offset)
             try:
                 public_id = _exact_id_filter(filter_ast)
-                if immutable_id is not None:
+                if alternatives:
+                    if immutable_id is not None:
+                        # immutable_id carries the composite ``<id>~<kind>``; the id part
+                        # may bear a source prefix or be a non-conforming URL-safe id, so
+                        # split off only the kind and pass the id through untouched. A
+                        # per-group lineage id filter, when present, is that same id.
+                        entry_id, _sep, kind = immutable_id.rpartition("~")
+                        if not entry_id or ALTERNATIVE_KIND_PATTERN.fullmatch(kind) is None:
+                            found = None
+                        else:
+                            group_id = public_id if public_id is not None else entry_id
+                            found = federation.fetch_alternative(group_id, kind, as_of=as_of, fields=response_fields)
+                        total_count = 0 if found is None else 1
+                        page_rows = () if found is None or offset or limit == 0 else (found,)
+                        more_data_available = False
+                    else:
+                        page = federation.query(
+                            filter_ast,
+                            sort=tuple(sort or ()),
+                            offset=offset,
+                            limit=limit,
+                            as_of=as_of,
+                            fields=response_fields,
+                            alternatives=True,
+                        )
+                        page_rows = page.rows
+                        more_data_available = page.more_data_available
+                        total_count = page.total_count
+                elif immutable_id is not None:
                     if public_id is None:
                         found = federation.fetch(immutable_id, as_of=as_of, fields=response_fields, revisions=True)
                     else:
@@ -225,7 +254,7 @@ def _validate_sortable_backings(
 ) -> None:
     """Fail adapter construction when an advertised sort cannot be exact."""
     for name in sortable:
-        if name in {"id", "type", "immutable_id", "_httk_id"}:
+        if name in {"id", "type", "immutable_id", "_httk_id", "_httk_kind"}:
             continue
         for plan in plans:
             for backing in plan.backings:
@@ -241,7 +270,7 @@ def _sortable_intersection(plans: Sequence[Any], property_names: Sequence[str]) 
     """Return properties with an exact sort mapping on every durable backing."""
     sortable: list[str] = []
     for name in property_names:
-        if name in {"id", "type", "immutable_id", "_httk_id"}:
+        if name in {"id", "type", "immutable_id", "_httk_id", "_httk_kind"}:
             sortable.append(name)
             continue
         if all(
@@ -311,6 +340,7 @@ def adapter_from_stores(
         served,
         default_response_overrides=defaults,
         revisions=tuple(definitions),
+        alternatives=tuple(definitions),
         **options,
     )
     for entry_type, plans in plans_by_entry.items():

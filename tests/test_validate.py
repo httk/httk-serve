@@ -11,6 +11,7 @@ from httk.serve.optimade.schema.served import build_served_schema
 
 SCHEMA = materials_schema()
 REVISION_SCHEMA = build_served_schema({"structures": structures_definition()}, revisions=("structures",))
+ALT_SCHEMA = build_served_schema({"structures": structures_definition()}, alternatives=("structures",))
 
 
 def make_request(representation: str, **kwargs: object) -> RawRequest:
@@ -102,6 +103,61 @@ def test_invalid_or_unsupported_revision_paths_are_404(path: str) -> None:
     with pytest.raises(OptimadeError) as excinfo:
         validate_optimade_request(make_request(path), "1.3.0", schema)
     assert excinfo.value.response_code == 404
+
+
+@pytest.mark.parametrize(
+    ("path", "request_id", "immutable_id", "endpoint_path"),
+    (
+        ("/structures/httk.test-1-1/_httk_alts", "httk.test-1-1", None, "structures/httk.test-1-1/_httk_alts"),
+        ("/structures/httk.test-1-1/_httk_alts/", "httk.test-1-1", None, "structures/httk.test-1-1/_httk_alts"),
+        (
+            "/structures/httk.test-1-1/_httk_alts/conventional",
+            "httk.test-1-1",
+            "httk.test-1-1~conventional",
+            "structures/httk.test-1-1/_httk_alts",
+        ),
+        ("/_httk_structures~alts", None, None, None),
+        ("/_httk_structures~alts/httk.test-1-1~conventional", None, "httk.test-1-1~conventional", None),
+    ),
+)
+def test_alternative_paths(
+    path: str, request_id: str | None, immutable_id: str | None, endpoint_path: str | None
+) -> None:
+    validated = validate_optimade_request(make_request(path), "1.3.0", ALT_SCHEMA)
+    assert validated.endpoint == "_httk_structures~alts"
+    assert validated.alternatives is True
+    assert validated.revisions is False
+    assert validated.request_id == request_id
+    assert validated.request_immutable_id == immutable_id
+    assert validated.endpoint_path == endpoint_path
+
+
+@pytest.mark.parametrize(
+    ("path", "on_alt_schema"),
+    (
+        ("/structures/httk.test-1-1/_httk_alts/Conventional", True),
+        ("/structures/httk.test-1-1/_httk_alts/0", True),
+        ("/structures/httk.test-1-1/_httk_alts/2primitive", True),
+        ("/widgets/httk.test-1-1/_httk_alts", True),
+        ("/structures/httk.test-1-1/_httk_alts", False),
+        ("/_httk_structures~alts", False),
+    ),
+)
+def test_invalid_or_unsupported_alternative_paths_are_404(path: str, on_alt_schema: bool) -> None:
+    schema = ALT_SCHEMA if on_alt_schema else SCHEMA
+    with pytest.raises(OptimadeError) as excinfo:
+        validate_optimade_request(make_request(path), "1.3.0", schema)
+    assert excinfo.value.response_code == 404
+
+
+def test_base_endpoint_accepts_composite_id_as_plain_single() -> None:
+    # A composite id on the base endpoint is a valid single-entry request at the
+    # validation layer; it is the store defaults that serve mains only, so the
+    # composite simply resolves to no main downstream (data: null).
+    validated = validate_optimade_request(make_request("/structures/httk.test-1-1~conventional"), "1.3.0", ALT_SCHEMA)
+    assert validated.endpoint == "structures"
+    assert validated.alternatives is False
+    assert validated.request_id == "httk.test-1-1~conventional"
 
 
 def test_versions_endpoint_only_unversioned() -> None:
