@@ -1,5 +1,6 @@
 import pytest
 from definition_fixtures import structures_definition
+from httk.core import EntryTypeDefinition, PropertyDefinition
 from materials_fixtures import materials_schema
 
 from httk.serve.optimade.engine.validate import (
@@ -12,6 +13,45 @@ from httk.serve.optimade.schema.served import build_served_schema
 SCHEMA = materials_schema()
 REVISION_SCHEMA = build_served_schema({"structures": structures_definition()}, revisions=("structures",))
 ALT_SCHEMA = build_served_schema({"structures": structures_definition()}, alternatives=("structures",))
+
+
+def _prefixed_definition() -> EntryTypeDefinition:
+    """A provider entry served under its ``_``-prefixed wire name."""
+    return EntryTypeDefinition(
+        "_httk_runs",
+        "A provider entry served under its wire name.",
+        {"_httk_source_id": PropertyDefinition.from_simple("_httk_source_id", description="Source id.")},
+    )
+
+
+PREFIXED_SCHEMA = build_served_schema(
+    {"_httk_runs": _prefixed_definition()}, revisions=("_httk_runs",), alternatives=("_httk_runs",)
+)
+
+
+@pytest.mark.parametrize(
+    ("path", "endpoint", "revisions", "alternatives", "immutable_id"),
+    (
+        ("/_httk_runs/httk.test-1-1/_httk_revs", "_httk_runs~revs", True, False, None),
+        ("/_httk_runs/httk.test-1-1/_httk_revs/3", "_httk_runs~revs", True, False, "httk.test-1-1~3"),
+        ("/_httk_runs~revs/httk.test-1-1~3", "_httk_runs~revs", True, False, "httk.test-1-1~3"),
+        ("/_httk_runs/httk.test-1-1/_httk_alts", "_httk_runs~alts", False, True, None),
+        ("/_httk_runs~alts/httk.test-1-1~conventional", "_httk_runs~alts", False, True, "httk.test-1-1~conventional"),
+    ),
+)
+def test_prefixed_base_derived_endpoints_single_prefix(
+    path: str, endpoint: str, revisions: bool, alternatives: bool, immutable_id: str | None
+) -> None:
+    """A ``_``-prefixed base routes to single-prefix ``~revs``/``~alts`` (F8).
+
+    The route parser must derive the same ``_httk_runs~revs`` name the schema
+    emits, never a double-prefixed ``_httk__httk_runs~revs``.
+    """
+    validated = validate_optimade_request(make_request(path), "1.3.0", PREFIXED_SCHEMA)
+    assert validated.endpoint == endpoint
+    assert validated.revisions is revisions
+    assert validated.alternatives is alternatives
+    assert validated.request_immutable_id == immutable_id
 
 
 def make_request(representation: str, **kwargs: object) -> RawRequest:

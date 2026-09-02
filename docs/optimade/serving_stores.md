@@ -119,6 +119,27 @@ Filtering and bounds remain store-side. Sorted pages are merged from bounded
 candidate streams and only the final page is hydrated. Duplicate visible IDs
 raise rather than choosing a record implicitly.
 
+## Relationships from stored weak links
+
+An exposed weak link (a `StorageInfo` `WeakLink(..., exposed_relationship=True)`
+on a served record class) whose target family is also served is rendered as an
+OPTIMADE relationship on the declaring resource. The relationship is keyed by
+the target's wire entry type, its resource identifiers carry the linked lineage
+IDs, and the link's `role`, `description`, and edge label render in each
+identifier's `meta` (the label as the provider-prefixed `_httk_label`). A
+resource with no such links carries no relationships, and `include=<wire type>`
+inlines the related resources when their family is mounted.
+
+## Wire naming
+
+`EntryTypeDefinition.served_form()` is the single wire-naming transform applied
+at the serving edge: a provider entry type and its provider properties are
+served under their registered prefix (the runs family serves as `_httk_runs`
+with `_httk_source_id` / `_httk_workflow_declaration_uri`), while standard
+families and properties are served unchanged. Derived revision and alternative
+endpoints keep a single prefix for an already-prefixed base — `_httk_runs~revs`
+and `_httk_runs~alts`, never a doubled `_httk__httk_runs~revs`.
+
 ## When providers are still useful
 
 `EntryProvider` and `adapter_from_providers` remain appropriate for small

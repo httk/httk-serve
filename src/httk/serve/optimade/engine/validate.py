@@ -11,7 +11,7 @@ from ..model.request import (
     ValidatedRequest,
 )
 from ..model.versions import optimade_default_version, optimade_supported_versions
-from ..schema.served import ServedSchema
+from ..schema.served import ServedSchema, derived_endpoint_name
 
 # The filter lexer is quadratic in input length (16 KB ~ 6 s of CPU) and runs
 # synchronously on the ASGI event loop, so one oversized filter would block all
@@ -243,7 +243,7 @@ def validate_optimade_request(
                 and _is_printable_ascii(parts[1])
                 and (len(parts) == 3 or parts[3] == "" or _is_printable_ascii(parts[3]))
             ):
-                revision_endpoint = f"_httk_{endpoint}~revs"
+                revision_endpoint = derived_endpoint_name(endpoint, "revs")
                 endpoint = revision_endpoint
                 revisions = True
                 request_id = parts[1]
@@ -259,7 +259,7 @@ def validate_optimade_request(
                 and _is_printable_ascii(parts[1])
                 and (len(parts) == 3 or parts[3] == "" or _is_printable_ascii(parts[3]))
             ):
-                alt_endpoint = f"_httk_{endpoint}~alts"
+                alt_endpoint = derived_endpoint_name(endpoint, "alts")
                 endpoint = alt_endpoint
                 alternatives = True
                 request_id = parts[1]

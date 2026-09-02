@@ -10,7 +10,30 @@ from materials_fixtures import materials_schema
 
 from httk.serve.optimade.engine.validate import validate_optimade_request
 from httk.serve.optimade.model import RawRequest
-from httk.serve.optimade.schema.served import build_served_schema
+from httk.serve.optimade.schema.served import build_served_schema, derived_endpoint_name
+
+
+def test_derived_endpoint_name_single_prefix_rule() -> None:
+    """A bare base gains the ``_httk_`` prefix; a prefixed base keeps its single prefix (F8)."""
+    assert derived_endpoint_name("structures", "revs") == "_httk_structures~revs"
+    assert derived_endpoint_name("_httk_runs", "revs") == "_httk_runs~revs"
+    assert derived_endpoint_name("_httk_runs", "alts") == "_httk_runs~alts"
+
+
+def test_build_served_schema_derived_endpoints_keep_single_prefix_for_prefixed_base() -> None:
+    """A provider (``_``-prefixed) base yields single-prefix derived endpoints (F8)."""
+    prefixed = EntryTypeDefinition(
+        "_httk_runs",
+        "A provider entry served under its wire name.",
+        {"_httk_source_id": PropertyDefinition.from_simple("_httk_source_id", description="Source id.")},
+    )
+    schema = build_served_schema({"_httk_runs": prefixed}, revisions=("_httk_runs",), alternatives=("_httk_runs",))
+    assert schema.revision_endpoints == ("_httk_runs~revs",)
+    assert schema.alt_endpoints == ("_httk_runs~alts",)
+    assert schema.revision_base == {"_httk_runs~revs": "_httk_runs"}
+    assert schema.alt_base == {"_httk_runs~alts": "_httk_runs"}
+    assert "_httk_runs~revs" in schema.valid_endpoints
+    assert "_httk_runs~alts" in schema.valid_endpoints
 
 
 def test_built_schema_property_definitions() -> None:

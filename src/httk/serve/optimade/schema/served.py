@@ -188,6 +188,21 @@ class ServedSchema:
     property_definitions: dict[str, dict[str, dict[str, Any]]]
 
 
+def derived_endpoint_name(base: str, suffix: str) -> str:
+    """Return the derived (``~revs``/``~alts``) endpoint name for a base entry.
+
+    An already-``_``-prefixed base (a provider wire name such as ``_httk_runs``)
+    keeps its single prefix; a bare standard base gets the ``_httk_`` prefix, so
+    both the schema and the route parser spell ``_httk_runs~revs`` and
+    ``_httk_structures~revs`` alike.
+
+    :param base: The served base entry-type name.
+    :param suffix: The derived-endpoint suffix (``"revs"`` or ``"alts"``).
+    :return: The derived endpoint name.
+    """
+    return f"{base}~{suffix}" if base.startswith("_") else f"_httk_{base}~{suffix}"
+
+
 def build_served_schema(
     definitions: Mapping[str, EntryTypeDefinition],
     served: Mapping[str, Sequence[str]] | None = None,
@@ -239,8 +254,8 @@ def build_served_schema(
     if len(set(alt_bases)) != len(alt_bases):
         raise ValueError("Alternative endpoint entries must be unique.")
 
-    revision_endpoints = tuple(f"_httk_{entry}~revs" for entry in revision_bases)
-    alt_endpoints = tuple(f"_httk_{entry}~alts" for entry in alt_bases)
+    revision_endpoints = tuple(derived_endpoint_name(entry, "revs") for entry in revision_bases)
+    alt_endpoints = tuple(derived_endpoint_name(entry, "alts") for entry in alt_bases)
     fixed_endpoints = {"", "info", "links", "partial_data", "versions"}
     collisions = [
         endpoint

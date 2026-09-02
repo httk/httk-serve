@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 
-from httk.core import ALTERNATIVE_KIND_PATTERN, EntryTypeDefinition
+from httk.core import ALTERNATIVE_KIND_PATTERN, EntryTypeDefinition, RelatedEntry, load_entry_type_definition
 from httk.core.optimade import FilterAst
 from httk.core.storage import stored_property_projections
 from httk.store import EntryStore, FilterTranslationError
@@ -108,8 +108,7 @@ class StoredBackendAdapter:
                         else:
                             group_id = public_id if public_id is not None else entry_id
                             found = federation.fetch_alternative(group_id, kind, as_of=as_of, fields=response_fields)
-                        total_count = 0 if found is None else 1
-                        page_rows = () if found is None or offset or limit == 0 else (found,)
+                        page_rows, page_relationships, total_count = _single(found, offset, limit)
                         more_data_available = False
                     else:
                         page = federation.query(
@@ -122,6 +121,7 @@ class StoredBackendAdapter:
                             alternatives=True,
                         )
                         page_rows = page.rows
+                        page_relationships = page.relationships
                         more_data_available = page.more_data_available
                         total_count = page.total_count
                 elif immutable_id is not None:
@@ -129,13 +129,11 @@ class StoredBackendAdapter:
                         found = federation.fetch(immutable_id, as_of=as_of, fields=response_fields, revisions=True)
                     else:
                         found = federation.fetch_revision(public_id, immutable_id, as_of=as_of, fields=response_fields)
-                    total_count = 0 if found is None else 1
-                    page_rows = () if found is None or offset or limit == 0 else (found,)
+                    page_rows, page_relationships, total_count = _single(found, offset, limit)
                     more_data_available = False
                 elif public_id is not None and offset == 0 and limit > 0:
                     found = federation.fetch(public_id, as_of=as_of, fields=response_fields, revisions=revisions)
-                    total_count = 0 if found is None else 1
-                    page_rows = () if found is None or offset or limit == 0 else (found,)
+                    page_rows, page_relationships, total_count = _single(found, offset, limit)
                     more_data_available = False
                 else:
                     page = federation.query(
@@ -148,6 +146,7 @@ class StoredBackendAdapter:
                         revisions=revisions,
                     )
                     page_rows = page.rows
+                    page_relationships = page.relationships
                     more_data_available = page.more_data_available
                     total_count = page.total_count
             except FilterTranslationError as error:
@@ -162,13 +161,63 @@ class StoredBackendAdapter:
                         entry_type,
                         response_fields,
                         unknown_response_fields,
-                    )
+                    ),
+                    relationships=_relationships_block(related),
                 )
-                for row in page_rows
+                for row, related in zip(page_rows, page_relationships, strict=True)
             )
             return _StoredQueryResults(projected, bool(more_data_available), int(total_count))
 
         return query
+
+
+def _single(
+    found: tuple[Mapping[str, Any], Mapping[str, tuple[RelatedEntry, ...]]] | None,
+    offset: int,
+    limit: int,
+) -> tuple[tuple[Mapping[str, Any], ...], tuple[Mapping[str, tuple[RelatedEntry, ...]], ...], int]:
+    """Shape one optional ``(row, relationships)`` fetch into row/relationship tuples.
+
+    :param found: The fetched ``(row, relationships)`` pair, or ``None`` when absent.
+    :param offset: The requested page offset (a positive offset skips the single row).
+    :param limit: The requested page limit (a zero limit yields no rows).
+    :return: Row-aligned ``(rows, relationships, total_count)``.
+    """
+    if found is None:
+        return (), (), 0
+    if offset or limit == 0:
+        return (), (), 1
+    row, related = found
+    return (row,), (related,), 1
+
+
+def _relationships_block(
+    related: Mapping[str, tuple[RelatedEntry, ...]],
+) -> dict[str, list[dict[str, Any]]]:
+    """Render a stored row's weak-link relationships as OPTIMADE identifiers.
+
+    Mirrors the provider-path extractor (``backend/providers.py``): each
+    :class:`~httk.core.RelatedEntry` becomes an ``{"id": ..., "description"?: ...,
+    "role"?: ..., "label"?: ...}`` identifier, grouped under its related entry
+    type. An empty mapping renders as an empty block.
+
+    :param related: Weak-link relationships grouped by related entry type.
+    :return: Relationship identifiers keyed by related entry type.
+    """
+    block: dict[str, list[dict[str, Any]]] = {}
+    for related_type, entries in related.items():
+        identifiers: list[dict[str, Any]] = []
+        for entry in entries:
+            identifier: dict[str, Any] = {"id": entry.id}
+            if entry.description:
+                identifier["description"] = entry.description
+            if entry.role:
+                identifier["role"] = entry.role
+            if entry.label is not None:
+                identifier["label"] = entry.label
+            identifiers.append(identifier)
+        block[related_type] = identifiers
+    return block
 
 
 def _exact_id_filter(filter_ast: FilterAst | None) -> str | None:
@@ -311,9 +360,20 @@ def adapter_from_stores(
     families: dict[str, type] = {}
     definitions: dict[str, EntryTypeDefinition] = {}
     plans_by_entry: dict[str, list[Any]] = {}
+    served_type_names: dict[str, str] = {}
     for source in values:
-        plan = stored_property_sql_plan(source.store, source.entry_family)
+        # Resolve the internal (bare) definition exactly as the plan does, then
+        # serve its wire form: the served definition drives the plan's entry_type
+        # (now the WIRE name) and every property name, projection, filter, and
+        # sort. A prefixed family MUST be planned with served= set.
+        factory = getattr(source.entry_family, "entry_type_definition", None)
+        internal: EntryTypeDefinition = cast(
+            EntryTypeDefinition,
+            factory() if callable(factory) else load_entry_type_definition(source.entry_family.definition_id),
+        )
+        plan = stored_property_sql_plan(source.store, source.entry_family, served=internal.served_form())
         entry_type = plan.entry_type
+        served_type_names[internal.name] = entry_type
         existing_family = families.get(entry_type)
         if existing_family is not None and existing_family is not source.entry_family:
             raise ValueError(f"entry type {entry_type!r} is supplied by more than one logical entry family")
@@ -347,7 +407,8 @@ def adapter_from_stores(
         _validate_sortable_backings(plans, entry_type, schema.sortable_response_fields[entry_type])
 
     federations = {
-        entry_type: StoredEntryFederation(tuple(entry_sources)) for entry_type, entry_sources in grouped.items()
+        entry_type: StoredEntryFederation(tuple(entry_sources), served_type_names=served_type_names)
+        for entry_type, entry_sources in grouped.items()
     }
     return StoredBackendAdapter(federations, schema)
 
