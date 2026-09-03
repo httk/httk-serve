@@ -197,26 +197,26 @@ def _relationships_block(
     """Render a stored row's weak-link relationships as OPTIMADE identifiers.
 
     Mirrors the provider-path extractor (``backend/providers.py``): each
-    :class:`~httk.core.RelatedEntry` becomes an ``{"id": ..., "description"?: ...,
-    "role"?: ..., "label"?: ...}`` identifier, grouped under its related entry
-    type. An empty mapping renders as an empty block.
+    :class:`~httk.core.RelatedEntry` becomes an ``{"type": ..., "id": ...,
+    "description"?: ..., "role"?: ..., "label"?: ...}`` identifier (``type`` being
+    the identifier's own target entry type), grouped under
+    ``relationship or related_type`` (the served semantic relationship key,
+    falling back to the mapping key). An empty mapping renders as an empty block.
 
     :param related: Weak-link relationships grouped by related entry type.
-    :return: Relationship identifiers keyed by related entry type.
+    :return: Relationship identifiers keyed by served relationship key.
     """
     block: dict[str, list[dict[str, Any]]] = {}
     for related_type, entries in related.items():
-        identifiers: list[dict[str, Any]] = []
         for entry in entries:
-            identifier: dict[str, Any] = {"id": entry.id}
+            identifier: dict[str, Any] = {"type": entry.entry_type, "id": entry.id}
             if entry.description:
                 identifier["description"] = entry.description
             if entry.role:
                 identifier["role"] = entry.role
             if entry.label is not None:
                 identifier["label"] = entry.label
-            identifiers.append(identifier)
-        block[related_type] = identifiers
+            block.setdefault(entry.relationship or related_type, []).append(identifier)
     return block
 
 

@@ -9,20 +9,32 @@ these tests cannot contact the network.
 
 import asyncio
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Any, ClassVar, cast
+from typing import Annotated, Any, ClassVar, cast
 from urllib.parse import urlsplit
 
 import httpx
 import pytest
 from httk.atomistic import Species, StructureEntryProvider, UnitcellStructure
-from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry, load_entry_type_definition
+from httk.core import (
+    EntryProvider,
+    EntryTypeDefinition,
+    RelatedEntry,
+    Run,
+    RunEdge,
+    RunEntry,
+    load_entry_type_definition,
+)
+from httk.core.data_records import RECORDS_DEFINITION_ID
 from httk.core.optimade import OptimadeResource
-from httk.store import Backend, SqlStore
+from httk.core.register import register_entry_family, register_entry_record
+from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique
+from httk.store import Backend, EntryIdScheme, RunEntryProvider, SqlStore
+from httk.store.backend.sql import StoredEntrySource
 from httk.store.backend.sql.rows import is_lazy_row
 
-from httk.serve.optimade import OptimadeStore, adapter_from_providers, create_asgi_app
+from httk.serve.optimade import OptimadeStore, adapter_from_providers, adapter_from_stores, create_asgi_app
 from httk.serve.optimade.backend.memory_store import InMemoryStore
 
 
@@ -368,3 +380,105 @@ def test_extended_own_atomistic_structure_endpoint_is_typed_by_known_property_ir
     row = searcher.results(record=variable, elements=variable.elements).one()
     assert row.record.id == "sodium"
     assert row.elements == ("Na",)
+
+
+@dataclass(frozen=True)
+class ConfRecordRow:
+    """A minimal ``records`` backing for runs-relationship cross-store parity."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="conf_run_record")
+
+    name: str
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+
+class ConfRecordFamily:
+    """The records family targeted by the conformance run's edges."""
+
+    type = "records"
+    definition_id = RECORDS_DEFINITION_ID
+
+
+register_entry_family(
+    name="conf-run-records", family=f"{__name__}:ConfRecordFamily", definition_id=RECORDS_DEFINITION_ID
+)
+register_entry_record(name="conf-run-records-rec", family="conf-run-records", record=f"{__name__}:ConfRecordRow")
+
+
+class _FlatRecordsProvider(EntryProvider):
+    """A minimal in-memory ``_httk_records`` provider (edge-target for reverse)."""
+
+    _definition = load_entry_type_definition(RECORDS_DEFINITION_ID).served_form()
+
+    def __init__(self, ids: Iterable[str]) -> None:
+        self._ids = list(ids)
+
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        return {"_httk_records": self._definition}
+
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
+        assert entry_type == "_httk_records"
+        return {"id": "id", "type": "type"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        assert entry_type == "_httk_records"
+        return [{"id": record_id, "type": "_httk_records"} for record_id in self._ids]
+
+
+def _served_blocks(app: Any, path: str, entry_id: str) -> dict[str, list[tuple[str, str]]]:
+    """Return one served resource's relationship blocks as {key: [(type, id), ...]}."""
+    client = AsgiSyncClient(app, base_url="http://testserver")
+    payload = client.get(f"http://testserver{path}").json()
+    resource = next(item for item in payload["data"] if item["id"] == entry_id)
+    return {
+        key: [(d["type"], d["id"]) for d in value["data"]] for key, value in resource.get("relationships", {}).items()
+    }
+
+
+def test_runs_relationships_forward_and_reverse_served_parity_across_stores() -> None:
+    """Forward and reverse edge blocks are byte-identical through the SQL and in-memory routes.
+
+    Both routes serve the identical run over the same ids and are queried through
+    the served OPTIMADE/ASGI edge (not the provider hooks directly): the run's
+    forward ``_httk_has_*`` blocks and the record's derived reverse ``_httk_is_*``
+    blocks match, and the in-memory reverse hook actually reaches the wire.
+    """
+    with Backend.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={RunEntry: Run, ConfRecordFamily: ConfRecordRow},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        rec = store.fetch(ConfRecordRow, store.save(ConfRecordRow("r")), eager=True).id
+        run_obj = Run(
+            inputs=(RunEdge("in", "records", rec),),
+            artifacts=(RunEdge("art", "records", rec),),
+            source_id="ws:job",
+        )
+        run_id = store.fetch(Run, store.save(run_obj), eager=True).id
+
+        sql_app = create_asgi_app(
+            adapter_from_stores(
+                (StoredEntrySource(store, RunEntry, "runs"), StoredEntrySource(store, ConfRecordFamily, "recs")),
+            ),
+            baseurl="http://testserver",
+        )
+        memory_app = create_asgi_app(
+            adapter_from_providers([RunEntryProvider({run_id: run_obj}), _FlatRecordsProvider([rec])]),
+            baseurl="http://testserver",
+        )
+
+        expected_forward = {
+            "_httk_has_input": [("_httk_records", rec)],
+            "_httk_has_artifact": [("_httk_records", rec)],
+        }
+        expected_reverse = {
+            "_httk_is_input": [("_httk_runs", run_id)],
+            "_httk_is_artifact": [("_httk_runs", run_id)],
+        }
+        for app in (sql_app, memory_app):
+            run_blocks = _served_blocks(app, "/_httk_runs", run_id)
+            assert {k: run_blocks[k] for k in expected_forward} == expected_forward
+            record_blocks = _served_blocks(app, "/_httk_records", rec)
+            assert {k: record_blocks[k] for k in expected_reverse} == expected_reverse

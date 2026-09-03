@@ -35,10 +35,12 @@ def _relationships_extractor(
 
     The returned callable maps a record (looked up by its ``__id`` key) to the
     :class:`~httk.serve.optimade.backend.adapter.EntrySource` relationships-block shape:
-    the flat :class:`~httk.core.RelatedEntry` tuple is grouped by related entry
-    type into ``{related_type: [{'id': ..., 'description'?: ..., 'role'?: ..., 'label'?: ...},
-    ...]}`` (empty when the record has no related entries), passing the
-    per-identifier metadata through to the rendered ``meta`` object.
+    the flat :class:`~httk.core.RelatedEntry` tuple is grouped by
+    ``relationship or entry_type`` (the served semantic relationship key, falling
+    back to the related entry type) into ``{group_key: [{'type': ..., 'id': ...,
+    'description'?: ..., 'role'?: ..., 'label'?: ...}, ...]}`` (empty when the
+    record has no related entries), passing the identifier's own target ``type``
+    and the per-identifier metadata through to the rendered ``meta`` object.
     """
 
     def extract(row: Any) -> dict[str, list[dict[str, Any]]]:
@@ -47,14 +49,14 @@ def _relationships_extractor(
             return {}
         grouped: dict[str, list[dict[str, Any]]] = {}
         for entry in related:
-            identifier: dict[str, Any] = {'id': entry.id}
+            identifier: dict[str, Any] = {'type': entry.entry_type, 'id': entry.id}
             if entry.description:
                 identifier['description'] = entry.description
             if entry.role:
                 identifier['role'] = entry.role
             if entry.label is not None:
                 identifier['label'] = entry.label
-            grouped.setdefault(entry.entry_type, []).append(identifier)
+            grouped.setdefault(entry.relationship or entry.entry_type, []).append(identifier)
         return grouped
 
     return extract
@@ -97,6 +99,12 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     relationship-property filters such as ``references.doi CONTAINS "10.1"`` —
     therefore work without any hand-wiring.
 
+    A provider's reverse relationships
+    (``EntryProvider.reverse_relationships()``) are consumed too:
+    their target-keyed related entries are append-merged into each served target
+    entry's relationships (never clobbering the forward entries), so a derived
+    reverse edge is served on the entry it points at.
+
     :param providers: Generic entry providers supplying definitions, keys, records, and relationships.
     :param \\*\\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
     :return: Fully wired in-memory backend adapter.
@@ -109,6 +117,7 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     records_by_entry: dict[str, list[dict[str, Any]]] = {}
     relationships_by_entry: dict[str, dict[str, tuple[RelatedEntry, ...]]] = {}
 
+    providers = list(providers)
     for provider in providers:
         for entry_type, definition in provider.entry_types().items():
             provider_relationships = provider.relationships(entry_type)
@@ -158,6 +167,23 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
             served = list(property_keys.keys())
             served_map[entry_type] = served
             default_overrides[entry_type] = [name for name in served if name not in ('id', 'type')]
+
+    # Decision 13: consume the reverse-relationship hook. Each provider's
+    # reverse_relationships() yields target-keyed related entries (the derived
+    # reverse view of edges it owns); APPEND-merge them into the target entry
+    # type's per-id relationships so they neither clobber nor are clobbered by
+    # the forward entries the per-id replace above installed. Targets whose
+    # entry type no provider serves are skipped. Because this runs before the
+    # '__rel_<type>' synthesis below, reverse entries also feed relationship
+    # filtering (decision 13's documented in-memory filter superset); no
+    # special-casing is needed.
+    for provider in providers:
+        for target_type, reverse_by_id in provider.reverse_relationships().items():
+            if target_type not in keys_by_entry:
+                continue
+            target_map = relationships_by_entry.setdefault(target_type, {})
+            for target_id, entries in reverse_by_id.items():
+                target_map[str(target_id)] = target_map.get(str(target_id), ()) + tuple(entries)
 
     schema = build_served_schema(
         definitions,

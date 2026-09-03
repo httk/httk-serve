@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from typing import Annotated, ClassVar
 
 from httk.core import load_entry_type_definition
-from httk.core.provenance import Run, RunEntry
+from httk.core.data_records import RECORDS_DEFINITION_ID
+from httk.core.provenance import Run, RunEdge, RunEntry
 from httk.core.register import register_entry_family, register_entry_record
 from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique, WeakLink
 from httk.store import EntryIdScheme
@@ -240,3 +241,93 @@ def test_runs_family_served_end_to_end() -> None:
             assert {"_httk_runs~revs", "_httk_runs~alts"} <= set(info["available_endpoints"])
             assert client.get("/_httk_runs~revs").status_code == 200
             assert client.get("/_httk_runs~alts").status_code == 200
+
+
+@dataclass(frozen=True)
+class EdgeRecordRow:
+    """A ``records`` backing (prefixed wire type ``_httk_records``) as an edge target."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="p3_edge_record")
+
+    name: str
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+
+class EdgeRecordFamily:
+    """The records family targeted by run provenance edges."""
+
+    type = "records"
+    definition_id = RECORDS_DEFINITION_ID
+
+
+register_entry_family(
+    name="p3-edge-records", family=f"{__name__}:EdgeRecordFamily", definition_id=RECORDS_DEFINITION_ID
+)
+register_entry_record(name="p3-edge-records-rec", family="p3-edge-records", record=f"{__name__}:EdgeRecordRow")
+
+
+def test_run_provenance_edges_served_forward_and_reverse_end_to_end() -> None:
+    """A stored run's provenance edges serve as forward and reverse relationships.
+
+    Pins the P3 serving edge: ``_httk_has_*`` blocks on ``/_httk_runs`` and the
+    derived ``_httk_is_*`` blocks on the targeted ``_httk_records`` entries, with
+    identical identifier type/id, ``meta.role`` and ``meta._httk_label`` both
+    directions, plus ``include`` inlining of the edge targets.
+    """
+    with Backend.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={RunEntry: (Run,), EdgeRecordFamily: (EdgeRecordRow,)},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        rec_in = store.fetch(EdgeRecordRow, store.save(EdgeRecordRow("in")), eager=True)
+        rec_art = store.fetch(EdgeRecordRow, store.save(EdgeRecordRow("art")), eager=True)
+        run = store.fetch(
+            Run,
+            store.save(
+                Run(
+                    inputs=(RunEdge("in-rec", "records", rec_in.id),),
+                    artifacts=(RunEdge("art-rec", "records", rec_art.id),),
+                    source_id="ws:job",
+                )
+            ),
+            eager=True,
+        )
+        adapter = adapter_from_stores(
+            (StoredEntrySource(store, RunEntry, "runs"), StoredEntrySource(store, EdgeRecordFamily, "recs")),
+        )
+
+        with _client(adapter) as client:
+            # (a) forward: the run carries wire-named _httk_has_* blocks, whose
+            # identifiers name the prefixed target type and edge label/role.
+            run_resource = client.get("/_httk_runs").json()["data"][0]
+            has_input = run_resource["relationships"]["_httk_has_input"]["data"]
+            assert [(d["type"], d["id"]) for d in has_input] == [("_httk_records", rec_in.id)]
+            assert has_input[0]["meta"] == {"role": "input", "_httk_label": "in-rec"}
+            has_artifact = run_resource["relationships"]["_httk_has_artifact"]["data"]
+            assert [(d["type"], d["id"]) for d in has_artifact] == [("_httk_records", rec_art.id)]
+            assert has_artifact[0]["meta"]["role"] == "artifact"
+
+            # (b) reverse: each targeted record carries the derived _httk_is_*
+            # block naming the run, with the SAME role and label.
+            records = {item["id"]: item for item in client.get("/_httk_records").json()["data"]}
+            is_input = records[rec_in.id]["relationships"]["_httk_is_input"]["data"]
+            assert [(d["type"], d["id"]) for d in is_input] == [("_httk_runs", run.id)]
+            assert is_input[0]["meta"] == {"role": "input", "_httk_label": "in-rec"}
+            is_artifact = records[rec_art.id]["relationships"]["_httk_is_artifact"]["data"]
+            assert [(d["type"], d["id"]) for d in is_artifact] == [("_httk_runs", run.id)]
+            assert is_artifact[0]["meta"]["role"] == "artifact"
+            assert (
+                "relationships" not in records[rec_in.id]
+                or "_httk_is_artifact" not in records[rec_in.id]["relationships"]
+            )
+
+            # (c) include inlines the edge targets both directions.
+            forward_included = client.get("/_httk_runs", params={"include": "_httk_records"}).json().get("included", [])
+            assert {(i["type"], i["id"]) for i in forward_included} >= {
+                ("_httk_records", rec_in.id),
+                ("_httk_records", rec_art.id),
+            }
+            reverse_included = client.get("/_httk_records", params={"include": "_httk_runs"}).json().get("included", [])
+            assert ("_httk_runs", run.id) in {(i["type"], i["id"]) for i in reverse_included}

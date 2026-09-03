@@ -593,3 +593,85 @@ def test_resolver_handles_many_related_ids() -> None:
     resolver = _make_related_resolver(adapter.query_function(), schema, "http://x/")
     included = resolver({"references": {f"ref-{i}" for i in range(3000)}})
     assert included == []
+
+
+# --- P2: semantic relationship keys (behavior latent until providers emit them) ---
+
+
+def test_semantic_relationship_key_groups_and_carries_target_type() -> None:
+    # A related entry whose served relationship key differs from its target
+    # entry type groups under the key, while the rendered identifier carries the
+    # identifier's own target type. Exercised through both seams that will honor
+    # it before P3 makes providers emit such keys.
+    from httk.serve.optimade.backend.providers import _relationships_extractor
+    from httk.serve.optimade.endpoints.entries import _relationships_block
+
+    related = {"demo-1": (RelatedEntry("references", "ref-1", relationship="_httk_has_input"),)}
+    grouped = _relationships_extractor(related)({"__id": "demo-1"})
+    assert grouped == {"_httk_has_input": [{"type": "references", "id": "ref-1"}]}
+    # entries.py renders under the semantic block key, with the identifier's own type.
+    block = _relationships_block(grouped)
+    assert block == {"_httk_has_input": {"data": [{"type": "references", "id": "ref-1"}]}}
+
+
+def _rel_calculations_definition() -> EntryTypeDefinition:
+    return EntryTypeDefinition(
+        "calculations",
+        "A calculations entry.",
+        {
+            "id": PropertyDefinition.from_simple("id", description="id", required_response=True),
+            "type": PropertyDefinition.from_simple("type", description="type", required_response=True),
+        },
+    )
+
+
+class NonReferenceLinkedProvider(EntryProvider):
+    """Two structures each link to a non-references (calculations) entry.
+
+    references is served (so the OPTIMADE include-default resolves to it), but
+    the actual relationships target calculations — a non-references type that
+    must never be inlined by a defaulted include.
+    """
+
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        return {
+            "structures": _rel_structures_definition(),
+            "references": _rel_references_definition(),
+            "calculations": _rel_calculations_definition(),
+        }
+
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
+        if entry_type == "structures":
+            return {"id": "__id", "type": "type", "nelements": "nelements"}
+        if entry_type == "calculations":
+            return {"id": "__id", "type": "type"}
+        return {"id": "__id", "type": "type", "title": "title", "doi": "doi", "year": "year", "keywords": "keywords"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        if entry_type == "structures":
+            return [
+                {"__id": "demo-1", "type": "structures", "nelements": 2},
+                {"__id": "demo-2", "type": "structures", "nelements": 3},
+            ]
+        if entry_type == "calculations":
+            return [{"__id": "calc-1", "type": "calculations"}, {"__id": "calc-2", "type": "calculations"}]
+        return []
+
+    def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
+        if entry_type == "structures":
+            return {
+                "demo-1": (RelatedEntry("calculations", "calc-1"),),
+                "demo-2": (RelatedEntry("calculations", "calc-2"),),
+            }
+        return {}
+
+
+def test_asgi_collection_non_reference_relationships_not_inlined_by_default() -> None:
+    adapter = adapter_from_providers([NonReferenceLinkedProvider()])
+    client = TestClient(create_asgi_app(adapter, baseurl="http://testserver/"), base_url="http://testserver")
+    reply = client.get("/structures").json()
+    assert len(reply["data"]) > 1
+    # The calculations relationships are present on the rows...
+    assert reply["data"][0]["relationships"]["calculations"]["data"][0]["type"] == "calculations"
+    # ...but a defaulted include on a multi-row collection inlines nothing.
+    assert "included" not in reply

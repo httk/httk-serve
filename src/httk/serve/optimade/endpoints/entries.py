@@ -23,7 +23,10 @@ def _relationships_block(relationships: dict[str, list[dict[str, Any]]]) -> dict
     for etype, rels in relationships.items():
         data = []
         for rel in rels:
-            identifier: dict[str, Any] = {"type": etype, "id": rel["id"]}
+            # The .get(..., etype) fallback is LOAD-BEARING: rel dicts from
+            # older/other paths carry no "type" key and must keep rendering
+            # under the block key. Do not "clean up" this fallback.
+            identifier: dict[str, Any] = {"type": rel.get("type", etype), "id": rel["id"]}
             meta = {k: rel[k] for k in ("description", "role") if rel.get(k) is not None}
             if "label" in rel and rel["label"] is not None:
                 meta["_httk_label"] = rel["label"]
@@ -178,8 +181,14 @@ def generate_entry_endpoint_reply(
             _resource_object(row, request.baseurl, partial_data_entry=request.endpoint if request.revisions else None)
         ]
         for etype, rels in row.relationships.items():
-            if etype in request.include_paths:
-                collected.setdefault(etype, set()).update(rel["id"] for rel in rels)
+            for rel in rels:
+                # Collect under the identifier's own target type, not the block
+                # key: with semantic relationship keys the two differ, so
+                # include=<target entry type> collects targets referenced under
+                # semantic keys. Today they are equal, so behavior is identical.
+                t = rel.get("type", etype)
+                if t in request.include_paths:
+                    collected.setdefault(t, set()).add(rel["id"])
 
     links: dict[str, str | None]
     if data.more_data_available:
@@ -248,8 +257,14 @@ def generate_single_entry_endpoint_reply(
             )
         ]
         for etype, rels in row.relationships.items():
-            if etype in request.include_paths:
-                collected.setdefault(etype, set()).update(rel["id"] for rel in rels)
+            for rel in rels:
+                # Collect under the identifier's own target type, not the block
+                # key: with semantic relationship keys the two differ, so
+                # include=<target entry type> collects targets referenced under
+                # semantic keys. Today they are equal, so behavior is identical.
+                t = rel.get("type", etype)
+                if t in request.include_paths:
+                    collected.setdefault(t, set()).add(rel["id"])
 
     single_data_part: dict[str, Any] | None
     if len(data_part) > 1:
