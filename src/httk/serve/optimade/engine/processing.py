@@ -25,7 +25,7 @@ from ..model.config import OptimadeConfig, OptimadeIndexConfig
 from ..model.errors import OptimadeError, TranslatorError
 from ..model.request import EndpointResponse, RawRequest
 from ..model.results import QueryFunction
-from ..schema.served import ServedSchema
+from ..schema.served import _RELATIONSHIPS_ROOT, ServedSchema
 from .validate import validate_optimade_request
 
 _LOG = logging.getLogger("httk.serve.optimade")
@@ -139,6 +139,11 @@ def _reject_hidden_filter_properties(node: FilterAst, endpoint: str, schema: Ser
         if len(node) == 2:
             _reject_hidden_property(node[1], endpoint, schema)
         elif len(node) > 2:
+            if node[1] == _RELATIONSHIPS_ROOT:
+                # A `_httk_relationships.<key>.id` filter-grammar extension
+                # identifier: not a served property, resolved entirely by the
+                # translator (which filters a known key and 400s an unknown one).
+                return
             if node[1] in schema.all_entries:
                 _reject_hidden_property(node[-1], node[1], schema)
             else:

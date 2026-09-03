@@ -17,8 +17,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from httk.core import EntryTypeDefinition, PropertyDefinition
+from httk.core import EntryTypeDefinition, PropertyDefinition, apply_definition_prefix
 from httk.core.property_definitions import known_definition_prefixes
+from httk.core.provenance import RUNS_DEFINITION_ID
+
+_RELATIONSHIPS_ROOT = apply_definition_prefix("relationships", RUNS_DEFINITION_ID)
+"""The ``_httk_relationships`` filter-extension root, reserved as a name (derived)."""
 
 
 def fulltype_of(definition: PropertyDefinition) -> str:
@@ -238,6 +242,8 @@ def build_served_schema(
     """
     if recognized_prefixes is None:
         recognized_prefixes = known_definition_prefixes()
+    if _RELATIONSHIPS_ROOT in definitions:
+        raise ValueError(f"Entry type name {_RELATIONSHIPS_ROOT!r} is reserved for the relationships filter extension.")
     revision_bases = tuple(revisions)
     unknown_revisions = [entry for entry in revision_bases if entry not in definitions]
     if unknown_revisions:
@@ -327,6 +333,10 @@ def build_served_schema(
         described = definition.properties
         served_names = list(expanded_served[entry]) if entry in expanded_served else list(described)
 
+        if _RELATIONSHIPS_ROOT in served_names:
+            raise ValueError(
+                f"Property name {_RELATIONSHIPS_ROOT!r} is reserved for the relationships filter extension."
+            )
         missing = [name for name in served_names if name not in described]
         if missing:
             raise ValueError(

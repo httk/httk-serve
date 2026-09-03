@@ -11,11 +11,15 @@ descriptions, property keys, and records. It is httk-serve's only dependency on
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
-from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry
+from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry, apply_definition_prefix
+from httk.core.provenance import RUNS_DEFINITION_ID
 from httk.store.query.optimade_filters import (
     HandlerTable,
     relationship_id_handler,
 )
+
+_REL_ROOT = apply_definition_prefix("relationships", RUNS_DEFINITION_ID)
+"""The ``_httk_relationships`` filter-extension root (derived, never a literal)."""
 
 from ..schema.served import build_served_schema
 from ._property_handlers import value_aware_property_handlers
@@ -220,6 +224,27 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
                     row['__rel_' + related_type] = [r.id for r in row_related if r.entry_type == related_type]
             for related_type in related_types:
                 handlers.setdefault(related_type + '.id', relationship_id_handler('__rel_' + related_type))
+            # The '_httk_relationships.<key>.id' filter extension: a per-row
+            # '__relkey_<key>' id list keyed EXACTLY as the served response groups
+            # the block (the RelatedEntry.relationship semantic key), registered
+            # under '_httk_relationships.<key>.id'; the typed blocks alias the
+            # existing '__rel_<type>' fields. The in-memory inventory is
+            # observation-derived: only keys present in the data are filterable
+            # (an empty dataset yields no keys), a documented divergence from the
+            # schema-derived stored route.
+            semantic_keys = sorted(
+                {r.relationship for entries in entry_relationships.values() for r in entries if r.relationship}
+            )
+            for row in records_by_entry[entry_type]:
+                row_related = entry_relationships.get(row['__id'], ())
+                for key in semantic_keys:
+                    row['__relkey_' + key] = [r.id for r in row_related if r.relationship == key]
+            for key in semantic_keys:
+                handlers.setdefault(_REL_ROOT + '.' + key + '.id', relationship_id_handler('__relkey_' + key))
+            for related_type in related_types:
+                handlers.setdefault(
+                    _REL_ROOT + '.' + related_type + '.id', relationship_id_handler('__rel_' + related_type)
+                )
         field_handlers[entry_type] = handlers
         # The in-memory store sorts on record keys, so the provider's
         # property-key map IS the sort mapping; without it any property the

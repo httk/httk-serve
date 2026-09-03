@@ -98,6 +98,32 @@ def test_build_served_schema_serves_all_when_served_omitted() -> None:
     assert schema.properties_by_entry["widgets"] == ("id", "type", "cogwheels")
 
 
+def test_build_served_schema_reserves_relationships_root_as_entry_type() -> None:
+    definition = EntryTypeDefinition(
+        "_httk_relationships",
+        "An entry type colliding with the filter-extension root.",
+        {"id": PropertyDefinition.from_simple("id", description="id", required_response=True)},
+    )
+    with pytest.raises(ValueError) as excinfo:
+        build_served_schema({"_httk_relationships": definition})
+    assert "_httk_relationships" in str(excinfo.value)
+
+
+def test_build_served_schema_reserves_relationships_root_as_property() -> None:
+    definition = EntryTypeDefinition(
+        "widgets",
+        "A widgets entry that describes the reserved property name.",
+        {
+            "id": PropertyDefinition.from_simple("id", description="id", required_response=True),
+            "type": PropertyDefinition.from_simple("type", description="type", required_response=True),
+            "_httk_relationships": PropertyDefinition.from_simple("_httk_relationships", description="Reserved."),
+        },
+    )
+    with pytest.raises(ValueError) as excinfo:
+        build_served_schema({"widgets": definition}, {"widgets": ["id", "type", "_httk_relationships"]})
+    assert "_httk_relationships" in str(excinfo.value)
+
+
 def test_build_served_schema_rejects_undescribed_served_property() -> None:
     with pytest.raises(ValueError) as excinfo:
         build_served_schema({"widgets": widgets_definition()}, {"widgets": ["id", "type", "bogus"]})

@@ -466,6 +466,27 @@ def test_asgi_auto_relationship_id_has_filters_without_hand_wiring() -> None:
     assert _filtered_ids(client, 'references.id HAS "ref-3"') == ["demo-2"]
 
 
+def test_httk_relationships_typed_alias_equals_bare_spelling() -> None:
+    """`_httk_relationships.references.id` gives the same result as bare `references.id`."""
+    client = make_auto_client()
+    assert _filtered_ids(client, '_httk_relationships.references.id HAS "ref-1"') == ["demo-1"]
+    assert _filtered_ids(client, '_httk_relationships.references.id HAS ANY "ref-2","ref-3"') == ["demo-2"]
+    assert _filtered_ids(client, '_httk_relationships.references.id HAS "ref-1"') == _filtered_ids(
+        client, 'references.id HAS "ref-1"'
+    )
+
+
+def test_httk_relationships_unknown_key_400_paired_with_positive() -> None:
+    """An unknown own-prefix key 400s (naming the full path); a known key filters."""
+    client = make_auto_client()
+    # Positive same-route control.
+    assert _filtered_ids(client, '_httk_relationships.references.id HAS "ref-1"') == ["demo-1"]
+    # Unknown key under our own prefix: 400.
+    response = client.get("/structures", params={"filter": '_httk_relationships.bogus.id HAS "x"'})
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["status"] == 400
+
+
 # --- relationship-property filtering (two-phase semi-join) ---------------------
 
 

@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Annotated, Any, ClassVar, cast
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 import pytest
@@ -482,3 +482,26 @@ def test_runs_relationships_forward_and_reverse_served_parity_across_stores() ->
             assert {k: run_blocks[k] for k in expected_forward} == expected_forward
             record_blocks = _served_blocks(app, "/_httk_records", rec)
             assert {k: record_blocks[k] for k in expected_reverse} == expected_reverse
+
+        # The `_httk_relationships.<semantic key>.id` filter extension gives the
+        # SAME exact result set through both routes for keys served on both.
+        for app in (sql_app, memory_app):
+            assert _filtered_ids(app, "/_httk_runs", f'_httk_relationships._httk_has_input.id HAS "{rec}"') == [run_id]
+            assert _filtered_ids(app, "/_httk_runs", f'_httk_relationships._httk_has_artifact.id HAS "{rec}"') == [
+                run_id
+            ]
+            assert _filtered_ids(app, "/_httk_records", f'_httk_relationships._httk_is_input.id HAS "{run_id}"') == [
+                rec
+            ]
+            assert _filtered_ids(app, "/_httk_records", f'_httk_relationships._httk_is_artifact.id HAS "{run_id}"') == [
+                rec
+            ]
+            # A run that took no such input is filtered out on both routes.
+            assert _filtered_ids(app, "/_httk_runs", '_httk_relationships._httk_has_input.id HAS "nonesuch"') == []
+
+
+def _filtered_ids(app: Any, path: str, filter_string: str) -> list[str]:
+    """Return the sorted data ids of a served filter request through the ASGI edge."""
+    client = AsgiSyncClient(app, base_url="http://testserver")
+    payload = client.get(f"http://testserver{path}?filter={quote(filter_string)}").json()
+    return sorted(item["id"] for item in payload["data"])

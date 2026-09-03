@@ -129,7 +129,8 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
   relationship-property filters such as `references.doi CONTAINS "10.1"`
   (resolved by a two-phase semi-join over the related entry type; each dotted
   filter node is resolved independently, matching the reference
-  implementation's semantics),
+  implementation's semantics), plus the httk-specific `_httk_relationships.<key>.id`
+  filter extension (see below) that also filters by the semantic provenance keys,
 - the `references`, `files`, and `trajectories` entry types,
 - per-property metadata (`meta.property_metadata` and the
   `x-optimade-metadata-definition` in property definitions),
@@ -144,6 +145,40 @@ merging, filtering on relationship paths nested deeper than one level
 (`references.structures.x`), on relationship `meta`
 (`.description`/`.role`), and dotted `LENGTH` filters, the sparse JSON Lines
 layout, transaction mechanisms, and rejection of unrecognized query parameters.
+
+## The `_httk_relationships` filter extension
+
+httk adds one provider-specific extension to the OPTIMADE filter grammar for
+filtering entries by their served relationships:
+
+```
+filter=_httk_relationships.<key>.id HAS "<related id>"
+```
+
+`<key>` is any key that appears in the entry's `relationships` object — either a
+type-keyed block (`references`, `structures`, ...) or one of the semantic
+provenance keys (the forward `_httk_has_input` / `_httk_has_artifact` /
+`_httk_has_output` on runs, and the derived reverse `_httk_is_input` /
+`_httk_is_artifact` / `_httk_is_output` on the targeted entries). For the
+type-keyed blocks this is exactly equivalent to the standard `<type>.id HAS ...`
+spelling (which keeps working unchanged); the semantic keys are reachable only
+through the extension, since they have no standard spelling.
+
+The full `HAS` family is supported with the usual set semantics — `HAS`,
+`HAS ALL`, `HAS ANY`, and `HAS ONLY` (vacuously true for an entry with no
+related entries of that key). Forward keys evaluate the filtered row's own
+revision-pinned edges; reverse keys evaluate the current latest-main runs that
+reference the row (and never match on an entry's `~alts` alternative cells).
+
+`_httk_relationships` is a *filter-grammar* extension, not a property: it never
+appears as a response field, in `sort=`, or on the `/info` endpoints, and it has
+no property definition. Filtering on an unknown key under the extension (for
+example `_httk_relationships.bogus.id`) is a `400 Bad Request` naming the full
+dotted identifier. The set of filterable keys is derived from the mounted
+backing schemas on the durable stored route (a declared key with no matching
+data simply filters to an empty result), and from the observed relationship data
+on the in-memory provider route (only keys present in the served data are
+filterable).
 
 ## Index meta-databases and composition
 
