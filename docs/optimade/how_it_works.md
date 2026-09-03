@@ -81,7 +81,13 @@ record key, and yields the records:
 - `entry_types()` → entry-type name to an `EntryTypeDefinition`;
 - `property_keys(entry_type)` → served-property to record-key map (at least `id`/`type`;
   every served name must be described by the definition);
-- `records(entry_type)` → an iterable of plain JSON-able record dicts.
+- `records(entry_type)` → an iterable of plain JSON-able record dicts;
+- `relationships(entry_type)` → *optional* map of entry id to a flat tuple of
+  related entries (the serving layer groups them by `relationship or entry_type`);
+- `reverse_relationships()` → *optional*, taking no argument: a nested mapping
+  (target entry type → target id → related-entry tuple) of derived reverse edges,
+  which `adapter_from_providers` append-merges onto the targets' forward blocks
+  in a post-loop pass so both directions are served.
 
 `adapter_from_providers([...])` (`backend/providers.py`) turns one or more
 providers into a fully wired `BackendAdapter` over an in-memory store: it builds
@@ -124,13 +130,19 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
 - sorting of entry listings (the `sort` query parameter),
 - relationships between entries and the `include` query parameter (compound
   documents with a top-level `included` field), with per-identifier
-  relationship `meta` (`description` and the v1.3 `role`),
+  relationship `meta` (`description`, the v1.3 `role`, and the httk-specific
+  `_httk_label`),
 - filtering on relationships: `<type>.id HAS ...` and depth-1
   relationship-property filters such as `references.doi CONTAINS "10.1"`
   (resolved by a two-phase semi-join over the related entry type; each dotted
   filter node is resolved independently, matching the reference
   implementation's semantics), plus the httk-specific `_httk_relationships.<key>.id`
-  filter extension (see below) that also filters by the semantic provenance keys,
+  filter extension (see below) that also filters by the semantic provenance keys.
+  Coverage is route-aware: the in-memory provider route supports both `<type>.id`
+  filtering and the depth-1 related-property filters; the durable stored route
+  gained `<type>.id` relationship filtering in this series (previously bare
+  `<type>.id` there matched nothing), while its depth-1 related-property filters
+  still match nothing (deferred),
 - the `references`, `files`, and `trajectories` entry types,
 - per-property metadata (`meta.property_metadata` and the
   `x-optimade-metadata-definition` in property definitions),
@@ -161,8 +173,12 @@ provenance keys (the forward `_httk_has_input` / `_httk_has_artifact` /
 `_httk_has_output` on runs, and the derived reverse `_httk_is_input` /
 `_httk_is_artifact` / `_httk_is_output` on the targeted entries). For the
 type-keyed blocks this is exactly equivalent to the standard `<type>.id HAS ...`
-spelling (which keeps working unchanged); the semantic keys are reachable only
-through the extension, since they have no standard spelling.
+spelling; the semantic keys are reachable only through the extension, since they
+have no standard spelling. On the in-memory provider route the bare `<type>.id`
+spelling has always worked; on the durable stored route the bare typed spelling
+only now really filters (a conformance fix landed in this series — previously
+`references.id` there silently matched nothing and `_httk_runs.id` returned a
+`400`).
 
 The full `HAS` family is supported with the usual set semantics — `HAS`,
 `HAS ALL`, `HAS ANY`, and `HAS ONLY` (vacuously true for an entry with no
@@ -178,7 +194,18 @@ dotted identifier. The set of filterable keys is derived from the mounted
 backing schemas on the durable stored route (a declared key with no matching
 data simply filters to an empty result), and from the observed relationship data
 on the in-memory provider route (only keys present in the served data are
-filterable).
+filterable, so an empty in-memory dataset `400`s on any key).
+
+A few boundaries apply. Non-`HAS` operators against the extension are a
+`400 Bad Request` naming only the `_httk_relationships` root (cosmetic). The
+semantic provenance relationships are served by any provider that declares them
+(the in-memory provider route, through the hook), by the SQL provider path, and
+by the durable stored federation; Mongo covers the provider path only, and Mongo
+federation serves no relationships (so there is no `_httk_relationships`
+filtering on a Mongo-federated route). The forward-only `_httk_has_product`
+relationship — a data→data curation edge between data entries (`ProductLink`),
+whose wire prefix is merely anchored on the runs definition, not a run edge — is
+emitted, and filterable, on the provider path only, with no derived reverse.
 
 ## Index meta-databases and composition
 

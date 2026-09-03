@@ -7,7 +7,8 @@ a provider serving a custom ``widgets`` entry type alongside the standard
 into a server with ``adapter_from_providers``. The declared
 ``RelatedEntry`` objects are served automatically as the OPTIMADE
 relationships block (with per-identifier ``meta``), resolved by
-``include=references``, and filterable both by id (``references.id HAS
+``include=references``, and filterable by id (``references.id HAS "ref-1"``,
+or equivalently the extension spelling ``_httk_relationships.references.id HAS
 "ref-1"``) and by related properties (``references.title CONTAINS "study"``)
 without any hand-wired filter handlers. See ``examples/optimade/demo_server/`` for the
 lower-level wiring this automates.

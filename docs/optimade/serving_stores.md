@@ -130,6 +130,37 @@ identifier's `meta` (the label as the provider-prefixed `_httk_label`). A
 resource with no such links carries no relationships, and `include=<wire type>`
 inlines the related resources when their family is mounted.
 
+## Relationships from stored strong links (run provenance)
+
+A run's provenance edges are served as **semantic** OPTIMADE relationships in
+both directions. Forward, a run resource (`_httk_runs`) carries
+`_httk_has_input` / `_httk_has_artifact` / `_httk_has_output` keys pointing at
+the entries it consumed and produced. Reverse, each targeted entry carries the
+matching `_httk_is_input` / `_httk_is_artifact` / `_httk_is_output` key back to
+the run — DERIVED at serving time, never stored, with an identical
+`_httk_label` and `role` payload in both directions.
+
+Where weak links are mutable curation *outside* record identity (lineage-live),
+strong links are record content *inside* identity (revision-pinned): a run's
+edges are the ones its own revision declares.
+
+Reverse serving has store-scoped semantics: a reverse edge derives only from
+runs in the *same* source store (cross-store references produce no reverse
+block), from the latest-main revision per lineage. Reverse blocks are
+suppressed on a target's `~alts` alternative cells and carried lineage-level on
+`~revs`. A backend with a custom `id_of` mapping gets empty reverse blocks.
+StrongLink identifiers are raw stored ids in *both* directions, so the F9
+non-empty `public_id_prefix` case is untested by design for forward and reverse
+alike.
+Mongo serves these on the provider path only — Mongo federation serves no
+relationships. The forward-only `_httk_has_product` edge has no reverse.
+
+These served relationships are filterable through the
+`_httk_relationships.<key>.id HAS ...` extension on this surface, keyed exactly
+as served (the semantic keys plus typed aliases such as
+`_httk_relationships.references.id`); see
+[how it works](how_it_works.md#the-httk-relationships-filter-extension).
+
 ## Wire naming
 
 `EntryTypeDefinition.served_form()` is the single wire-naming transform applied
@@ -138,7 +169,10 @@ served under their registered prefix (the runs family serves as `_httk_runs`
 with `_httk_source_id` / `_httk_workflow_declaration_uri`), while standard
 families and properties are served unchanged. Derived revision and alternative
 endpoints keep a single prefix for an already-prefixed base — `_httk_runs~revs`
-and `_httk_runs~alts`, never a doubled `_httk__httk_runs~revs`.
+and `_httk_runs~alts`, never a doubled `_httk__httk_runs~revs`. The same
+transform names the run family's served provenance relationship keys
+(`_httk_has_input`/`_httk_is_input`/...), so runs serve relationships under
+their registered prefix like any other provider property.
 
 ## When providers are still useful
 

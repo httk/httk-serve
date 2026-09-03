@@ -167,15 +167,31 @@ print([r.values["id"] for r in results])  # ['w-1']
 A provider can declare related entries by overriding the optional
 `EntryProvider.relationships(entry_type)` hook, which maps each entry id to a
 flat tuple of `httk.core.RelatedEntry` objects (each naming the related entry
-type and id, optionally with a per-identifier `description` and v1.3 `role`).
-`adapter_from_providers` wires that into the served OPTIMADE **relationships**
-block automatically (grouped by related type, metadata rendered as the
+type and id, optionally with a per-identifier `description`, a v1.3 `role`, a
+`label` served as `meta._httk_label`, and a wire-form `relationship` semantic
+key). `adapter_from_providers` wires that into the served OPTIMADE
+**relationships** block automatically (grouped by `relationship or entry_type` —
+a semantic key when declared, otherwise the target entry type — with each
+identifier's `type` being the target type, and metadata rendered as the
 JSON:API `meta` object), so an `include=<type>` request embeds the related
-resources (resolved from whichever provider serves that related type).
+resources (resolved from whichever provider serves that related type). A
+provider can also override the optional
+`EntryProvider.reverse_relationships()` hook (which takes no argument): it
+returns a nested mapping — target entry type → target id → `RelatedEntry` tuple —
+of the derived reverse of edges the provider owns, and `adapter_from_providers`
+append-merges those onto the targets' forward blocks so both directions are
+served.
+
 Filtering is auto-wired too: `references.id HAS "ref-1"` matches over the
 declared ids, and depth-1 relationship-property filters such as
 `references.title CONTAINS "study"` are resolved by filtering the related
-entry type's own properties (each dotted filter node independently). A
+entry type's own properties (each dotted filter node independently). The
+same relationships are also reachable through the httk-specific
+`_httk_relationships.<key>.id HAS ...` extension, where `<key>` is either a
+typed alias (`_httk_relationships.references.id` == bare `references.id`) or one
+of the semantic provenance keys, which have no standard spelling. On the
+in-memory provider route the filterable key set is observation-derived — only
+keys present in the served data are filterable (an empty dataset `400`s). A
 provider that does not override the hook is unaffected — no relationships
 block is emitted.
 
