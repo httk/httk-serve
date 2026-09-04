@@ -348,7 +348,12 @@ def adapter_from_stores(
     :raises ValueError: If sources conflict or expose incomplete sort mappings.
     :raises TypeError: If a source is not a stored entry source.
     """
-    from httk.store.backend.sql import StoredEntryFederation, StoredEntrySource, stored_property_sql_plan
+    from httk.store.backend.sql import (
+        StoredEntryFederation,
+        StoredEntrySource,
+        related_property_resolver_factory,
+        stored_property_sql_plan,
+    )
 
     values = tuple(sources)
     if not values:
@@ -406,8 +411,17 @@ def adapter_from_stores(
     for entry_type, plans in plans_by_entry.items():
         _validate_sortable_backings(plans, entry_type, schema.sortable_response_fields[entry_type])
 
+    # Depth-1 related-property filtering (e.g. ``references.doi CONTAINS ...``)
+    # resolves the sibling family's own ids per backing store; the factory is
+    # built over every grouped plan so a filter reaches whichever served family
+    # the dotted type names, restricted to the filtered row's own store.
+    resolver_factory = related_property_resolver_factory([plan for plans in plans_by_entry.values() for plan in plans])
     federations = {
-        entry_type: StoredEntryFederation(tuple(entry_sources), served_type_names=served_type_names)
+        entry_type: StoredEntryFederation(
+            tuple(entry_sources),
+            served_type_names=served_type_names,
+            related_resolver_factory=resolver_factory,
+        )
         for entry_type, entry_sources in grouped.items()
     }
     return StoredBackendAdapter(federations, schema)

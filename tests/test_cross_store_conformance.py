@@ -29,7 +29,7 @@ from httk.core import (
 from httk.core.data_records import RECORDS_DEFINITION_ID
 from httk.core.optimade import OptimadeResource
 from httk.core.register import register_entry_family, register_entry_record
-from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique
+from httk.core.storage import IdentitySkip, Indexed, Related, StorageInfo, StoredPropertyProjection, Unique
 from httk.store import Backend, EntryIdScheme, RunEntryProvider, SqlStore
 from httk.store.backend.sql import StoredEntrySource
 from httk.store.backend.sql.rows import is_lazy_row
@@ -505,3 +505,155 @@ def _filtered_ids(app: Any, path: str, filter_string: str) -> list[str]:
     client = AsgiSyncClient(app, base_url="http://testserver")
     payload = client.get(f"http://testserver{path}?filter={quote(filter_string)}").json()
     return sorted(item["id"] for item in payload["data"])
+
+
+# --- Related reference-field relationships: stored vs in-memory parity ---------
+
+_REFERENCES = "https://schemas.optimade.org/defs/v1.2/entrytypes/optimade/references"
+
+
+@dataclass(frozen=True)
+class ConfPeerRow:
+    """A ``references`` backing with a queryable ``doi`` (the relationship target)."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="conf_related_peer")
+
+    doi: str
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+    __httk_stored_properties__: ClassVar = {
+        "doi": StoredPropertyProjection(
+            response=lambda record: record.doi,
+            query=lambda context, operator, literal: context.compare(
+                context.field("doi"), operator, context.constant(literal)
+            ),
+            sort=lambda context: context.field("doi"),
+        )
+    }
+
+
+@dataclass(frozen=True)
+class ConfWorkRow:
+    """A ``_httk_records`` backing with one Related reference field to a peer."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="conf_related_work")
+
+    name: str
+    lead: Annotated[ConfPeerRow | None, Related(role="lead", description="Lead reference")] = None
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+
+class ConfPeerFamily:
+    type = "references"
+    definition_id = _REFERENCES
+
+
+class ConfWorkFamily:
+    type = "records"
+    definition_id = RECORDS_DEFINITION_ID
+
+
+register_entry_family(name="conf-related-peer", family=f"{__name__}:ConfPeerFamily", definition_id=_REFERENCES)
+register_entry_record(name="conf-related-peer-rec", family="conf-related-peer", record=f"{__name__}:ConfPeerRow")
+register_entry_family(
+    name="conf-related-work", family=f"{__name__}:ConfWorkFamily", definition_id=RECORDS_DEFINITION_ID
+)
+register_entry_record(name="conf-related-work-rec", family="conf-related-work", record=f"{__name__}:ConfWorkRow")
+
+
+class _RelatedBlockProvider(EntryProvider):
+    """An in-memory ``_httk_records`` + ``references`` provider mirroring the stored fixture.
+
+    Serves the identical works, peers, reference-field relationship blocks, and
+    ``doi`` property values, so the provider (in-memory) route is the byte-for-byte
+    reference for the stored federation's Related reference-field serving and its
+    depth-1 related-property filtering.
+    """
+
+    _work_def = load_entry_type_definition(RECORDS_DEFINITION_ID).served_form()
+    _peer_def = load_entry_type_definition(_REFERENCES).served_form()
+
+    def __init__(
+        self,
+        works: list[str],
+        peers: list[tuple[str, str]],
+        blocks: dict[str, tuple[tuple[str, str, str], ...]],
+    ) -> None:
+        self._works = works
+        self._peers = peers
+        self._blocks = blocks
+
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        return {"_httk_records": self._work_def, "references": self._peer_def}
+
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
+        if entry_type == "_httk_records":
+            return {"id": "id", "type": "type"}
+        return {"id": "id", "type": "type", "doi": "doi"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        if entry_type == "_httk_records":
+            return [{"id": work, "type": "_httk_records"} for work in self._works]
+        return [{"id": peer, "type": "references", "doi": doi} for peer, doi in self._peers]
+
+    def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:
+        if entry_type != "_httk_records":
+            return {}
+        return {
+            work: tuple(
+                RelatedEntry("references", peer, role=role, description=description)
+                for peer, role, description in entries
+            )
+            for work, entries in self._blocks.items()
+        }
+
+
+def test_related_reference_field_blocks_and_depth1_filter_parity() -> None:
+    """Stored and in-memory routes agree on Related reference-field blocks and depth-1 filters."""
+    with Backend.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={ConfWorkFamily: ConfWorkRow, ConfPeerFamily: ConfPeerRow},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        ada = store.fetch(ConfPeerRow, store.save(ConfPeerRow("10.1/ada")), eager=True)
+        boole = store.fetch(ConfPeerRow, store.save(ConfPeerRow("10.2/boole")), eager=True)
+        work_a = store.fetch(ConfWorkRow, store.save(ConfWorkRow("A", lead=ada)), eager=True)
+        work_b = store.fetch(ConfWorkRow, store.save(ConfWorkRow("B", lead=boole)), eager=True)
+        work_c = store.fetch(ConfWorkRow, store.save(ConfWorkRow("C")), eager=True)  # a work with no reference
+
+        stored_app = create_asgi_app(
+            adapter_from_stores(
+                (StoredEntrySource(store, ConfWorkFamily, "work"), StoredEntrySource(store, ConfPeerFamily, "peer")),
+            ),
+            baseurl="http://testserver",
+        )
+        memory_app = create_asgi_app(
+            adapter_from_providers(
+                [
+                    _RelatedBlockProvider(
+                        works=[work_a.id, work_b.id, work_c.id],
+                        peers=[(ada.id, "10.1/ada"), (boole.id, "10.2/boole")],
+                        blocks={
+                            work_a.id: ((ada.id, "lead", "Lead reference"),),
+                            work_b.id: ((boole.id, "lead", "Lead reference"),),
+                        },
+                    )
+                ]
+            ),
+            baseurl="http://testserver",
+        )
+
+        for app in (stored_app, memory_app):
+            # Identical served relationship block on the referencing work.
+            assert _served_blocks(app, "/_httk_records", work_a.id) == {"references": [("references", ada.id)]}, app
+            # Identical depth-1 related-property filter results.
+            assert _filtered_ids(app, "/_httk_records", 'references.doi CONTAINS "10.1"') == [work_a.id], app
+            assert _filtered_ids(app, "/_httk_records", 'references.doi CONTAINS "10.2"') == [work_b.id], app
+            assert _filtered_ids(app, "/_httk_records", 'references.doi CONTAINS "nomatch"') == [], app
+            # The reference-less work_c matches the NOT complement on both routes.
+            assert _filtered_ids(app, "/_httk_records", 'NOT (references.doi CONTAINS "10.1")') == sorted(
+                [work_b.id, work_c.id]
+            ), app
