@@ -141,3 +141,40 @@ def test_depth1_reference_property_filter_end_to_end(store_and_ids) -> None:
         # No reference matches: an empty result, and NOT is the complement.
         assert ids('references.doi CONTAINS "nomatch"') == []
         assert ids('NOT (references.doi CONTAINS "10.1")') == [work_b_id]
+
+
+def test_prefixed_typed_relationships_include_and_filter_union(store_and_ids) -> None:
+    store, ada_id, cara_id, work_a_id, work_b_id = store_and_ids
+    adapter = adapter_from_stores(
+        (
+            StoredEntrySource(store, WorkFamily, "work", "W:"),
+            StoredEntrySource(store, PeerFamily, "peer", "P:"),
+        )
+    )
+    with TestClient(create_asgi_app(adapter, baseurl="http://testserver")) as client:
+        response = client.get("/calculations", params={"include": "references"})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        resource = next(row for row in payload["data"] if row["id"] == "W:" + work_a_id)
+        assert {item["id"] for item in resource["relationships"]["references"]["data"]} == {
+            "P:" + ada_id,
+            "P:" + cara_id,
+        }
+        assert {row["id"] for row in payload["included"]} >= {
+            "P:" + ada_id,
+            "P:" + cara_id,
+        }
+
+        def ids(expression):
+            result = client.get("/calculations", params={"filter": expression})
+            assert result.status_code == 200, result.text
+            return {row["id"] for row in result.json()["data"]}
+
+        for key in ("references.id", "_httk_relationships.references.id"):
+            assert ids(f'{key} HAS "P:{ada_id}"') == {"W:" + work_a_id}
+            assert ids(f'{key} HAS ALL "P:{ada_id}", "P:{cara_id}"') == {"W:" + work_a_id}
+            assert ids(f'{key} HAS ONLY "P:{ada_id}", "P:{cara_id}"') == {"W:" + work_a_id}
+            assert ids(f'{key} HAS ALL "P:{ada_id}", "X:{cara_id}"') == set()
+            assert ids(f'{key} HAS "{ada_id}"') == set()
+        assert ids('references.doi CONTAINS "10.3"') == {"W:" + work_a_id}
+        assert ids('NOT (references.doi CONTAINS "10.1")') == {"W:" + work_b_id}

@@ -11,11 +11,12 @@ end-to-end by :func:`test_runs_family_served_end_to_end`.
 from dataclasses import dataclass, field
 from typing import Annotated, ClassVar
 
+import pytest
 from httk.core import load_entry_type_definition
-from httk.core.data_records import RECORDS_DEFINITION_ID
-from httk.core.provenance import Run, RunEdge, RunEntry
+from httk.core.data_records import RECORDS_DEFINITION_ID, DataRecord, DataRecordEntry
+from httk.core.provenance import RUNS_DEFINITION_ID, Run, RunEdge, RunEntry
 from httk.core.register import register_entry_family, register_entry_record
-from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique, WeakLink
+from httk.core.storage import IdentitySkip, Indexed, StorageInfo, StrongLink, Unique, WeakLink
 from httk.store import EntryIdScheme
 from httk.store.backend.sql import Backend, SqlStore, StoredEntrySource
 from starlette.testclient import TestClient
@@ -331,3 +332,234 @@ def test_run_provenance_edges_served_forward_and_reverse_end_to_end() -> None:
             }
             reverse_included = client.get("/_httk_records", params={"include": "_httk_runs"}).json().get("included", [])
             assert ("_httk_runs", run.id) in {(i["type"], i["id"]) for i in reverse_included}
+
+
+def test_prefixed_relationships_across_families_and_stores() -> None:
+    with Backend.sqlite() as database_a, Backend.sqlite() as database_b:
+        sources = []
+        for namespace, database in (("A", database_a), ("B", database_b)):
+            store = SqlStore(
+                database,
+                entry_records={
+                    RunEntry: Run,
+                    CalculationFamily: CalculationRecord,
+                    ReferenceFamily: ReferenceRecord,
+                },
+                entry_ids=EntryIdScheme("httk.same", "1"),
+            )
+            reference = store.fetch(ReferenceRecord, store.save(ReferenceRecord("r")), eager=True)
+            calculation = store.fetch(CalculationRecord, store.save(CalculationRecord("c")), eager=True)
+            store.link(calculation, "produced_by", reference)
+            run = store.fetch(
+                Run,
+                store.save(
+                    Run(
+                        inputs=(
+                            RunEdge("ref", "references", reference.id),
+                            RunEdge("calc", "calculations", calculation.id),
+                            RunEdge("remote", "external", "loose-id"),
+                        ),
+                        source_id="job",
+                    )
+                ),
+                eager=True,
+            )
+            sources.extend(
+                (
+                    StoredEntrySource(store, RunEntry, namespace + "run", namespace + "R:"),
+                    StoredEntrySource(store, ReferenceFamily, namespace + "ref", namespace + "P:"),
+                    StoredEntrySource(store, CalculationFamily, namespace + "calc", namespace + "C:"),
+                )
+            )
+        adapter = adapter_from_stores(sources)
+        with _client(adapter) as client:
+
+            def payload(endpoint, **params):
+                response = client.get(endpoint, params=params)
+                assert response.status_code == 200, response.text
+                return response.json()
+
+            def ids(endpoint, expression):
+                return {row["id"] for row in payload(endpoint, filter=expression)["data"]}
+
+            rows = payload("/_httk_runs", include="references,calculations")
+            assert {row["id"] for row in rows["included"]} == {
+                namespace + kind + ":" + raw
+                for namespace in ("A", "B")
+                for kind, raw in (("P", reference.id), ("C", calculation.id))
+            }
+            for row in rows["data"]:
+                namespace = row["id"][0]
+                edge_ids = {item["id"] for item in row["relationships"]["_httk_has_input"]["data"]}
+                assert edge_ids == {
+                    namespace + "P:" + reference.id,
+                    namespace + "C:" + calculation.id,
+                    "loose-id",
+                }
+            refs = payload("/references", include="_httk_runs")
+            assert {row["id"] for row in refs["included"]} == {
+                "AR:" + run.id,
+                "BR:" + run.id,
+            }
+            for row in refs["data"]:
+                reverse = row["relationships"]["_httk_is_input"]["data"]
+                assert reverse == [
+                    {
+                        "type": "_httk_runs",
+                        "id": row["id"][0] + "R:" + run.id,
+                        "meta": {"role": "input", "_httk_label": "ref"},
+                    }
+                ]
+            calcs = payload("/calculations", include="references")
+            for row in calcs["data"]:
+                assert row["relationships"]["references"]["data"][0]["id"] == row["id"][0] + "P:" + reference.id
+            forward = "_httk_relationships._httk_has_input.id"
+            reverse = "_httk_relationships._httk_is_input.id"
+            assert ids("/_httk_runs", f'{forward} HAS "AP:{reference.id}"') == {"AR:" + run.id}
+            assert ids(
+                "/_httk_runs",
+                f'{forward} HAS ALL "AP:{reference.id}", "AC:{calculation.id}"',
+            ) == {"AR:" + run.id}
+            assert (
+                ids(
+                    "/_httk_runs",
+                    f'{forward} HAS ALL "AP:{reference.id}", "BC:{calculation.id}"',
+                )
+                == set()
+            )
+            assert ids(
+                "/_httk_runs",
+                f'{forward} HAS ONLY "AP:{reference.id}", "AC:{calculation.id}", "loose-id"',
+            ) == {"AR:" + run.id}
+            assert ids("/_httk_runs", f'{forward} HAS "{reference.id}"') == set()
+            assert ids("/references", f'{reverse} HAS "AR:{run.id}"') == {"AP:" + reference.id}
+            assert ids("/references", f'{reverse} HAS "{run.id}"') == set()
+            assert ids("/calculations", f'references.id HAS "AP:{reference.id}"') == {"AC:" + calculation.id}
+            assert ids("/calculations", f'references.id HAS "BP:{reference.id}"') == {"BC:" + calculation.id}
+            assert ids("/calculations", f'references.id HAS "{reference.id}"') == set()
+
+
+def test_ambiguous_relationship_mounts_require_valid_explicit_selection() -> None:
+    with Backend.sqlite() as database, Backend.sqlite() as other_database:
+        store = SqlStore(
+            database,
+            entry_records={RunEntry: Run, EdgeRecordFamily: EdgeRecordRow},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        other_store = SqlStore(other_database, entry_records={EdgeRecordFamily: EdgeRecordRow})
+        target = store.fetch(EdgeRecordRow, store.save(EdgeRecordRow("r")), eager=True)
+        run = store.fetch(
+            Run,
+            store.save(Run(inputs=(RunEdge("in", "records", target.id),))),
+            eager=True,
+        )
+        mounts = (
+            StoredEntrySource(store, EdgeRecordFamily, "a", "A:"),
+            StoredEntrySource(store, EdgeRecordFamily, "b", "B:"),
+        )
+        with pytest.raises(ValueError, match="Ambiguous relationship target"):
+            adapter_from_stores((StoredEntrySource(store, RunEntry, "run", "R:"), *mounts))
+        for invalid in ("missing", "run", "other"):
+            with pytest.raises(ValueError, match="Invalid relationship source"):
+                adapter_from_stores(
+                    (
+                        StoredEntrySource(store, RunEntry, "run", "R:", {EdgeRecordFamily: invalid}),
+                        *mounts,
+                        StoredEntrySource(other_store, EdgeRecordFamily, "other", "O:"),
+                    )
+                )
+        adapter = adapter_from_stores(
+            (
+                StoredEntrySource(store, RunEntry, "run", "R:", {EdgeRecordFamily: "b"}),
+                *mounts,
+            )
+        )
+        with _client(adapter) as client:
+            rows = client.get("/_httk_records").json()["data"]
+            by_id = {row["id"]: row for row in rows}
+            assert "_httk_is_input" not in by_id["A:" + target.id].get("relationships", {})
+            assert by_id["B:" + target.id]["relationships"]["_httk_is_input"]["data"][0]["id"] == "R:" + run.id
+            result = client.get(
+                "/_httk_records",
+                params={"filter": f'_httk_relationships._httk_is_input.id HAS "R:{run.id}"'},
+            )
+            assert result.status_code == 200, result.text
+            assert [row["id"] for row in result.json()["data"]] == ["B:" + target.id]
+            forward = client.get("/_httk_runs", params={"include": "_httk_records"}).json()
+            assert [row["id"] for row in forward["included"]] == ["B:" + target.id]
+
+
+@dataclass(frozen=True)
+class UnmountedRun:
+    """A separate run family sharing the mounted run family's internal type."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="unmounted_edge_run")
+
+    inputs: Annotated[tuple[RunEdge, ...], StrongLink("has_input", reverse="is_input", role="input")] = ()
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+
+class UnmountedRunFamily:
+    """An unmounted sibling of the core runs family."""
+
+    type = "runs"
+    definition_id = RUNS_DEFINITION_ID
+
+
+register_entry_family(
+    name="unmounted-edge-run", family=f"{__name__}:UnmountedRunFamily", definition_id=RUNS_DEFINITION_ID
+)
+register_entry_record(name="unmounted-edge-run-rec", family="unmounted-edge-run", record=f"{__name__}:UnmountedRun")
+
+
+@pytest.mark.parametrize("reverse_layout", (False, True))
+def test_unmounted_same_type_families_preserve_relationship_prefixes(reverse_layout: bool) -> None:
+    """Same-type siblings cannot steal forward prefixes or inherit reverse prefixes."""
+    with Backend.sqlite() as database:
+        records = [
+            (RunEntry, Run),
+            (UnmountedRunFamily, UnmountedRun),
+            (EdgeRecordFamily, EdgeRecordRow),
+            (DataRecordEntry, DataRecord),
+        ]
+        store = SqlStore(
+            database,
+            entry_records=dict(reversed(records) if reverse_layout else records),
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        target = store.fetch(EdgeRecordRow, store.save(EdgeRecordRow("target")), eager=True)
+        edge = RunEdge("in", "records", target.id)
+        mounted = store.fetch(Run, store.save(Run(inputs=(edge,))), eager=True)
+        store.save(UnmountedRun())
+        unmounted = store.fetch(UnmountedRun, store.save(UnmountedRun(inputs=(edge,))), eager=True)
+        adapter = adapter_from_stores(
+            (
+                StoredEntrySource(store, RunEntry, "runs", "R:"),
+                StoredEntrySource(store, EdgeRecordFamily, "records", "D:"),
+            )
+        )
+        with _client(adapter) as client:
+            forward = client.get("/_httk_runs", params={"include": "_httk_records"})
+            assert forward.status_code == 200, forward.text
+            payload = forward.json()
+            assert [row["id"] for row in payload["included"]] == ["D:" + target.id]
+            assert payload["data"][0]["relationships"]["_httk_has_input"]["data"][0]["id"] == "D:" + target.id
+            reverse = client.get("/_httk_records", params={"include": "_httk_runs"})
+            assert reverse.status_code == 200, reverse.text
+            payload = reverse.json()
+            assert {row["id"] for row in payload["included"]} == {"R:" + mounted.id}
+            assert {row["id"] for row in payload["data"][0]["relationships"]["_httk_is_input"]["data"]} == {
+                "R:" + mounted.id,
+                unmounted.id,
+            }
+            for endpoint, key, value, expected in (
+                ("/_httk_runs", "has_input", "D:" + target.id, {"R:" + mounted.id}),
+                ("/_httk_runs", "has_input", target.id, set()),
+                ("/_httk_records", "is_input", "R:" + mounted.id, {"D:" + target.id}),
+                ("/_httk_records", "is_input", unmounted.id, {"D:" + target.id}),
+                ("/_httk_records", "is_input", "R:" + unmounted.id, set()),
+            ):
+                response = client.get(endpoint, params={"filter": f'_httk_relationships._httk_{key}.id HAS "{value}"'})
+                assert response.status_code == 200, response.text
+                assert {row["id"] for row in response.json()["data"]} == expected

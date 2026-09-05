@@ -419,6 +419,7 @@ def adapter_from_stores(
     federations = {
         entry_type: StoredEntryFederation(
             tuple(entry_sources),
+            source_inventory=values,
             served_type_names=served_type_names,
             related_resolver_factory=resolver_factory,
         )
