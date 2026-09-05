@@ -208,9 +208,10 @@ the actual declaring run family and backing; unmounted run families retain raw
 ids even when a mounted sibling shares their type name. Loose forward edges
 declare only a type name: mounted families sharing that name must resolve to the
 same public id prefix, or construction fails. Unmounted siblings do not overwrite
-a mounted target's prefix. Edges with no mounted target type retain raw ids;
-arbitrary remote ids naming a mounted type receive that type's selected prefix
-too, because loose edges carry no ownership information. Reverse discovery
+a mounted target's prefix. A loose id receives the selected prefix only when it
+resolves to a main lineage in a mounted target table in the same store. Unresolved
+ids, including remote ids naming a mounted type, remain unchanged in both
+responses and filters. Reverse discovery
 remains within one store.
 
 A few boundaries apply. Non-`HAS` operators against the extension are a
