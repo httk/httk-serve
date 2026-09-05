@@ -1,0 +1,56 @@
+httk.serve.web.widgets.optimade_fields
+======================================
+
+.. py:module:: httk.serve.web.widgets.optimade_fields
+
+.. autoapi-nested-parse::
+
+   A server-side-static table of OPTIMADE property definitions.
+
+   Unlike ``optimade_table`` this widget performs no browser fetch and ships no
+   JavaScript: the served schema's property definitions are known at startup, so
+   the table is rendered once from the ``properties`` mapping a site supplies.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_fields.MAX_OPTIMADE_FIELDS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_fields.render
+
+
+Module Contents
+---------------
+
+.. py:data:: MAX_OPTIMADE_FIELDS
+   :value: 512
+
+
+.. py:function:: render(context, *, properties, caption = 'Field definitions')
+
+   Render a static table of OPTIMADE property definitions.
+
+   Each row links a property's prefixed name to the human-readable definition
+   page at its ``$id`` and shows the first paragraph of its ``description``.
+   Ad-hoc synthesized ids (whose path contains ``/ad-hoc/``) and any non
+   HTTP(S) id render the name as plain text rather than a link.
+
+   :param context: Immutable widget invocation context.
+   :param properties: Mapping of served property name to its OPTIMADE
+       property-definition mapping (each carrying ``$id`` and ``description``).
+   :param caption: Accessible table caption.
+   :return: Static field-definition table and its stylesheet asset.
+   :raises OptimadeTableProtocolError: If ``properties`` is not a non-empty
+       mapping of at most 512 identifier-named definition mappings.
+
+

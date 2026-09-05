@@ -1,0 +1,39 @@
+httk.serve.web.renderers.httkweb_compat
+=======================================
+
+.. py:module:: httk.serve.web.renderers.httkweb_compat
+
+.. autoapi-nested-parse::
+
+   Render legacy ``.httkweb`` source files.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.renderers.httkweb_compat.HttkwebCompatRenderer
+
+
+Module Contents
+---------------
+
+.. py:class:: HttkwebCompatRenderer
+
+   Minimal compatibility renderer for legacy .httkweb files.
+
+   Old .httkweb pages typically have YAML-like front matter bounded by dashes,
+   followed by text that is close to reStructuredText.
+
+
+   .. py:method:: render(source_path)
+
+      Render one legacy ``.httkweb`` source file.
+
+      :param source_path: Legacy source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+

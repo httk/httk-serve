@@ -1,0 +1,65 @@
+httk.serve.web.api
+==================
+
+.. py:module:: httk.serve.web.api
+
+.. autoapi-nested-parse::
+
+   Expose high-level helpers for serving and publishing web sites.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.api.create_asgi_app
+   httk.serve.web.api.serve
+   httk.serve.web.api.publish
+
+
+Module Contents
+---------------
+
+.. py:function:: create_asgi_app(srcdir, *, baseurl = None, compatibility_mode = False, config_name = 'config', debug = False, table_token_secret = None)
+
+   Create an ASGI application for a site source directory.
+
+   :param srcdir: Site source directory.
+   :param baseurl: Optional site base URL used when building links.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param debug: Whether to enable Starlette debug responses.
+   :param table_token_secret: Secret used to authenticate table continuation tokens.
+   :return: Configured serving application.
+
+
+.. py:function:: serve(srcdir, *, host = '127.0.0.1', port = 8080, baseurl = None, compatibility_mode = False, config_name = 'config', debug = False, table_token_secret = None)
+
+   Run a development server for a site source directory.
+
+   :param srcdir: Site source directory.
+   :param host: Interface on which to listen.
+   :param port: TCP port on which to listen.
+   :param baseurl: Optional site base URL used when building links.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param debug: Whether to enable Starlette debug responses.
+   :param table_token_secret: Secret used to authenticate table continuation tokens.
+
+
+.. py:function:: publish(srcdir, outdir, baseurl, *, host_static = None, compatibility_mode = False, config_name = 'config', use_urls_without_ext = None)
+
+   Render a site source directory into static output files.
+
+   :param srcdir: Site source directory.
+   :param outdir: Destination directory for published files.
+   :param baseurl: Site base URL used when building links.
+   :param host_static: Optional host URL for static assets.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param use_urls_without_ext: Whether published page links omit extensions.
+   :return: Report of files written and rendering warnings.
+
+

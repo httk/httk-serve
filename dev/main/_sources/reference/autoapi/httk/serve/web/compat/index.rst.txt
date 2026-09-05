@@ -1,0 +1,11 @@
+httk.serve.web.compat
+=====================
+
+.. py:module:: httk.serve.web.compat
+
+.. autoapi-nested-parse::
+
+   Provide compatibility helpers for legacy web-site conventions.
+
+
+
