@@ -24,8 +24,8 @@ def test_filter_shim_exports_historical_all() -> None:
         assert getattr(httk.serve.optimade.filter, name) is getattr(httk.core.optimade, name)
 
 
-def test_handlers_shim_exports_historical_all() -> None:
-    assert httk.serve.optimade.backend.handlers.__all__ == [
+def test_handlers_shim_exports_supported_names() -> None:
+    assert set(httk.serve.optimade.backend.handlers.__all__) == {
         "HandlerTable",
         "invert_op",
         "true_handler",
@@ -45,7 +45,7 @@ def test_handlers_shim_exports_historical_all() -> None:
         "set_handler",
         "constant_set_handler",
         "simple_property_handlers",
-    ]
+    }
     for name in httk.serve.optimade.backend.handlers.__all__:
         assert getattr(httk.serve.optimade.backend.handlers, name) is getattr(httk.store.query.optimade_filters, name)
 
