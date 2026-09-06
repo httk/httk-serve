@@ -1,0 +1,76 @@
+httk.serve.optimade.api
+=======================
+
+.. py:module:: httk.serve.optimade.api
+
+.. autoapi-nested-parse::
+
+   Public helpers for creating and running generic OPTIMADE applications.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.api.create_asgi_app
+   httk.serve.optimade.api.create_index_asgi_app
+   httk.serve.optimade.api.serve
+
+
+Module Contents
+---------------
+
+.. py:function:: create_asgi_app(adapter, config = None, *, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Create an ASGI application serving an OPTIMADE API for a backend or store.
+
+   An absent ``baseurl`` makes the application derive a mount-aware URL from
+   the request. An explicit value is authoritative.
+
+   :param adapter: Backend providing the served schema/query callback, or an
+       entry store whose configured OPTIMADE families are discovered lazily.
+   :param config: Optional service configuration.
+   :param baseurl: Public API base URL, or ``None`` for request-based derivation.
+   :param debug: Enable application and backend diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+   :return: Configured serving application.
+
+
+.. py:function:: create_index_asgi_app(config, *, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Create an ASGI application for an OPTIMADE index meta-database.
+
+   The index serves only discovery, links, and unversioned version
+   negotiation. It has no backend adapter and performs no query calls. The
+   supplied configuration is retained as the response metadata source; the
+   composed application's caller owns its lifetime and configuration.
+
+   :param config: Validated index metadata and configured database links.
+   :param baseurl: Authoritative public index URL, or ``None`` for
+       mount-aware derivation from each request.
+   :param debug: Enable Starlette diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+   :return: Configured serving application.
+   :raises TypeError: If ``config`` is not an
+       :class:`~httk.serve.optimade.model.config.OptimadeIndexConfig`.
+
+
+.. py:function:: serve(adapter, config = None, *, host = '127.0.0.1', port = 8080, baseurl = None, debug = False, report_level = 'warning', report_context_levels = None)
+
+   Serve an OPTIMADE API for a backend or entry store with a development server.
+
+   :param adapter: Backend providing the served schema/query callback, or an
+       entry store whose configured OPTIMADE families are discovered lazily.
+   :param config: Optional service configuration.
+   :param host: Interface or hostname to bind.
+   :param port: TCP port to bind.
+   :param baseurl: Public API base URL, or ``None`` to derive the local URL.
+   :param debug: Enable application and backend diagnostics.
+   :param report_level: Minimum report level collected per request.
+   :param report_context_levels: Context-specific report levels.
+
+

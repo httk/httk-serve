@@ -1,0 +1,494 @@
+httk.serve.optimade.backend
+===========================
+
+.. py:module:: httk.serve.optimade.backend
+
+.. autoapi-nested-parse::
+
+   Public backend adapters, stores, and filter translation helpers.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/optimade/backend/adapter/index
+   /reference/autoapi/httk/serve/optimade/backend/execution/index
+   /reference/autoapi/httk/serve/optimade/backend/handlers/index
+   /reference/autoapi/httk/serve/optimade/backend/memory_store/index
+   /reference/autoapi/httk/serve/optimade/backend/partial/index
+   /reference/autoapi/httk/serve/optimade/backend/protocols/index
+   /reference/autoapi/httk/serve/optimade/backend/providers/index
+   /reference/autoapi/httk/serve/optimade/backend/stores/index
+   /reference/autoapi/httk/serve/optimade/backend/translation/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.BackendAdapter
+   httk.serve.optimade.backend.EntrySource
+   httk.serve.optimade.backend.StoreResults
+   httk.serve.optimade.backend.InMemoryStore
+   httk.serve.optimade.backend.PartialDimension
+   httk.serve.optimade.backend.PartialValue
+   httk.serve.optimade.backend.QueryFunction
+   httk.serve.optimade.backend.QueryResults
+   httk.serve.optimade.backend.StoredBackendAdapter
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.execute_query
+   httk.serve.optimade.backend.adapter_from_providers
+   httk.serve.optimade.backend.providers_from_registry
+   httk.serve.optimade.backend.adapter_from_store
+   httk.serve.optimade.backend.adapter_from_stores
+   httk.serve.optimade.backend.translate_filter
+   httk.serve.optimade.backend.translate_filter_node
+
+
+Package Contents
+----------------
+
+.. py:class:: BackendAdapter
+
+   Bind a store to the OPTIMADE entry endpoints it serves.
+
+   ``sources`` maps entry endpoint names (e.g. ``'structures'``) to the
+   sources queried for that endpoint; an endpoint with several sources (e.g.
+   several calculation result types) is queried across all of them.
+
+   ``schema`` is required: it declares the served entry types and properties.
+   ``field_handlers`` maps each entry type to its filter-handler table. When
+   omitted (left empty) it is derived from ``schema`` via
+   :func:`~httk.store.query.optimade_filters.simple_property_handlers`, using an
+   identity property-key map (each property is filtered against a backend field
+   of the same name); a backend whose field names differ, or that wants finer
+   control, supplies its own tables instead.
+
+   :param store: Store implementing the neutral query protocol.
+   :param sources: Queryable sources keyed by entry endpoint.
+   :param schema: Required schema describing served entries and properties.
+   :param field_handlers: Optional filter handlers keyed by entry endpoint.
+
+
+   .. py:attribute:: store
+      :type:  httk.store.query.Store
+
+
+   .. py:attribute:: sources
+      :type:  collections.abc.Mapping[str, collections.abc.Sequence[EntrySource]]
+
+
+   .. py:attribute:: schema
+      :type:  httk.serve.optimade.schema.served.ServedSchema
+
+
+   .. py:attribute:: field_handlers
+      :type:  collections.abc.Mapping[str, httk.store.query.optimade_filters.HandlerTable]
+
+
+   .. py:method:: query_function()
+
+      Return the callback that executes queries through this adapter.
+
+      :return: Query callback consumed by the OPTIMADE request engine.
+
+
+
+.. py:class:: EntrySource
+
+   Describe one queryable source behind an OPTIMADE entry endpoint.
+
+   ``target`` is what gets passed to ``searcher.variable()``; ``fields`` maps
+   OPTIMADE response-field names to extractors applied to matched row objects.
+   ``relationships``, when set, is an extractor mapping a matched row to a
+   dictionary keyed by related entry type, each value a list of
+   ``{'id': str, 'description': str?, 'role': str?}`` dictionaries.
+   ``sort_keys`` maps response-field names to the backend field names to sort
+   on. ``property_metadata`` maps response-field names to extractors returning
+   the per-property metadata dictionary for a matched row (or ``None`` when
+   there is no metadata for that row).
+
+   :param target: Store-specific target passed to ``searcher.variable``.
+   :param fields: Response-field extractors applied to matched rows.
+   :param sort_keys: Response-field to backend-sort-field mappings.
+   :param relationships: Optional extractor for related-resource data.
+   :param property_metadata: Optional per-property metadata extractors.
+
+
+   .. py:attribute:: target
+      :type:  Any
+
+
+   .. py:attribute:: fields
+      :type:  collections.abc.Mapping[str, FieldExtractor]
+
+
+   .. py:attribute:: sort_keys
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: relationships
+      :type:  FieldExtractor | None
+      :value: None
+
+
+
+   .. py:attribute:: property_metadata
+      :type:  collections.abc.Mapping[str, FieldExtractor]
+
+
+.. py:class:: StoreResults(pairs, response_fields, unknown_response_fields, limit, offset, total_count, recognized_prefixes)
+
+   Results of a query over one or more searchers.
+
+   Implements the :class:`~httk.serve.optimade.model.results.QueryResults`
+   protocol. Iteration yields one
+   :class:`~httk.serve.optimade.model.results.ResultRow` per entry, whose values
+   map response-field names to values extracted from the matched row objects.
+
+   :param pairs: Sources and already-configured searchers to iterate.
+   :param response_fields: Recognized fields to extract.
+   :param unknown_response_fields: Unknown fields to return as null.
+   :param limit: Maximum number of results to yield.
+   :param offset: Number of results to skip.
+   :param total_count: Total matches before pagination.
+   :param recognized_prefixes: Prefixes for dynamic row attributes.
+
+
+   .. py:attribute:: pairs
+
+
+   .. py:attribute:: recognized_prefixes
+
+
+   .. py:attribute:: cur
+      :type:  collections.abc.Iterator[tuple[httk.serve.optimade.backend.adapter.EntrySource, Any]] | None
+
+
+   .. py:attribute:: limit
+
+
+   .. py:attribute:: response_fields
+
+
+   .. py:attribute:: unknown_response_fields
+
+
+   .. py:attribute:: offset
+
+
+   .. py:attribute:: more_data_available
+      :value: True
+
+
+
+   .. py:method:: count()
+
+      Return all current-filter matches, before pagination.
+
+      The endpoint metadata needs the filtered total even after execution has
+      applied page limits and offsets to its searchers. Retaining it here also
+      keeps the value stable once this one-shot result iterator is consumed.
+
+
+
+.. py:function:: execute_query(adapter, entries, response_fields, unknown_response_fields, response_limit, response_offset, filter_ast = None, *, sort = None, debug = False)
+
+   Execute a translated query across the adapter's sources.
+
+   :param adapter: Backend adapter providing sources and schema.
+   :param entries: Entry endpoints to query.
+   :param response_fields: Recognized fields to return.
+   :param unknown_response_fields: Unknown fields to return as null.
+   :param response_limit: Maximum number of returned rows.
+   :param response_offset: Number of matching rows to skip.
+   :param filter_ast: Parsed filter, when one was requested.
+   :param sort: Fields and directions to sort by.
+   :param debug: Enable backend diagnostics.
+   :return: Lazy results for the requested page.
+   :raises httk.serve.optimade.model.errors.TranslatorError: If sorting across multiple sources is requested.
+
+
+.. py:class:: InMemoryStore(tables)
+
+   Provide a store over dictionary rows.
+
+   :param tables: Row lists keyed by table name.
+
+
+   .. py:attribute:: tables
+
+
+   .. py:method:: searcher(*, as_of = None)
+
+      Create a searcher over this store's tables.
+
+      :param as_of: Optional historic timestamp cutoff; unsupported here.
+      :return: Fresh in-memory searcher.
+      :raises ValueError: If a historic cutoff is requested.
+
+
+
+.. py:class:: PartialDimension
+
+   Describe one list axis of a :class:`PartialValue`.
+
+   ``length`` is the number of items along the axis (``None`` when unknown or
+   entry-dependent and not declared). ``sliceable`` indicates whether the
+   server can honour a slice request for this axis.
+
+   :param name: Dimension name used in response metadata.
+   :param length: Number of items, or ``None`` when unknown.
+   :param sliceable: Whether the server accepts slices on this axis.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: length
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: sliceable
+      :type:  bool
+      :value: False
+
+
+
+.. py:class:: PartialValue
+
+   Describe a property value provided lazily, one slice at a time.
+
+   ``fetch`` takes a tuple of Python slices (one per dimension, with the usual
+   *exclusive* stop) and returns the corresponding nested lists.
+
+   :param dimensions: Axes describing the value.
+   :param fetch: Slice retrieval operation.
+
+
+   .. py:attribute:: dimensions
+      :type:  tuple[PartialDimension, ...]
+
+
+   .. py:attribute:: fetch
+      :type:  collections.abc.Callable[[tuple[slice, ...]], Any]
+
+
+.. py:class:: QueryFunction
+
+   Bases: :py:obj:`Protocol`
+
+
+   The callback seam through which the request engine runs queries on a backend.
+
+
+.. py:class:: QueryResults
+
+   Bases: :py:obj:`Protocol`
+
+
+   The results of a query against a backend, as consumed by the entry endpoints.
+
+   Iteration yields one :class:`~httk.serve.optimade.model.results.ResultRow` per entry; its ``values`` map
+   OPTIMADE response-field names to values, and the ``id`` and ``type`` keys
+   are always present.
+
+
+   .. py:property:: more_data_available
+      :type: bool
+
+
+      Report whether another page is available.
+
+
+   .. py:method:: count()
+
+      Return the total number of matches before pagination.
+
+
+
+.. py:function:: adapter_from_providers(providers, **options)
+
+   Build a :class:`~httk.serve.optimade.backend.adapter.BackendAdapter` serving the given entry providers.
+
+   Every provider's :meth:`~httk.core.EntryProvider.entry_types` become served
+   entry types (described by their :class:`~httk.core.EntryTypeDefinition`), its
+   :meth:`~httk.core.EntryProvider.property_keys` name the served subset and drive
+   both the filter handlers (via
+   :func:`~httk.store.query.optimade_filters.simple_property_handlers`) and the
+   response-field extractors, and its
+   :meth:`~httk.core.EntryProvider.records` are loaded into an
+   :class:`~httk.serve.optimade.backend.memory_store.InMemoryStore`. Every served
+   property MUST be described by the entry type's definition (a custom property
+   must therefore live in an
+   :meth:`~httk.core.EntryTypeDefinition.extended` definition); a
+   :class:`ValueError` names any offender. All served properties beyond
+   ``id``/``type`` are marked default-response. Extra keyword ``options`` (e.g.
+   ``sortable``, ``recognized_prefixes``) are forwarded to
+   :func:`~httk.serve.optimade.schema.served.build_served_schema`; every served
+   property is sortable-capable, since the provider's property-key map is
+   passed through as the source's
+   :attr:`~httk.serve.optimade.backend.adapter.EntrySource.sort_keys`.
+
+   Declared relationships (:meth:`~httk.core.EntryProvider.relationships`) are
+   fully auto-wired for serving *and* filtering: for each entry type with
+   declared relationships, a synthetic ``__rel_<related_type>`` id-list field
+   is materialized on EVERY row of that entry type (an empty list when the row
+   has no related entries of that type, so inverse set semantics are
+   well-defined), and a ``'<related_type>.id'`` entry built with
+   :func:`~httk.store.query.optimade_filters.relationship_id_handler` is merged into the
+   entry type's derived filter-handler table (never overwriting an entry
+   already present, mirroring how :class:`~httk.serve.optimade.backend.adapter.BackendAdapter`
+   respects explicitly supplied handler tables). ``<related_type>.id HAS ...``
+   filters — and, through the related-property resolver of
+   :func:`~httk.serve.optimade.backend.translation.translate_filter`, depth-1
+   relationship-property filters such as ``references.doi CONTAINS "10.1"`` —
+   therefore work without any hand-wiring.
+
+   A provider's reverse relationships
+   (``EntryProvider.reverse_relationships()``) are consumed too:
+   their target-keyed related entries are append-merged into each served target
+   entry's relationships (never clobbering the forward entries), so a derived
+   reverse edge is served on the entry it points at.
+
+   :param providers: Generic entry providers supplying definitions, keys, records, and relationships.
+   :param \*\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+   :return: Fully wired in-memory backend adapter.
+   :raises ValueError: If provider keys or served properties are invalid.
+
+
+.. py:function:: providers_from_registry()
+
+   Return the registered entry-provider factories keyed by their registered name.
+
+   Resolves each factory registered via
+   :func:`httk.core.register_entry_provider` (through ``httk.registry.*``
+   self-registration) into a callable. Providers need data, so applications
+   instantiate them: ``providers_from_registry()["atomistic-structures"](data)``.
+
+   :return: Registered provider factories keyed by registry name.
+
+
+.. py:class:: StoredBackendAdapter
+
+   Serve one data federation per OPTIMADE entry type.
+
+   :param federations: Durable federations keyed by entry endpoint.
+   :param schema: Schema describing the federations' served entries.
+
+
+   .. py:attribute:: federations
+      :type:  collections.abc.Mapping[str, Any]
+
+
+   .. py:attribute:: schema
+      :type:  httk.serve.optimade.schema.served.ServedSchema
+
+
+   .. py:method:: snapshot_cutoff_ns(entry_type, now_ns)
+
+      Return the resolution-aware snapshot cutoff for one entry type.
+
+
+
+   .. py:method:: query_function()
+
+      Return the callback that queries the configured federations.
+
+      :return: Query callback consumed by the OPTIMADE request engine.
+
+
+
+.. py:function:: adapter_from_store(store, **options)
+
+   Build a lazy OPTIMADE adapter from every described family in one store.
+
+   Families declared without an entry-type definition are deliberately
+   ignored.  This lets application-specific records, such as DSP publication
+   declarations, coexist with OPTIMADE records in one durable layout.
+
+   :param store: Entry store whose configured layout is discovered.
+   :param \*\*options: Schema options forwarded to :func:`adapter_from_stores`.
+   :return: Lazy adapter over all configured OPTIMADE families.
+   :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
+   :raises ValueError: If the store contains no OPTIMADE-described family.
+
+
+.. py:function:: adapter_from_stores(sources, **options)
+
+   Build a lazy store-backed adapter from durable entry sources.
+
+   Sources with the same exact logical family are federated under one entry
+   endpoint.  The data layer owns all source/backing traversal and global
+   pagination; this adapter advertises the family's definition and turns only
+   the returned page into OPTIMADE result rows.
+
+   :param sources: Durable entry sources to federate by entry type.
+   :param \*\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`,
+       e.g. ``default_includes`` (per served entry type, the served entry
+       types to include by default on single-entry requests; always unioned
+       with ``references``).
+   :return: Lazy adapter over the supplied durable sources.
+   :raises ValueError: If sources conflict or expose incomplete sort mappings.
+   :raises TypeError: If a source is not a stored entry source.
+
+
+.. py:function:: translate_filter(filter_ast, entries, adapter, sort = None)
+
+   Build one searcher per entry source, with the filter applied to each.
+
+   Relationship-property filters (dotted identifiers over served entry types)
+   are resolved through the adapter's related-property resolver (built by
+   ``_related_property_resolver``), so filtering ``references.doi`` behaves
+   exactly like filtering ``/references`` directly.
+
+   :param filter_ast: Parsed filter, or ``None`` for an unfiltered query.
+   :param entries: Entry endpoints to search.
+   :param adapter: Backend adapter supplying sources and handlers.
+   :param sort: Response fields and descending flags for sorting.
+   :return: Source/searcher pairs with the filter and sort applied.
+   :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
+
+
+.. py:function:: translate_filter_node(node, search_variable, entry, entry_info, handlers, recognized_prefixes, served_entries = ())
+
+   Translate one filter node against an OPTIMADE *entry-info* property mapping.
+
+   An OPTIMADE-side adaptation of
+   :func:`~httk.store.query.optimade_filters.translate_filter_ast`: ``entry_info`` maps
+   property names to their property dictionaries (only their ``'fulltype'``
+   keys are read) rather than straight to fulltypes, ``served_entries`` names
+   the relationship targets, and failures surface as
+   :class:`~httk.serve.optimade.model.errors.TranslatorError` instead of the
+   upstream neutral :class:`~httk.store.FilterTranslationError`.
+
+   No related-property resolver is threaded through, so relationship-property
+   filters other than ``<type>.id HAS ...`` raise a not-implemented (501)
+   error. Use :func:`translate_filter` (which builds the resolver from its
+   adapter) for full relationship-property filtering.
+
+   :param node: Filter node to translate.
+   :param search_variable: Backend variable used by the expression.
+   :param entry: Entry endpoint being filtered.
+   :param entry_info: Simplified property metadata for the entry.
+   :param handlers: Property handlers used for translation.
+   :param recognized_prefixes: Property-definition prefixes accepted by the filter.
+   :param served_entries: Entry types available as relationship targets.
+   :return: Backend search expression.
+   :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
+
+

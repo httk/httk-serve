@@ -1,0 +1,147 @@
+httk.serve.web.renderers
+========================
+
+.. py:module:: httk.serve.web.renderers
+
+.. autoapi-nested-parse::
+
+   Provide content renderers and suffix dispatch for web pages.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/renderers/base/index
+   /reference/autoapi/httk/serve/web/renderers/html/index
+   /reference/autoapi/httk/serve/web/renderers/httkweb_compat/index
+   /reference/autoapi/httk/serve/web/renderers/markdown/index
+   /reference/autoapi/httk/serve/web/renderers/rst/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.renderers.RENDERERS_BY_SUFFIX
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.renderers.Renderer
+   httk.serve.web.renderers.RenderResult
+   httk.serve.web.renderers.HtmlRenderer
+   httk.serve.web.renderers.HttkwebCompatRenderer
+   httk.serve.web.renderers.MarkdownRenderer
+   httk.serve.web.renderers.RstRenderer
+
+
+Package Contents
+----------------
+
+.. py:class:: Renderer
+
+   Bases: :py:obj:`Protocol`
+
+
+   Define the source-renderer protocol.
+
+
+   .. py:method:: render(source_path)
+
+      Render a source file into HTML and metadata.
+
+
+
+.. py:class:: RenderResult
+
+   Carry rendered HTML, metadata, and widget placements.
+
+   :param html: Rendered HTML before templates are applied.
+   :param metadata: Source metadata.
+   :param widgets: Widget placements found in the source.
+
+
+   .. py:attribute:: html
+      :type:  str
+
+
+   .. py:attribute:: metadata
+      :type:  dict[str, object]
+
+
+   .. py:attribute:: widgets
+      :type:  tuple[WidgetPlacement, ...]
+      :value: ()
+
+
+
+.. py:class:: HtmlRenderer
+
+   Render HTML source files.
+
+
+   .. py:method:: render(source_path)
+
+      Render one HTML source file.
+
+      :param source_path: HTML source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+
+.. py:class:: HttkwebCompatRenderer
+
+   Minimal compatibility renderer for legacy .httkweb files.
+
+   Old .httkweb pages typically have YAML-like front matter bounded by dashes,
+   followed by text that is close to reStructuredText.
+
+
+   .. py:method:: render(source_path)
+
+      Render one legacy ``.httkweb`` source file.
+
+      :param source_path: Legacy source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+
+.. py:class:: MarkdownRenderer
+
+   Render Markdown source files.
+
+
+   .. py:method:: render(source_path)
+
+      Render one Markdown source file.
+
+      :param source_path: Markdown source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+
+.. py:class:: RstRenderer
+
+   Render reStructuredText source files.
+
+
+   .. py:method:: render(source_path)
+
+      Render one reStructuredText source file.
+
+      :param source_path: reStructuredText source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+
+.. py:data:: RENDERERS_BY_SUFFIX
+   :type:  dict[str, base.Renderer]
+

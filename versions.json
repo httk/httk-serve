@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "project": "httk-serve",
+  "url": "https://docs.httk.org/httk-serve",
+  "source_commit": "ee563d9864b35e6f890975587d4d75dcf0a56e94",
+  "default": {
+    "name": "dev:main",
+    "path": "dev/main/",
+    "channel": "dev"
+  },
+  "versions": [
+    {
+      "name": "dev:main",
+      "path": "dev/main/",
+      "channel": "dev"
+    }
+  ]
+}

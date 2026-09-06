@@ -1,0 +1,63 @@
+httk.serve.http.openapi.resources
+=================================
+
+.. py:module:: httk.serve.http.openapi.resources
+
+.. autoapi-nested-parse::
+
+   Load packaged OpenAPI contracts and bundled JSON Schema documents offline.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.resources.load_packaged_contract
+   httk.serve.http.openapi.resources.packaged_schema_documents
+   httk.serve.http.openapi.resources.packaged_schema_registry
+
+
+Module Contents
+---------------
+
+.. py:function:: load_packaged_contract(package, *path)
+
+   Load an OpenAPI contract from package data without network access.
+
+   The resource is read as UTF-8 and parsed according to its suffix:
+   ``.yaml`` and ``.yml`` through ``yaml.safe_load``, ``.json`` through
+   :func:`json.loads`. Both formats yield the same mapping shape that
+   :func:`httk.serve.http.openapi.create_openapi_app` consumes.
+
+   :param package: Importable package that ships the contract as package data.
+   :param \*path: Path segments joined below the package to reach the resource.
+   :return: Parsed contract mapping.
+   :raises ValueError: If the resource suffix is not a supported contract format.
+   :raises RuntimeError: If the parsed contract is not a JSON object.
+
+
+.. py:function:: packaged_schema_documents(package, *path)
+
+   Load every bundled JSON Schema document below a package resource.
+
+   The resource tree is walked in stable sorted order; every ``*.json`` file
+   is parsed, and those that decode to a mapping carrying a ``$schema`` key are
+   returned unchanged.
+
+   :param package: Importable package that ships the schema documents.
+   :param \*path: Path segments joined below the package to reach the schema root.
+   :return: Parsed JSON Schema documents in stable order.
+
+
+.. py:function:: packaged_schema_registry(package, *path)
+
+   Build an offline schema registry from bundled JSON Schema documents.
+
+   :param package: Importable package that ships the schema documents.
+   :param \*path: Path segments joined below the package to reach the schema root.
+   :return: Registry over the bundled documents.
+   :raises httk.serve.http.openapi.OpenAPISchemaError: If any document is invalid.
+
+

@@ -1,0 +1,1313 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../../../../../../genindex.html"><link rel="search" title="Search" href="../../../../../../search.html"><link rel="next" title="httk.serve.dsp.serializers" href="../serializers/index.html"><link rel="prev" title="httk.serve.dsp.models" href="../models/index.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>httk.serve.dsp.provider - httk-serve dev:main documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:main) — content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../../../index.html"><div class="brand">httk-serve dev:main documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-serve dev:main documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../dsp.html">DSP minimal and DCAT-AP minimal public catalogues</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../../../http/index.html">HTTP application helpers</a><input aria-label="Toggle navigation of HTTP application helpers" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../http/json_get.html">JSON and JSON-LD GET applications</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../../../http/openapi.html">Serving an OpenAPI contract</a><input aria-label="Toggle navigation of Serving an OpenAPI contract" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../http/openapi-details.html">OpenAPI adapter details</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../http/static_files.html">Explicit file maps</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../../../web/index.html">Web guide</a><input aria-label="Toggle navigation of Web guide" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../web/widgets.html">Widgets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../web/deployment_apache.html">Apache Deployment (ASGI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../web/deployment_nginx.html">Nginx Deployment (ASGI)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../web/migration_legacy_to_jinja2.html">Migration: Legacy Templates to Jinja2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../web/site_template_repository.html">Site Template Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../web/how_it_works.html">How It Works</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../../../optimade/index.html">OPTIMADE guide</a><input aria-label="Toggle navigation of OPTIMADE guide" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../optimade/serving_providers.html">Serving entry providers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../optimade/serving_stores.html">Serving directly from an entry store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../optimade/client.html">Reading a remote OPTIMADE service</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../../../examples/index.html">Examples</a><input aria-label="Toggle navigation of Examples" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../examples/demo_server/serve.html">A small OPTIMADE demo server over an in-memory dataset.</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../examples/in_memory_backend.html">Standing up a backend from plain dict rows, without writing a provider</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../examples/provider_server/serve.html">A minimal OPTIMADE server fed by an httk-core entry provider.</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../examples/query_in_process.html">Query a live store-native OPTIMADE application without binding a port.</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../examples/store_server/serve.html">Serve a live OPTIMADE structures endpoint directly from <code class="docutils literal notranslate"><span class="pre">SqlStore</span></code>.</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../optimade/how_it_works.html">How it works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../optimade/notebooks/examples.html">Walking an OPTIMADE API in-process</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../../index.html">Reference</a><input aria-label="Toggle navigation of Reference" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../web/index.html">httk.serve.web</a><input aria-label="Toggle navigation of httk.serve.web" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../web/api/index.html">httk.serve.web.api</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../web/cli/index.html">httk.serve.web.cli</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../web/compat/index.html">httk.serve.web.compat</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/engine/index.html">httk.serve.web.engine</a><input aria-label="Toggle navigation of httk.serve.web.engine" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/engine/discovery/index.html">httk.serve.web.engine.discovery</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/engine/site_engine/index.html">httk.serve.web.engine.site_engine</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/functions/index.html">httk.serve.web.functions</a><input aria-label="Toggle navigation of httk.serve.web.functions" class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/functions/python_module/index.html">httk.serve.web.functions.python_module</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/model/index.html">httk.serve.web.model</a><input aria-label="Toggle navigation of httk.serve.web.model" class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" role="switch" type="checkbox"/><label for="toctree-checkbox-10"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/model/config/index.html">httk.serve.web.model.config</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/model/errors/index.html">httk.serve.web.model.errors</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/model/page/index.html">httk.serve.web.model.page</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/model/request/index.html">httk.serve.web.model.request</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../web/providers/index.html">httk.serve.web.providers</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/publishing/index.html">httk.serve.web.publishing</a><input aria-label="Toggle navigation of httk.serve.web.publishing" class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" role="switch" type="checkbox"/><label for="toctree-checkbox-11"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/publishing/static/index.html">httk.serve.web.publishing.static</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/renderers/index.html">httk.serve.web.renderers</a><input aria-label="Toggle navigation of httk.serve.web.renderers" class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" role="switch" type="checkbox"/><label for="toctree-checkbox-12"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/renderers/base/index.html">httk.serve.web.renderers.base</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/renderers/html/index.html">httk.serve.web.renderers.html</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/renderers/httkweb_compat/index.html">httk.serve.web.renderers.httkweb_compat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/renderers/markdown/index.html">httk.serve.web.renderers.markdown</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/renderers/rst/index.html">httk.serve.web.renderers.rst</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../web/resources/index.html">httk.serve.web.resources</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/runtime/index.html">httk.serve.web.runtime</a><input aria-label="Toggle navigation of httk.serve.web.runtime" class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" role="switch" type="checkbox"/><label for="toctree-checkbox-13"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/runtime/asgi/index.html">httk.serve.web.runtime.asgi</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/runtime/devserver/index.html">httk.serve.web.runtime.devserver</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/templating/index.html">httk.serve.web.templating</a><input aria-label="Toggle navigation of httk.serve.web.templating" class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" role="switch" type="checkbox"/><label for="toctree-checkbox-14"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/templating/base/index.html">httk.serve.web.templating.base</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/templating/httk_compat/index.html">httk.serve.web.templating.httk_compat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/templating/jinja2_engine/index.html">httk.serve.web.templating.jinja2_engine</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/widgets/index.html">httk.serve.web.widgets</a><input aria-label="Toggle navigation of httk.serve.web.widgets" class="toctree-checkbox" id="toctree-checkbox-15" name="toctree-checkbox-15" role="switch" type="checkbox"/><label for="toctree-checkbox-15"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/assets/index.html">httk.serve.web.widgets.assets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/core/index.html">httk.serve.web.widgets.core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/extraction/index.html">httk.serve.web.widgets.extraction</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/loader/index.html">httk.serve.web.widgets.loader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/optimade_assets/index.html">httk.serve.web.widgets.optimade_assets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/optimade_fields/index.html">httk.serve.web.widgets.optimade_fields</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/optimade_table/index.html">httk.serve.web.widgets.optimade_table</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/widgets/table/index.html">httk.serve.web.widgets.table</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../http/index.html">httk.serve.http</a><input aria-label="Toggle navigation of httk.serve.http" class="toctree-checkbox" id="toctree-checkbox-16" name="toctree-checkbox-16" role="switch" type="checkbox"/><label for="toctree-checkbox-16"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../http/accept/index.html">httk.serve.http.accept</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../http/api/index.html">httk.serve.http.api</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../http/apptypes/index.html">httk.serve.http.apptypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../http/fields/index.html">httk.serve.http.fields</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../http/identifiers/index.html">httk.serve.http.identifiers</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../http/openapi/index.html">httk.serve.http.openapi</a><input aria-label="Toggle navigation of httk.serve.http.openapi" class="toctree-checkbox" id="toctree-checkbox-17" name="toctree-checkbox-17" role="switch" type="checkbox"/><label for="toctree-checkbox-17"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../http/openapi/app/index.html">httk.serve.http.openapi.app</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/openapi/binding/index.html">httk.serve.http.openapi.binding</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/openapi/contract/index.html">httk.serve.http.openapi.contract</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/openapi/resources/index.html">httk.serve.http.openapi.resources</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/openapi/schemas/index.html">httk.serve.http.openapi.schemas</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../http/webhook/index.html">httk.serve.http.webhook</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../optimade/index.html">httk.serve.optimade</a><input aria-label="Toggle navigation of httk.serve.optimade" class="toctree-checkbox" id="toctree-checkbox-18" name="toctree-checkbox-18" role="switch" type="checkbox"/><label for="toctree-checkbox-18"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../optimade/api/index.html">httk.serve.optimade.api</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../optimade/backend/index.html">httk.serve.optimade.backend</a><input aria-label="Toggle navigation of httk.serve.optimade.backend" class="toctree-checkbox" id="toctree-checkbox-19" name="toctree-checkbox-19" role="switch" type="checkbox"/><label for="toctree-checkbox-19"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/adapter/index.html">httk.serve.optimade.backend.adapter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/execution/index.html">httk.serve.optimade.backend.execution</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/handlers/index.html">httk.serve.optimade.backend.handlers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/memory_store/index.html">httk.serve.optimade.backend.memory_store</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/partial/index.html">httk.serve.optimade.backend.partial</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/protocols/index.html">httk.serve.optimade.backend.protocols</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/providers/index.html">httk.serve.optimade.backend.providers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/stores/index.html">httk.serve.optimade.backend.stores</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/backend/translation/index.html">httk.serve.optimade.backend.translation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../optimade/client/index.html">httk.serve.optimade.client</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../optimade/endpoints/index.html">httk.serve.optimade.endpoints</a><input aria-label="Toggle navigation of httk.serve.optimade.endpoints" class="toctree-checkbox" id="toctree-checkbox-20" name="toctree-checkbox-20" role="switch" type="checkbox"/><label for="toctree-checkbox-20"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/endpoints/entries/index.html">httk.serve.optimade.endpoints.entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/endpoints/error/index.html">httk.serve.optimade.endpoints.error</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/endpoints/info/index.html">httk.serve.optimade.endpoints.info</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/endpoints/meta/index.html">httk.serve.optimade.endpoints.meta</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/endpoints/partial_data/index.html">httk.serve.optimade.endpoints.partial_data</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../optimade/engine/index.html">httk.serve.optimade.engine</a><input aria-label="Toggle navigation of httk.serve.optimade.engine" class="toctree-checkbox" id="toctree-checkbox-21" name="toctree-checkbox-21" role="switch" type="checkbox"/><label for="toctree-checkbox-21"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/engine/processing/index.html">httk.serve.optimade.engine.processing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/engine/validate/index.html">httk.serve.optimade.engine.validate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../optimade/filter/index.html">httk.serve.optimade.filter</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../optimade/model/index.html">httk.serve.optimade.model</a><input aria-label="Toggle navigation of httk.serve.optimade.model" class="toctree-checkbox" id="toctree-checkbox-22" name="toctree-checkbox-22" role="switch" type="checkbox"/><label for="toctree-checkbox-22"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/model/config/index.html">httk.serve.optimade.model.config</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/model/errors/index.html">httk.serve.optimade.model.errors</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/model/request/index.html">httk.serve.optimade.model.request</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/model/results/index.html">httk.serve.optimade.model.results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/model/versions/index.html">httk.serve.optimade.model.versions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../optimade/remote_query/index.html">httk.serve.optimade.remote_query</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../optimade/runtime/index.html">httk.serve.optimade.runtime</a><input aria-label="Toggle navigation of httk.serve.optimade.runtime" class="toctree-checkbox" id="toctree-checkbox-23" name="toctree-checkbox-23" role="switch" type="checkbox"/><label for="toctree-checkbox-23"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/runtime/asgi/index.html">httk.serve.optimade.runtime.asgi</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/runtime/devserver/index.html">httk.serve.optimade.runtime.devserver</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../optimade/schema/index.html">httk.serve.optimade.schema</a><input aria-label="Toggle navigation of httk.serve.optimade.schema" class="toctree-checkbox" id="toctree-checkbox-24" name="toctree-checkbox-24" role="switch" type="checkbox"/><label for="toctree-checkbox-24"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/schema/served/index.html">httk.serve.optimade.schema.served</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/schema/trajectories/index.html">httk.serve.optimade.schema.trajectories</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../../../../index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" checked="" class="toctree-checkbox" id="toctree-checkbox-25" name="toctree-checkbox-25" role="switch" type="checkbox"/><label for="toctree-checkbox-25"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2 current has-children"><a class="reference internal" href="../../index.html">httk.serve</a><input aria-label="Toggle navigation of httk.serve" checked="" class="toctree-checkbox" id="toctree-checkbox-26" name="toctree-checkbox-26" role="switch" type="checkbox"/><label for="toctree-checkbox-26"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../composition/index.html">httk.serve.composition</a></li>
+<li class="toctree-l3 current has-children"><a class="reference internal" href="../index.html">httk.serve.dsp</a><input aria-label="Toggle navigation of httk.serve.dsp" checked="" class="toctree-checkbox" id="toctree-checkbox-27" name="toctree-checkbox-27" role="switch" type="checkbox"/><label for="toctree-checkbox-27"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html">httk.serve.dsp.api</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../callbacks/index.html">httk.serve.dsp.callbacks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../catalogue/index.html">httk.serve.dsp.catalogue</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../config/index.html">httk.serve.dsp.config</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/index.html">httk.serve.dsp.models</a></li>
+<li class="toctree-l4 current current-page"><a class="current reference internal" href="#">httk.serve.dsp.provider</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../serializers/index.html">httk.serve.dsp.serializers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../state/index.html">httk.serve.dsp.state</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../validation/index.html">httk.serve.dsp.validation</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../http/index.html">httk.serve.http</a><input aria-label="Toggle navigation of httk.serve.http" class="toctree-checkbox" id="toctree-checkbox-28" name="toctree-checkbox-28" role="switch" type="checkbox"/><label for="toctree-checkbox-28"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../http/accept/index.html">httk.serve.http.accept</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/api/index.html">httk.serve.http.api</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/apptypes/index.html">httk.serve.http.apptypes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/fields/index.html">httk.serve.http.fields</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/identifiers/index.html">httk.serve.http.identifiers</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../http/openapi/index.html">httk.serve.http.openapi</a><input aria-label="Toggle navigation of httk.serve.http.openapi" class="toctree-checkbox" id="toctree-checkbox-29" name="toctree-checkbox-29" role="switch" type="checkbox"/><label for="toctree-checkbox-29"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../http/openapi/app/index.html">httk.serve.http.openapi.app</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../http/openapi/binding/index.html">httk.serve.http.openapi.binding</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../http/openapi/contract/index.html">httk.serve.http.openapi.contract</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../http/openapi/resources/index.html">httk.serve.http.openapi.resources</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../http/openapi/schemas/index.html">httk.serve.http.openapi.schemas</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../http/webhook/index.html">httk.serve.http.webhook</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../jsondata/index.html">httk.serve.jsondata</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../optimade/index.html">httk.serve.optimade</a><input aria-label="Toggle navigation of httk.serve.optimade" class="toctree-checkbox" id="toctree-checkbox-30" name="toctree-checkbox-30" role="switch" type="checkbox"/><label for="toctree-checkbox-30"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/api/index.html">httk.serve.optimade.api</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../optimade/backend/index.html">httk.serve.optimade.backend</a><input aria-label="Toggle navigation of httk.serve.optimade.backend" class="toctree-checkbox" id="toctree-checkbox-31" name="toctree-checkbox-31" role="switch" type="checkbox"/><label for="toctree-checkbox-31"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/adapter/index.html">httk.serve.optimade.backend.adapter</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/execution/index.html">httk.serve.optimade.backend.execution</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/handlers/index.html">httk.serve.optimade.backend.handlers</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/memory_store/index.html">httk.serve.optimade.backend.memory_store</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/partial/index.html">httk.serve.optimade.backend.partial</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/protocols/index.html">httk.serve.optimade.backend.protocols</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/providers/index.html">httk.serve.optimade.backend.providers</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/stores/index.html">httk.serve.optimade.backend.stores</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/backend/translation/index.html">httk.serve.optimade.backend.translation</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/client/index.html">httk.serve.optimade.client</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../optimade/endpoints/index.html">httk.serve.optimade.endpoints</a><input aria-label="Toggle navigation of httk.serve.optimade.endpoints" class="toctree-checkbox" id="toctree-checkbox-32" name="toctree-checkbox-32" role="switch" type="checkbox"/><label for="toctree-checkbox-32"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/endpoints/entries/index.html">httk.serve.optimade.endpoints.entries</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/endpoints/error/index.html">httk.serve.optimade.endpoints.error</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/endpoints/info/index.html">httk.serve.optimade.endpoints.info</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/endpoints/meta/index.html">httk.serve.optimade.endpoints.meta</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/endpoints/partial_data/index.html">httk.serve.optimade.endpoints.partial_data</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../optimade/engine/index.html">httk.serve.optimade.engine</a><input aria-label="Toggle navigation of httk.serve.optimade.engine" class="toctree-checkbox" id="toctree-checkbox-33" name="toctree-checkbox-33" role="switch" type="checkbox"/><label for="toctree-checkbox-33"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/engine/processing/index.html">httk.serve.optimade.engine.processing</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/engine/validate/index.html">httk.serve.optimade.engine.validate</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/filter/index.html">httk.serve.optimade.filter</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../optimade/model/index.html">httk.serve.optimade.model</a><input aria-label="Toggle navigation of httk.serve.optimade.model" class="toctree-checkbox" id="toctree-checkbox-34" name="toctree-checkbox-34" role="switch" type="checkbox"/><label for="toctree-checkbox-34"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/model/config/index.html">httk.serve.optimade.model.config</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/model/errors/index.html">httk.serve.optimade.model.errors</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/model/request/index.html">httk.serve.optimade.model.request</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/model/results/index.html">httk.serve.optimade.model.results</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/model/versions/index.html">httk.serve.optimade.model.versions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../optimade/remote_query/index.html">httk.serve.optimade.remote_query</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../optimade/runtime/index.html">httk.serve.optimade.runtime</a><input aria-label="Toggle navigation of httk.serve.optimade.runtime" class="toctree-checkbox" id="toctree-checkbox-35" name="toctree-checkbox-35" role="switch" type="checkbox"/><label for="toctree-checkbox-35"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/runtime/asgi/index.html">httk.serve.optimade.runtime.asgi</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/runtime/devserver/index.html">httk.serve.optimade.runtime.devserver</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../optimade/schema/index.html">httk.serve.optimade.schema</a><input aria-label="Toggle navigation of httk.serve.optimade.schema" class="toctree-checkbox" id="toctree-checkbox-36" name="toctree-checkbox-36" role="switch" type="checkbox"/><label for="toctree-checkbox-36"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/schema/served/index.html">httk.serve.optimade.schema.served</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../optimade/schema/trajectories/index.html">httk.serve.optimade.schema.trajectories</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../web/index.html">httk.serve.web</a><input aria-label="Toggle navigation of httk.serve.web" class="toctree-checkbox" id="toctree-checkbox-37" name="toctree-checkbox-37" role="switch" type="checkbox"/><label for="toctree-checkbox-37"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../web/api/index.html">httk.serve.web.api</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/cli/index.html">httk.serve.web.cli</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/compat/index.html">httk.serve.web.compat</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/engine/index.html">httk.serve.web.engine</a><input aria-label="Toggle navigation of httk.serve.web.engine" class="toctree-checkbox" id="toctree-checkbox-38" name="toctree-checkbox-38" role="switch" type="checkbox"/><label for="toctree-checkbox-38"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/engine/discovery/index.html">httk.serve.web.engine.discovery</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/engine/site_engine/index.html">httk.serve.web.engine.site_engine</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/functions/index.html">httk.serve.web.functions</a><input aria-label="Toggle navigation of httk.serve.web.functions" class="toctree-checkbox" id="toctree-checkbox-39" name="toctree-checkbox-39" role="switch" type="checkbox"/><label for="toctree-checkbox-39"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/functions/python_module/index.html">httk.serve.web.functions.python_module</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/model/index.html">httk.serve.web.model</a><input aria-label="Toggle navigation of httk.serve.web.model" class="toctree-checkbox" id="toctree-checkbox-40" name="toctree-checkbox-40" role="switch" type="checkbox"/><label for="toctree-checkbox-40"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/model/config/index.html">httk.serve.web.model.config</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/model/errors/index.html">httk.serve.web.model.errors</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/model/page/index.html">httk.serve.web.model.page</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/model/request/index.html">httk.serve.web.model.request</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/providers/index.html">httk.serve.web.providers</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/publishing/index.html">httk.serve.web.publishing</a><input aria-label="Toggle navigation of httk.serve.web.publishing" class="toctree-checkbox" id="toctree-checkbox-41" name="toctree-checkbox-41" role="switch" type="checkbox"/><label for="toctree-checkbox-41"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/publishing/static/index.html">httk.serve.web.publishing.static</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/renderers/index.html">httk.serve.web.renderers</a><input aria-label="Toggle navigation of httk.serve.web.renderers" class="toctree-checkbox" id="toctree-checkbox-42" name="toctree-checkbox-42" role="switch" type="checkbox"/><label for="toctree-checkbox-42"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/renderers/base/index.html">httk.serve.web.renderers.base</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/renderers/html/index.html">httk.serve.web.renderers.html</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/renderers/httkweb_compat/index.html">httk.serve.web.renderers.httkweb_compat</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/renderers/markdown/index.html">httk.serve.web.renderers.markdown</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/renderers/rst/index.html">httk.serve.web.renderers.rst</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="../../web/resources/index.html">httk.serve.web.resources</a></li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/runtime/index.html">httk.serve.web.runtime</a><input aria-label="Toggle navigation of httk.serve.web.runtime" class="toctree-checkbox" id="toctree-checkbox-43" name="toctree-checkbox-43" role="switch" type="checkbox"/><label for="toctree-checkbox-43"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/runtime/asgi/index.html">httk.serve.web.runtime.asgi</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/runtime/devserver/index.html">httk.serve.web.runtime.devserver</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/templating/index.html">httk.serve.web.templating</a><input aria-label="Toggle navigation of httk.serve.web.templating" class="toctree-checkbox" id="toctree-checkbox-44" name="toctree-checkbox-44" role="switch" type="checkbox"/><label for="toctree-checkbox-44"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/templating/base/index.html">httk.serve.web.templating.base</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/templating/httk_compat/index.html">httk.serve.web.templating.httk_compat</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/templating/jinja2_engine/index.html">httk.serve.web.templating.jinja2_engine</a></li>
+</ul>
+</li>
+<li class="toctree-l4 has-children"><a class="reference internal" href="../../web/widgets/index.html">httk.serve.web.widgets</a><input aria-label="Toggle navigation of httk.serve.web.widgets" class="toctree-checkbox" id="toctree-checkbox-45" name="toctree-checkbox-45" role="switch" type="checkbox"/><label for="toctree-checkbox-45"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/assets/index.html">httk.serve.web.widgets.assets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/core/index.html">httk.serve.web.widgets.core</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/extraction/index.html">httk.serve.web.widgets.extraction</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/loader/index.html">httk.serve.web.widgets.loader</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/optimade_assets/index.html">httk.serve.web.widgets.optimade_assets</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/optimade_fields/index.html">httk.serve.web.widgets.optimade_fields</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/optimade_table/index.html">httk.serve.web.widgets.optimade_table</a></li>
+<li class="toctree-l5"><a class="reference internal" href="../../web/widgets/table/index.html">httk.serve.web.widgets.table</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../registry/cli/serve/index.html">httk.registry.cli.serve</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../registry/entries/serve/index.html">httk.registry.entries.serve</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../../../../../../_sources/reference/autoapi/httk/serve/dsp/provider/index.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="module-httk.serve.dsp.provider">
+<span id="httk-serve-dsp-provider"></span><h1>httk.serve.dsp.provider<a class="headerlink" href="#module-httk.serve.dsp.provider" title="Link to this heading">¶</a></h1>
+<p>In-memory business implementation of the constrained DSP provider.</p>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#httk.serve.dsp.provider.UuidFactory" title="httk.serve.dsp.provider.UuidFactory"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UuidFactory</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#httk.serve.dsp.provider.UtcClock" title="httk.serve.dsp.provider.UtcClock"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UtcClock</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider" title="httk.serve.dsp.provider.DspProvider"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DspProvider</span></code></a></p></td>
+<td><p>Serve a live dataset catalogue and manage non-durable DSP processes.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<dl class="py type">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.UuidFactory">
+<span class="property"><span class="k"><span class="pre">type</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">httk.serve.dsp.provider.</span></span><span class="sig-name descname"><span class="pre">UuidFactory</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">UUID</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#UuidFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.UuidFactory" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py type">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.UtcClock">
+<span class="property"><span class="k"><span class="pre">type</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">httk.serve.dsp.provider.</span></span><span class="sig-name descname"><span class="pre">UtcClock</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">datetime</span><span class="p"><span class="pre">]</span></span></span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#UtcClock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.UtcClock" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">httk.serve.dsp.provider.</span></span><span class="sig-name descname"><span class="pre">DspProvider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">publications</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalogue_policy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callback_sender</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid_factory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">uuid4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">utc_clock</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider" title="Link to this definition">¶</a></dt>
+<dd><p>Serve a live dataset catalogue and manage non-durable DSP processes.</p>
+<p>Business methods accept and return only ordinary JSON dictionaries; a thin
+HTTP adapter is responsible for route and response-code presentation. All
+process state is in memory and is lost on restart. Callback transitions are
+never committed until a peer acknowledges a 2xx response.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<a class="reference internal" href="../config/index.html#httk.serve.dsp.config.DspProviderConfig" title="httk.serve.dsp.config.DspProviderConfig"><em>httk.serve.dsp.config.DspProviderConfig</em></a>) – Validated fixed provider configuration.</p></li>
+<li><p><strong>store</strong> (<em>httk.store.EntryStore</em><em> | </em><em>None</em>) – Caller-owned entry store containing the DSP publication
+family. Exactly one of <code class="docutils literal notranslate"><span class="pre">store</span></code> and <code class="docutils literal notranslate"><span class="pre">publications</span></code> is required.</p></li>
+<li><p><strong>publications</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable" title="(in Python v3.14)"><em>collections.abc.Iterable</em></a><em>[</em><a class="reference internal" href="../config/index.html#httk.serve.dsp.config.DspPublicationRecord" title="httk.serve.dsp.config.DspPublicationRecord"><em>httk.serve.dsp.config.DspPublicationRecord</em></a><em>] </em><em>| </em><em>None</em>) – Inline dataset and service publication envelopes.
+Exactly one of <code class="docutils literal notranslate"><span class="pre">publications</span></code> and <code class="docutils literal notranslate"><span class="pre">store</span></code> is required.</p></li>
+<li><p><strong>catalogue_policy</strong> (<a class="reference internal" href="../catalogue/index.html#httk.serve.dsp.catalogue.DspCataloguePolicy" title="httk.serve.dsp.catalogue.DspCataloguePolicy"><em>httk.serve.dsp.catalogue.DspCataloguePolicy</em></a><em> | </em><em>None</em>) – Optional replaceable catalogue requirements and
+serialization policy. The built-in minimal policy is used by default.</p></li>
+<li><p><strong>callback_sender</strong> (<a class="reference internal" href="../callbacks/index.html#httk.serve.dsp.callbacks.CallbackSender" title="httk.serve.dsp.callbacks.CallbackSender"><em>httk.serve.dsp.callbacks.CallbackSender</em></a><em> | </em><em>None</em>) – Optional asynchronous callback transport. Supplying
+one bypasses default network policy and is useful for deterministic tests.</p></li>
+<li><p><strong>uuid_factory</strong> (<a class="reference internal" href="#httk.serve.dsp.provider.UuidFactory" title="httk.serve.dsp.provider.UuidFactory"><em>UuidFactory</em></a>) – Optional source for provider and agreement identifiers.</p></li>
+<li><p><strong>utc_clock</strong> (<a class="reference internal" href="#httk.serve.dsp.provider.UtcClock" title="httk.serve.dsp.provider.UtcClock"><em>UtcClock</em></a><em> | </em><em>None</em>) – Optional UTC clock used for agreement timestamps.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.config">
+<span class="sig-name descname"><span class="pre">config</span></span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.config" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.catalogue_policy">
+<span class="sig-name descname"><span class="pre">catalogue_policy</span></span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.catalogue_policy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.catalogue_policy" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.profile">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">profile</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.CatalogueProfile" title="httk.serve.dsp.models.CatalogueProfile"><span class="pre">httk.serve.dsp.models.CatalogueProfile</span></a></span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.profile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.profile" title="Link to this definition">¶</a></dt>
+<dd><p>Return a freshly validated catalogue snapshot.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.automatic_batch">
+<span class="sig-name descname"><span class="pre">automatic_batch</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.automatic_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.automatic_batch" title="Link to this definition">¶</a></dt>
+<dd><p>Create a response-local holder for automatic callback actions.</p>
+<p>The HTTP adapter uses the returned private holder to release callbacks
+only from that response’s background hook.  Ordinary callers do not
+need this seam: their automatic callbacks are managed immediately after
+the business method returns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>An empty response-local automatic callback holder.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>_AutomaticBatch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.has_automatic_actions">
+<span class="sig-name descname"><span class="pre">has_automatic_actions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.has_automatic_actions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.has_automatic_actions" title="Link to this definition">¶</a></dt>
+<dd><p>Report whether a response-local holder has callbacks to release.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>batch</strong> (<em>_AutomaticBatch</em>) – Holder returned by <a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.automatic_batch" title="httk.serve.dsp.provider.DspProvider.automatic_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">automatic_batch()</span></code></a>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Whether the holder contains at least one action.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.release_automatic">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">release_automatic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.release_automatic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.release_automatic" title="Link to this definition">¶</a></dt>
+<dd><p>Start one response’s automatic callbacks after its body was sent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>batch</strong> (<em>_AutomaticBatch</em>) – Holder returned by <a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.automatic_batch" title="httk.serve.dsp.provider.DspProvider.automatic_batch"><code class="xref py py-meth docutils literal notranslate"><span class="pre">automatic_batch()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.drain_automatic">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">drain_automatic</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.drain_automatic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.drain_automatic" title="Link to this definition">¶</a></dt>
+<dd><p>Wait until all provider-managed automatic callback tasks settle.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.cancel_automatic">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cancel_automatic</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.cancel_automatic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.cancel_automatic" title="Link to this definition">¶</a></dt>
+<dd><p>Cancel and drain provider-managed automatic callbacks at shutdown.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.version_document">
+<span class="sig-name descname"><span class="pre">version_document</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.version_document"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.version_document" title="Link to this definition">¶</a></dt>
+<dd><p>Return the DSP 2025-1 HTTPS version-discovery document.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Plain DSP protocol-version document.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.dsp_catalogue">
+<span class="sig-name descname"><span class="pre">dsp_catalogue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.dsp_catalogue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.dsp_catalogue" title="Link to this definition">¶</a></dt>
+<dd><p>Return the DSP catalogue snapshot for an empty catalogue filter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>request</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Catalog request message JSON.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Plain DSP catalogue document.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If the request is malformed or filters are unsupported.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.catalogue">
+<span class="sig-name descname"><span class="pre">catalogue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">representation</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.catalogue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.catalogue" title="Link to this definition">¶</a></dt>
+<dd><p>Return a catalogue in a representation selected by the policy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Catalog request message JSON.</p></li>
+<li><p><strong>representation</strong> (<a class="reference internal" href="../catalogue/index.html#httk.serve.dsp.catalogue.DspCatalogueRepresentation" title="httk.serve.dsp.catalogue.DspCatalogueRepresentation"><em>httk.serve.dsp.catalogue.DspCatalogueRepresentation</em></a>) – Value returned by <a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.select_catalogue_representation" title="httk.serve.dsp.provider.DspProvider.select_catalogue_representation"><code class="xref py py-meth docutils literal notranslate"><span class="pre">select_catalogue_representation()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Plain catalogue document.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.select_catalogue_representation">
+<span class="sig-name descname"><span class="pre">select_catalogue_representation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">accept</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.select_catalogue_representation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.select_catalogue_representation" title="Link to this definition">¶</a></dt>
+<dd><p>Select a catalogue response representation through the active policy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>accept</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Raw HTTP <code class="docutils literal notranslate"><span class="pre">Accept</span></code> field, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when absent.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Selected representation metadata.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../catalogue/index.html#httk.serve.dsp.catalogue.DspCatalogueRepresentation" title="httk.serve.dsp.catalogue.DspCatalogueRepresentation">httk.serve.dsp.catalogue.DspCatalogueRepresentation</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.validate_catalogue_request">
+<span class="sig-name descname"><span class="pre">validate_catalogue_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.validate_catalogue_request"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.validate_catalogue_request" title="Link to this definition">¶</a></dt>
+<dd><p>Validate the one unfiltered catalogue request supported by DSP minimal.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.dsp_dataset">
+<span class="sig-name descname"><span class="pre">dsp_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.dsp_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.dsp_dataset" title="Link to this definition">¶</a></dt>
+<dd><p>Return one DSP dataset only when its ID exactly matches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dataset_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Requested dataset identifier.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Plain DSP dataset document.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If the identifier is absent or unknown.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.dcat_catalogue">
+<span class="sig-name descname"><span class="pre">dcat_catalogue</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.dcat_catalogue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.dcat_catalogue" title="Link to this definition">¶</a></dt>
+<dd><p>Return the separate strict owned-context DCAT-AP projection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Plain DCAT-AP-compatible JSON-LD catalogue document.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.get_negotiation">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_negotiation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.get_negotiation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.get_negotiation" title="Link to this definition">¶</a></dt>
+<dd><p>Return one acknowledged negotiation process.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Plain DSP negotiation document.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If the process is unknown.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.request_negotiation">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">request_negotiation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">_automatic_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.request_negotiation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.request_negotiation" title="Link to this definition">¶</a></dt>
+<dd><p>Accept an initial consumer contract request.</p>
+<p>The initial request must omit <code class="docutils literal notranslate"><span class="pre">providerPid</span></code>, identify the configured
+offer and dataset exactly, and provide an HTTPS callback. With automatic
+progression enabled, the agreement callback is scheduled only after
+the returned process snapshot has been acknowledged to the caller.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Contract request message JSON.</p></li>
+<li><p><strong>_automatic_batch</strong> (<em>_AutomaticBatch</em><em> | </em><em>None</em>) – Optional response-local holder used by the HTTP adapter.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Newly created DSP negotiation document.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If message validation fails.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.counter_request">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">counter_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.counter_request"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.counter_request" title="Link to this definition">¶</a></dt>
+<dd><p>Receive a consumer counter-request after a provider offer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Consumer contract request message JSON.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs, policy, or the transition are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.negotiation_event">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">negotiation_event</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.negotiation_event"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.negotiation_event" title="Link to this definition">¶</a></dt>
+<dd><p>Receive the only permitted consumer negotiation event, <code class="docutils literal notranslate"><span class="pre">ACCEPTED</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Contract-negotiation event message JSON.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs, event, or transition are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.verify_agreement">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">verify_agreement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">_automatic_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.verify_agreement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.verify_agreement" title="Link to this definition">¶</a></dt>
+<dd><p>Receive consumer verification of an acknowledged agreement.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Agreement-verification message JSON.</p></li>
+<li><p><strong>_automatic_batch</strong> (<em>_AutomaticBatch</em><em> | </em><em>None</em>) – Optional response-local holder used by the HTTP adapter.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs, state, or finalization delivery are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.receive_negotiation_termination">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">receive_negotiation_termination</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.receive_negotiation_termination"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.receive_negotiation_termination" title="Link to this definition">¶</a></dt>
+<dd><p>Receive consumer termination of a nonterminal negotiation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Negotiation-termination message JSON.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs or the transition are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.get_transfer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.get_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.get_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Return one acknowledged transfer process.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Plain DSP transfer-process document.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If the process is unknown.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.request_transfer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">request_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">_automatic_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.request_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.request_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Accept a consumer pull transfer request under a finalized agreement.</p>
+<p>Identical repeated consumer process IDs return the original transfer.
+A reuse with different agreement, callback, or format is rejected.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Transfer request message JSON.</p></li>
+<li><p><strong>_automatic_batch</strong> (<em>_AutomaticBatch</em><em> | </em><em>None</em>) – Optional response-local holder used by the HTTP adapter.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Newly created or idempotently recovered transfer-process document.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If request validation or callback delivery fails.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference internal" href="../models/index.html#httk.serve.dsp.models.JsonValue" title="httk.serve.dsp.models.JsonValue">httk.serve.dsp.models.JsonValue</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.resume_transfer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">resume_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.resume_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.resume_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Receive a consumer start message that resumes a suspended transfer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Transfer-start message JSON.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs or the transition are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.receive_transfer_suspension">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">receive_transfer_suspension</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.receive_transfer_suspension"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.receive_transfer_suspension" title="Link to this definition">¶</a></dt>
+<dd><p>Receive consumer suspension of a started transfer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Transfer-suspension message JSON.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs or the transition are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.receive_transfer_completion">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">receive_transfer_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.receive_transfer_completion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.receive_transfer_completion" title="Link to this definition">¶</a></dt>
+<dd><p>Receive consumer completion of a started transfer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Transfer-completion message JSON.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs or the transition are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.receive_transfer_termination">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">receive_transfer_termination</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.receive_transfer_termination"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.receive_transfer_termination" title="Link to this definition">¶</a></dt>
+<dd><p>Receive consumer termination of a nonterminal transfer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier from the route.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><em>object</em></a><em>]</em>) – Transfer-termination message JSON.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If PIDs or the transition are invalid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.send_offer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">send_offer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.send_offer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.send_offer" title="Link to this definition">¶</a></dt>
+<dd><p>Send a provider contract offer and acknowledge <code class="docutils literal notranslate"><span class="pre">REQUESTED</span></code> to <code class="docutils literal notranslate"><span class="pre">OFFERED</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.send_agreement">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">send_agreement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.send_agreement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.send_agreement" title="Link to this definition">¶</a></dt>
+<dd><p>Send a provider agreement from <code class="docutils literal notranslate"><span class="pre">REQUESTED</span></code> or <code class="docutils literal notranslate"><span class="pre">ACCEPTED</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.finalize_negotiation">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">finalize_negotiation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.finalize_negotiation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.finalize_negotiation" title="Link to this definition">¶</a></dt>
+<dd><p>Send provider finalization after consumer agreement verification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.terminate_negotiation">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">terminate_negotiation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'terminated'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'negotiation</span> <span class="pre">terminated</span> <span class="pre">by</span> <span class="pre">provider'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.terminate_negotiation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.terminate_negotiation" title="Link to this definition">¶</a></dt>
+<dd><p>Send provider termination for any nonterminal negotiation state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider negotiation process identifier.</p></li>
+<li><p><strong>code</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Machine-readable termination code.</p></li>
+<li><p><strong>reason</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Human-readable termination reason.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.start_transfer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">start_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.start_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.start_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Send provider transfer start with the configured pull data address.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.suspend_transfer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">suspend_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'suspended'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'transfer</span> <span class="pre">suspended</span> <span class="pre">by</span> <span class="pre">provider'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.suspend_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.suspend_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Send provider suspension for a started transfer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier.</p></li>
+<li><p><strong>code</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Machine-readable suspension code.</p></li>
+<li><p><strong>reason</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Human-readable suspension reason.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.complete_transfer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">complete_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.complete_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.complete_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Send provider completion for a started transfer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="httk.serve.dsp.provider.DspProvider.terminate_transfer">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">terminate_transfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">provider_pid</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'terminated'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'transfer</span> <span class="pre">terminated</span> <span class="pre">by</span> <span class="pre">provider'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../../../_modules/httk/serve/dsp/provider.html#DspProvider.terminate_transfer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#httk.serve.dsp.provider.DspProvider.terminate_transfer" title="Link to this definition">¶</a></dt>
+<dd><p>Send provider termination for any nonterminal transfer state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>provider_pid</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Provider transfer-process identifier.</p></li>
+<li><p><strong>code</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Machine-readable termination code.</p></li>
+<li><p><strong>reason</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Human-readable termination reason.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspProtocolError" title="httk.serve.dsp.models.DspProtocolError"><strong>httk.serve.dsp.models.DspProtocolError</strong></a> – If state or callback delivery is invalid.</p></li>
+<li><p><a class="reference internal" href="../models/index.html#httk.serve.dsp.models.DspTransitionSuperseded" title="httk.serve.dsp.models.DspTransitionSuperseded"><strong>httk.serve.dsp.models.DspTransitionSuperseded</strong></a> – If a concurrent transition won the callback commit.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../serializers/index.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">httk.serve.dsp.serializers</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../models/index.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">httk.serve.dsp.models</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-serve AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">httk.serve.dsp.provider</a><ul>
+<li><a class="reference internal" href="#attributes">Attributes</a></li>
+<li><a class="reference internal" href="#classes">Classes</a></li>
+<li><a class="reference internal" href="#module-contents">Module Contents</a><ul>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.UuidFactory"><code class="docutils literal notranslate"><span class="pre">UuidFactory</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.UtcClock"><code class="docutils literal notranslate"><span class="pre">UtcClock</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider"><code class="docutils literal notranslate"><span class="pre">DspProvider</span></code></a><ul>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.config"><code class="docutils literal notranslate"><span class="pre">DspProvider.config</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.catalogue_policy"><code class="docutils literal notranslate"><span class="pre">DspProvider.catalogue_policy</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.profile"><code class="docutils literal notranslate"><span class="pre">DspProvider.profile</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.automatic_batch"><code class="docutils literal notranslate"><span class="pre">DspProvider.automatic_batch()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.has_automatic_actions"><code class="docutils literal notranslate"><span class="pre">DspProvider.has_automatic_actions()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.release_automatic"><code class="docutils literal notranslate"><span class="pre">DspProvider.release_automatic()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.drain_automatic"><code class="docutils literal notranslate"><span class="pre">DspProvider.drain_automatic()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.cancel_automatic"><code class="docutils literal notranslate"><span class="pre">DspProvider.cancel_automatic()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.version_document"><code class="docutils literal notranslate"><span class="pre">DspProvider.version_document()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.dsp_catalogue"><code class="docutils literal notranslate"><span class="pre">DspProvider.dsp_catalogue()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.catalogue"><code class="docutils literal notranslate"><span class="pre">DspProvider.catalogue()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.select_catalogue_representation"><code class="docutils literal notranslate"><span class="pre">DspProvider.select_catalogue_representation()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.validate_catalogue_request"><code class="docutils literal notranslate"><span class="pre">DspProvider.validate_catalogue_request()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.dsp_dataset"><code class="docutils literal notranslate"><span class="pre">DspProvider.dsp_dataset()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.dcat_catalogue"><code class="docutils literal notranslate"><span class="pre">DspProvider.dcat_catalogue()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.get_negotiation"><code class="docutils literal notranslate"><span class="pre">DspProvider.get_negotiation()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.request_negotiation"><code class="docutils literal notranslate"><span class="pre">DspProvider.request_negotiation()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.counter_request"><code class="docutils literal notranslate"><span class="pre">DspProvider.counter_request()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.negotiation_event"><code class="docutils literal notranslate"><span class="pre">DspProvider.negotiation_event()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.verify_agreement"><code class="docutils literal notranslate"><span class="pre">DspProvider.verify_agreement()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.receive_negotiation_termination"><code class="docutils literal notranslate"><span class="pre">DspProvider.receive_negotiation_termination()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.get_transfer"><code class="docutils literal notranslate"><span class="pre">DspProvider.get_transfer()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.request_transfer"><code class="docutils literal notranslate"><span class="pre">DspProvider.request_transfer()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.resume_transfer"><code class="docutils literal notranslate"><span class="pre">DspProvider.resume_transfer()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.receive_transfer_suspension"><code class="docutils literal notranslate"><span class="pre">DspProvider.receive_transfer_suspension()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.receive_transfer_completion"><code class="docutils literal notranslate"><span class="pre">DspProvider.receive_transfer_completion()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.receive_transfer_termination"><code class="docutils literal notranslate"><span class="pre">DspProvider.receive_transfer_termination()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.send_offer"><code class="docutils literal notranslate"><span class="pre">DspProvider.send_offer()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.send_agreement"><code class="docutils literal notranslate"><span class="pre">DspProvider.send_agreement()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.finalize_negotiation"><code class="docutils literal notranslate"><span class="pre">DspProvider.finalize_negotiation()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.terminate_negotiation"><code class="docutils literal notranslate"><span class="pre">DspProvider.terminate_negotiation()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.start_transfer"><code class="docutils literal notranslate"><span class="pre">DspProvider.start_transfer()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.suspend_transfer"><code class="docutils literal notranslate"><span class="pre">DspProvider.suspend_transfer()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.complete_transfer"><code class="docutils literal notranslate"><span class="pre">DspProvider.complete_transfer()</span></code></a></li>
+<li><a class="reference internal" href="#httk.serve.dsp.provider.DspProvider.terminate_transfer"><code class="docutils literal notranslate"><span class="pre">DspProvider.terminate_transfer()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../../../_static/documentation_options.js?v=fe42cd0d"></script>
+    <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../../../_static/selector.js?v=e591e119"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:main","versionPathDepth":2};</script>
+    </body>
+</html>

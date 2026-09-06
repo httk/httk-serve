@@ -1,0 +1,36 @@
+httk.serve.web.renderers.markdown
+=================================
+
+.. py:module:: httk.serve.web.renderers.markdown
+
+.. autoapi-nested-parse::
+
+   Render Markdown source files and extract standalone widget paragraphs.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.renderers.markdown.MarkdownRenderer
+
+
+Module Contents
+---------------
+
+.. py:class:: MarkdownRenderer
+
+   Render Markdown source files.
+
+
+   .. py:method:: render(source_path)
+
+      Render one Markdown source file.
+
+      :param source_path: Markdown source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+
