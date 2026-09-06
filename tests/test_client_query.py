@@ -198,6 +198,20 @@ def make_structures(
     return OptimadeStore(client.base_url, client=client), client
 
 
+def make_altermagnets(query_responses: list[FakeResponse]) -> tuple[OptimadeStore, QueryClient]:
+    """A generic (unregistered) entry type carrying provider-prefixed properties, for slicer tests."""
+    client = QueryClient(
+        "materials",
+        {
+            "_anyterial_formula": {"type": "string"},
+            "_anyterial_max_spin_splitting": {"type": "float"},
+        },
+        query_responses,
+        describedby=None,
+    )
+    return OptimadeStore(client.base_url, client=client), client
+
+
 def test_negotiated_base_routes_queries_through_effective_versioned_url() -> None:
     requested = "https://example.test/db"
     effective = requested + "/v1"
@@ -1043,3 +1057,139 @@ def test_float_literals_render_as_shortest_round_trip_decimal_text() -> None:
         _literal(float("nan"))
     with pytest.raises(UnsupportedQueryError):
         _literal(float("inf"))
+
+
+# --------------------------------------------------------------- slicer
+
+
+def test_slicer_mask_filters_iterates_transport_resources_and_compiles_the_wire_filter() -> None:
+    store, client = make_altermagnets([page([resource("g1", "materials", {"_anyterial_max_spin_splitting": 0.7})])])
+    mats = store.slicer("materials")
+
+    # A list comprehension, not list(): SlicerSelection also defines __len__,
+    # and list() opportunistically calls it as a size hint, which would spend
+    # this test's single queued response on a spurious count() request.
+    rows = [item for item in mats[mats["_anyterial_max_spin_splitting"] > 0.5]]
+
+    assert len(rows) == 1
+    assert isinstance(rows[0], OptimadeResource)
+    assert rows[0].id == "g1"
+    rendered = query_parameters(client)["filter"][0]
+    assert "_anyterial_max_spin_splitting > 0.5" in rendered
+    parse_optimade_filter(rendered)
+
+
+def test_slicer_len_issues_a_count_shaped_request() -> None:
+    store, client = make_altermagnets([page([], returned=7)])
+    mats = store.slicer("materials")
+
+    assert len(mats[mats["_anyterial_formula"] == "Fe2O3"]) == 7
+
+    params = query_parameters(client)
+    assert params["page_limit"] == ["1"]
+    assert "sort" not in params
+
+
+def test_slicer_column_iterates_one_field_via_scalar_projection() -> None:
+    store, client = make_altermagnets([page([resource("g1", "materials", {"_anyterial_formula": "Fe2O3"})])])
+    mats = store.slicer("materials")
+
+    assert list(mats["_anyterial_formula"]) == ["Fe2O3"]
+    assert query_parameters(client)["response_fields"] == ["_anyterial_formula"]
+
+
+def test_slicer_named_row_projection_yields_correct_values() -> None:
+    store, client = make_altermagnets(
+        [
+            page(
+                [
+                    resource(
+                        "g1",
+                        "materials",
+                        {"_anyterial_formula": "Fe2O3", "_anyterial_max_spin_splitting": 0.5},
+                    )
+                ]
+            )
+        ]
+    )
+    mats = store.slicer("materials")
+    selection = mats[mats["_anyterial_max_spin_splitting"] > 0.1]
+
+    # See the list-comprehension note above: SlicerProjection also defines
+    # __len__, so list() would burn the queued response on a spurious count().
+    rows = [row for row in selection[["id", "_anyterial_formula", "_anyterial_max_spin_splitting"]]]
+
+    assert len(rows) == 1
+    row = rows[0]
+    # ResultRow.__getattr__ rejects single-leading-underscore names (the same
+    # provider-prefix-shaped-but-unsafe guard documented on _RemoteVariable);
+    # provider-prefixed names are reached by subscript instead.
+    assert row.id == "g1"
+    assert row["_anyterial_formula"] == "Fe2O3"
+    assert row["_anyterial_max_spin_splitting"] == Decimal("0.5")
+    assert query_parameters(client)["response_fields"] == ["id,_anyterial_formula,_anyterial_max_spin_splitting"]
+
+
+def test_slicer_combined_mask_and_string_contains_round_trip_to_optimade_operators() -> None:
+    store, client = make_altermagnets(
+        [
+            page(
+                [
+                    resource(
+                        "g1",
+                        "materials",
+                        {"_anyterial_formula": "Fe2O3", "_anyterial_max_spin_splitting": 0.7},
+                    )
+                ]
+            )
+        ]
+    )
+    mats = store.slicer("materials")
+    mask = (mats["_anyterial_max_spin_splitting"] > 0.5) & mats["_anyterial_formula"].str.contains("Fe")
+
+    rows = [row for row in mats[mask]]  # see the list-comprehension note above
+
+    assert [row.id for row in rows] == ["g1"]
+    rendered = query_parameters(client)["filter"][0]
+    assert "_anyterial_max_spin_splitting > 0.5" in rendered
+    assert '_anyterial_formula CONTAINS "Fe"' in rendered
+    parse_optimade_filter(rendered)
+
+
+def test_store_slicer_resolves_a_name_or_a_descriptor() -> None:
+    store, _client = make_altermagnets(
+        [
+            page([resource("g1", "materials", {"_anyterial_formula": "Fe2O3"})]),
+            page([resource("g1", "materials", {"_anyterial_formula": "Fe2O3"})]),
+        ]
+    )
+    descriptor = store.entry_types[0]
+
+    assert list(store.slicer("materials")["_anyterial_formula"]) == ["Fe2O3"]
+    assert list(store.slicer(descriptor)["_anyterial_formula"]) == ["Fe2O3"]
+
+
+def test_store_slicer_unknown_name_raises_the_same_error_as_entry_type() -> None:
+    store, _client = make_altermagnets([])
+
+    with pytest.raises(KeyError, match="No discovered OPTIMADE entry endpoint named 'nope'"):
+        store.slicer("nope")
+    with pytest.raises(KeyError, match="No discovered OPTIMADE entry endpoint named 'nope'"):
+        store.entry_type("nope")
+
+
+def test_slicer_operations_never_share_filter_state_across_fresh_searchers() -> None:
+    store, client = make_altermagnets(
+        [
+            page([resource("g1", "materials", {"_anyterial_max_spin_splitting": 0.7})]),
+            page([resource("g1", "materials", {"_anyterial_formula": "Fe2O3"})]),
+        ]
+    )
+    mats = store.slicer("materials")
+
+    _ = [item for item in mats[mats["_anyterial_max_spin_splitting"] > 0.5]]  # a filtered op first
+    assert "filter" in query_parameters(client, 2)
+
+    values = list(mats["_anyterial_formula"])  # then unfiltered -- must not carry the prior filter
+    assert "filter" not in query_parameters(client, 3)
+    assert values == ["Fe2O3"]

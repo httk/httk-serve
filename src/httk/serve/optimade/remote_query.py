@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from types import MappingProxyType
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from urllib.parse import quote, urlencode, urljoin, urlsplit
 
 from httk.core import load_entry_type_definition
@@ -47,6 +47,9 @@ from httk.store import (
 )
 
 from .client import ALL_ADVERTISED, OptimadeClientError, OptimadeStore, RemoteEntryType
+
+if TYPE_CHECKING:
+    from httk.store.query.slicer import Slicer
 
 __all__ = [
     "CountUnavailableError",
@@ -1008,6 +1011,25 @@ class RemoteSearcher:
         :raises ValueError: If no outputs are declared.
         """
         return RemoteResultSet(self, outputs or None)
+
+    def slicer(self, target: RemoteEntryType) -> "Slicer":
+        """A pandas-style ``[]`` indexing view over one discovered entry endpoint.
+
+        Each terminal indexing operation runs against a fresh searcher minted
+        with this searcher's ``response_fields`` policy, so slicer operations
+        never share filter state. No sorting is offered here -- use
+        :meth:`OptimadeStore.searcher` and :meth:`add_sort` directly for a
+        sorted or relationship query.
+
+        :param target: The discovered remote entry endpoint to index.
+        :return: A slicer over ``target``.
+        """
+        from httk.store.query.slicer import Slicer
+
+        def _make() -> "RemoteSearcher":
+            return self._store.searcher(response_fields=self._response_fields_setting)
+
+        return Slicer(_make, target)
 
 
 class RemoteResultColumn:

@@ -29,6 +29,8 @@ from httk.core.register import (
 )
 
 if TYPE_CHECKING:
+    from httk.store.query.slicer import Slicer
+
     from .remote_query import RemoteSearcher
 
 
@@ -721,3 +723,20 @@ class OptimadeStore:
 
         selected = self.response_fields if response_fields is ... else response_fields
         return RemoteSearcher(self, response_fields=selected)
+
+    def slicer(self, target: "RemoteEntryType | str") -> "Slicer":
+        """A pandas-style ``[]`` indexing view over one discovered entry endpoint.
+
+        ``target`` is a discovered :class:`RemoteEntryType`, or its transport
+        endpoint name resolved the same way as :meth:`entry_type`. Each
+        terminal indexing operation runs its own fresh search against a
+        searcher created with this store's default ``response_fields``
+        policy. No sorting is offered here -- use :meth:`searcher` directly
+        for a sorted or relationship query.
+
+        :param target: A discovered endpoint descriptor, or its endpoint name.
+        :return: A slicer over the endpoint's records.
+        :raises KeyError: If ``target`` is a name with no discovered endpoint.
+        """
+        descriptor = self.entry_type(target) if isinstance(target, str) else target
+        return self.searcher().slicer(descriptor)
