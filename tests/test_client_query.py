@@ -311,8 +311,9 @@ def test_operator_and_portability_failures_happen_before_http() -> None:
         variable.id.has_any("x")
     with pytest.raises(UnsupportedQueryError, match="scalar is_in on list"):
         variable.elements.is_in("Si")
-    with pytest.raises(UnsupportedQueryError, match="binary float"):
-        variable.elements_ratios.has_any(0.5)
+    # Float literals are legal since the shortest-round-trip rendering change;
+    # they compile to decimal text without any HTTP round trip.
+    assert "0.5" in variable.elements_ratios.has_any(0.5).text
     with pytest.raises(UnsupportedQueryError, match="non-terminating"):
         variable.elements_ratios.has_any(Fraction(1, 3))
     with pytest.raises(UnsupportedQueryError, match="string matching"):
@@ -1027,3 +1028,18 @@ def test_malformed_entry_pages_fail_safely(bad: FakeResponse) -> None:
         [row for row in searcher.results(record=variable)]
 
     assert "secret" not in str(excinfo.value)
+
+
+def test_float_literals_render_as_shortest_round_trip_decimal_text() -> None:
+    """A float comparison renders repr()'s shortest decimal -- the text the caller
+    typed -- never a binary expansion; non-finite floats stay refused."""
+    from httk.serve.optimade.remote_query import _literal
+
+    assert _literal(0.5) == "0.5"
+    assert _literal(0.1) == "0.1"
+    assert _literal(2.0) == "2"
+    assert _literal(1e-4) == "0.0001"
+    with pytest.raises(UnsupportedQueryError):
+        _literal(float("nan"))
+    with pytest.raises(UnsupportedQueryError):
+        _literal(float("inf"))

@@ -18,6 +18,7 @@ attribute" instead of surfacing as a backend failure.
 
 import datetime
 import json
+import math
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
@@ -186,7 +187,12 @@ def _literal(value: object) -> str:
     if value is None:
         raise _unsupported("NULL outside equality or inequality comparisons")
     if isinstance(value, float):
-        raise _unsupported("binary float literals; use Decimal for an exact query")
+        # A float literal renders as repr()'s shortest round-tripping decimal --
+        # the text the caller typed -- so nothing binary leaks onto the wire.
+        # Exactness beyond float precision is stated with Decimal instead.
+        if not math.isfinite(value):
+            raise _unsupported("non-finite numeric literals")
+        return _decimal_text(Decimal(repr(value)))
     raise _unsupported(f"literal values of type {type(value).__name__}")
 
 
@@ -272,8 +278,6 @@ class _RemoteField:
         return _RemoteExpression(self._searcher, f"{self._remote_name} {operator} {_literal(value)}")
 
     def _validate(self, value: object, kind: str | None) -> None:
-        if isinstance(value, float):
-            raise _unsupported("binary float literals; use Decimal for an exact query")
         if kind in (None, "unknown"):
             return
         valid = (
@@ -281,7 +285,7 @@ class _RemoteField:
             or (kind == "timestamp" and isinstance(value, str | datetime.datetime))
             or (kind == "boolean" and isinstance(value, bool))
             or (kind == "integer" and isinstance(value, int) and not isinstance(value, bool))
-            or (kind == "float" and isinstance(value, int | Decimal | Fraction) and not isinstance(value, bool))
+            or (kind == "float" and isinstance(value, int | float | Decimal | Fraction) and not isinstance(value, bool))
         )
         if not valid:
             raise _unsupported(f"{kind} field {self._local_name!r} with {type(value).__name__} literal")
