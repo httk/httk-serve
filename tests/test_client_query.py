@@ -518,6 +518,57 @@ def test_generic_descriptor_queries_exact_advertised_legacy_fields_without_seman
     assert 'legacy HAS "value"' in query_parameters(client)["filter"][0]
 
 
+def test_generic_descriptor_resolves_provider_prefixed_properties() -> None:
+    client = QueryClient(
+        "legacy-things",
+        {
+            "legacy": {"type": "list"},
+            "_anyterial_max_spin_splitting": {"type": "float", "x-optimade-implementation": {"sortable": True}},
+        },
+        [page([resource("g1", "legacy-things", {"legacy": ["value"], "_anyterial_max_spin_splitting": 0.5})])],
+        describedby=None,
+    )
+    store = OptimadeStore(client.base_url, client=client)
+    searcher = store.searcher(response_fields=ALL_ADVERTISED)
+    variable = searcher.variable(OptimadeResource)
+    field = variable._anyterial_max_spin_splitting
+
+    searcher.add(field > Decimal("0.1"))
+    searcher.add_sort(field, descending=True)
+    row = searcher.results(item=variable).one()
+
+    parameters = query_parameters(client)
+    rendered = parameters["filter"][0]
+    assert "_anyterial_max_spin_splitting > 0.1" in rendered
+    parse_optimade_filter(rendered)
+    assert parameters["sort"] == ["-_anyterial_max_spin_splitting"]
+    assert isinstance(row.item, OptimadeResource)
+    assert row.item["attributes"]["_anyterial_max_spin_splitting"] == Decimal("0.5")  # type: ignore[index]
+
+    # An unadvertised provider-prefixed name is a plain AttributeError, not
+    # the descriptive UnsupportedQueryError used for unknown non-underscore
+    # names.
+    with pytest.raises(AttributeError, match="_anyterial_unknown_property"):
+        _value = variable._anyterial_unknown_property
+
+    # Dunder probes never touch the field map, and single-leading-underscore
+    # introspection probes (shaped like a provider field but not one) get the
+    # same bare AttributeError as a genuinely unknown provider field.
+    with pytest.raises(AttributeError):
+        _value = variable.__deepcopy__
+    with pytest.raises(AttributeError):
+        _value = variable._ipython_canary_method_should_not_exist_
+
+    # The same two-tier rule applies past a bound field, where nested
+    # traversal is unsupported regardless of the name.
+    with pytest.raises(AttributeError):
+        _value = field.__deepcopy__
+    with pytest.raises(AttributeError):
+        _value = field._ipython_canary_method_should_not_exist_
+    with pytest.raises(UnsupportedQueryError, match="traversal"):
+        _value = field.relationship
+
+
 def test_backend_class_requires_an_unambiguous_endpoint() -> None:
     base = "https://example.test/v1"
     properties = schema_properties(FILES, ("id", "type"))

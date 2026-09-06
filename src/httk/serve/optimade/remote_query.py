@@ -1,4 +1,20 @@
-"""Neutral synchronous query/result protocols over a remote OPTIMADE service."""
+"""Neutral synchronous query/result protocols over a remote OPTIMADE service.
+
+Attribute access on a bound query variable (``variable.some_field``) resolves
+against the endpoint's declared field map, including OPTIMADE provider-prefixed
+properties such as ``variable._anyterial_max_spin_splitting`` -- on a generic,
+unregistered entry type the local field names are the wire names verbatim, and
+provider prefixes are the norm there.  A double-leading-underscore name (a
+dunder, e.g. ``__deepcopy__``) is always rejected with a bare
+``AttributeError`` before the field map is even consulted, so interpreter and
+library introspection stay cheap and can never collide with a field name.  A
+single-leading-underscore name that is *not* a declared field also raises a
+bare ``AttributeError`` rather than the descriptive
+:class:`~httk.store.UnsupportedQueryError` used for other unknown names: this
+keeps probes shaped like a provider field but not one, such as IPython's
+``_ipython_canary_method_should_not_exist_``, indistinguishable from "no such
+attribute" instead of surfacing as a backend failure.
+"""
 
 import datetime
 import json
@@ -186,6 +202,14 @@ class _RemoteField:
         self._capabilities = capabilities
 
     def __getattr__(self, name: str) -> object:
+        # Unlike _RemoteVariable, a bound field has no map of its own fields
+        # to resolve against: nested/relationship traversal is wholly
+        # unimplemented, so every name here is a miss regardless of an
+        # underscore prefix. Single-leading-underscore names (provider-prefix
+        # shaped or not, e.g. IPython's canary probe) therefore still get a
+        # plain AttributeError rather than the descriptive error below -- the
+        # same non-field-shaped-name safety net as _RemoteVariable, at zero
+        # functional cost since there is nothing they could ever resolve to.
         if name.startswith("_"):
             raise AttributeError(name)
         raise _unsupported("field traversal or relationship queries")
@@ -320,11 +344,21 @@ class _RemoteVariable:
         return self._searcher._constant(False)
 
     def __getattr__(self, name: str) -> _RemoteField:
-        if name.startswith("_"):
+        if name.startswith("__"):
+            # Dunder probes (``__deepcopy__``, ``__iter__``, ...) never name a
+            # field, so reject them before the field map is even consulted.
             raise AttributeError(name)
         try:
             return self._fields[name]
         except KeyError:
+            if name.startswith("_"):
+                # A single leading underscore is the OPTIMADE provider-prefix
+                # shape (``_<prefix>_<property>``) as well as the shape used
+                # by non-field introspection probes such as IPython's
+                # ``_ipython_canary_method_should_not_exist_``. Neither is a
+                # declared field here, so both get a plain AttributeError
+                # rather than the descriptive error below.
+                raise AttributeError(name) from None
             descriptor = self._searcher._descriptor
             endpoint = descriptor.name if descriptor is not None else "(unbound)"
             raise _unsupported(f"field {name!r} for endpoint {endpoint!r}") from None
