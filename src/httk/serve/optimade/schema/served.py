@@ -68,6 +68,20 @@ def _is_default_response(name: str, definition: PropertyDefinition, default_name
     return name in default_names and definition.requirements.get("response-level") not in {"should not", "must not"}
 
 
+def _is_never_omitted_when_null(name: str, definition: PropertyDefinition) -> bool:
+    """Whether a null value for this property must survive default-response omission.
+
+    OPTIMADE sanctions omitting a null-valued attribute from a response that did
+    not explicitly request it via ``response_fields`` -- *except* for properties
+    whose ``response-level`` requirement is ``"must"`` (regardless of
+    nullability, e.g. a nullable ``last_modified``) or ``"always"`` (``id``/
+    ``type``), which MUST be present even when their value is unknown.
+    """
+    if name in ("id", "type"):
+        return True
+    return definition.requirements.get("response-level") in ("must", "always")
+
+
 def _is_queryable(name: str, definition: PropertyDefinition) -> bool:
     """Whether a served property may be used in ``filter=``.
 
@@ -170,9 +184,15 @@ class ServedSchema:
     :param properties_by_entry: Served property names keyed by entry type.
     :param default_response_fields: Default response fields keyed by entry type.
     :param required_response_fields: Required response fields keyed by entry type.
+    :param never_omitted_response_fields: Fields whose null value survives
+        default-response omission (``response-level`` ``must``, regardless of
+        nullability, or ``always``), keyed by entry type.
     :param unknown_response_fields: Defined but unserved fields keyed by entry type.
     :param sortable_response_fields: Sortable response fields keyed by entry type.
     :param property_definitions: Full property definitions keyed by entry type.
+    :param default_include_paths: Served entry types included by default (no
+        ``include`` query parameter) keyed by entry type; always includes
+        ``references`` when served.
     """
 
     entry_info: dict[str, dict[str, Any]]
@@ -187,9 +207,11 @@ class ServedSchema:
     properties_by_entry: dict[str, tuple[str, ...]]
     default_response_fields: dict[str, tuple[str, ...]]
     required_response_fields: dict[str, tuple[str, ...]]
+    never_omitted_response_fields: dict[str, tuple[str, ...]]
     unknown_response_fields: dict[str, tuple[str, ...]]
     sortable_response_fields: dict[str, tuple[str, ...]]
     property_definitions: dict[str, dict[str, dict[str, Any]]]
+    default_include_paths: dict[str, tuple[str, ...]]
 
 
 def derived_endpoint_name(base: str, suffix: str) -> str:
@@ -216,6 +238,7 @@ def build_served_schema(
     recognized_prefixes: tuple[str, ...] | None = None,
     revisions: Sequence[str] = (),
     alternatives: Sequence[str] = (),
+    default_includes: Mapping[str, Sequence[str]] | None = None,
 ) -> ServedSchema:
     """Build a :class:`ServedSchema` from entry-type definitions.
 
@@ -237,6 +260,12 @@ def build_served_schema(
     :param recognized_prefixes: Prefixes recognized in response-field requests.
     :param revisions: Base entries for which stored revision endpoints are served.
     :param alternatives: Base entries for which stored alternative endpoints are served.
+    :param default_includes: Served entry types to include by default (absent
+        ``include`` query parameter), keyed by served entry type. Every value is
+        automatically unioned with ``("references",)`` (the OPTIMADE-mandated
+        include default), filtered to entry types actually served; an entry type
+        with no entry here gets exactly the ``references``-only default. Every
+        named entry type (key or value) MUST be a served entry type.
     :return: Derived schema and lookup tables.
     :raises ValueError: If a requested served property is not defined.
     """
@@ -259,6 +288,14 @@ def build_served_schema(
         )
     if len(set(alt_bases)) != len(alt_bases):
         raise ValueError("Alternative endpoint entries must be unique.")
+
+    default_includes = default_includes or {}
+    unknown_include_entries = sorted(
+        {entry for entry in default_includes if entry not in definitions}
+        | {target for targets in default_includes.values() for target in targets if target not in definitions}
+    )
+    if unknown_include_entries:
+        raise ValueError("default_includes names undefined entry type(s): " + ", ".join(unknown_include_entries))
 
     revision_endpoints = tuple(derived_endpoint_name(entry, "revs") for entry in revision_bases)
     alt_endpoints = tuple(derived_endpoint_name(entry, "alts") for entry in alt_bases)
@@ -324,6 +361,7 @@ def build_served_schema(
     properties_by_entry: dict[str, tuple[str, ...]] = {}
     default_response_fields: dict[str, tuple[str, ...]] = {}
     required_response_fields: dict[str, tuple[str, ...]] = {}
+    never_omitted_response_fields: dict[str, tuple[str, ...]] = {}
     unknown_response_fields: dict[str, tuple[str, ...]] = {}
     sortable_response_fields: dict[str, tuple[str, ...]] = {}
 
@@ -354,6 +392,7 @@ def build_served_schema(
         prop_defs: dict[str, dict[str, Any]] = {}
         defaults: list[str] = []
         requireds: list[str] = []
+        never_omitted: list[str] = []
         sortables: list[str] = []
         for name in served_names:
             prop = described[name]
@@ -373,6 +412,8 @@ def build_served_schema(
                 defaults.append(name)
             if is_required:
                 requireds.append(name)
+            if _is_never_omitted_when_null(name, prop):
+                never_omitted.append(name)
             if is_sortable:
                 sortables.append(name)
 
@@ -381,10 +422,17 @@ def build_served_schema(
         properties_by_entry[entry] = tuple(served_names)
         default_response_fields[entry] = tuple(defaults)
         required_response_fields[entry] = tuple(requireds)
+        never_omitted_response_fields[entry] = tuple(never_omitted)
         sortable_response_fields[entry] = tuple(sortables)
         unknown_response_fields[entry] = tuple(name for name in described if name not in served_names)
 
     all_entries = tuple(definitions)
+    default_include_paths: dict[str, tuple[str, ...]] = {}
+    for entry in all_entries:
+        configured = list(default_includes.get(entry, ()))
+        if "references" in all_entries and "references" not in configured:
+            configured.append("references")
+        default_include_paths[entry] = tuple(configured)
     return ServedSchema(
         entry_info=entry_info,
         entry_definition_ids=entry_definition_ids,
@@ -405,7 +453,9 @@ def build_served_schema(
         properties_by_entry=properties_by_entry,
         default_response_fields=default_response_fields,
         required_response_fields=required_response_fields,
+        never_omitted_response_fields=never_omitted_response_fields,
         unknown_response_fields=unknown_response_fields,
         sortable_response_fields=sortable_response_fields,
         property_definitions=property_definitions,
+        default_include_paths=default_include_paths,
     )

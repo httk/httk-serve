@@ -145,6 +145,7 @@ def served_schema(
     extra_entry_info: Mapping[str, Any] | None = None,
     default_response_overrides: Mapping[str, Sequence[str]] | None = None,
     sortable: Mapping[str, Sequence[str]] | None = None,
+    default_includes: Mapping[str, Sequence[str]] | None = None,
 ) -> ServedSchema:
     """Build a served schema for the named entry types and served properties.
 
@@ -162,4 +163,5 @@ def served_schema(
         served,
         default_response_overrides=default_response_overrides,
         sortable=sortable,
+        default_includes=default_includes,
     )

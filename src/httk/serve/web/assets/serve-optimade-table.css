@@ -35,8 +35,10 @@
 .httk-serve-optimade-table__summary { align-items: baseline; display: flex; flex-wrap: wrap; gap: .35rem .5rem; margin-block-end: .7rem; }
 .httk-serve-optimade-table__summary[hidden] { display: none; }
 .httk-serve-optimade-table__summary-count { color: var(--httk-serve-muted); flex-basis: 100%; font-size: .9em; margin: 0; }
-.httk-serve-optimade-table__pill { background: var(--httk-serve-wash); border: 1px solid var(--httk-serve-rule, currentColor); border-radius: 999px; display: inline-block; font-size: .85em; padding: .1rem .55rem; }
+.httk-serve-optimade-table__pill { align-items: center; background: var(--httk-serve-wash); border: 1px solid var(--httk-serve-rule, currentColor); border-radius: 999px; display: inline-flex; font-size: .85em; gap: .3rem; padding: .1rem .55rem; }
 .httk-serve-optimade-table__pill strong { font-weight: 650; }
+.httk-serve-optimade-table__pill-remove { background: transparent; border: 0; border-radius: 999px; color: inherit; cursor: pointer; font: inherit; line-height: 1; padding: 0 .15rem; }
+.httk-serve-optimade-table__pill-remove:hover { background: var(--httk-serve-wash); }
 .httk-serve-optimade-table__sort-link { cursor: pointer; }
 .httk-serve-optimade-table th[aria-sort] { color: var(--httk-serve-accent); }
 .httk-serve-optimade-table th[aria-sort="ascending"] .httk-serve-optimade-table__sort-link::after { content: " ↑"; }

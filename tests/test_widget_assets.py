@@ -176,16 +176,17 @@ def test_optimade_summary_is_off_by_default_and_normalizes_when_enabled() -> Non
     assert _optimade_config(enabled.html)["summary"] == {
         "noun": "entries",
         "fields": {
-            "nsites": {"label": "Sites", "format": None, "values": None},
+            "nsites": {"label": "Sites", "format": None, "values": None, "clears": None},
             "energy": {
                 "label": "energy",
                 "format": {"name": "number", "digits": 2, "scale": 1.0, "suffix": " eV"},
                 "values": None,
+                "clears": None,
             },
         },
     }
 
-    # Mapping: overlay replaces label/format and adds values; a filter-only field is added.
+    # Mapping: overlay replaces label/format and adds values/clears; a filter-only field is added.
     mapped = render_optimade_table(
         context,
         base_url="/optimade/v1",
@@ -196,19 +197,27 @@ def test_optimade_summary_is_off_by_default_and_normalizes_when_enabled() -> Non
                 "nsites": {"label": "Number of sites"},
                 "_amdb_collinearity": {"label": "Collinearity", "values": {"collinear": "Collinear"}},
                 "energy": {"format": {"name": "number", "digits": 0, "scale": 100, "suffix": " %"}},
+                "elements": {"clears": ["elements", "el_min"]},
             },
         },
     )
     assert _optimade_config(mapped.html)["summary"] == {
         "noun": "screened entries",
         "fields": {
-            "nsites": {"label": "Number of sites", "format": None, "values": None},
+            "nsites": {"label": "Number of sites", "format": None, "values": None, "clears": None},
             "energy": {
                 "label": "energy",
                 "format": {"name": "number", "digits": 0, "scale": 100.0, "suffix": " %"},
                 "values": None,
+                "clears": None,
             },
-            "_amdb_collinearity": {"label": "Collinearity", "format": None, "values": {"collinear": "Collinear"}},
+            "_amdb_collinearity": {
+                "label": "Collinearity",
+                "format": None,
+                "values": {"collinear": "Collinear"},
+                "clears": None,
+            },
+            "elements": {"label": "elements", "format": None, "values": None, "clears": ["elements", "el_min"]},
         },
     }
 
@@ -218,6 +227,11 @@ def test_optimade_summary_is_off_by_default_and_normalizes_when_enabled() -> Non
         {"fields": {"nsites": {"values": {"x": 1}}}},
         {"fields": {"nsites": {"values": {f"k{n}": "v" for n in range(65)}}}},
         {"fields": {f"f{n}": {} for n in range(65)}},
+        {"fields": {"nsites": {"clears": "elements"}}},
+        {"fields": {"nsites": {"clears": []}}},
+        {"fields": {"nsites": {"clears": ["elements", "elements"]}}},
+        {"fields": {"nsites": {"clears": ["not an identifier"]}}},
+        {"fields": {"nsites": {"clears": [f"p{n}" for n in range(9)]}}},
         "on",
     ):
         with pytest.raises(OptimadeTableProtocolError):

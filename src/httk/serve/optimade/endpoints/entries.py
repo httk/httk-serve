@@ -118,8 +118,26 @@ def _resource_object(
     baseurl: str = "",
     dimension_slices: dict[str, RequestedSlice] | None = None,
     partial_data_entry: str | None = None,
+    *,
+    omit_nulls: bool = False,
+    keep_null_fields: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
-    """Build a JSON:API resource object (attributes/id/type/relationships) from a row."""
+    """Build a JSON:API resource object (attributes/id/type/relationships) from a row.
+
+    :param row: Result row to render.
+    :param baseurl: Base URL used for generated partial-data links.
+    :param dimension_slices: Requested slices keyed by dimension name, for inline
+        partial-data fetches.
+    :param partial_data_entry: Entry type used in generated partial-data links,
+        when it differs from the row's own type (revision requests).
+    :param omit_nulls: Drop null-valued attributes not named in ``keep_null_fields``
+        (the OPTIMADE "properties with an unknown value" default-response rule).
+        Never applies to :class:`PartialValue` attributes: those are known but
+        not inlined, not unknown-valued.
+    :param keep_null_fields: Names exempt from omission when ``omit_nulls`` is set
+        (properties whose definition is response-level ``must`` or ``always``).
+    :return: JSON:API resource object.
+    """
     row_id = row.values['id']
     row_type = row.values['type']
     attributes: dict[str, Any] = {}
@@ -139,6 +157,8 @@ def _resource_object(
             merged.update(axes_meta)
             property_metadata[key] = merged
         else:
+            if value is None and omit_nulls and key not in keep_null_fields:
+                continue
             attributes[key] = value
 
     obj: dict[str, Any] = {
@@ -164,6 +184,9 @@ def generate_entry_endpoint_reply(
     data: QueryResults,
     data_available: int | None = None,
     related_resolver: RelatedResolver | None = None,
+    *,
+    omit_nulls: bool = False,
+    keep_null_fields: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Build a JSON:API collection response for an entry endpoint.
 
@@ -172,13 +195,21 @@ def generate_entry_endpoint_reply(
     :param data: Query results for the current page.
     :param data_available: Unfiltered endpoint total for the current instant, or ``None`` to omit it.
     :param related_resolver: Optional depth-one resolver for included resources.
+    :param omit_nulls: Drop null-valued attributes not named in ``keep_null_fields``.
+    :param keep_null_fields: Names exempt from omission when ``omit_nulls`` is set.
     :return: JSON:API collection document.
     """
     data_part = []
     collected: dict[str, set[str]] = {}
     for row in data:
         data_part += [
-            _resource_object(row, request.baseurl, partial_data_entry=request.endpoint if request.revisions else None)
+            _resource_object(
+                row,
+                request.baseurl,
+                partial_data_entry=request.endpoint if request.revisions else None,
+                omit_nulls=omit_nulls,
+                keep_null_fields=keep_null_fields,
+            )
         ]
         for etype, rels in row.relationships.items():
             for rel in rels:
@@ -234,6 +265,9 @@ def generate_single_entry_endpoint_reply(
     data: QueryResults,
     data_available: int | None = None,
     related_resolver: RelatedResolver | None = None,
+    *,
+    omit_nulls: bool = False,
+    keep_null_fields: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Build a JSON:API single-resource response for an entry identifier.
 
@@ -242,6 +276,8 @@ def generate_single_entry_endpoint_reply(
     :param data: Query results expected to contain at most one row.
     :param data_available: Unfiltered endpoint total for the current instant, or ``None`` to omit it.
     :param related_resolver: Optional depth-one resolver for included resources.
+    :param omit_nulls: Drop null-valued attributes not named in ``keep_null_fields``.
+    :param keep_null_fields: Names exempt from omission when ``omit_nulls`` is set.
     :return: JSON:API single-resource document.
     :raises httk.serve.optimade.model.errors.OptimadeError: If the query yields multiple rows or another page.
     """
@@ -254,6 +290,8 @@ def generate_single_entry_endpoint_reply(
                 request.baseurl,
                 request.query.dimension_slices,
                 request.endpoint if request.revisions else None,
+                omit_nulls=omit_nulls,
+                keep_null_fields=keep_null_fields,
             )
         ]
         for etype, rels in row.relationships.items():

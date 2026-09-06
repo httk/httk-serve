@@ -209,10 +209,14 @@ export function parseFilterPills(filter) {
   return pills;
 }
 
-/** Parse a sort into described components, dropping id tiebreakers; null when nothing meaningful remains. */
-export function parseSortPill(sort, defaultSort) {
+/**
+ * Parse a sort into described components, dropping id tiebreakers; null when nothing
+ * meaningful remains. The authored default sort is NOT special-cased: it pills like any
+ * other sort (item 9), and is only ever suppressed by an explicit empty `sort=` in the
+ * URL, which effectiveSort already resolves to a null sort before this function sees it.
+ */
+export function parseSortPill(sort) {
   if (sort === null || sort === undefined || sort === "") return null;
-  if (defaultSort !== null && defaultSort !== undefined && sort === defaultSort) return null;
   const components = [];
   for (const raw of sort.split(",")) {
     const token = raw.trim();
@@ -266,6 +270,50 @@ function setSearchParam(name, value, search) {
   return `?${params.toString()}`;
 }
 
+/** Quote a filter literal the way parseFilterClause's grammar expects to read it back. */
+function literalText(literal) {
+  if (literal.type === "number") return String(literal.value);
+  return `"${literal.value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+/** Reverse of parseFilterClause: rebuild one clause's filter text from its parsed shape. */
+function clauseText(clause) {
+  if (clause.op === "HAS" || clause.op.startsWith("HAS ")) {
+    return `${clause.property} ${clause.op} ${clause.values.map(literalText).join(", ")}`;
+  }
+  return `${clause.property} ${clause.op} ${literalText(clause.values[0])}`;
+}
+
+/** Recompose an OPTIMADE filter string from surviving filter-pill clauses. */
+export function composeFilter(clauses) {
+  return clauses.map(clauseText).join(" AND ");
+}
+
+/**
+ * Href that removes one filter pill: rewrites filter_query to the filter with that
+ * clause dropped, and deletes the field's configured `clears` source URL params so a
+ * host page that re-derives `filter` from its own form params cannot resurrect it.
+ * Null when filter_query isn't wired (there is no URL state to express removal in).
+ */
+export function filterPillHref(clauses, index, fields, filterQuery, search) {
+  if (!filterQuery) return null;
+  const remaining = clauses.filter((_, i) => i !== index);
+  const params = new URLSearchParams(typeof search === "string" ? search : "");
+  params.set(filterQuery, composeFilter(remaining));
+  for (const name of fields?.[clauses[index].property]?.clears ?? []) params.delete(name);
+  return `?${params.toString()}`;
+}
+
+/**
+ * Href that removes the sort pill: an explicit empty sort= suppresses the authored
+ * default (effectiveSort already treats a present-but-empty param this way) rather than
+ * re-applying it. Null when sort_query isn't wired.
+ */
+export function sortPillHref(sortQuery, search) {
+  if (!sortQuery) return null;
+  return setSearchParam(sortQuery, "", search);
+}
+
 function pillValue(literal, fieldSpec) {
   if (literal.type === "number") {
     if (fieldSpec?.format?.name === "number") {
@@ -294,13 +342,25 @@ function summaryCountSentence(filterActive, dataReturned, dataAvailable, noun) {
   return present(total) ? `Showing all ${total} ${noun}.` : null;
 }
 
-/** Build one pill span with a bold label and a plain text value (createElement/text only). */
-function summaryPill(document, label, text) {
+/**
+ * Build one pill span with a bold label and a plain text value (createElement/text
+ * only), plus a keyboard-accessible "x" remove button when a remove href is available.
+ */
+function summaryPill(document, label, text, remove) {
   const pill = document.createElement("span");
   pill.className = "httk-serve-optimade-table__pill";
   const strong = document.createElement("strong");
   strong.append(document.createTextNode(label));
   pill.append(strong, document.createTextNode(` ${text}`));
+  if (remove?.href) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "httk-serve-optimade-table__pill-remove";
+    button.setAttribute("aria-label", remove.ariaLabel);
+    button.append(document.createTextNode("×"));
+    button.addEventListener("click", () => remove.onRemove?.(remove.href));
+    pill.append(button);
+  }
   return pill;
 }
 
@@ -313,9 +373,18 @@ export function pillParts(clause, fieldSpec) {
   return { label, text };
 }
 
-/** Rebuild the summary element idempotently from precomputed pills and page counts. */
-export function renderSummary(element, document, summary, pills, filterActive, page) {
+/**
+ * Rebuild the summary element idempotently from precomputed pills and page counts.
+ *
+ * `urlContext` (optional) supplies what a pill's × needs to navigate away the removed
+ * predicate or sort: `filterQuery`, `sortQuery`, the captured `search` string, and an
+ * `onRemovePill(href)` callback invoked with the computed href on click. Omitting it (or
+ * leaving the queries unwired) simply renders pills with no × — there is no URL state to
+ * express removal in.
+ */
+export function renderSummary(element, document, summary, pills, filterActive, page, urlContext = {}) {
   const fields = summary.fields ?? {};
+  const { filterQuery = null, sortQuery = null, search = "", onRemovePill = null } = urlContext;
   element.replaceChildren();
   let rendered = false;
   const sentence = summaryCountSentence(filterActive, page.dataReturned, page.dataAvailable, summary.noun);
@@ -326,16 +395,19 @@ export function renderSummary(element, document, summary, pills, filterActive, p
     element.append(line);
     rendered = true;
   }
-  for (const clause of pills?.filter ?? []) {
+  const clauses = pills?.filter ?? [];
+  clauses.forEach((clause, index) => {
     const { label, text } = pillParts(clause, fields[clause.property]);
-    element.append(summaryPill(document, label, text));
+    const href = filterPillHref(clauses, index, fields, filterQuery, search);
+    element.append(summaryPill(document, label, text, { href, ariaLabel: `Remove filter ${label} ${text}`, onRemove: onRemovePill }));
     rendered = true;
-  }
+  });
   if (pills?.sort) {
     const text = pills.sort
       .map((component) => `${fields[component.property]?.label ?? component.property} ${component.descending ? "↓" : "↑"}`)
       .join(", ");
-    element.append(summaryPill(document, "Sorted by", text));
+    const href = sortPillHref(sortQuery, search);
+    element.append(summaryPill(document, "Sorted by", text, { href, ariaLabel: `Remove sort ${text}`, onRemove: onRemovePill }));
     rendered = true;
   }
   element.hidden = !rendered;
@@ -352,13 +424,10 @@ export function installOptimadeTable(shell, options = {}) {
     configuration = readConfiguration(shell, options.document ?? globalThis.document);
     validateConfiguration(configuration);
     const location = options.location ?? globalThis.location;
-    // The authored default is alias-resolved just like the effective sort, so an
-    // aliased default compares resolved-to-resolved and its pill is suppressed.
-    const authoredSort = resolveSortAlias(configuration.sort ?? null, configuration.sort_aliases);
     const filter = effectiveFilter(configuration, location);
     const sort = effectiveSort(configuration, location);
     const pageSize = effectivePageSize(configuration, location);
-    if (configuration.summary) summaryPills = { filter: parseFilterPills(filter), sort: parseSortPill(sort, authoredSort) };
+    if (configuration.summary) summaryPills = { filter: parseFilterPills(filter), sort: parseSortPill(sort) };
     // The effective page size overrides the authored one so the transport (and thus
     // validatePage's data.length <= pageSize check) uses the URL-selected value.
     configuration = { ...configuration, filter, sort, page_size: pageSize };
@@ -620,7 +689,12 @@ export class OptimadeTableController {
   #renderSummary(page) {
     const filter = this.#configuration.filter;
     const filterActive = filter !== null && filter !== undefined && filter !== "";
-    renderSummary(this.#summaryElement, this.#document, this.#configuration.summary, this.#summaryPills, filterActive, page);
+    renderSummary(this.#summaryElement, this.#document, this.#configuration.summary, this.#summaryPills, filterActive, page, {
+      filterQuery: this.#configuration.filter_query,
+      sortQuery: this.#configuration.sort_query,
+      search: this.#search,
+      onRemovePill: (href) => this.#location.assign(href),
+    });
   }
 
   #rememberPrevious(url) {

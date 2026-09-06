@@ -24,6 +24,7 @@ MAX_OPTIMADE_LABEL_CHARS = 256
 MAX_OPTIMADE_ORIGINS = 16
 MAX_OPTIMADE_COLUMNS = 32
 MAX_OPTIMADE_SUMMARY_FIELDS = 64
+MAX_OPTIMADE_CLEARS = 8
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _ALIGNMENTS = frozenset({"start", "center", "end"})
 _OPTIMADE_TABLE_ASSETS: tuple[WidgetAsset, ...] | None = None
@@ -89,8 +90,14 @@ def render(
     :param summary: Optional results-summary configuration. ``None`` disables it,
         ``True`` enables it with defaults (noun ``"entries"``), and a mapping may set
         ``noun`` and a ``fields`` mapping of property name to ``label``, ``format``,
-        and ``values`` overlays used to describe the active filter and sort in human
-        terms. Field presentation defaults to the matching column's label and format.
+        ``values``, and ``clears`` overlays used to describe the active filter and sort
+        in human terms. Field presentation defaults to the matching column's label and
+        format. Every rendered filter/sort pill gets a removable "x"; ``clears`` names
+        1-8 additional source URL parameter(s) that a filter pill's "x" also deletes, so
+        a host page whose own form re-derives ``filter`` from those parameters does not
+        resurrect the removed predicate. Removing the sort pill (including an authored
+        default sort, which now renders as a pill like any other) writes an explicit
+        empty ``sort=`` that suppresses the default rather than re-applying it.
     :param advanced_filter: Optional advanced-filter disclosure configuration. ``None``
         disables it, ``True`` enables it with defaults, and a mapping may set ``label``
         (the disclosure heading) and ``help_url`` (an absolute HTTP(S) URL or site-relative
@@ -369,16 +376,22 @@ def _summary(value: object, columns: Sequence[Mapping[str, object]]) -> dict[str
     else:
         raise OptimadeTableProtocolError("summary must be True, a mapping, or None")
     fields: dict[str, dict[str, object]] = {
-        cast(str, column["key"]): {"label": column["label"], "format": column.get("format"), "values": None}
+        cast(str, column["key"]): {
+            "label": column["label"],
+            "format": column.get("format"),
+            "values": None,
+            "clears": None,
+        }
         for column in columns
     }
     for prop, spec in overlay.items():
-        entry = fields.get(prop, {"label": prop, "format": None, "values": None})
+        entry = fields.get(prop, {"label": prop, "format": None, "values": None, "clears": None})
         if "label" in spec:
             entry["label"] = spec["label"]
         if "format" in spec:
             entry["format"] = spec["format"]
         entry["values"] = spec.get("values")
+        entry["clears"] = spec.get("clears")
         fields[prop] = entry
     return {"noun": noun, "fields": fields}
 
@@ -393,8 +406,8 @@ def _summary_fields(value: object) -> dict[str, dict[str, object]]:
     overlay: dict[str, dict[str, object]] = {}
     for prop, spec in value.items():
         key = _identifier(prop, field="summary field property")
-        if not isinstance(spec, Mapping) or set(spec) - {"label", "format", "values"}:
-            raise OptimadeTableProtocolError("summary field entries may contain only label, format, and values")
+        if not isinstance(spec, Mapping) or set(spec) - {"label", "format", "values", "clears"}:
+            raise OptimadeTableProtocolError("summary field entries may contain only label, format, values, and clears")
         entry: dict[str, object] = {}
         if "label" in spec:
             entry["label"] = _text(spec["label"], field="summary field label", maximum=MAX_OPTIMADE_LABEL_CHARS)
@@ -402,8 +415,27 @@ def _summary_fields(value: object) -> dict[str, dict[str, object]]:
             entry["format"] = _column_format(spec["format"])
         if "values" in spec:
             entry["values"] = _summary_values(spec["values"])
+        if "clears" in spec:
+            entry["clears"] = _clears(spec["clears"])
         overlay[key] = entry
     return overlay
+
+
+def _clears(value: object) -> list[str]:
+    """Source URL parameter name(s) a pill's x also deletes (host forms that re-derive filter)."""
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
+        raise OptimadeTableProtocolError("summary field clears must be a sequence of URL parameter names")
+    if not 1 <= len(value) <= MAX_OPTIMADE_CLEARS:
+        raise OptimadeTableProtocolError(
+            f"summary field clears must contain between 1 and {MAX_OPTIMADE_CLEARS} entries"
+        )
+    names: list[str] = []
+    for name in value:
+        identifier = _identifier(name, field="summary field clears entry")
+        if identifier in names:
+            raise OptimadeTableProtocolError("summary field clears entries must be unique")
+        names.append(identifier)
+    return names
 
 
 def _summary_values(value: object) -> dict[str, str]:

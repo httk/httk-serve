@@ -80,8 +80,12 @@ def _make_related_resolver(
                 as_of=as_of,
                 debug=debug,
             )
+            # Included resources are assembled with default fields and no
+            # request context, so they always follow the "no response_fields"
+            # omission rule: drop null-valued attributes except must/always.
+            keep_null_fields = frozenset(schema.never_omitted_response_fields.get(etype, ()))
             for row in results:
-                obj = _resource_object(row, baseurl)
+                obj = _resource_object(row, baseurl, omit_nulls=True, keep_null_fields=keep_null_fields)
                 key = (obj['type'], obj['id'])
                 if key in seen:
                     continue
@@ -339,15 +343,38 @@ def process(
             count_kwargs["alternatives"] = True
         data_available = query_function(entries, [], [], 0, 0, route_filter_ast, **count_kwargs).count()
 
+        # OPTIMADE: with no response_fields param, an entry listing omits
+        # null-valued attributes not marked response-level must/always; with
+        # the param present, every requested field is served exactly as
+        # returned (nulls kept). "Explicitly requested" keys on the raw
+        # param's presence, not on recognized_response_fields (which is
+        # back-filled with the schema defaults when the param is absent).
+        omit_nulls = validated_parameters.response_fields is None
+        keep_null_fields = (
+            frozenset(schema.never_omitted_response_fields.get(endpoint, ())) if omit_nulls else frozenset()
+        )
+
         if (
             request_id is not None and not validated_request.revisions and not validated_request.alternatives
         ) or validated_request.request_immutable_id is not None:
             response = generate_single_entry_endpoint_reply(
-                validated_request, config, results, data_available, related_resolver
+                validated_request,
+                config,
+                results,
+                data_available,
+                related_resolver,
+                omit_nulls=omit_nulls,
+                keep_null_fields=keep_null_fields,
             )
         else:
             response = generate_entry_endpoint_reply(
-                validated_request, config, results, data_available, related_resolver
+                validated_request,
+                config,
+                results,
+                data_available,
+                related_resolver,
+                omit_nulls=omit_nulls,
+                keep_null_fields=keep_null_fields,
             )
 
         if _LOG.isEnabledFor(logging.DEBUG):

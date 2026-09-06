@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  composeFilter,
   discoveryCacheKey,
   effectiveFilter,
   effectivePageSize,
   effectiveSort,
+  filterPillHref,
   formatCellValue,
   OptimadeTableController,
   pageSizeHref,
@@ -13,14 +15,33 @@ import {
   parseSortPill,
   pillParts,
   renderSummary,
-  resolveSortAlias,
   sortComponents,
   sortHref,
+  sortPillHref,
 } from "../src/httk/serve/web/assets/serve-optimade-table.mjs";
 
 function stubDocument() {
-  const make = () => ({ children: [], className: "", textContent: "", append(...nodes) { this.children.push(...nodes); } });
-  return { createElement: () => make(), createTextNode: (value) => ({ text: value }) };
+  const make = (tagName) => ({
+    tagName,
+    children: [],
+    className: "",
+    textContent: "",
+    listeners: {},
+    append(...nodes) { this.children.push(...nodes); },
+    setAttribute(name, value) { this[name] = value; },
+    addEventListener(type, handler) { this.listeners[type] = handler; },
+  });
+  return { createElement: (tagName) => make(tagName), createTextNode: (value) => ({ text: value }) };
+}
+
+/** Find a descendant matching predicate in the appended-children tree the stub document builds. */
+function findNode(node, predicate) {
+  if (predicate(node)) return node;
+  for (const child of node.children ?? []) {
+    const found = findNode(child, predicate);
+    if (found) return found;
+  }
+  return null;
 }
 
 function stubElement() {
@@ -168,24 +189,109 @@ test("renderSummary composes counts, pills, hidden state, and re-renders idempot
   assert.equal(el.hidden, true);
 });
 
-test("sort pills drop id tiebreakers and the authored default", () => {
-  assert.deepEqual(parseSortPill("-a,id", null), [{ property: "a", descending: true }]);
-  assert.equal(parseSortPill("id", null), null);
-  assert.equal(parseSortPill("-nsites", "-nsites"), null);
-  assert.deepEqual(parseSortPill("nsites,-energy", "-nsites"), [{ property: "nsites", descending: false }, { property: "energy", descending: true }]);
-  assert.equal(parseSortPill(null, null), null);
+test("every filter/sort pill gets a keyboard-accessible x that navigates via the onRemovePill callback", () => {
+  const doc = stubDocument();
+  const summary = { noun: "entries", fields: { nsites: { label: "Sites" }, elements: { label: "Elements", clears: ["elements"] } } };
+  const filterClause = { property: "elements", op: "HAS", values: [{ type: "string", value: "Si" }] };
+  const pills = { filter: [filterClause], sort: [{ property: "nsites", descending: true }] };
+  const removed = [];
+  const el = stubElement();
+  renderSummary(el, doc, summary, pills, true, { dataReturned: 1, dataAvailable: 1 }, {
+    filterQuery: "filter",
+    sortQuery: "sort",
+    search: "?filter=elements+HAS+%22Si%22&elements=Si&sort=-nsites",
+    onRemovePill: (href) => removed.push(href),
+  });
+
+  // Each pill (index 1: filter, index 2: sort — index 0 is the count sentence) carries a
+  // real <button> (keyboard-accessible: natively focusable and Enter/Space-activatable)
+  // with an aria-label naming the pill, not a bare clickable span.
+  const filterButton = findNode(el.children[1], (node) => node.tagName === "button");
+  assert.ok(filterButton, "filter pill has a remove button");
+  assert.equal(filterButton["aria-label"], "Remove filter Elements Si");
+
+  const sortButton = findNode(el.children[2], (node) => node.tagName === "button");
+  assert.ok(sortButton, "sort pill has a remove button");
+  assert.match(sortButton["aria-label"], /Remove sort/);
+
+  // Clicking the filter pill's x removes its predicate AND its configured clears param.
+  filterButton.listeners.click();
+  assert.equal(removed.length, 1);
+  let params = new URLSearchParams(removed[0].slice(1));
+  assert.equal(params.get("filter"), "");
+  assert.equal(params.has("elements"), false);
+
+  // Clicking the sort pill's x writes an explicit empty sort=, not param removal.
+  sortButton.listeners.click();
+  assert.equal(removed.length, 2);
+  params = new URLSearchParams(removed[1].slice(1));
+  assert.equal(params.get("sort"), "");
+  assert.equal(params.get("filter"), 'elements HAS "Si"');
 });
 
-test("an aliased authored default is suppressed while a URL-overridden sort still pills", () => {
-  // Reproduces installOptimadeTable's contract: the authored default is alias-resolved
-  // before comparison, so an aliased default matches its effective sort and is dropped.
+test("a pill renders with no x when its *_query isn't wired (no URL state to express removal in)", () => {
+  const doc = stubDocument();
+  const summary = { noun: "entries", fields: { nsites: { label: "Sites" } } };
+  const pills = { filter: [{ property: "nsites", op: ">=", values: [{ type: "number", value: 1 }] }], sort: null };
+  const el = stubElement();
+  renderSummary(el, doc, summary, pills, true, { dataReturned: 1, dataAvailable: 1 });
+  assert.equal(findNode(el.children[1], (node) => node.tagName === "button"), null);
+});
+
+test("sort pills drop id tiebreakers only; the authored default pills like any other sort (item 9)", () => {
+  assert.deepEqual(parseSortPill("-a,id"), [{ property: "a", descending: true }]);
+  assert.equal(parseSortPill("id"), null);
+  // Reversed from the old hide-if-default behavior: an authored default sort still pills.
+  assert.deepEqual(parseSortPill("-nsites"), [{ property: "nsites", descending: true }]);
+  assert.deepEqual(parseSortPill("nsites,-energy"), [{ property: "nsites", descending: false }, { property: "energy", descending: true }]);
+  assert.equal(parseSortPill(null), null);
+  assert.equal(parseSortPill(""), null);
+});
+
+test("the resolved authored default sort renders as a removable pill, same as a URL-overridden sort", () => {
+  // installOptimadeTable's contract: effectiveSort resolves the authored default through
+  // sort_aliases exactly like a URL value, and parseSortPill no longer special-cases it.
   const config = { sort: "best", sort_aliases: { best: "-nsites,id" }, sort_query: "sort" };
-  const authoredDefault = resolveSortAlias(config.sort, config.sort_aliases);
-  assert.equal(parseSortPill(effectiveSort(config, { search: "?other=1" }), authoredDefault), null);
-  // A URL-supplied sort differs from the resolved default, so its pill survives.
-  assert.deepEqual(parseSortPill(effectiveSort(config, { search: "?sort=chemical_formula_reduced" }), authoredDefault), [
+  assert.deepEqual(parseSortPill(effectiveSort(config, { search: "?other=1" })), [{ property: "nsites", descending: true }]);
+  assert.deepEqual(parseSortPill(effectiveSort(config, { search: "?sort=chemical_formula_reduced" })), [
     { property: "chemical_formula_reduced", descending: false },
   ]);
+  // An explicit empty sort= is the ONLY thing that suppresses the default: effectiveSort
+  // already resolves it to null before parseSortPill ever sees it (the tri-state).
+  assert.equal(effectiveSort(config, { search: "?sort=" }), null);
+  assert.equal(parseSortPill(effectiveSort(config, { search: "?sort=" })), null);
+});
+
+test("composeFilter rebuilds an equivalent filter string from surviving pill clauses", () => {
+  const clauses = parseFilterPills('nsites >= 2 AND elements HAS ALL "Si", "O" AND name CONTAINS "Ca"');
+  assert.equal(composeFilter(clauses), 'nsites >= 2 AND elements HAS ALL "Si", "O" AND name CONTAINS "Ca"');
+  // Dropping the middle clause and recomposing round-trips through the parser.
+  const withoutMiddle = [clauses[0], clauses[2]];
+  assert.deepEqual(parseFilterPills(composeFilter(withoutMiddle)), withoutMiddle);
+  assert.equal(composeFilter([]), "");
+});
+
+test("filterPillHref removes one predicate from filter_query and deletes its configured clears params", () => {
+  const clauses = parseFilterPills('nsites >= 2 AND elements HAS "Si"');
+  const fields = { elements: { clears: ["elements", "el_min"] } };
+  // Removing the elements clause rewrites filter to just the nsites clause, and deletes
+  // BOTH configured source params so a host form cannot resurrect the predicate.
+  const href = filterPillHref(clauses, 1, fields, "filter", "?filter=x&elements=Si&el_min=1&other=1");
+  const params = new URLSearchParams(href.slice(1));
+  assert.equal(params.get("filter"), "nsites >= 2");
+  assert.equal(params.has("elements"), false);
+  assert.equal(params.has("el_min"), false);
+  assert.equal(params.get("other"), "1");
+  // Removing the only clause leaves an explicit empty filter param (no filter, not the authored one).
+  const cleared = filterPillHref(clauses, 0, {}, "filter", "?filter=x");
+  assert.equal(new URLSearchParams(cleared.slice(1)).get("filter"), 'elements HAS "Si"');
+  // No filter_query wired: no URL state can express removal.
+  assert.equal(filterPillHref(clauses, 0, {}, null, "?filter=x"), null);
+});
+
+test("sortPillHref sets an explicit empty sort= and is null when sort_query isn't wired", () => {
+  assert.equal(sortPillHref("sort", "?sort=-nsites&filter=x"), "?sort=&filter=x");
+  assert.equal(sortPillHref(null, "?sort=-nsites"), null);
 });
 
 test("sortHref toggles direction, appends the id tiebreaker, and preserves other params", () => {

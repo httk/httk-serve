@@ -402,13 +402,14 @@ def validate_optimade_request(
     # Parse the include parameter (a comma-separated list of relationship
     # paths) into the list of served entry types whose related resources are to
     # be returned under the top-level "included" field. When the parameter is
-    # absent the default is 'references' (filtered to the served entry types);
-    # an explicit empty string means include nothing; each listed path must be
-    # a served entry type (only depth-1 paths are supported) or the request is
+    # absent, the default is the endpoint's configured default_includes, always
+    # unioned with 'references' (filtered to the served entry types); an
+    # explicit empty string means include nothing; each listed path must be a
+    # served entry type (only depth-1 paths are supported) or the request is
     # rejected with 400.
     if endpoint in schema.all_entries:
         if validated_request.query.include is None:
-            validated_request.include_paths = [e for e in ('references',) if e in schema.all_entries]
+            validated_request.include_paths = list(schema.default_include_paths.get(endpoint, ()))
         elif validated_request.query.include.strip() == "":
             validated_request.include_paths = []
         else:

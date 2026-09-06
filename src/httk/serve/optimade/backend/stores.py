@@ -343,7 +343,10 @@ def adapter_from_stores(
     the returned page into OPTIMADE result rows.
 
     :param sources: Durable entry sources to federate by entry type.
-    :param \\*\\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+    :param \\*\\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`,
+        e.g. ``default_includes`` (per served entry type, the served entry
+        types to include by default on single-entry requests; always unioned
+        with ``references``).
     :return: Lazy adapter over the supplied durable sources.
     :raises ValueError: If sources conflict or expose incomplete sort mappings.
     :raises TypeError: If a source is not a stored entry source.

@@ -245,6 +245,20 @@ def test_structure_provider_info_exposes_complete_standard_contract(structure_ap
     assert payload["data"]["properties"]["chemical_formula_reduced"]["x-optimade-type"] == "string"
 
 
+# Standard structure properties neither fixture entry sets: "may"-level and
+# unknown-valued (None) for both "mixed" and "silicon", so OPTIMADE's default-
+# response omission rule (item 5) drops them from the served attributes
+# entirely rather than serving them as null.
+_UNSET_STRUCTURE_PROPERTIES = {
+    "site_coordinate_span_description",
+    "space_group_symbol_hall",
+    "space_group_symbol_hermann_mauguin",
+    "space_group_symbol_hermann_mauguin_extended",
+    "space_group_it_number",
+    "wyckoff_positions",
+}
+
+
 def test_structure_provider_listing_preserves_standard_semantics(structure_api) -> None:
     mode, client = structure_api
     response = client.get("/structures")
@@ -256,8 +270,9 @@ def test_structure_provider_listing_preserves_standard_semantics(structure_api) 
     resources = {resource["id"]: resource for resource in payload["data"]}
     mixed = resources["mixed"]
     attributes = mixed["attributes"]
-    expected_attributes = STANDARD_STRUCTURE_PROPERTIES - {"id", "type"}
+    expected_attributes = STANDARD_STRUCTURE_PROPERTIES - {"id", "type"} - _UNSET_STRUCTURE_PROPERTIES
     assert expected_attributes <= set(attributes)
+    assert _UNSET_STRUCTURE_PROPERTIES.isdisjoint(attributes)
     assert mixed["type"] == "structures"
     if mode == "sqlite-record":
         assert attributes["immutable_id"] == "httk.test-1-1~1"
@@ -285,19 +300,15 @@ def test_structure_provider_listing_preserves_standard_semantics(structure_api) 
     assert attributes["optimization_type"] == "local"
 
     silicon = resources["silicon"]["attributes"]
-    assert expected_attributes <= set(silicon)
+    # silicon leaves "assemblies" unset too, and (atomistic mode) "immutable_id".
+    silicon_unset = (
+        _UNSET_STRUCTURE_PROPERTIES | {"assemblies"} | ({"immutable_id"} if mode != "sqlite-record" else set())
+    )
+    assert expected_attributes - silicon_unset <= set(silicon)
+    assert silicon_unset.isdisjoint(silicon)
     if mode == "sqlite-record":
         assert silicon["immutable_id"] == "httk.test-1-2~1"
-    else:
-        assert silicon["immutable_id"] is None
     assert silicon["chemical_formula_reduced"] == "Si"
-    assert silicon["assemblies"] is None
-    assert silicon["wyckoff_positions"] is None
-    assert silicon["site_coordinate_span_description"] is None
-    assert silicon["space_group_symbol_hall"] is None
-    assert silicon["space_group_symbol_hermann_mauguin"] is None
-    assert silicon["space_group_symbol_hermann_mauguin_extended"] is None
-    assert silicon["space_group_it_number"] is None
     assert silicon["structure_features"] == []
 
 
