@@ -81,6 +81,46 @@ def _unsupported(detail: str) -> UnsupportedQueryError:
     return UnsupportedQueryError(f"remote OPTIMADE query does not support {detail}")
 
 
+def _scalar_value(value: object, generic: bool, field: "_RemoteField") -> object:
+    """Extract one scalar output value from one materialized query result.
+
+    A bound (non-generic) backend materializes a typed object with real
+    attributes matching *field*'s local name, so a plain ``getattr`` is
+    exact and unchanged here.
+
+    A generic (unregistered) backend has no typed object at all: *value* is
+    the raw :class:`~httk.core.optimade.OptimadeResource` itself, a
+    source-exact lazy ``Mapping`` whose only real attributes are ``id``,
+    ``type``, ``document``, ``data_index``, ``schema``, and ``unwrap()``.
+    ``id``/``type`` are protocol envelope members and are read straight off
+    the resource; every other field is read from ``unwrap()["attributes"]``
+    by the field's *wire* name (``field._remote_name``) rather than its
+    local name -- for a generic descriptor the two happen to be identical
+    today, but the wire name is what the response envelope actually keys on,
+    so a future bound-name divergence cannot silently misroute this lookup.
+
+    An attribute absent from ``attributes`` yields ``None``, never a
+    ``KeyError``: an OPTIMADE server may legitimately omit a property whose
+    value is unknown (httk-serve itself does this), so "absent" and
+    "present with an explicit null" are deliberately not distinguished here.
+
+    :param value: Materialized query result object.
+    :param generic: Whether the owning descriptor's backend is ``OptimadeResource``.
+    :param field: Field being projected.
+    :return: Extracted scalar value, or ``None`` for an absent generic attribute.
+    """
+
+    if not generic:
+        return getattr(value, field._local_name)
+    resource = cast(OptimadeResource, value)
+    if field._local_name in ("id", "type"):
+        return getattr(resource, field._local_name)
+    attributes = resource.unwrap().get("attributes")
+    if not isinstance(attributes, Mapping):
+        return None
+    return attributes.get(field._remote_name)
+
+
 def _origin(url: str) -> tuple[str, str, int | None]:
     split = urlsplit(url)
     scheme = split.scheme.casefold()
@@ -914,10 +954,14 @@ class RemoteSearcher:
     def _search_results(self, *, maximum: int | None = None) -> Iterator[SearchResult]:
         if not self._outputs:
             raise ValueError("this search has no outputs; call output() before iterating")
+        descriptor, _variable = self._require_variable()
+        generic = descriptor.backend is OptimadeResource
         names = tuple(output.name for output in self._outputs)
-        for value, resource in self._objects(maximum=maximum, page_limit_override=maximum):
+        for value, _resource in self._objects(maximum=maximum, page_limit_override=maximum):
             values = tuple(
-                value if output.variable is not None else getattr(value, cast(_RemoteField, output.field)._local_name)
+                value
+                if output.variable is not None
+                else _scalar_value(value, generic, cast(_RemoteField, output.field))
                 for output in self._outputs
             )
             yield SearchResult(values, names)

@@ -569,6 +569,90 @@ def test_generic_descriptor_resolves_provider_prefixed_properties() -> None:
         _value = field.relationship
 
 
+def test_generic_descriptor_scalar_projection_reads_prefixed_attributes() -> None:
+    client = QueryClient(
+        "legacy-things",
+        {
+            "_anyterial_formula": {"type": "string"},
+            "_anyterial_max_spin_splitting": {"type": "float"},
+        },
+        [
+            page(
+                [
+                    resource(
+                        "g1",
+                        "legacy-things",
+                        {"_anyterial_formula": "Fe2O3", "_anyterial_max_spin_splitting": 0.5},
+                    )
+                ]
+            )
+        ],
+        describedby=None,
+    )
+    store = OptimadeStore(client.base_url, client=client)
+    descriptor = store.entry_types[0]
+    assert descriptor.backend is OptimadeResource
+    searcher = store.searcher()
+    variable = searcher.variable(OptimadeResource)
+    row = searcher.results(formula=variable._anyterial_formula, splitting=variable._anyterial_max_spin_splitting).one()
+
+    assert row.formula == "Fe2O3"
+    assert row.splitting == Decimal("0.5")
+    # A scalar-only projection plan must ask for exactly its wire names, or an
+    # absent-attribute-means-None default would silently mask a plumbing bug
+    # that failed to request the field at all.
+    assert query_parameters(client)["response_fields"] == ["_anyterial_formula,_anyterial_max_spin_splitting"]
+
+
+def test_generic_descriptor_scalar_projection_of_id_and_type() -> None:
+    client = QueryClient(
+        "legacy-things",
+        {"legacy": {"type": "string"}},
+        [page([resource("g1", "legacy-things", {"legacy": "value"})])],
+        describedby=None,
+    )
+    store = OptimadeStore(client.base_url, client=client)
+    searcher = store.searcher()
+    variable = searcher.variable(OptimadeResource)
+    row = searcher.results(identifier=variable.id, kind=variable.type).one()
+
+    assert row.identifier == "g1"
+    assert row.kind == "legacy-things"
+
+
+def test_generic_descriptor_scalar_projection_of_absent_attribute_is_none() -> None:
+    client = QueryClient(
+        "legacy-things",
+        {"_anyterial_formula": {"type": "string"}},
+        # The server omits the unknown-valued property entirely, so the
+        # resource carries no "attributes" member at all.
+        [page([resource("g1", "legacy-things")])],
+        describedby=None,
+    )
+    store = OptimadeStore(client.base_url, client=client)
+    searcher = store.searcher()
+    variable = searcher.variable(OptimadeResource)
+    row = searcher.results(formula=variable._anyterial_formula).one()
+
+    assert row.formula is None
+
+
+def test_generic_descriptor_mixed_item_and_scalar_outputs() -> None:
+    client = QueryClient(
+        "legacy-things",
+        {"_anyterial_formula": {"type": "string"}},
+        [page([resource("g1", "legacy-things", {"_anyterial_formula": "Fe2O3"})])],
+        describedby=None,
+    )
+    store = OptimadeStore(client.base_url, client=client)
+    searcher = store.searcher(response_fields=ALL_ADVERTISED)
+    variable = searcher.variable(OptimadeResource)
+    row = searcher.results(item=variable, formula=variable._anyterial_formula).one()
+
+    assert isinstance(row.item, OptimadeResource)
+    assert row.formula == "Fe2O3"
+
+
 def test_backend_class_requires_an_unambiguous_endpoint() -> None:
     base = "https://example.test/v1"
     properties = schema_properties(FILES, ("id", "type"))
