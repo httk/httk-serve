@@ -158,8 +158,8 @@ test("the advanced-filter disclosure prefills the filter and carries the raw sor
   const details = page.locator("#advanced [data-httk-serve-optimade-advanced]");
   await details.waitFor();
   const input = details.locator("[data-httk-serve-optimade-advanced-filter]");
-  // The input is prefilled with the effective (URL-selected) filter value.
-  await input.waitFor();
+  // The prefilled input is attached but hidden inside the closed disclosure.
+  await input.waitFor({ state: "attached" });
   assert.equal(await input.inputValue(), "nsites >= 9");
   // A bare sidebar-style filter (no advanced marker) leaves the disclosure closed.
   assert.equal(await details.evaluate((el) => el.open), false);

@@ -111,3 +111,19 @@ The workflow rejects a Git tag that does not match `project.version`, rebuilds
 the distributions from the tagged source, checks them, and publishes them via
 PyPI Trusted Publishing. Its isolated-wheel validation imports both
 `httk.serve.web` and `httk.serve.optimade`.
+
+## Repeated release documentation builds
+
+`Deploy release docs` runs on tag pushes, independently of PyPI publication.
+Once a version exists on `docs-site`, its files are immutable. Rebuilding the
+same source can change notebook output timestamps, the search index, and Sphinx
+doctree caches, so a repeated build can fail with "release directories are
+immutable" even when the published documentation is correct. The rejected
+composition leaves the existing release documentation intact.
+
+Inspect the published version before taking action. If it is correct, no
+repair or package re-upload is needed. If it needs repair, use Actions →
+**Repair release docs** → **Run workflow**, enter the existing release tag in
+`version` (for example `v2.1.0`), and approve the `docs-repair` environment.
+That workflow rebuilds the existing tag and explicitly replaces its published
+documentation. Do not move the release tag to fix a repeated-build failure.
