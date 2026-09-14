@@ -6,8 +6,9 @@ recognition. Query construction and paginated execution live in
 """
 
 import json
+import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from threading import RLock
@@ -49,6 +50,7 @@ class _AllAdvertised:
 ALL_ADVERTISED = _AllAdvertised()
 
 _URL_TOKEN = re.compile(r"(?:https?://|/|\?)[^\s'\"<>]+")
+_DIGIT_RUN = re.compile(r"\d+")
 _SENSITIVE_QUERY_KEYS = frozenset({"access_token", "api_key", "apikey", "token", "key"})
 _VERSION_COMPONENT = r"(?:0|[1-9][0-9]*)"
 _EXPLICIT_VERSION = re.compile(rf"^v({_VERSION_COMPONENT})(?:\.({_VERSION_COMPONENT})(?:\.({_VERSION_COMPONENT}))?)?$")
@@ -241,6 +243,24 @@ def _error_detail(text: str) -> str | None:
     return None
 
 
+def _reduced_page_limit(detail: str | None, current: int) -> int:
+    """Return the next page size to try after a service rejected ``current``.
+
+    OPTIMADE offers no way to discover a service's maximum page size up front,
+    so it is inferred from the 403 detail. Implementations state the accepted
+    maximum in that message, but the wording is unspecified, so the only
+    reliable signal is an integer smaller than what was asked for; the largest
+    such integer is chosen, falling back to halving when the message names none.
+
+    :param detail: Safe 403 error detail, when the service supplied one.
+    :param current: Page size the service just rejected.
+    :return: The next, strictly smaller, page size to attempt.
+    """
+
+    candidates = [n for n in (int(m) for m in _DIGIT_RUN.findall(detail or "")) if 1 <= n < current]
+    return max(candidates) if candidates else max(1, current // 2)
+
+
 class OptimadeStore:
     """Connect synchronously to a read-only OPTIMADE service and discover it eagerly.
 
@@ -251,7 +271,7 @@ class OptimadeStore:
 
     :param base_url: Absolute HTTP(S) service base URL.
     :param client: Optional borrowed synchronous HTTP client.
-    :param page_limit: Default remote page size.
+    :param page_limit: Requested default remote page size; lowered automatically when a service rejects it with HTTP 403.
     :param max_pages: Maximum continuation pages followed by one query.
     :param allow_cross_origin_pagination: Permit continuation links on another origin.
     :param response_fields: Default response-field selection for new searchers.
@@ -433,6 +453,46 @@ class OptimadeStore:
                 raise OptimadeErrorDocumentError(url, status_code, detail)
             raise OptimadeHTTPError(url, status_code)
         return text
+
+    def _get_page(self, build_url: Callable[[int], str], page_limit: int) -> tuple[str, str]:
+        """Fetch a self-constructed first page, learning any page-size cap from a 403.
+
+        OPTIMADE provides no way to discover a service's maximum page size up
+        front, so a service that caps below the requested size is discovered
+        only by its HTTP 403 rejection. On such a rejection this retries at a
+        smaller size (see :func:`_reduced_page_limit`) and, once a reduction has
+        succeeded, lowers :attr:`page_limit` so later queries skip the failed
+        roundtrip. Any non-403 failure, or a 403 already at page size 1,
+        propagates and leaves :attr:`page_limit` untouched.
+
+        :param build_url: Build the first-page request URL for a given page size.
+        :param page_limit: Page size to request first.
+        :return: The successful response text and the URL that produced it.
+        :raises OptimadeHTTPError: If every attempt down to page size 1 fails.
+        """
+
+        attempt = page_limit
+        reduced = False
+        while True:
+            url = build_url(attempt)
+            try:
+                text = self._get(url)
+            except OptimadeHTTPError as exc:
+                if exc.status_code != 403 or attempt <= 1:
+                    raise
+                previous = attempt
+                attempt = _reduced_page_limit(exc.detail, attempt)
+                reduced = True
+                logging.getLogger(__name__).warning(
+                    "OPTIMADE service rejected page_limit=%d; retrying at page_limit=%d",
+                    previous,
+                    attempt,
+                    extra={"context": "optimade"},
+                )
+                continue
+            if reduced:
+                self.page_limit = min(self.page_limit, attempt)
+            return text, url
 
     @property
     def entry_types(self) -> tuple[RemoteEntryType, ...]:

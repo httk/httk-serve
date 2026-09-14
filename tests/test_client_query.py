@@ -18,6 +18,7 @@ from httk.store import MultipleResultsError, NoResultError, UnsupportedQueryErro
 from httk.serve.optimade import (
     ALL_ADVERTISED,
     CountUnavailableError,
+    OptimadeHTTPError,
     OptimadePaginationError,
     OptimadeResponseError,
     OptimadeStore,
@@ -1193,3 +1194,78 @@ def test_slicer_operations_never_share_filter_state_across_fresh_searchers() -> 
     values = list(mats["_anyterial_formula"])  # then unfiltered -- must not carry the prior filter
     assert "filter" not in query_parameters(client, 3)
     assert values == ["Fe2O3"]
+
+
+def error_403(detail: str) -> FakeResponse:
+    return response({"errors": [{"detail": detail}]}, 403)
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        ("Maximum page size is 20.", 20),  # cap named in the 403 detail
+        ("page limit is too large", 25),  # no usable number -> halving fallback
+    ],
+)
+def test_page_limit_cap_is_learned_from_403_and_persisted(detail: str, expected: int) -> None:
+    store, client = make_files(
+        [
+            error_403(detail),
+            page([resource("a", "renamed-files")]),
+            page([resource("b", "renamed-files")]),
+        ]
+    )
+    searcher = store.searcher()
+    variable = searcher.variable(store.entry_types[0])
+
+    assert [row.record.id for row in searcher.results(record=variable)] == ["a"]
+    assert store.page_limit == expected
+    assert query_parameters(client, 2)["page_limit"] == ["50"]
+    assert query_parameters(client, 3)["page_limit"] == [str(expected)]
+
+    # A second query on the same store must request the learned cap directly,
+    # with no repeated 403 roundtrip.
+    second = store.searcher()
+    second_variable = second.variable(store.entry_types[0])
+    assert [row.record.id for row in second.results(record=second_variable)] == ["b"]
+    assert query_parameters(client, 4)["page_limit"] == [str(expected)]
+    assert len(client.requests) == 5
+
+
+def test_persistent_403_leaves_page_limit_untouched_and_raises() -> None:
+    store, _client = make_files([error_403("Forbidden: not authorized") for _ in range(6)])
+    searcher = store.searcher()
+    variable = searcher.variable(store.entry_types[0])
+
+    with pytest.raises(OptimadeHTTPError):
+        [row for row in searcher.results(record=variable)]
+    assert store.page_limit == 50
+
+
+def test_query_with_smaller_effective_page_size_does_not_lower_the_store() -> None:
+    store, client = make_files([page([resource("a", "renamed-files")])])
+    searcher = store.searcher()
+    variable = searcher.variable(store.entry_types[0])
+    searcher.set_limit(5)
+
+    assert [row.record.id for row in searcher.results(record=variable)] == ["a"]
+    assert query_parameters(client, 2)["page_limit"] == ["5"]
+    assert store.page_limit == 50
+
+
+def test_403_on_a_continuation_page_is_not_retried() -> None:
+    store, client = make_files(
+        [
+            page([resource("a", "renamed-files")], next_link="?page_offset=1", more=True),
+            error_403("Maximum page size is 20."),
+        ]
+    )
+    searcher = store.searcher()
+    variable = searcher.variable(store.entry_types[0])
+
+    with pytest.raises(OptimadeHTTPError):
+        [row for row in searcher.results(record=variable)]
+    # Two query requests only: the first page and the failing continuation --
+    # the continuation is service-constructed and never retried at a smaller size.
+    assert len(client.requests) == 4
+    assert store.page_limit == 50

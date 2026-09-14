@@ -1346,10 +1346,13 @@ class RemoteSearcher:
             request_page_limit = min(request_page_limit, page_limit_override)
         if effective_limit is not None:
             request_page_limit = max(1, min(request_page_limit, effective_limit + self.offset))
-        first_url = self._request_url(page_limit=request_page_limit)
         base_origin = _origin(self._store._transport_base_url)
 
         def resources() -> Iterator[tuple[object, OptimadeResource]]:
+            raw_text: str | None
+            raw_text, first_url = self._store._get_page(
+                lambda limit: self._request_url(page_limit=limit), request_page_limit
+            )
             next_url: str | None = first_url
             seen: set[str] = set()
             pages = 0
@@ -1367,7 +1370,8 @@ class RemoteSearcher:
                     raise OptimadePaginationError("OPTIMADE pagination attempted a cross-origin request")
                 seen.add(next_url)
                 pages += 1
-                raw_text = self._store._get(next_url)
+                if raw_text is None:
+                    raw_text = self._store._get(next_url)
                 # Continuations are extracted from the ephemeral raw response
                 # so a credential-bearing cursor remains usable. Only the
                 # redacted document below is retained by yielded resources.
@@ -1395,6 +1399,7 @@ class RemoteSearcher:
                             "OPTIMADE response reports more_data_available without a usable links.next"
                         )
                     return
+                raw_text = None
                 next_url = urljoin(next_url, continuation)
 
         return resources()
