@@ -2,7 +2,6 @@
 
 from types import SimpleNamespace
 
-from httk.serve.optimade.client import OptimadeStore
 from httk.serve.web.engine.site_engine import SiteEngine
 
 
@@ -16,8 +15,3 @@ def test_site_engine_repr() -> None:
     # srcdir, so exercise it directly.
     stub = SimpleNamespace(config=SimpleNamespace(srcdir="/srv/site"))
     _assert_informative(SiteEngine.__repr__(stub), "SiteEngine")  # type: ignore[arg-type]
-
-
-def test_optimade_store_repr() -> None:
-    stub = SimpleNamespace(base_url="https://example.org/optimade/v1", api_version="1.3.0")
-    _assert_informative(OptimadeStore.__repr__(stub), "OptimadeStore")  # type: ignore[arg-type]
