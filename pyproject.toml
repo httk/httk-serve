@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "httk-serve"
-version = "2.1.0"
+version = "2.1.1"
 description = "HTTP, web, DSP, and OPTIMADE serving tooling for httk₂"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
