@@ -19,7 +19,7 @@ docutils==0.22.4
 executing==2.2.1
 fastjsonschema==2.22.2
 furo==2025.12.19
-greenlet==3.5.5
+greenlet==3.5.6
 h11==0.16.0
 httk-core==2.1.0
 httk-store==2.1.0
@@ -81,15 +81,15 @@ sphinxcontrib-htmlhelp==2.1.0
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
-sqlalchemy==2.0.52
+sqlalchemy==2.0.53
 stack-data==0.6.3
 starlette==1.6.0
 tabulate==0.10.0
-tornado==6.5.8
+tornado==6.5.10
 traitlets==5.16.1
 typing-extensions==4.16.0
 urllib3==2.7.0
-uvicorn==0.52.4
+uvicorn==0.53.0
 wcwidth==0.8.3
 wheel==0.48.0
 zipp==4.1.0
