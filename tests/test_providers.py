@@ -9,7 +9,7 @@ import asyncio
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-import httpx
+import httpx2
 import pytest
 from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition, RelatedEntry
 from starlette.testclient import TestClient
@@ -234,9 +234,9 @@ def test_asgi_known_unknown_filters_inspect_each_resource_value() -> None:
     )
     app = create_asgi_app(adapter_from_providers([provider]), baseurl="http://testserver")
 
-    async def request(filter_string: str) -> httpx.Response:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async def request(filter_string: str) -> httpx2.Response:
+        transport = httpx2.ASGITransport(app=app)
+        async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as client:
             return await client.get("/widgets", params={"filter": filter_string})
 
     known = asyncio.run(request("cogs IS KNOWN"))

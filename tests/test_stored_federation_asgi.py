@@ -8,7 +8,7 @@ from fractions import Fraction
 from typing import Any
 from urllib.parse import urlsplit
 
-import httpx
+import httpx2
 import pytest
 from httk.atomistic import (
     ASUStructure,
@@ -64,13 +64,13 @@ class AsgiSyncClient:
         self.app = app
         self.base_url = base_url
 
-    def get(self, url: str) -> httpx.Response:
+    def get(self, url: str) -> httpx2.Response:
         """GET one local ASGI URL."""
         assert urlsplit(url).netloc == urlsplit(self.base_url).netloc
 
-        async def request() -> httpx.Response:
-            transport = httpx.ASGITransport(app=self.app)
-            async with httpx.AsyncClient(transport=transport) as client:
+        async def request() -> httpx2.Response:
+            transport = httpx2.ASGITransport(app=self.app)
+            async with httpx2.AsyncClient(transport=transport) as client:
                 return await client.get(url)
 
         return asyncio.run(request())

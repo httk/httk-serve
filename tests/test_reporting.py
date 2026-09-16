@@ -3,7 +3,7 @@ import logging
 import warnings
 from collections.abc import Iterator
 
-import httpx
+import httpx2
 import pytest
 from definition_fixtures import served_schema
 from fake_backend import FakeStore
@@ -62,10 +62,10 @@ def _app(query_function) -> object:
     )
 
 
-def _get(app: object, path: str, params: dict[str, str] | None = None) -> httpx.Response:
-    async def request() -> httpx.Response:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+def _get(app: object, path: str, params: dict[str, str] | None = None) -> httpx2.Response:
+    async def request() -> httpx2.Response:
+        transport = httpx2.ASGITransport(app=app)
+        async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as client:
             return await client.get(path, params=params)
 
     return asyncio.run(request())

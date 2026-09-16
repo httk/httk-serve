@@ -30,7 +30,7 @@ Group 2 reaches every pinned behaviour through the public
 ``select_catalogue_representation`` method, so no private import is needed there.
 """
 
-import httpx
+import httpx2
 import pytest
 from starlette.testclient import TestClient
 from test_dsp_config import config
@@ -47,7 +47,7 @@ from httk.serve.http import json_get_app, jsonld_get_app
 # ---------------------------------------------------------------------------
 
 
-def _get(app: object, accept: str | None) -> httpx.Response:
+def _get(app: object, accept: str | None) -> httpx2.Response:
     """Issue a GET, sending an explicit ``Accept`` only when one is given."""
     with TestClient(app) as client:  # type: ignore[arg-type]
         headers = {} if accept is None else {"Accept": accept}
@@ -82,7 +82,7 @@ def test_plain_json_app_accept_statuses(accept: str, status: int) -> None:
 
 
 def test_plain_json_app_accepts_when_no_accept_header_is_sent() -> None:
-    # Pin the "Accept header entirely absent -> accepted" branch. httpx injects a
+    # Pin the "Accept header entirely absent -> accepted" branch. httpx2 injects a
     # default Accept, so the header is deleted before sending to reach the real
     # None path in api.py rather than the equivalent */* path.
     with TestClient(json_get_app({"value": 1})) as client:
