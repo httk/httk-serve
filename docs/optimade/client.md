@@ -257,7 +257,7 @@ enforcing `max_pages`, and rejecting cross-origin continuations unless
 claims `more_data_available` without a usable continuation raises
 `OptimadePaginationError`.
 
-When no client is supplied, `OptimadeStore` owns an `httpx.Client` and closes
+When no client is supplied, `OptimadeStore` owns an `httpx2.Client` and closes
 it on `close()` or context-manager exit, including when `/versions` negotiation
 or later discovery fails. An injected client is borrowed and is never closed.
 `refresh()` reuses the already negotiated effective base URL and never repeats
