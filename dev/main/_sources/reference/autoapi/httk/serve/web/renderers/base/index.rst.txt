@@ -1,0 +1,102 @@
+httk.serve.web.renderers.base
+=============================
+
+.. py:module:: httk.serve.web.renderers.base
+
+.. autoapi-nested-parse::
+
+   Define renderer inputs and outputs shared by content renderers.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.renderers.base.WidgetPlacement
+   httk.serve.web.renderers.base.RenderResult
+   httk.serve.web.renderers.base.Renderer
+
+
+Module Contents
+---------------
+
+.. py:class:: WidgetPlacement
+
+   Describe a widget invocation replaced by a stable placeholder.
+
+   :param placeholder: Placeholder text inserted into rendered content.
+   :param name: Requested widget name.
+   :param props: Literal widget properties.
+   :param source_path: Source file containing the invocation.
+   :param line: One-based source line.
+   :param column: One-based source column.
+   :param snippet: Original invocation text.
+
+
+   .. py:attribute:: placeholder
+      :type:  str
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: props
+      :type:  collections.abc.Mapping[str, object]
+
+
+   .. py:attribute:: source_path
+      :type:  pathlib.Path
+
+
+   .. py:attribute:: line
+      :type:  int
+
+
+   .. py:attribute:: column
+      :type:  int
+
+
+   .. py:attribute:: snippet
+      :type:  str
+
+
+.. py:class:: RenderResult
+
+   Carry rendered HTML, metadata, and widget placements.
+
+   :param html: Rendered HTML before templates are applied.
+   :param metadata: Source metadata.
+   :param widgets: Widget placements found in the source.
+
+
+   .. py:attribute:: html
+      :type:  str
+
+
+   .. py:attribute:: metadata
+      :type:  dict[str, object]
+
+
+   .. py:attribute:: widgets
+      :type:  tuple[WidgetPlacement, ...]
+      :value: ()
+
+
+
+.. py:class:: Renderer
+
+   Bases: :py:obj:`Protocol`
+
+
+   Define the source-renderer protocol.
+
+
+   .. py:method:: render(source_path)
+
+      Render a source file into HTML and metadata.
+
+
+

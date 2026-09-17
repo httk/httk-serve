@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "project": "httk-serve",
+  "url": "https://docs.httk.org/httk-serve",
+  "source_commit": "aa2a89627af029b191a42e4531bab45f5e9a5ab9",
+  "default": {
+    "name": "v2.1.2",
+    "path": "latest/",
+    "channel": "release"
+  },
+  "versions": [
+    {
+      "name": "v2.1.2",
+      "path": "v2.1.2/",
+      "channel": "release"
+    },
+    {
+      "name": "v2.1.1",
+      "path": "v2.1.1/",
+      "channel": "release"
+    },
+    {
+      "name": "v2.1.0",
+      "path": "v2.1.0/",
+      "channel": "release"
+    },
+    {
+      "name": "dev:main",
+      "path": "dev/main/",
+      "channel": "dev"
+    }
+  ]
+}
