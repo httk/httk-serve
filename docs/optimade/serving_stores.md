@@ -6,11 +6,11 @@ store:
 
 ```python
 from httk.atomistic import StructureEntry, UnitcellStructure, UnitcellStructureRecord
-from httk.store import Backend, EntryIdScheme, SqlStore
+from httk.store import DuckdbStore, EntryIdScheme
 from httk.serve.optimade import create_asgi_app
 
-store = SqlStore(
-    Backend.duckdb("materials.duckdb"),
+store = DuckdbStore(
+    "materials.duckdb",
     entry_records={StructureEntry: UnitcellStructureRecord},
     entry_ids=EntryIdScheme("materials.example", "1"),
 )

@@ -22,7 +22,7 @@ and protocol-specific validation belong to that caller.
 
 ```python
 from httk.core import Dataset, DatasetDistribution
-from httk.store import Backend, SqlStore
+from httk.store import SqliteStore
 from httk.serve.dsp import (
     DCAT_AP_3_0_1_PROFILE,
     DCAT_AP_MINIMAL_PROFILE,
@@ -50,8 +50,7 @@ publication = DspDatasetPublication(
         ),
     ),
 )
-store = SqlStore(
-    Backend.sqlite(),
+store = SqliteStore(
     entry_records={DspPublicationEntry: DspPublicationRecord},
 )
 store.save(DspPublicationRecord(dataset=publication))
