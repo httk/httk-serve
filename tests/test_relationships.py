@@ -329,7 +329,7 @@ def _structures_rel_adapter(store: FakeStore) -> BackendAdapter:
 def test_relationship_id_has_produces_set_handler_tree() -> None:
     adapter = _structures_rel_adapter(FakeStore(rows_by_target={"structure-table": []}))
     pairs = translate_filter(parse_optimade_filter('references.id HAS "ref-1"'), ["structures"], adapter)
-    _source, searcher = pairs[0]
+    _source, searcher, _variable = pairs[0]
     assert searcher.expressions[0].tree == ("has_any", ("column", "references"), ("ref-1",))  # type: ignore[attr-defined]
 
 

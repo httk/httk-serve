@@ -217,7 +217,7 @@ def test_url_filter_translates_to_string_comparison() -> None:
     pairs = translate_filter(
         parse_optimade_filter('url = "https://example.org/files/calc-1/INCAR"'), ["files"], adapter
     )
-    _source, searcher = pairs[0]
+    _source, searcher, _variable = pairs[0]
     assert searcher.expressions[0].tree == (  # type: ignore[attr-defined]
         "eq",
         ("column", "url"),
@@ -391,5 +391,5 @@ def test_files_id_has_translates_to_set_handler_tree() -> None:
         schema=schema,
     )
     pairs = translate_filter(parse_optimade_filter('files.id HAS "file-1"'), ["calculations"], adapter)
-    _source, searcher = pairs[0]
+    _source, searcher, _variable = pairs[0]
     assert searcher.expressions[0].tree == ("has_any", ("column", "file_ids"), ("file-1",))  # type: ignore[attr-defined]

@@ -137,7 +137,7 @@ def test_doi_filter_translates_to_string_comparison() -> None:
     store = FakeStore(rows_by_target={'references': list(REFERENCES)})
     adapter = references_adapter(store)
     pairs = translate_filter(parse_optimade_filter('doi = "10.1234/demo.2021.1"'), ["references"], adapter)
-    _source, searcher = pairs[0]
+    _source, searcher, _variable = pairs[0]
     assert searcher.expressions[0].tree == ("eq", ("column", "doi"), "10.1234/demo.2021.1")  # type: ignore[attr-defined]
 
 

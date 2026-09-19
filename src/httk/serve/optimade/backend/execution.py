@@ -20,7 +20,10 @@ class StoreResults:
     :class:`~httk.serve.optimade.model.results.ResultRow` per entry, whose values
     map response-field names to values extracted from the matched row objects.
 
-    :param pairs: Sources and already-configured searchers to iterate.
+    :param pairs: Sources, already-configured searchers, and their root
+        variables to iterate. ``results()`` is called on each searcher lazily,
+        inside the iterator, so it only runs once iteration reaches that
+        searcher -- after any pagination tuning already applied to it.
     :param response_fields: Recognized fields to extract.
     :param unknown_response_fields: Unknown fields to return as null.
     :param limit: Maximum number of results to yield.
@@ -31,7 +34,7 @@ class StoreResults:
 
     def __init__(
         self,
-        pairs: list[tuple[EntrySource, Searcher]],
+        pairs: list[tuple[EntrySource, Searcher, Any]],
         response_fields: list[str],
         unknown_response_fields: list[str],
         limit: int | None,
@@ -42,7 +45,7 @@ class StoreResults:
         self.pairs = pairs
         self.recognized_prefixes = recognized_prefixes
         self.cur: Iterator[tuple[EntrySource, Any]] | None = (
-            (source, item) for source, searcher in pairs for item in searcher
+            (source, row) for source, searcher, variable in pairs for row in searcher.results(entry=variable)
         )
         self.limit = limit
         self.response_fields = response_fields
@@ -72,7 +75,7 @@ class StoreResults:
                 next(self.cur)
                 self.offset -= 1
             source, item = next(self.cur)
-            row = item[0][0]
+            row = item[0]
             result: dict[str, Any] = {}
             for field in self.unknown_response_fields:
                 result[field] = None
@@ -153,14 +156,14 @@ def execute_query(
     """
 
     pairs = translate_filter(filter_ast, entries, adapter, sort)
-    total_count = sum(searcher.count() for _source, searcher in pairs)
+    total_count = sum(searcher.count() for _source, searcher, _variable in pairs)
 
     if sort and len(pairs) > 1:
         raise TranslatorError("Sorting across multiple data sources is not implemented.", 501, "Not implemented")
 
     if response_offset is not None and response_offset != 0:
         remaining_offset = response_offset
-        for i, (_source, searcher) in enumerate(pairs):
+        for i, (_source, searcher, _variable) in enumerate(pairs):
             count = searcher.count()
             remaining_offset -= count
             if remaining_offset < 0:
@@ -177,7 +180,7 @@ def execute_query(
 
     if response_limit is not None and response_limit != 0:
         remaining_limit = response_limit
-        for i, (_source, searcher) in enumerate(pairs):
+        for i, (_source, searcher, _variable) in enumerate(pairs):
             count = searcher.count() - searcher.offset
             remaining_limit -= count
             if remaining_limit < 0:

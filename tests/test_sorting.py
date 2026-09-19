@@ -121,7 +121,7 @@ def test_add_sort_recorded_in_declared_order() -> None:
     store = FakeStore(rows_by_target={"structure-table": []})
     adapter = _structures_adapter(store)
     pairs = translate_filter(None, ["structures"], adapter, [("nelements", False), ("id", True)])
-    _, searcher = pairs[0]
+    _, searcher, _variable = pairs[0]
     assert searcher.sorts == [("number_of_elements", False), ("__id", True)]  # type: ignore[attr-defined]
 
 

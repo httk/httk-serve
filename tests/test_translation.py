@@ -25,7 +25,7 @@ def make_adapter(store: FakeStore | None = None) -> BackendAdapter:
 def translate_one(filter_string: str, entry: str = "structures"):
     adapter = make_adapter()
     pairs = translate_filter(parse_optimade_filter(filter_string), [entry], adapter)
-    searchers = [searcher for _source, searcher in pairs]
+    searchers = [searcher for _source, searcher, _variable in pairs]
     assert all(len(s.expressions) == 1 for s in searchers)
     return searchers
 
@@ -36,9 +36,10 @@ def test_no_filter_builds_searcher_per_source() -> None:
     assert len(pairs) == 2
     assert pairs[0][0].target == "aimd-table"
     assert pairs[1][0].target == "elastic-table"
-    for _source, searcher in pairs:
+    for source, searcher, variable in pairs:
         assert searcher.expressions == []
-        assert searcher.outputs[0][1] == "calculations"
+        assert isinstance(variable, FakeVariable)
+        assert variable.target == source.target
 
 
 def test_number_comparison() -> None:

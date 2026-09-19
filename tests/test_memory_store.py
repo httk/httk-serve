@@ -7,7 +7,8 @@ multi-output ``SearchResult`` shape.
 """
 
 import pytest
-from httk.store.query import MultipleResultsError, NoResultError, SearchResult
+from httk.store.query import MultipleResultsError, NoResultError
+from httk.store.query.protocols import SearchResult
 
 from httk.serve.optimade.backend.memory_store import (
     InMemoryStore,
@@ -38,7 +39,6 @@ def searcher_over_labels():
     memory_store = store()
     searcher = memory_store.searcher()
     variable = searcher.variable("labels")
-    searcher.output(variable, "label")
     return searcher, variable
 
 
@@ -47,8 +47,8 @@ def test_historic_query_is_rejected() -> None:
         store().searcher(as_of=42)
 
 
-def texts(searcher) -> set[str]:
-    return {item[0][0]["text"] for item in searcher}
+def texts(searcher, variable) -> set[str]:
+    return {row.label["text"] for row in searcher.results(label=variable)}
 
 
 # ------------------------------------------------------------- literal string matching
@@ -66,13 +66,13 @@ def test_string_matching_is_literal():
     ]:
         searcher, variable = searcher_over_labels()
         searcher.add(build(variable))
-        assert texts(searcher) == expected
+        assert texts(searcher, variable) == expected
 
 
 def test_string_matching_guards_non_string_values():
     searcher, variable = searcher_over_labels()
     searcher.add(variable.note.contains("x"))  # every note is None
-    assert texts(searcher) == set()
+    assert texts(searcher, variable) == set()
 
 
 def test_like_is_gone_from_the_field_surface():
@@ -82,11 +82,11 @@ def test_like_is_gone_from_the_field_surface():
 def test_scalar_membership_includes_none() -> None:
     searcher, variable = searcher_over_labels()
     searcher.add(variable.note.is_in(None))
-    assert texts(searcher) == ALL_LABELS
+    assert texts(searcher, variable) == ALL_LABELS
 
     searcher, variable = searcher_over_labels()
     searcher.add(variable.text.is_in("a_b", "axb"))
-    assert texts(searcher) == {"a_b", "axb"}
+    assert texts(searcher, variable) == {"a_b", "axb"}
 
 
 # ------------------------------------------------------------- constant expressions
@@ -107,21 +107,22 @@ def test_always_true_and_always_false_are_real_methods():
 def test_constant_expressions_over_rows():
     searcher, variable = searcher_over_labels()
     searcher.add(variable.always_true())
-    assert texts(searcher) == ALL_LABELS
+    assert texts(searcher, variable) == ALL_LABELS
     assert searcher.count() == len(ALL_LABELS)
 
     searcher, variable = searcher_over_labels()
     searcher.add(variable.always_false())
-    assert texts(searcher) == set()
+    assert texts(searcher, variable) == set()
     assert searcher.count() == 0
 
 
-# ------------------------------------------------------------- SearchResult outputs
+# ------------------------------------------------------------- SearchResult outputs (backend contract)
 
 
 def test_single_output_yields_named_search_results():
-    searcher, _variable = searcher_over_labels()
-    results = list(searcher)
+    searcher, variable = searcher_over_labels()
+    searcher._output(variable, "label")
+    results = list(searcher._matches())
     assert isinstance(results[0], SearchResult)
     assert results[0].names == ("label",)
     assert len(results[0].values) == 1
@@ -135,10 +136,10 @@ def test_multiple_outputs_are_recorded_in_declaration_order():
     memory_store = store()
     searcher = memory_store.searcher()
     variable = searcher.variable("labels")
-    searcher.output(variable, "label")
-    searcher.output(variable.text, "text")
+    searcher._output(variable, "label")
+    searcher._output(variable.text, "text")
     searcher.add(variable.text == "a_b")
-    (result,) = list(searcher)
+    (result,) = list(searcher._matches())
     assert result.names == ("label", "text")
     assert len(result.values) == 2
     assert result.values[0]["text"] == "a_b"
@@ -146,16 +147,16 @@ def test_multiple_outputs_are_recorded_in_declaration_order():
     assert result[0][0] is result.values[0]
 
 
-def test_iteration_without_outputs_raises():
+def test_matches_without_outputs_raises():
     memory_store = store()
     searcher = memory_store.searcher()
     searcher.variable("labels")
     try:
-        iter(searcher)
+        searcher._matches()
     except ValueError as error:
         assert "output" in str(error)
     else:  # pragma: no cover - the assertion above is the test
-        raise AssertionError("iterating without outputs must raise")
+        raise AssertionError("matching without outputs must raise")
 
 
 def test_result_set_one_uses_neutral_errors() -> None:
@@ -189,20 +190,17 @@ def test_sort_keeps_nulls_last_and_paging_stable(descending: bool, expected: lis
     )
     searcher = memory_store.searcher()
     variable = searcher.variable("values")
-    searcher.output(variable.value, "value")
     searcher.add_sort(variable.value, descending)
-    assert [result.values[0] for result in searcher] == expected
+    assert [row.value for row in searcher.results(value=variable.value)] == expected
 
     page = memory_store.searcher()
     variable = page.variable("values")
-    page.output(variable.value, "value")
     page.add_sort(variable.value, descending)
     page.add_offset(3)
     page.set_limit(2)
-    assert [result.values[0] for result in page] == [None, None]
+    assert [row.value for row in page.results(value=variable.value)] == [None, None]
 
     stable = memory_store.searcher()
     variable = stable.variable("values")
-    stable.output(variable, "row")
     stable.add_sort(variable.value, descending)
-    assert [result.values[0]["id"] for result in stable][-2:] == ["first-null", "second-null"]
+    assert [row.row["id"] for row in stable.results(row=variable)][-2:] == ["first-null", "second-null"]

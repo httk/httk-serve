@@ -147,8 +147,7 @@ def test_store_hydrates_dataset_and_service_envelopes_and_validates_services_liv
 
     searcher = store.searcher()
     envelope = searcher.variable(DspPublicationRecord)
-    searcher.output(envelope, "envelope")
-    values = tuple(row.values[0] for row in searcher)
+    values = tuple(row.envelope for row in searcher.results(envelope=envelope))
     assert values[0].dataset == publication("one")
     assert isinstance(values[0].dataset.dataset, DatasetRecord)
     assert values[1].service == ServiceRecord.from_obj(service)

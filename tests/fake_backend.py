@@ -8,7 +8,8 @@ execution tests). Expressions are plain nested tuples built by ``FakeColumn``.
 from collections.abc import Iterator
 from typing import Any
 
-from httk.store.query import ResultRow, ResultRowLike, ResultSetLike, SearchResult
+from httk.store.query import ResultRow, ResultRowLike, ResultSetLike
+from httk.store.query.protocols import SearchResult
 
 
 class FakeExpression:
@@ -114,7 +115,7 @@ class FakeSearcher:
         self.variables.append(variable)
         return variable
 
-    def output(self, variable: "FakeVariable | FakeColumn", name: str) -> None:
+    def _output(self, variable: "FakeVariable | FakeColumn", name: str) -> None:
         self.outputs.append((variable, name))
 
     def add(self, expression: FakeExpression) -> None:
@@ -155,7 +156,7 @@ class FakeSearcher:
     def _value(self, output: "FakeVariable | FakeColumn", row: Any) -> Any:
         return getattr(row, output.name) if isinstance(output, FakeColumn) else row
 
-    def __iter__(self) -> Iterator[SearchResult]:
+    def _matches(self) -> Iterator[SearchResult]:
         rows = self._sorted_rows()[self.offset :]
         if self.limit is not None and self.limit >= 0:
             rows = rows[: self.limit]

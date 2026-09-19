@@ -190,8 +190,9 @@ class DspProvider:
         assert self._store is not None
         searcher = self._store.searcher()
         publication = searcher.variable(DspPublicationRecord)
-        searcher.output(publication, "publication")
-        return tuple(DspPublicationRecord.from_obj(row.values[0]) for row in searcher)
+        return tuple(
+            DspPublicationRecord.from_obj(row.publication) for row in searcher.results(publication=publication)
+        )
 
     @property
     def profile(self) -> CatalogueProfile:

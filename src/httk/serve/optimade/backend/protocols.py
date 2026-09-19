@@ -11,7 +11,6 @@ from httk.store.query import (
     Searcher,
     SearchExpression,
     SearchField,
-    SearchResult,
     SearchVariable,
     Store,
 )
@@ -23,7 +22,6 @@ __all__ = [
     "QueryResults",
     "SearchExpression",
     "SearchField",
-    "SearchResult",
     "SearchVariable",
     "Searcher",
     "Store",

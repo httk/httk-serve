@@ -76,7 +76,6 @@ def _related_property_resolver(adapter: BackendAdapter) -> RelatedPropertyResolv
         for source in adapter.sources.get(related_type, ()):
             searcher = adapter.store.searcher()
             search_variable = searcher.variable(source.target)
-            searcher.output(search_variable, related_type)
             searcher.add(
                 translate_filter_ast(
                     sub_ast,
@@ -89,8 +88,8 @@ def _related_property_resolver(adapter: BackendAdapter) -> RelatedPropertyResolv
                 )
             )
             id_extractor = source.fields['id']
-            for item in searcher:
-                matched.setdefault(str(id_extractor(item[0][0])))
+            for item in searcher.results(**{related_type: search_variable}):
+                matched.setdefault(str(id_extractor(item[0])))
         return tuple(matched)
 
     return resolve
@@ -101,7 +100,7 @@ def translate_filter(
     entries: list[str],
     adapter: BackendAdapter,
     sort: Sequence[tuple[str, bool]] | None = None,
-) -> list[tuple[EntrySource, Searcher]]:
+) -> list[tuple[EntrySource, Searcher, Any]]:
     """Build one searcher per entry source, with the filter applied to each.
 
     Relationship-property filters (dotted identifiers over served entry types)
@@ -113,11 +112,11 @@ def translate_filter(
     :param entries: Entry endpoints to search.
     :param adapter: Backend adapter supplying sources and handlers.
     :param sort: Response fields and descending flags for sorting.
-    :return: Source/searcher pairs with the filter and sort applied.
+    :return: Source, searcher and root-variable triples with the filter and sort applied.
     :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
     """
 
-    pairs: list[tuple[EntrySource, Searcher]] = []
+    pairs: list[tuple[EntrySource, Searcher, Any]] = []
     resolver = _related_property_resolver(adapter)
 
     for entry in entries:
@@ -129,7 +128,6 @@ def translate_filter(
         for source in adapter.sources.get(entry, ()):
             searcher = adapter.store.searcher()
             search_variable = searcher.variable(source.target)
-            searcher.output(search_variable, entry)
             if sort is not None:
                 for name, descending in sort:
                     searcher.add_sort(getattr(search_variable, source.sort_keys[name]), descending)
@@ -147,7 +145,7 @@ def translate_filter(
                 except FilterTranslationError as error:
                     raise translator_error_from(error) from error
                 searcher.add(search_expr)
-            pairs.append((source, searcher))
+            pairs.append((source, searcher, search_variable))
 
     return pairs
 

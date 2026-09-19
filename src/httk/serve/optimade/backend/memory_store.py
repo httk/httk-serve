@@ -17,9 +17,9 @@ String matching is literal here too (``contains``/``startswith``/``endswith``
 are plain :class:`str` operations), which is exactly what the neutral protocol
 promises — no pattern language is involved at any point.
 
-Iteration yields :class:`~httk.store.query.SearchResult` values, one entry in
-``values`` per :meth:`MemorySearcher.output` call: a variable output yields the
-whole row dict, a field output the row's value for that field.
+``results()`` and the backend-internal ``_matches()`` yield one projected row
+per match, one entry per named output: a variable output yields the whole row
+dict, a field output the row's value for that field.
 """
 
 from collections.abc import Callable, Iterator
@@ -31,8 +31,8 @@ from httk.store.query import (
     ResultRow,
     ResultRowLike,
     ResultSetLike,
-    SearchResult,
 )
+from httk.store.query.protocols import SearchResult
 
 Row = dict[str, Any]
 Predicate = Callable[[Row], bool]
@@ -232,7 +232,7 @@ class MemorySearcher:
         self._rows = self._tables.get(target, [])
         return MemoryVariable(target)
 
-    def output(self, variable: "MemoryVariable | MemoryField", name: str) -> None:
+    def _output(self, variable: "MemoryVariable | MemoryField", name: str) -> None:
         """Append a whole-row or field output.
 
         :param variable: Variable for a whole row or field for one value.
@@ -247,7 +247,7 @@ class MemorySearcher:
             self._outputs.append((name, lambda row: row))
             self._output_values.append((name, variable))
         else:
-            raise TypeError(f"output() takes a search variable or a search field, got {type(variable).__name__}")
+            raise TypeError(f"_output() takes a search variable or a search field, got {type(variable).__name__}")
 
     def add(self, expression: MemoryExpression) -> None:
         """Add a predicate to the query.
@@ -266,7 +266,7 @@ class MemorySearcher:
 
         self._sorts.append((field, descending))
 
-    def _matches(self) -> list[Row]:
+    def _filtered_rows(self) -> list[Row]:
         rows = [row for row in self._rows if all(e.predicate(row) for e in self._expressions)]
         # Stable multi-key sort: apply keys in reverse declaration order so the
         # first-declared sort key is the most significant. None always sorts last.
@@ -283,7 +283,7 @@ class MemorySearcher:
         :return: Number of matching rows before paging.
         """
 
-        return len(self._matches())
+        return len(self._filtered_rows())
 
     def set_limit(self, limit: int) -> None:
         """Set the maximum number of rows returned by this query.
@@ -319,16 +319,22 @@ class MemorySearcher:
             selected = list(self._output_values)
         if not selected:
             raise ValueError("this searcher has no outputs; declare outputs or pass them to results()")
-        rows = self._matches()[self.offset :]
+        rows = self._filtered_rows()[self.offset :]
         if self._limit is not None and self._limit >= 0:
             rows = rows[: self._limit]
         return MemoryResultSet(rows, selected)
 
-    def __iter__(self) -> Iterator[SearchResult]:
-        """Yield one :class:`~httk.store.query.SearchResult` per match, in output order."""
+    def _matches(self) -> Iterator[SearchResult]:
+        """Yield one ``SearchResult`` per match, in output order.
+
+        Backend-internal: the ``BackendSearcher`` raw path used by ``results()``
+        and by code that owns this concrete class directly, in the
+        backend-internal ``_matches()`` shape. Ordinary consumers use
+        :meth:`results`.
+        """
         if not self._outputs:
-            raise ValueError("this searcher has no outputs; call output() before iterating")
-        rows = self._matches()[self.offset :]
+            raise ValueError("this searcher has no outputs; call _output() before matching")
+        rows = self._filtered_rows()[self.offset :]
         if self._limit is not None and self._limit >= 0:
             rows = rows[: self._limit]
         names = tuple(name for name, _extractor in self._outputs)

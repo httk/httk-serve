@@ -169,7 +169,7 @@ def test_nframes_filter_translates_to_number_comparison() -> None:
     store = FakeStore(rows_by_target={'trajectories': []})
     adapter = trajectories_adapter(store)
     pairs = translate_filter(parse_optimade_filter('nframes>=5'), ['trajectories'], adapter)
-    _source, searcher = pairs[0]
+    _source, searcher, _variable = pairs[0]
     assert searcher.expressions[0].tree == ("ge", ("column", "nframes"), 5)  # type: ignore[attr-defined]
 
 
