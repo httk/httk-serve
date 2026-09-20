@@ -52,3 +52,17 @@ static publication, and an ASGI runtime. Its trusted widgets include
 `httk.serve.table` for provider-backed pagination and
 `httk.serve.optimade_table` for browser-side OPTIMADE access. Use
 `httk serve web serve`, `httk serve web check`, or `httk serve web list`.
+
+## Testing store integration
+
+Tests that combine *httk-store* with OPTIMADE serving live in this repository,
+including remote-client federation, SQL/in-memory query parity, and provider
+serving. *httk-store*'s own tests and examples do not require *httk-serve*, so
+store can be released first.
+
+Install `.[dev]` and run `make ci`. SQLite and DuckDB integration tests run
+locally; MongoDB, PostgreSQL, and ClickHouse tests also run when their
+`HTTK_TEST_MONGODB_URI`, `HTTK_TEST_POSTGRES_URI`, or
+`HTTK_TEST_CLICKHOUSE_URI` is set. PostgreSQL additionally needs
+`httk-store[postgresql]`. CI provisions real servers for all three backends
+and runs the extended test profile against them.

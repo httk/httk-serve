@@ -29,6 +29,10 @@ requests.
 The store remains caller-owned. Closing the ASGI application does not close the
 store or its database; the deployment's lifespan code should dispose them.
 
+For the provider snapshot approach, see
+{doc}`/examples/serve_as_optimade`, which walks through schema-derived
+properties, relationships, and in-process OPTIMADE queries.
+
 ## Discovery and mixed stores
 
 `adapter_from_store(store, **schema_options)` exposes the adapter explicitly

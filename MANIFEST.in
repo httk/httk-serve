@@ -1,0 +1,3 @@
+recursive-include tests *.py *.xml
+include constraints/clickhouse-p5.txt
+include examples/optimade/serve_as_optimade.py
