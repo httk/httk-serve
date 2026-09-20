@@ -9,7 +9,7 @@ import os
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 import pytest
 from httk.core import (
@@ -19,7 +19,8 @@ from httk.core import (
     Run,
     RunEdge,
 )
-from httk.core.storage import IdentitySkip, Indexed, Unique
+from httk.core.register import register_entry_family, register_entry_record
+from httk.core.storage import IdentitySkip, Indexed, StorageInfo, Unique
 from httk.store import DataRecordEntryProvider, EntryIdScheme, RunEntryProvider, product_relationships
 from httk.store.backend.mongo import MongoDatabase, MongoStore
 from httk.store.backend.mongo import StoreEntryProvider as MongoEntryProvider
@@ -62,6 +63,63 @@ BOOKS = (
         "httk.test.book-1-1~1",
     ),
     Book("Silence", 120, [], id="httk.test.book-1-2", immutable_id="httk.test.book-1-2~1"),
+)
+
+
+@dataclass(frozen=True)
+class MongoWriter:
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(dedup="content_id")
+
+    name: str
+    born: int
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+
+@dataclass(frozen=True)
+class MongoBook:
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(dedup="content_id")
+
+    title: str
+    pages: int
+    keywords: list[str]
+    author: MongoWriter | None = None
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+
+class MongoBooks:
+    type = "books"
+
+
+class MongoWriters:
+    type = "writers"
+
+
+register_entry_family(name="serve-mongo-books", family=f"{__name__}:MongoBooks")
+register_entry_record(
+    name="serve-mongo-books-mongobook",
+    family="serve-mongo-books",
+    record=f"{__name__}:MongoBook",
+)
+register_entry_family(name="serve-mongo-writers", family=f"{__name__}:MongoWriters")
+register_entry_record(
+    name="serve-mongo-writers-mongowriter",
+    family="serve-mongo-writers",
+    record=f"{__name__}:MongoWriter",
+)
+
+MONGO_ADA = MongoWriter("Ada", 1815)
+MONGO_BOOLE = MongoWriter("Boole", 1815)
+MONGO_CARA = MongoWriter("Cara", 1820)
+MONGO_BOOKS = (
+    MongoBook(
+        "Analytical Engines",
+        350,
+        ["computing", "history"],
+        MONGO_ADA,
+    ),
+    MongoBook("Silence", 120, []),
 )
 
 
@@ -144,14 +202,14 @@ def mongo_provider(_mongo_client) -> Iterator[MongoEntryProvider]:
     try:
         store = MongoStore(
             database,
-            entry_records={Book: Book, Writer: Writer},
+            entry_records={MongoBooks: MongoBook, MongoWriters: MongoWriter},
             entry_ids=EntryIdScheme("httk.test", "1"),
         )
-        for writer in (ADA, BOOLE, CARA):
+        for writer in (MONGO_ADA, MONGO_BOOLE, MONGO_CARA):
             store.save(writer)
-        for book in BOOKS:
+        for book in MONGO_BOOKS:
             store.save(book)
-        yield MongoEntryProvider(store, {"books": Book, "writers": Writer})
+        yield MongoEntryProvider(store, {"books": MongoBook, "writers": MongoWriter})
     finally:
         database.client.drop_database(name)
 
