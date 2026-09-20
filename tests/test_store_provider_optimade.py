@@ -96,13 +96,18 @@ class MongoWriters:
     type = "writers"
 
 
-register_entry_family(name="serve-mongo-books", family=f"{__name__}:MongoBooks")
+# Defined entry families opt into store-minted public and immutable IDs.
+register_entry_family(
+    name="serve-mongo-books", family=f"{__name__}:MongoBooks", definition_id="urn:httk:test:serve-mongo-books"
+)
 register_entry_record(
     name="serve-mongo-books-mongobook",
     family="serve-mongo-books",
     record=f"{__name__}:MongoBook",
 )
-register_entry_family(name="serve-mongo-writers", family=f"{__name__}:MongoWriters")
+register_entry_family(
+    name="serve-mongo-writers", family=f"{__name__}:MongoWriters", definition_id="urn:httk:test:serve-mongo-writers"
+)
 register_entry_record(
     name="serve-mongo-writers-mongowriter",
     family="serve-mongo-writers",
@@ -228,7 +233,9 @@ def test_mongo_provider_is_consumed_by_optimade(mongo_provider: MongoEntryProvid
         )
     )
     assert len(rows) == 1
+    assert rows[0].values["id"] == "httk.test-1-1"
     assert rows[0].values["_httk_custom_title"] == "Analytical Engines"
+    assert rows[0].relationships == {"writers": [{"type": "writers", "id": "httk.test-1-1"}]}
 
 
 def test_clickhouse_provider_is_consumed_by_optimade() -> None:
