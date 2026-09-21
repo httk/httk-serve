@@ -1,0 +1,91 @@
+httk.serve.web.engine
+=====================
+
+.. py:module:: httk.serve.web.engine
+
+.. autoapi-nested-parse::
+
+   Provide site discovery and rendering engines.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/engine/discovery/index
+   /reference/autoapi/httk/serve/web/engine/site_engine/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.engine.SiteEngine
+
+
+Package Contents
+----------------
+
+.. py:class:: SiteEngine(config, *, table_token_secret = None)
+
+   Render a configured site and own its engine-local resources.
+
+   :param config: Site directory and rendering configuration.
+   :param table_token_secret: Secret used to authenticate table continuation tokens.
+
+
+   .. py:attribute:: config
+
+
+   .. py:attribute:: resources
+
+
+   .. py:attribute:: template_engine
+      :type:  httk.serve.web.templating.TemplateEngine
+
+
+   .. py:attribute:: function_handler
+
+
+   .. py:attribute:: widget_loader
+
+
+   .. py:attribute:: widget_assets
+
+
+   .. py:attribute:: global_data
+      :type:  dict[str, object]
+
+
+   .. py:method:: close()
+
+      Release resources registered by site startup code exactly once.
+
+
+
+   .. py:method:: resolve(route)
+
+      Resolve a route without rendering its contents.
+
+      :param route: Site route to resolve.
+      :return: Description of the matching static, content, or missing route.
+
+
+
+   .. py:method:: render(route, query = None, request = None)
+
+      Render one site route for serving or static publication.
+
+      :param route: Site route to render.
+      :param query: Optional query parameters for non-request rendering.
+      :param request: Optional request context; its presence selects live rendering.
+      :return: Rendered response body and publication metadata.
+      :raises httk.serve.web.model.errors.NotFoundError: If the route has no renderable source.
+      :raises httk.serve.web.model.errors.WidgetError: If widget extraction or rendering fails.
+
+
+

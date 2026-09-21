@@ -1,0 +1,137 @@
+httk.serve.optimade.model.config
+================================
+
+.. py:module:: httk.serve.optimade.model.config
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.config.OptimadeConfig
+   httk.serve.optimade.model.config.OptimadeIndexConfig
+
+
+Module Contents
+---------------
+
+.. py:class:: OptimadeConfig
+
+   Configure a served OPTIMADE database.
+
+   ``implementation`` extends/overrides the fields of the ``meta`` ->
+   ``implementation`` dictionary (e.g. ``issue_tracker``, ``source_url``,
+   ``maintainer``). ``database``, ``schema_url``, and ``request_delay``
+   populate the corresponding optional ``meta`` fields (OPTIMADE v1.2+)
+   when set. ``license``, ``available_licenses``, and
+   ``available_licenses_for_entries`` populate the corresponding optional
+   base-info attributes when set.
+
+   :param provider: Provider metadata for the OPTIMADE response envelope.
+   :param links: Provider links exposed by the ``/links`` endpoint.
+   :param implementation: Implementation metadata merged into response metadata.
+   :param database: Optional database metadata for response metadata.
+   :param schema_url: URL of the served schema, when one is available.
+   :param request_delay: Optional advertised request delay.
+   :param license: License metadata exposed by the base-info endpoint.
+   :param available_licenses: Licenses advertised for the service.
+   :param available_licenses_for_entries: Licenses advertised for entries.
+   :param page_limit_max: Largest ``page_limit`` accepted; larger requests get a 403.
+   :param partial_data_chunk_size: Number of outer items emitted per partial-data page.
+   :param cors_origins: Exact browser origins allowed to make cross-origin requests.
+   :raises ValueError: If ``page_limit_max`` is not an integer >= 1.
+
+
+   .. py:attribute:: provider
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: links
+      :type:  list[dict[str, Any]]
+      :value: []
+
+
+
+   .. py:attribute:: implementation
+      :type:  dict[str, Any]
+
+
+   .. py:attribute:: database
+      :type:  dict[str, Any] | None
+      :value: None
+
+
+
+   .. py:attribute:: schema_url
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: request_delay
+      :type:  float | None
+      :value: None
+
+
+
+   .. py:attribute:: license
+      :type:  dict[str, Any] | str | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: available_licenses_for_entries
+      :type:  list[str] | None
+      :value: None
+
+
+
+   .. py:attribute:: page_limit_max
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: partial_data_chunk_size
+      :type:  int
+      :value: 1000
+
+
+
+   .. py:attribute:: cors_origins
+      :type:  tuple[str, ...]
+      :value: ()
+
+
+
+.. py:class:: OptimadeIndexConfig
+
+   Bases: :py:obj:`OptimadeConfig`
+
+
+   Configure an OPTIMADE index meta-database.
+
+   The links are the configured databases advertised by the index. Exactly
+   one must have ``link_type == "root"``; child links are the databases that
+   may be selected as the index's default relationship. The regular
+   :class:`OptimadeConfig` remains a non-index service configuration.
+
+   :param default_link_id: Identifier of the default configured child link,
+       or ``None`` when the index has no default.
+   :raises ValueError: If configured links do not satisfy the links schema or
+       the root/default-link constraints.
+
+
+   .. py:attribute:: default_link_id
+      :type:  str | None
+      :value: None
+
+
+

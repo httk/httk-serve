@@ -1,0 +1,69 @@
+httk.serve.web.widgets.extraction
+=================================
+
+.. py:module:: httk.serve.web.widgets.extraction
+
+.. autoapi-nested-parse::
+
+   Renderer-aware extraction of literal-only ``widget(...)`` invocations.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.extraction.parse_widget_invocation
+   httk.serve.web.widgets.extraction.placement_for
+   httk.serve.web.widgets.extraction.markdown_source
+   httk.serve.web.widgets.extraction.html_source
+
+
+Module Contents
+---------------
+
+.. py:function:: parse_widget_invocation(text, *, source_path, line, column)
+
+   Parse one literal-only widget invocation without evaluating it.
+
+   :param text: Complete widget invocation text.
+   :param source_path: Source file containing the invocation.
+   :param line: One-based source line.
+   :param column: One-based source column.
+   :return: Widget name and validated literal properties.
+   :raises httk.serve.web.model.errors.WidgetParseError: If the invocation is not literal-only.
+   :raises httk.serve.web.model.errors.WidgetValidationError: If a property value is invalid.
+
+
+.. py:function:: placement_for(text, *, source_path, line, column, index)
+
+   Create a stable renderer placement for one widget invocation.
+
+   :param text: Complete widget invocation text.
+   :param source_path: Source file containing the invocation.
+   :param line: One-based source line.
+   :param column: One-based source column.
+   :param index: Zero-based placement index in the source.
+   :return: Parsed widget placement with a deterministic placeholder.
+
+
+.. py:function:: markdown_source(source, source_path, *, line_offset = 0)
+
+   Replace standalone Markdown widget paragraphs while excluding code blocks.
+
+   :param source: Markdown source text.
+   :param source_path: Source file containing the text.
+   :param line_offset: Number of lines preceding the supplied source.
+   :return: Source with placeholders and the extracted placements.
+
+
+.. py:function:: html_source(source, source_path)
+
+   Extract complete HTML widget blocks while skipping code-like tags.
+
+   :param source: HTML source text.
+   :param source_path: Source file containing the text.
+   :return: Source with placeholders and the extracted placements.
+
+

@@ -1,0 +1,79 @@
+httk.serve.web.resources
+========================
+
+.. py:module:: httk.serve.web.resources
+
+.. autoapi-nested-parse::
+
+   Lifecycle management for resources owned by a site engine.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.resources.SITE_RESOURCES_KEY
+   httk.serve.web.resources.CleanupCallback
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.resources.SiteResources
+
+
+Module Contents
+---------------
+
+.. py:data:: SITE_RESOURCES_KEY
+   :value: 'httk_serve_resources'
+
+
+   Stable ``global_data`` key through which site startup code gets resources.
+
+.. py:type:: CleanupCallback
+   :canonical: Callable[[], None]
+
+
+.. py:class:: SiteResources
+
+   Callbacks owned by one :class:`httk.serve.web.engine.site_engine.SiteEngine`.
+
+   Site ``functions/init.py`` code can obtain this object from
+   ``global_data[SITE_RESOURCES_KEY]`` and call :meth:`register` for every
+   persistent resource it opens.  Callbacks run in reverse registration order
+   when the :class:`httk.serve.web.engine.site_engine.SiteEngine` closes.  Closing is
+   idempotent, so ASGI lifespan shutdown and an enclosing helper may both
+   safely close the same engine.
+
+
+   .. py:property:: closed
+      :type: bool
+
+
+      Whether cleanup has started for this registry.
+
+
+   .. py:method:: register(callback)
+
+      Register one synchronous callback to run during :meth:`close`.
+
+      Registration after close is a programming error: the callback could no
+      longer be guaranteed to run.
+
+
+
+   .. py:method:: close()
+
+      Run pending callbacks in LIFO order exactly once.
+
+      Every callback gets a chance to run.  If cleanup fails, the first
+      exception is re-raised after the remaining callbacks have executed;
+      additional failures are attached as notes for diagnosis.
+
+
+

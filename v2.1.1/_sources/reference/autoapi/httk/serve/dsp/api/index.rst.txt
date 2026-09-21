@@ -1,0 +1,58 @@
+httk.serve.dsp.api
+==================
+
+.. py:module:: httk.serve.dsp.api
+
+.. autoapi-nested-parse::
+
+   Adapt the bundled DSP OpenAPI contract through the public OpenAPI adapter.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.api.DCAT_MEDIA_TYPE
+   httk.serve.dsp.api.DCAT_PROFILE
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.dsp.api.create_dsp_app
+
+
+Module Contents
+---------------
+
+.. py:data:: DCAT_MEDIA_TYPE
+   :value: 'application/ld+json; profile="https://semiceu.github.io/DCAT-AP/releases/3.0.1/"'
+
+
+   Full media type of the built-in alternate catalogue representation.
+
+.. py:data:: DCAT_PROFILE
+   :value: 'https://semiceu.github.io/DCAT-AP/releases/3.0.1/'
+
+
+   DCAT-AP profile parameter used by the built-in alternate representation.
+
+.. py:function:: create_dsp_app(provider, *, debug = False)
+
+   Create a mountable serving application for one DSP provider.
+
+   Routes, methods, body schemas, status codes, and media types are loaded from
+   the packaged OpenAPI 3.1 contract. Request and response validation resolves
+   only the packaged offline schema registry.
+
+   :param provider: In-memory provider whose business operations are exposed.
+   :param debug: Whether Starlette debug responses are enabled for unexpected failures.
+   :return: Mountable serving application with the provider on ``app.state``.
+   :raises TypeError: If ``provider`` is not a :class:`DspProvider`.
+   :raises RuntimeError: If the packaged contract uses an unsupported construct.
+
+
