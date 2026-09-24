@@ -170,7 +170,8 @@ as served (the semantic keys plus typed aliases such as
 `EntryTypeDefinition.served_form()` is the single wire-naming transform applied
 at the serving edge: a provider entry type and its provider properties are
 served under their registered prefix (the runs family serves as `_httk_runs`
-with `_httk_source_id` / `_httk_workflow_declaration_uri`), while standard
+with `_httk_source_id` / `_httk_workflow_declaration_uri` /
+`_httk_workflow_definition_uri`), while standard
 families and properties are served unchanged. Derived revision and alternative
 endpoints keep a single prefix for an already-prefixed base — `_httk_runs~revs`
 and `_httk_runs~alts`, never a doubled `_httk__httk_runs~revs`. The same
