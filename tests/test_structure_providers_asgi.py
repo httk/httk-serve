@@ -42,6 +42,7 @@ STANDARD_STRUCTURE_PROPERTIES = {
     "space_group_symbol_hermann_mauguin",
     "space_group_symbol_hermann_mauguin_extended",
     "space_group_it_number",
+    "space_group_symmetry_operations_xyz",
     "cartesian_site_positions",
     "fractional_site_positions",
     "site_coordinate_span",
@@ -255,6 +256,7 @@ _UNSET_STRUCTURE_PROPERTIES = {
     "space_group_symbol_hermann_mauguin",
     "space_group_symbol_hermann_mauguin_extended",
     "space_group_it_number",
+    "space_group_symmetry_operations_xyz",
     "wyckoff_positions",
 }
 
