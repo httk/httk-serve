@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 
-from httk.core import ALTERNATIVE_KIND_PATTERN, EntryTypeDefinition, RelatedEntry, load_entry_type_definition
+from httk.core import ALTERNATIVE_KIND_PATTERN, EntryTypeDefinition, RelatedEntry
 from httk.core.optimade import FilterAst
 from httk.core.storage import stored_property_projections
 from httk.store import EntryStore, FilterTranslationError
@@ -296,6 +296,20 @@ def _raise_stored_error(error: Exception) -> NoReturn:
     raise error
 
 
+def _backing_sorts(plan: Any, backing: type, name: str) -> bool:
+    """Return whether ``backing`` sorts ``name`` exactly.
+
+    A backing sorts a property through its exact stored sort mapping; a
+    nullable property it does not project is NULL on all its rows and sorts
+    with the other NULLs (last, in both directions).
+    """
+    projection = stored_property_projections(backing).get(name)
+    if projection is None:
+        definition = plan.definition.properties.get(name)
+        return definition is not None and definition.nullable
+    return projection.sort is not None
+
+
 def _validate_sortable_backings(
     plans: Sequence[Any],
     entry_type: str,
@@ -307,8 +321,7 @@ def _validate_sortable_backings(
             continue
         for plan in plans:
             for backing in plan.backings:
-                projection = stored_property_projections(backing).get(name)
-                if projection is None or projection.sort is None:
+                if not _backing_sorts(plan, backing, name):
                     raise ValueError(
                         f"Property {name!r} is marked sortable for entry type {entry_type!r}, "
                         f"but {backing.__name__} has no exact stored sort mapping."
@@ -316,16 +329,15 @@ def _validate_sortable_backings(
 
 
 def _sortable_intersection(plans: Sequence[Any], property_names: Sequence[str]) -> tuple[str, ...]:
-    """Return properties with an exact sort mapping on every durable backing."""
+    """Return properties some backing sorts exactly and every other backing holds as NULL."""
     sortable: list[str] = []
     for name in property_names:
         if name in {"id", "type", "immutable_id", "_httk_id", "_httk_kind"}:
             sortable.append(name)
             continue
-        if all(
-            (projection := stored_property_projections(backing).get(name)) is not None and projection.sort is not None
-            for plan in plans
-            for backing in plan.backings
+        backings = [(plan, backing) for plan in plans for backing in plan.backings]
+        if all(_backing_sorts(plan, backing, name) for plan, backing in backings) and any(
+            name in stored_property_projections(backing) for _plan, backing in backings
         ):
             sortable.append(name)
     return tuple(sortable)
@@ -354,9 +366,11 @@ def adapter_from_stores(
     from httk.store.backend.sql import (
         StoredEntryFederation,
         StoredEntrySource,
+        StoredPropertySqlConfigurationError,
         related_property_resolver_factory,
         stored_property_sql_plan,
     )
+    from httk.store.storage_layout import family_entry_type_definition
 
     values = tuple(sources)
     if not values:
@@ -370,15 +384,18 @@ def adapter_from_stores(
     plans_by_entry: dict[str, list[Any]] = {}
     served_type_names: dict[str, str] = {}
     for source in values:
-        # Resolve the internal (bare) definition exactly as the plan does, then
-        # serve its wire form: the served definition drives the plan's entry_type
-        # (now the WIRE name) and every property name, projection, filter, and
-        # sort. A prefixed family MUST be planned with served= set.
-        factory = getattr(source.entry_family, "entry_type_definition", None)
-        internal: EntryTypeDefinition = cast(
-            EntryTypeDefinition,
-            factory() if callable(factory) else load_entry_type_definition(source.entry_family.definition_id),
-        )
+        # Resolve the internal definition exactly as the plan does (the family's
+        # own definition, or its registered one extended with its backings'
+        # typed properties), then serve its wire form: the served definition
+        # drives the plan's entry_type (now the WIRE name) and every property
+        # name, projection, filter, and sort. A prefixed family MUST be planned
+        # with served= set.
+        layout = next((item for item in source.store.entry_layout if item.family is source.entry_family), None)
+        if layout is None:
+            raise StoredPropertySqlConfigurationError(
+                f"entry family {source.entry_family.__name__!r} is not configured in this SqlStore"
+            )
+        internal = family_entry_type_definition(layout)
         plan = stored_property_sql_plan(source.store, source.entry_family, served=internal.served_form())
         entry_type = plan.entry_type
         served_type_names[internal.name] = entry_type
