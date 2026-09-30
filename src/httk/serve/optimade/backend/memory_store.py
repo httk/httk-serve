@@ -8,7 +8,9 @@ example demo server and is what
 :class:`~httk.core.EntryProvider`'s records into.
 
 Set operations evaluate exactly here — ``has_any``/``has_only`` are plain set
-predicates over the row's list value, and ``~`` negates them directly. The SQL
+predicates over the row's list value (a NULL list is the empty set), and ``~``
+negates them directly. Scalar comparisons against NULL are unknown instead (see
+:class:`MemoryExpression`). The SQL
 backend needs an aggregate rendering and a second (HAVING) evaluation position
 to say the same thing, but that is entirely its own business: the neutral
 protocol only ever hands a store one expression per ``searcher.add`` call.
@@ -35,26 +37,38 @@ from httk.store.query import (
 from httk.store.query.protocols import SearchResult
 
 Row = dict[str, Any]
-Predicate = Callable[[Row], bool]
+Predicate = Callable[[Row], bool | None]
 
 
 class MemoryExpression:
-    """Represent a boolean predicate over an in-memory row.
+    """Represent a three-valued predicate over an in-memory row.
 
-    :param predicate: Function returning whether a row matches.
+    A predicate returns ``True``, ``False`` or ``None`` (unknown, from comparing
+    a NULL value); only ``True`` matches. ``&``, ``|`` and ``~`` follow SQL
+    (Kleene) logic, as OPTIMADE requires unknown values never to match.
+
+    :param predicate: Function returning whether a row matches, or ``None`` if unknown.
     """
 
     def __init__(self, predicate: Predicate) -> None:
         self.predicate = predicate
 
     def __and__(self, other: "MemoryExpression") -> "MemoryExpression":
-        return MemoryExpression(lambda row: self.predicate(row) and other.predicate(row))
+        def both(row: Row) -> bool | None:
+            a, b = self.predicate(row), other.predicate(row)
+            return False if a is False or b is False else (None if a is None or b is None else True)
+
+        return MemoryExpression(both)
 
     def __or__(self, other: "MemoryExpression") -> "MemoryExpression":
-        return MemoryExpression(lambda row: self.predicate(row) or other.predicate(row))
+        def either(row: Row) -> bool | None:
+            a, b = self.predicate(row), other.predicate(row)
+            return True if a is True or b is True else (None if a is None or b is None else False)
+
+        return MemoryExpression(either)
 
     def __invert__(self) -> "MemoryExpression":
-        return MemoryExpression(lambda row: not self.predicate(row))
+        return MemoryExpression(lambda row: None if (p := self.predicate(row)) is None else not p)
 
 
 class MemoryField:
@@ -70,27 +84,38 @@ class MemoryField:
         return row.get(self.name)
 
     def _compare(self, other: Any, compare: Callable[[Any, Any], bool]) -> MemoryExpression:
-        if isinstance(other, MemoryField):
-            return MemoryExpression(lambda row: compare(self._value(row), other._value(row)))
-        return MemoryExpression(lambda row: compare(self._value(row), other))
+        def predicate(row: Row) -> bool | None:
+            a, b = self._value(row), other._value(row) if isinstance(other, MemoryField) else other
+            if a is None or b is None:
+                return None  # comparing an unknown value is unknown
+            try:
+                return compare(a, b)
+            except TypeError:
+                return None
+
+        return MemoryExpression(predicate)
 
     def __eq__(self, other: object) -> MemoryExpression:  # type: ignore[override]
+        if other is None:
+            return MemoryExpression(lambda row: self._value(row) is None)
         return self._compare(other, lambda a, b: a == b)
 
     def __ne__(self, other: object) -> MemoryExpression:  # type: ignore[override]
+        if other is None:
+            return MemoryExpression(lambda row: self._value(row) is not None)
         return self._compare(other, lambda a, b: a != b)
 
     def __lt__(self, other: Any) -> MemoryExpression:
-        return self._compare(other, lambda a, b: a is not None and a < b)
+        return self._compare(other, lambda a, b: a < b)
 
     def __le__(self, other: Any) -> MemoryExpression:
-        return self._compare(other, lambda a, b: a is not None and a <= b)
+        return self._compare(other, lambda a, b: a <= b)
 
     def __gt__(self, other: Any) -> MemoryExpression:
-        return self._compare(other, lambda a, b: a is not None and a > b)
+        return self._compare(other, lambda a, b: a > b)
 
     def __ge__(self, other: Any) -> MemoryExpression:
-        return self._compare(other, lambda a, b: a is not None and a >= b)
+        return self._compare(other, lambda a, b: a >= b)
 
     def __hash__(self) -> int:
         return hash(self.name)
@@ -267,7 +292,7 @@ class MemorySearcher:
         self._sorts.append((field, descending))
 
     def _filtered_rows(self) -> list[Row]:
-        rows = [row for row in self._rows if all(e.predicate(row) for e in self._expressions)]
+        rows = [row for row in self._rows if all(e.predicate(row) is True for e in self._expressions)]
         # Stable multi-key sort: apply keys in reverse declaration order so the
         # first-declared sort key is the most significant. None always sorts last.
         for sort_field, descending in reversed(self._sorts):

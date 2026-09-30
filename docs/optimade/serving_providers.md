@@ -300,3 +300,6 @@ curl 'http://localhost:8080/v1/structures?filter=elements HAS "Na"'
 
 Neither package imports the other — the contract in *httk-core* is the only
 coupling, which is why the two install and evolve independently.
+
+To serve a database you already have, without copying it into memory, see
+{doc}`serving_existing_databases`.

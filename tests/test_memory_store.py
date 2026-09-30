@@ -8,6 +8,7 @@ multi-output ``SearchResult`` shape.
 
 import pytest
 from httk.store.query import MultipleResultsError, NoResultError
+from httk.store.query.conformance import check_query_conformance, conformance_rows
 from httk.store.query.protocols import SearchResult
 
 from httk.serve.optimade.backend.memory_store import (
@@ -204,3 +205,15 @@ def test_sort_keeps_nulls_last_and_paging_stable(descending: bool, expected: lis
     variable = stable.variable("values")
     stable.add_sort(variable.value, descending)
     assert [row.row["id"] for row in stable.results(row=variable)][-2:] == ["first-null", "second-null"]
+
+
+def test_memory_store_conforms_to_query_table() -> None:
+    check_query_conformance(InMemoryStore({"conf": list(conformance_rows())}), "conf")
+
+
+def test_negated_comparison_excludes_null_rows() -> None:
+    # OPTIMADE: comparisons involving unknown values MUST NOT match, even under NOT.
+    searcher = InMemoryStore({"t": [{"n": 1}, {"n": 2}, {"n": None}]}).searcher()
+    variable = searcher.variable("t")
+    searcher.add(~(variable.n == 2))
+    assert searcher.count() == 1

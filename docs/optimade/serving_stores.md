@@ -189,3 +189,6 @@ database into memory before serving it.
 
 See `examples/optimade/store_server/` for a runnable server and
 `examples/optimade/query_in_process.py` for a socket-free live-store example.
+
+To serve an existing database that was not built by *httk-store*, see
+{doc}`serving_existing_databases`.

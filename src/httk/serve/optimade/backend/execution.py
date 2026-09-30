@@ -156,7 +156,8 @@ def execute_query(
     """
 
     pairs = translate_filter(filter_ast, entries, adapter, sort)
-    total_count = sum(searcher.count() for _source, searcher, _variable in pairs)
+    counts = [searcher.count() for _source, searcher, _variable in pairs]
+    total_count = sum(counts)
 
     if sort and len(pairs) > 1:
         raise TranslatorError("Sorting across multiple data sources is not implemented.", 501, "Not implemented")
@@ -164,7 +165,7 @@ def execute_query(
     if response_offset is not None and response_offset != 0:
         remaining_offset = response_offset
         for i, (_source, searcher, _variable) in enumerate(pairs):
-            count = searcher.count()
+            count = counts[i]
             remaining_offset -= count
             if remaining_offset < 0:
                 # In SQLite, having an OFFSET without a LIMIT results in a syntax
@@ -172,16 +173,18 @@ def execute_query(
                 searcher.set_limit(-1)
                 searcher.add_offset(count + remaining_offset)
                 pairs = pairs[i:]
+                counts = counts[i:]
                 break
         else:
             # The offset is at or beyond the total number of results.
             # (httk v1 instead returned results from offset 0 here.)
             pairs = []
+            counts = []
 
     if response_limit is not None and response_limit != 0:
         remaining_limit = response_limit
         for i, (_source, searcher, _variable) in enumerate(pairs):
-            count = searcher.count() - searcher.offset
+            count = counts[i] - searcher.offset
             remaining_limit -= count
             if remaining_limit < 0:
                 # We need one more than asked for to know if there is more data.
