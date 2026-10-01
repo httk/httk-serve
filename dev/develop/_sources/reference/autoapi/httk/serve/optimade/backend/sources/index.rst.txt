@@ -1,0 +1,77 @@
+httk.serve.optimade.backend.sources
+===================================
+
+.. py:module:: httk.serve.optimade.backend.sources
+
+.. autoapi-nested-parse::
+
+   Serve an existing database over OPTIMADE from a store plus a property-to-field map.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.sources.MappedSource
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.sources.adapter_from_sources
+
+
+Module Contents
+---------------
+
+.. py:class:: MappedSource
+
+   One queryable source of an entry type, described by a property-to-field map.
+
+   :param target: Store-specific target passed to ``searcher.variable``.
+   :param keys: Served property name to backend field name; must contain ``id``.
+   :param fields: Computed or overriding response extractors applied to matched rows.
+   :param relationships: Optional relationships extractor, as for :class:`~httk.serve.optimade.backend.adapter.EntrySource`.
+
+
+   .. py:attribute:: target
+      :type:  Any
+
+
+   .. py:attribute:: keys
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: fields
+      :type:  collections.abc.Mapping[str, collections.abc.Callable[[Any], Any]]
+
+
+   .. py:attribute:: relationships
+      :type:  collections.abc.Callable[[Any], Any] | None
+      :value: None
+
+
+
+.. py:function:: adapter_from_sources(store, sources, definitions = None, **schema_options)
+
+   Build a :class:`~httk.serve.optimade.backend.adapter.BackendAdapter` serving an existing store through per-entry-type column maps.
+
+   Keyed properties are filterable and sortable (unless list-valued); ``fields``-only
+   properties are served but not filterable (HTTP 501). Raw values are presented as JSON:
+   datetimes as RFC 3339 UTC with ``Z`` (naive treated as UTC), dates as ISO, ``Decimal`` as ``int``
+   when integral else ``float``, lists and mappings recursively, ids as strings; other types and non-finite Decimals raise ``TypeError``. Revisions, alternatives and ``as_of``
+   are not supported. Every served property must be described by the entry type's
+   definition (``definitions`` or the standard one).
+
+   :param store: Store implementing the neutral query protocol.
+   :param sources: Sources per entry type; several sources of one type must share ``keys``.
+   :param definitions: Entry type definitions overriding the standard ones.
+   :param \*\*schema_options: Forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`.
+   :return: Fully wired backend adapter.
+   :raises ValueError: If a source is invalid, a mapped backend field is missing, or a served property is undefined.
+
+

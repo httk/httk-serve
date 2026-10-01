@@ -1,0 +1,11 @@
+httk.registry.entries.serve
+===========================
+
+.. py:module:: httk.registry.entries.serve
+
+.. autoapi-nested-parse::
+
+   Register httk-serve's durable, non-OPTIMADE publication family.
+
+
+

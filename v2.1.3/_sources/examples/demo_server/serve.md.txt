@@ -1,0 +1,14 @@
+# A small OPTIMADE demo server over an in-memory dataset.
+
+Run with::
+
+    python examples/optimade/demo_server/serve.py
+
+then query, e.g.::
+
+    curl 'http://localhost:8080/structures?filter=elements HAS "Ga" AND nelements=2'
+
+```{literalinclude} ../../../examples/optimade/demo_server/serve.py
+:language: python
+:lines: 11-
+```

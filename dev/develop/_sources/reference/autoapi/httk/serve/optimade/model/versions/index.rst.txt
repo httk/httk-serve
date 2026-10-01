@@ -1,0 +1,31 @@
+httk.serve.optimade.model.versions
+==================================
+
+.. py:module:: httk.serve.optimade.model.versions
+
+.. autoapi-nested-parse::
+
+   Expose the supported and default OPTIMADE API versions.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.model.versions.optimade_supported_versions
+   httk.serve.optimade.model.versions.optimade_default_version
+
+
+Module Contents
+---------------
+
+.. py:data:: optimade_supported_versions
+   :type:  Final[dict[str, str]]
+
+.. py:data:: optimade_default_version
+   :type:  Final[str]
+   :value: '1.3.0'
+
+

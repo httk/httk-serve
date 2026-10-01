@@ -1,0 +1,36 @@
+httk.serve.web.renderers.rst
+============================
+
+.. py:module:: httk.serve.web.renderers.rst
+
+.. autoapi-nested-parse::
+
+   Render reStructuredText source files with safe widget extraction.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.renderers.rst.RstRenderer
+
+
+Module Contents
+---------------
+
+.. py:class:: RstRenderer
+
+   Render reStructuredText source files.
+
+
+   .. py:method:: render(source_path)
+
+      Render one reStructuredText source file.
+
+      :param source_path: reStructuredText source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+

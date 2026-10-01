@@ -1,0 +1,11 @@
+httk.registry.cli.serve
+=======================
+
+.. py:module:: httk.registry.cli.serve
+
+.. autoapi-nested-parse::
+
+   Register the :command:`httk serve web` umbrella command.
+
+
+
