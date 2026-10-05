@@ -137,9 +137,10 @@ def _reject_hidden_filter_properties(node: FilterAst, endpoint: str, schema: Ser
     if node[0] == 'Identifier':
         # A dotted identifier is a depth-1 relationship filter only when its head
         # names a served entry type; validate the trailing property against that
-        # type. Every other identifier is a property of the current endpoint, and
-        # the trailing segments the translator silently ignores must not smuggle a
-        # hidden head property past validation (e.g. `_httk_custom_public_id.x`).
+        # type. Every other identifier is a property of the current endpoint: its
+        # head is validated here, so a nested name (which the translator resolves
+        # as a dictionary member or rejects) cannot smuggle a hidden head property
+        # past validation (e.g. `_httk_custom_public_id.x`).
         if len(node) == 2:
             _reject_hidden_property(node[1], endpoint, schema)
         elif len(node) > 2:

@@ -217,3 +217,57 @@ def test_negated_comparison_excludes_null_rows() -> None:
     variable = searcher.variable("t")
     searcher.add(~(variable.n == 2))
     assert searcher.count() == 1
+
+
+# ------------------------------------------------------------- dotted (nested) fields
+
+
+NESTED = [
+    {"id": "a", "d": {"x": 1, "tags": ["p", "q"], "grid": [[1, 2], [3]], "inner": {"y": "s"}}},
+    {"id": "b", "d": {"x": None, "tags": [], "sites": [{"i": 1, "v": [1, 2]}, {"i": 2, "v": [3]}, {"j": 0}]}},
+    {"id": "c", "d": None},
+    {"id": "e"},
+]
+
+
+def nested_ids(build) -> set[str]:
+    searcher = InMemoryStore({"t": [dict(row) for row in NESTED]}).searcher()
+    variable = searcher.variable("t")
+    searcher.add(build(variable))
+    return {row.row["id"] for row in searcher.results(row=variable)}
+
+
+def test_dotted_field_walks_dicts_and_flattens_lists_of_dicts() -> None:
+    a, b, c, e = NESTED
+    assert MemoryField("d.x")._value(a) == 1
+    assert MemoryField("d.inner.y")._value(a) == "s"
+    # Crossing a list flattens completely; a dictionary lacking the member adds nothing.
+    assert MemoryField("d.sites.i")._value(b) == [1, 2]
+    assert MemoryField("d.sites.v")._value(b) == [1, 2, 3]
+    assert MemoryField("a.b.c")._value({"a": {"b": [{"c": [1, 2]}, {"c": [3]}]}}) == [1, 2, 3]
+    assert MemoryField("a.b")._value({"a": [[{"b": 1}], [{"b": 2}]]}) == [1, 2]
+    assert MemoryField("d.grid")._value(a) == [[1, 2], [3]]  # no list crossed: a 2-D member stays as is
+    for row in (b, c, e):
+        assert MemoryField("d.inner.y")._value(row) is None
+    assert MemoryField("d.x.deeper")._value(a) is None
+    assert MemoryField("d")._value(a) is a["d"]  # undotted names are plain row keys
+
+
+def test_dotted_field_predicates() -> None:
+    assert nested_ids(lambda v: getattr(v, "d.x") == 1) == {"a"}
+    assert nested_ids(lambda v: ~(getattr(v, "d.x") == 1)) == set()  # None member stays unknown
+    assert nested_ids(lambda v: getattr(v, "d.x") == None) == {"b", "c", "e"}
+    assert nested_ids(lambda v: getattr(v, "d.tags").has("q")) == {"a"}
+    # A missing nested list is unknown, so neither a set predicate nor its negation matches it.
+    assert nested_ids(lambda v: ~getattr(v, "d.tags").has("q")) == {"b"}
+    assert nested_ids(lambda v: getattr(v, "d.tags").has_only("p", "q")) == {"a", "b"}
+    assert nested_ids(lambda v: getattr(v, "d.tags").length() == 2) == {"a"}
+    assert nested_ids(lambda v: ~(getattr(v, "d.tags").length() == 2)) == {"b"}
+    assert nested_ids(lambda v: getattr(v, "d.sites.i").has(2)) == {"b"}
+
+
+def test_set_predicates_accept_unhashable_members() -> None:
+    assert nested_ids(lambda v: getattr(v, "d.grid").has([3])) == {"a"}
+    assert nested_ids(lambda v: getattr(v, "d.grid").has_any([9], [1, 2])) == {"a"}
+    assert nested_ids(lambda v: getattr(v, "d.grid").has_only([1, 2], [3])) == {"a"}
+    assert nested_ids(lambda v: getattr(v, "d.sites.v").has_only(1, 2, 3)) == {"b"}

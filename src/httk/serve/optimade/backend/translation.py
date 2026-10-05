@@ -23,6 +23,7 @@ from httk.store.query.optimade_filters import (
 from httk.store.query.optimade_filters import format_value as _format_value
 
 from ..model.errors import translator_error_from
+from ..schema.served import filter_fulltypes
 from .adapter import BackendAdapter, EntrySource
 
 
@@ -68,10 +69,7 @@ def _related_property_resolver(adapter: BackendAdapter) -> RelatedPropertyResolv
 
     def resolve(related_type: str, sub_ast: FilterAst) -> tuple[str, ...]:
         handlers = adapter.field_handlers.get(related_type, {})
-        property_fulltypes = {
-            name: prop.get('fulltype', 'unknown')
-            for name, prop in adapter.schema.entry_info[related_type]['properties'].items()
-        }
+        property_fulltypes = filter_fulltypes(adapter.schema.entry_info[related_type]['properties'], 'unknown')
         matched: dict[str, None] = {}
         for source in adapter.sources.get(related_type, ()):
             searcher = adapter.store.searcher()
@@ -121,10 +119,7 @@ def translate_filter(
 
     for entry in entries:
         field_handlers = adapter.field_handlers.get(entry, {})
-        property_fulltypes = {
-            name: prop.get('fulltype', 'unknown')
-            for name, prop in adapter.schema.entry_info[entry]['properties'].items()
-        }
+        property_fulltypes = filter_fulltypes(adapter.schema.entry_info[entry]['properties'], 'unknown')
         for source in adapter.sources.get(entry, ()):
             searcher = adapter.store.searcher()
             search_variable = searcher.variable(source.target)
@@ -163,8 +158,10 @@ def translate_filter_node(
 
     An OPTIMADE-side adaptation of
     :func:`~httk.store.query.optimade_filters.translate_filter_ast`: ``entry_info`` maps
-    property names to their property dictionaries (only their ``'fulltype'``
-    keys are read) rather than straight to fulltypes, ``served_entries`` names
+    property names to their simplified property dictionaries (only their
+    ``'fulltype'`` and ``'member_fulltypes'`` keys are read, see
+    :func:`~httk.serve.optimade.schema.served.filter_fulltypes`) rather than
+    straight to fulltypes, ``served_entries`` names
     the relationship targets, and failures surface as
     :class:`~httk.serve.optimade.model.errors.TranslatorError` instead of the
     upstream neutral :class:`~httk.store.FilterTranslationError`.
@@ -184,7 +181,7 @@ def translate_filter_node(
     :return: Backend search expression.
     :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
     """
-    property_fulltypes = {name: prop.get('fulltype', 'unknown') for name, prop in entry_info.items()}
+    property_fulltypes = filter_fulltypes(entry_info, 'unknown')
     try:
         return translate_filter_ast(
             node,

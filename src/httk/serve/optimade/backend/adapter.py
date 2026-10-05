@@ -9,7 +9,7 @@ from httk.store.query import Store
 from httk.store.query.optimade_filters import HandlerTable
 
 from ..model.results import QueryFunction, QueryResults
-from ..schema.served import ServedSchema
+from ..schema.served import ServedSchema, filter_fulltypes
 
 type FieldExtractor = Callable[[Any], Any]
 
@@ -77,7 +77,7 @@ class BackendAdapter:
             for entry in self.schema.all_entries:
                 properties = self.schema.entry_info[entry]['properties']
                 property_keys = {name: name for name in properties if name not in ('id', 'type')}
-                property_fulltypes = {name: prop.get('fulltype', 'string') for name, prop in properties.items()}
+                property_fulltypes = filter_fulltypes(properties)
                 derived[entry] = value_aware_property_handlers(entry, property_keys, property_fulltypes)
             object.__setattr__(self, 'field_handlers', derived)
 

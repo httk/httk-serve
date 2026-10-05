@@ -8,6 +8,7 @@ these tests cannot contact the network.
 """
 
 import asyncio
+import datetime
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -20,6 +21,7 @@ from httk.atomistic import OptimadeStructure, Species, StructureEntryProvider, U
 from httk.core import (
     EntryProvider,
     EntryTypeDefinition,
+    PropertyDefinition,
     RelatedEntry,
     Run,
     RunEdge,
@@ -674,3 +676,194 @@ def test_related_reference_field_blocks_and_depth1_filter_parity() -> None:
             assert _filtered_ids(app, "/_httk_records", 'NOT (references.doi CONTAINS "10.1")') == sorted(
                 [work_b.id, work_c.id]
             ), app
+
+
+# --- Nested property names: in-memory vs stored member-projection parity ------
+
+
+def _member_doc(optimade_type: str, json_type: object, **extra: Any) -> dict[str, Any]:
+    return {"x-optimade-type": optimade_type, "x-optimade-unit": "dimensionless", "type": json_type, **extra}
+
+
+_ERRORS = PropertyDefinition.from_optimade(
+    "_httk_test_errors",
+    {
+        "$id": "https://schemas.httk.org/ad-hoc/defs/properties/_httk_test_errors",
+        "description": "Test error statistics.",
+        "x-optimade-type": "dictionary",
+        "x-optimade-unit": "dimensionless",
+        "type": ["object", "null"],
+        "properties": {
+            "weighting": _member_doc("string", "string"),
+            "rmse": _member_doc("float", "number"),
+            "offset": _member_doc("float", ["number", "null"]),
+            "labels": _member_doc("list", "array", items=_member_doc("string", "string")),
+            "extra": _member_doc("list", "array", items=_member_doc("float", "number")),
+        },
+        "required": ["weighting", "rmse", "offset", "labels"],
+    },
+)
+
+
+def _scalar_member(name: str) -> StoredPropertyProjection:
+    def query(ctx: Any, operator: str, literal: object) -> Any:
+        value = ctx.field(name)
+        if operator == "IS_UNKNOWN":
+            return ctx.is_null(value)
+        if operator == "IS_KNOWN":
+            return ctx.not_(ctx.is_null(value))
+        return ctx.compare(value, operator, ctx.constant(literal))
+
+    return StoredPropertyProjection(lambda record: getattr(record, name), query)
+
+
+def _list_member(name: str, *, optional: bool = False) -> StoredPropertyProjection:
+    def query(ctx: Any, operator: str, literal: Any) -> Any:
+        present = ctx.equal(ctx.field(f"{name}_present"), ctx.constant(True)) if optional else ctx.always_true()
+        if operator == "IS_KNOWN":
+            return present
+        if operator == "IS_UNKNOWN":
+            return ctx.not_(present)
+        scope = ctx.scope(name)
+        value = scope.field("value")
+        if operator.startswith("LENGTH "):
+            predicate = ctx.compare(ctx.count(scope), operator.removeprefix("LENGTH "), ctx.constant(literal))
+        elif operator == "HAS_ONLY":
+            others = ctx.and_(*(ctx.not_(ctx.equal(value, ctx.constant(item))) for item in literal))
+            predicate = ctx.compare(ctx.count(ctx.filtered(scope, others)), "=", ctx.constant(0))
+        else:
+            hits = [
+                ctx.compare(ctx.count(ctx.filtered(scope, ctx.equal(value, ctx.constant(item)))), ">", ctx.constant(0))
+                for item in literal
+            ]
+            predicate = ctx.and_(*hits) if operator == "HAS_ALL" else ctx.or_(*hits)
+        return ctx.when_known(present, predicate) if optional else predicate
+
+    return StoredPropertyProjection(lambda record: getattr(record, name), query)
+
+
+def _errors_known(ctx: Any, operator: str, literal: object) -> Any:
+    return ctx.always_true() if operator == "IS_KNOWN" else ctx.always_false()
+
+
+def _errors_value(record: "ConfErrorsRow") -> dict[str, Any]:
+    value: dict[str, Any] = {
+        "weighting": record.weighting,
+        "rmse": record.rmse,
+        "offset": record.offset,
+        "labels": list(record.labels),
+    }
+    if record.extra is not None:
+        value["extra"] = list(record.extra)
+    return value
+
+
+@dataclass(frozen=True)
+class ConfErrorsRow:
+    """A ``records`` backing with a dictionary property whose members declare queries."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="conf_nested_errors")
+    __httk_property_definitions__: ClassVar = {"_httk_test_errors": _ERRORS}
+    __httk_stored_properties__: ClassVar = {
+        "_httk_test_errors": StoredPropertyProjection(
+            response=_errors_value,
+            query=_errors_known,
+            members={
+                "weighting": _scalar_member("weighting"),
+                "rmse": _scalar_member("rmse"),
+                "offset": _scalar_member("offset"),
+                "labels": _list_member("labels"),
+                "extra": _list_member("extra", optional=True),
+            },
+        )
+    }
+
+    weighting: str
+    rmse: float
+    offset: float | None
+    labels: tuple[str, ...]
+    extra: tuple[float, ...] | None = None
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+    last_modified: Annotated[datetime.datetime | None, IdentitySkip()] = field(default=None, compare=False)
+
+
+class ConfErrorsFamily:
+    type = "records"
+    definition_id = RECORDS_DEFINITION_ID
+
+
+register_entry_family(
+    name="conf-nested-errors", family=f"{__name__}:ConfErrorsFamily", definition_id=RECORDS_DEFINITION_ID
+)
+register_entry_record(name="conf-nested-errors-rec", family="conf-nested-errors", record=f"{__name__}:ConfErrorsRow")
+
+_ERROR_ROWS = {
+    "a1": ConfErrorsRow("atom", 0.005, 0.5, ("O", "H"), (1.0, 2.0)),
+    "a2": ConfErrorsRow("structure", 0.03, None, ("O",)),
+    "a3": ConfErrorsRow("atomic", 0.02, 2.0, ("Si", "O", "H"), (3.0,)),
+    "a4": ConfErrorsRow("atom", 0.04, -1.0, ("H",), ()),
+}
+
+
+class _ErrorsProvider(EntryProvider):
+    """The in-memory ``_httk_records`` twin of the stored ``ConfErrorsRow`` records."""
+
+    _definition = (
+        load_entry_type_definition(RECORDS_DEFINITION_ID).served_form().extended({"_httk_test_errors": _ERRORS})
+    )
+
+    def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+        return {"_httk_records": self._definition}
+
+    def property_keys(self, entry_type: str) -> Mapping[str, str]:
+        return {"id": "id", "type": "type", "_httk_test_errors": "errors"}
+
+    def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+        return [
+            {"id": name, "type": "_httk_records", "errors": _errors_value(row)} for name, row in _ERROR_ROWS.items()
+        ]
+
+
+_NESTED_CASES = (
+    ("_httk_test_errors.rmse < 0.025", {"a1", "a3"}),
+    ("0.01 > _httk_test_errors.rmse", {"a1"}),
+    ('_httk_test_errors.weighting = "atom"', {"a1", "a4"}),
+    ('_httk_test_errors.weighting CONTAINS "at"', {"a1", "a3", "a4"}),
+    ("_httk_test_errors.offset IS UNKNOWN", {"a2"}),
+    ("NOT _httk_test_errors.offset > 1.0", {"a1", "a4"}),
+    ('_httk_test_errors.labels HAS "O"', {"a1", "a2", "a3"}),
+    ('_httk_test_errors.labels HAS ALL "O","H"', {"a1", "a3"}),
+    ('_httk_test_errors.labels HAS ANY "Si","H"', {"a1", "a3", "a4"}),
+    ('_httk_test_errors.labels HAS ONLY "O","H"', {"a1", "a2", "a4"}),
+    ("_httk_test_errors.labels LENGTH 2", {"a1"}),
+    ("_httk_test_errors.extra HAS 1.0", {"a1"}),
+    ("NOT _httk_test_errors.extra HAS 1.0", {"a3", "a4"}),  # the absent extra of a2 matches neither
+    ("_httk_test_errors.extra IS UNKNOWN", {"a2"}),
+)
+
+
+@pytest.mark.parametrize("backend", ("memory", "sqlite", "duckdb"))
+def test_nested_property_filters_agree_across_memory_and_stored_routes(backend: str) -> None:
+    """Every nested-name operator family selects the same records on every route."""
+
+    def check(app: Any, names: Mapping[str, str]) -> None:
+        client = AsgiSyncClient(app, base_url="http://testserver")
+        for filter_string, expected in _NESTED_CASES:
+            assert expected < set(_ERROR_ROWS), filter_string
+            matched = {names[entry_id] for entry_id in _filtered_ids(app, "/_httk_records", filter_string)}
+            assert matched == expected, (backend, filter_string)
+        for filter_string in ("_httk_test_errors.nope = 1", 'id.foo = "x"'):
+            response = client.get(f"http://testserver/_httk_records?filter={quote(filter_string)}")
+            assert response.status_code == 400, (backend, filter_string, response.text)
+
+    if backend == "memory":
+        check(create_asgi_app(adapter_from_providers([_ErrorsProvider()])), {name: name for name in _ERROR_ROWS})
+        return
+    with _database(backend) as database:
+        store = SqlStore(
+            database, entry_records={ConfErrorsFamily: ConfErrorsRow}, entry_ids=EntryIdScheme("httk.test", "1")
+        )
+        names = {store.fetch(ConfErrorsRow, store.save(row), eager=True).id: name for name, row in _ERROR_ROWS.items()}
+        adapter = adapter_from_stores((StoredEntrySource(store, ConfErrorsFamily, "errs"),))
+        check(create_asgi_app(adapter, baseurl="http://testserver"), names)

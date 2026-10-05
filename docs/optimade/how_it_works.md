@@ -143,6 +143,15 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
   gained `<type>.id` relationship filtering in this series (previously bare
   `<type>.id` there matched nothing), while its depth-1 related-property filters
   still match nothing (deferred),
+- nested property names of dictionary properties, such as
+  `_httk_errors.rmse < 0.01` or `_httk_errors.labels HAS "O"`, with every
+  operator family including `LENGTH` (the outer length of the member list as
+  served). `HAS` and its variants apply to one-dimensional list members, and a
+  member through a list of dictionaries flattens to the list of its values. The
+  in-memory provider route filters every member of a served dictionary; the
+  stored route filters the members whose backing declares member queries (typed
+  records do) and answers `501` for the others. An unknown member, or a member
+  of a non-dictionary property, is a `400 Bad Request`,
 - the `references`, `files`, and `trajectories` entry types,
 - per-property metadata (`meta.property_metadata` and the
   `x-optimade-metadata-definition` in property definitions),
@@ -155,8 +164,10 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
 Optional parts of the specification that are not implemented: cross-source sort
 merging, filtering on relationship paths nested deeper than one level
 (`references.structures.x`), on relationship `meta`
-(`.description`/`.role`), and dotted `LENGTH` filters, the sparse JSON Lines
-layout, transaction mechanisms, and rejection of unrecognized query parameters.
+(`.description`/`.role`), and relationship `LENGTH` filters (`501 Not
+Implemented`), zip filters (`a:b HAS "x":"y"`, rejected as invalid syntax with a
+`400`), the sparse JSON Lines layout, transaction mechanisms, and rejection of
+unrecognized query parameters.
 
 ## The `_httk_relationships` filter extension
 

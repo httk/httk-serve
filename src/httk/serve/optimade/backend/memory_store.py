@@ -7,10 +7,14 @@ example demo server and is what
 :func:`~httk.serve.optimade.backend.providers.adapter_from_providers` loads an
 :class:`~httk.core.EntryProvider`'s records into.
 
-Set operations evaluate exactly here — ``has_any``/``has_only`` are plain set
-predicates over the row's list value (a NULL list is the empty set), and ``~``
-negates them directly. Scalar comparisons against NULL are unknown instead (see
-:class:`MemoryExpression`). The SQL
+Set operations evaluate exactly here — ``has_any``/``has_only`` are plain
+membership predicates over the row's list value (a NULL list is the empty set),
+and ``~`` negates them directly (a convention shared with the generic SQL
+searcher). Two exceptions treat a missing list as unknown instead, so neither
+the predicate nor its negation matches: a dotted field name (an OPTIMADE nested
+property name addressing a dictionary member), and ``length()`` (OPTIMADE
+``LENGTH``) on any field, top-level ones included. Scalar comparisons against
+NULL are unknown too (see :class:`MemoryExpression`). The SQL
 backend needs an aggregate rendering and a second (HAVING) evaluation position
 to say the same thing, but that is entirely its own business: the neutral
 protocol only ever hands a store one expression per ``searcher.add`` call.
@@ -24,7 +28,7 @@ per match, one entry per named output: a variable output yields the whole row
 dict, a field output the row's value for that field.
 """
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, NoReturn
 
 from httk.store.query import (
@@ -74,14 +78,45 @@ class MemoryExpression:
 class MemoryField:
     """Represent a named field in an in-memory row.
 
-    :param name: Row key addressed by the field.
+    A dotted ``name`` (``"key.member.sub"``) walks the row: the first segment
+    is the row key, each further segment a dictionary key. Once a list of
+    dictionaries is crossed the value is completely flattened per OPTIMADE (one
+    flat list of the members' values; dictionaries lacking the member add
+    nothing); without a crossed list a list-valued member stays as is. A missing
+    key or ``None`` before any list gives ``None``.
+
+    :param name: Row key, or dotted member path, addressed by the field.
     """
 
     def __init__(self, name: str) -> None:
         self.name = name
 
     def _value(self, row: Row) -> Any:
-        return row.get(self.name)
+        if "." not in self.name:
+            return row.get(self.name)
+        head, *path = self.name.split(".")
+        value = row.get(head)
+        for key in path:
+            value = _member(value, key)
+        return value
+
+    def _items(self, row: Row) -> Any:
+        """The list value for a set predicate: ``()`` for NULL, ``None`` (unknown) for a missing member."""
+        value = self._value(row)
+        if value is None:
+            return None if "." in self.name else ()
+        return value
+
+    def _set_predicate(self, test: Callable[[Any], bool]) -> MemoryExpression:
+        return MemoryExpression(lambda row: None if (items := self._items(row)) is None else test(items))
+
+    def length(self) -> "MemoryField":
+        """Return a field holding the length of this list field's value (``None`` when it is unknown).
+
+        :return: Derived length field, comparable like any numeric field.
+        """
+
+        return _MemoryLength(self.name)
 
     def _compare(self, other: Any, compare: Callable[[Any, Any], bool]) -> MemoryExpression:
         def predicate(row: Row) -> bool | None:
@@ -162,7 +197,7 @@ class MemoryField:
         :return: Matching predicate.
         """
 
-        return MemoryExpression(lambda row: value in (self._value(row) or ()))
+        return self._set_predicate(lambda items: value in items)
 
     def has_any(self, *values: Any) -> MemoryExpression:
         """Match list values containing any supplied member.
@@ -171,7 +206,8 @@ class MemoryField:
         :return: Matching predicate.
         """
 
-        return MemoryExpression(lambda row: bool(set(self._value(row) or ()) & set(values)))
+        # List membership, not sets: members may be unhashable (a list in a list).
+        return self._set_predicate(lambda items: any(value in items for value in values))
 
     def has_only(self, *values: Any) -> MemoryExpression:
         """Match list values containing no members outside the supplied set.
@@ -180,7 +216,7 @@ class MemoryField:
         :return: Matching predicate.
         """
 
-        return MemoryExpression(lambda row: set(self._value(row) or ()) <= set(values))
+        return self._set_predicate(lambda items: all(item in values for item in items))
 
     def __getattr__(self, name: str) -> NoReturn:
         """Refuse to chain: rows here are flat, so no field refers to a record.
@@ -196,6 +232,44 @@ class MemoryField:
             f"{self.name!r} is a value in a flat row, not a reference to another record, "
             f"so {name!r} cannot be looked up through it"
         )
+
+
+def _flatten(value: list[Any] | tuple[Any, ...]) -> Iterator[Any]:
+    """Yield the non-list leaves of a (possibly nested) list."""
+    for item in value:
+        if isinstance(item, list | tuple):
+            yield from _flatten(item)
+        else:
+            yield item
+
+
+def _member(value: Any, key: str) -> Any:
+    """Return member ``key`` of a dictionary, or the completely flattened members of a list of dictionaries.
+
+    Per OPTIMADE, once a list is crossed the result is one flat list: list-valued
+    members extend it, and a dictionary lacking the member (or holding ``None``)
+    contributes nothing.
+    """
+    if isinstance(value, Mapping):
+        return value.get(key)
+    if not isinstance(value, list | tuple):
+        return None
+    out: list[Any] = []
+    for item in _flatten(value):
+        member = item.get(key) if isinstance(item, Mapping) else None
+        if isinstance(member, list | tuple):
+            out.extend(_flatten(member))
+        elif member is not None:
+            out.append(member)
+    return out
+
+
+class _MemoryLength(MemoryField):
+    """The length of a list field's value, ``None`` when the list is unknown."""
+
+    def _value(self, row: Row) -> Any:
+        value = super()._value(row)
+        return None if value is None else len(value)
 
 
 class MemoryVariable:

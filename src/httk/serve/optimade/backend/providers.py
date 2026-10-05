@@ -8,6 +8,7 @@ descriptions, property keys, and records. It is httk-serve's only dependency on
 ``httk.core`` beyond the shared runtime.
 """
 
+import operator
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
@@ -21,10 +22,24 @@ from httk.store.query.optimade_filters import (
 _REL_ROOT = apply_definition_prefix("relationships", RUNS_DEFINITION_ID)
 """The ``_httk_relationships`` filter-extension root (derived, never a literal)."""
 
-from ..schema.served import build_served_schema
+from ..schema.served import build_served_schema, filter_fulltypes
 from ._property_handlers import value_aware_property_handlers
 from .adapter import BackendAdapter, EntrySource
 from .memory_store import InMemoryStore
+
+_LENGTH_COMPARISONS: Mapping[str, Callable[[Any, Any], Any]] = {
+    '=': operator.eq,
+    '!=': operator.ne,
+    '<': operator.lt,
+    '<=': operator.le,
+    '>': operator.gt,
+    '>=': operator.ge,
+}
+
+
+def _length_handler(key: str) -> Callable[..., Any]:
+    """A ``LENGTH`` filter handler comparing the length of the in-memory list at ``key``."""
+    return lambda entry, op, value, sv: _LENGTH_COMPARISONS[op](getattr(sv, key).length(), value)
 
 
 def _key_extractor(key: str) -> Callable[[Any], Any]:
@@ -87,6 +102,9 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     property is sortable-capable, since the provider's property-key map is
     passed through as the source's
     :attr:`~httk.serve.optimade.backend.adapter.EntrySource.sort_keys`.
+    Nested names of served dictionary properties (``name.member``) filter the
+    record's dictionary value by path, and every list-valued name (top-level or
+    nested) also supports ``LENGTH``.
 
     Declared relationships (:meth:`~httk.core.EntryProvider.relationships`) are
     fully auto-wired for serving *and* filtering: for each entry type with
@@ -200,11 +218,20 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     sources: dict[str, tuple[EntrySource, ...]] = {}
     tables: dict[str, list[dict[str, Any]]] = {}
     for entry_type, property_keys in keys_by_entry.items():
+        properties = schema.entry_info[entry_type]['properties']
         filter_keys = {name: key for name, key in property_keys.items() if name not in ('id', 'type')}
-        property_fulltypes = {
-            name: prop.get('fulltype', 'string') for name, prop in schema.entry_info[entry_type]['properties'].items()
+        # Nested names filter the in-memory store's dotted path through the
+        # record key (MemoryField walks it); response extraction stays top-level.
+        filter_keys |= {
+            f'{name}.{path}': f'{key}.{path}'
+            for name, key in list(filter_keys.items())
+            for path in properties[name].get('member_fulltypes', {})
         }
+        property_fulltypes = filter_fulltypes(properties)
         handlers = value_aware_property_handlers(entry_type, filter_keys, property_fulltypes)
+        for name, key in filter_keys.items():
+            if property_fulltypes.get(name, '').startswith('list of '):
+                handlers[name] = {**handlers[name], 'length': _length_handler(key)}
         fields: dict[str, Callable[[Any], Any]] = {name: _key_extractor(key) for name, key in property_keys.items()}
         entry_relationships = relationships_by_entry.get(entry_type)
         relationships = _relationships_extractor(entry_relationships) if entry_relationships else None

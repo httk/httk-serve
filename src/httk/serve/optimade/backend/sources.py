@@ -9,7 +9,7 @@ from typing import Any
 from httk.core import EntryTypeDefinition, standard_entry_type
 from httk.store.query import Store
 
-from ..schema.served import build_served_schema
+from ..schema.served import build_served_schema, filter_fulltypes
 from ._property_handlers import value_aware_property_handlers
 from .adapter import BackendAdapter, EntrySource
 
@@ -147,7 +147,7 @@ def adapter_from_sources(
     handlers: dict[str, Any] = {}
     resolved: dict[str, tuple[EntrySource, ...]] = {}
     for entry, group in grouped.items():
-        fulltypes = {n: p.get("fulltype", "string") for n, p in schema.entry_info[entry]["properties"].items()}
+        fulltypes = filter_fulltypes(schema.entry_info[entry]["properties"])
         handlers[entry] = value_aware_property_handlers(entry, dict(group[0].keys), fulltypes)
         entry_sources = []
         for source in group:

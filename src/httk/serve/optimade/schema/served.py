@@ -112,7 +112,9 @@ def simplified_property(
     Carries the ``description``, reconstructed ``fulltype``, the implementation
     flags (``sortable``/``required_response``/``default_response``/``queryable``),
     and — when present — the property's ``unit`` and ``dimensions`` (used by the
-    trajectory frame-wrapping).
+    trajectory frame-wrapping) and, for a dictionary, its ``member_fulltypes``
+    (dotted member path to fulltype, from the definition's
+    ``member_fulltypes()``; see :func:`filter_fulltypes`).
 
     :param definition: Property definition to simplify.
     :param sortable: Mark the property as sortable by the backend.
@@ -136,7 +138,29 @@ def simplified_property(
     dimensions = definition.dimensions
     if dimensions is not None:
         info["dimensions"] = {key: list(value) for key, value in dimensions.items()}
+    members = definition.member_fulltypes()
+    if members:
+        info["member_fulltypes"] = dict(members)
     return info
+
+
+def filter_fulltypes(properties: Mapping[str, Mapping[str, Any]], default: str = "string") -> dict[str, str]:
+    """Return the filter fulltypes of simplified properties, nested names included.
+
+    Every property maps to its ``fulltype`` (``default`` when absent), and every
+    member path of a dictionary property adds its OPTIMADE nested name
+    ``"<name>.<path>"`` with the member's fulltype, so the filter translator
+    resolves a nested name instead of rejecting it as unrecognized.
+
+    :param properties: Simplified property views keyed by name (an entry's
+        ``entry_info["properties"]``).
+    :param default: Fulltype assumed for a property without one.
+    :return: Fulltypes keyed by top-level and nested property name.
+    """
+    fulltypes = {name: prop.get("fulltype", default) for name, prop in properties.items()}
+    for name, prop in properties.items():
+        fulltypes.update({f"{name}.{path}": fulltype for path, fulltype in prop.get("member_fulltypes", {}).items()})
+    return fulltypes
 
 
 def entry_type_definition_from_simple(name: str, info: Mapping[str, Any]) -> EntryTypeDefinition:
