@@ -12,6 +12,7 @@ from typing import Any
 import httpx2
 import pytest
 from httk.core import EntryProvider, EntryTypeDefinition, PropertyDefinition, RelatedEntry
+from httk.store import ReferenceEntryProvider
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import adapter_from_providers, create_asgi_app
@@ -354,3 +355,34 @@ def test_absent_relationships_hook_unchanged() -> None:
     client = TestClient(app, base_url="http://testserver")
     payload = client.get("/widgets/w-1").json()
     assert not payload["data"].get("relationships")
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    (
+        ('authors.name HAS "Ada Lovelace"', ["ref-1"]),
+        ('authors.lastname HAS ANY "Turing", "Hopper"', ["ref-2"]),
+        ('authors.firstname HAS "Ada"', ["ref-1"]),
+        ('authors.nosuch HAS "x"', None),
+    ),
+)
+def test_reference_provider_author_member_filters(filter_string: str, expected: list[str] | None) -> None:
+    provider = ReferenceEntryProvider(
+        {
+            "ref-1": {
+                "title": "Notes",
+                "authors": ({"name": "Ada Lovelace", "firstname": "Ada", "lastname": "Lovelace"},),
+            },
+            "ref-2": {
+                "title": "Computing",
+                "authors": ({"name": "Alan Turing", "firstname": "Alan", "lastname": "Turing"},),
+            },
+        }
+    )
+    client = TestClient(create_asgi_app(adapter_from_providers([provider]), baseurl="http://testserver/"))
+    response = client.get("/references", params={"filter": filter_string})
+    if expected is None:
+        assert response.status_code == 400
+        return
+    assert response.status_code == 200
+    assert [entry["id"] for entry in response.json()["data"]] == expected

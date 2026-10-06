@@ -7,6 +7,8 @@ from fractions import Fraction
 import pytest
 from httk.atomistic import (
     Assembly,
+    ASUStructureRecord,
+    FundamentalDomainStructureRecord,
     Species,
     StructureEntry,
     StructureEntryProvider,
@@ -42,7 +44,6 @@ STANDARD_STRUCTURE_PROPERTIES = {
     "space_group_symbol_hermann_mauguin",
     "space_group_symbol_hermann_mauguin_extended",
     "space_group_it_number",
-    "space_group_symmetry_operations_xyz",
     "cartesian_site_positions",
     "fractional_site_positions",
     "site_coordinate_span",
@@ -334,6 +335,81 @@ def test_structure_provider_standard_filters_reach_asgi(structure_api, filter_st
     assert [resource["id"] for resource in payload["data"]] == ["mixed"]
     assert payload["meta"]["data_returned"] == 1
     assert payload["meta"]["data_available"] == 2
+
+
+@pytest.fixture(params=("in-memory", "stored"))
+def member_api(request):
+    """Serve the fixture structures plus a NaOH (attached-H) structure in memory or from a store."""
+    entries = list(_entries().values())
+    entries.append(
+        UnitcellStructure(
+            [[5, 0, 0], [0, 5, 0], [0, 0, 5]],
+            [[0, 0, 0], [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2)]],
+            [
+                Species(name="Na", chemical_symbols=("Na",), concentration=(1,), original_name="Na1"),
+                Species(name="OH", chemical_symbols=("O",), concentration=(1,), attached=("H",), nattached=(1,)),
+            ],
+            ["Na", "OH"],
+            chemical_formula_descriptive="NaOH",
+        )
+    )
+    if request.param == "in-memory":
+        provider = StructureEntryProvider({str(index): entry for index, entry in enumerate(entries)})
+        app = create_asgi_app(adapter_from_providers([provider]), baseurl="http://testserver")
+        with TestClient(app, base_url="http://testserver") as client:
+            yield client
+        return
+
+    with Backend.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={
+                StructureEntry: (UnitcellStructureRecord, FundamentalDomainStructureRecord, ASUStructureRecord)
+            },
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        with store.transaction():
+            for entry in entries:
+                store.save(entry)
+        app = create_asgi_app(
+            adapter_from_stores([StoredEntrySource(store, StructureEntry, "members")]), baseurl="http://testserver"
+        )
+        with TestClient(app, base_url="http://testserver") as client:
+            yield client
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    (
+        ('species.name HAS "mixed"', ["Ge5Si3"]),
+        ('species.chemical_symbols HAS "Ge"', ["Ge5Si3"]),
+        ('species.chemical_symbols HAS ONLY "Si"', ["Si"]),
+        ("species.concentration HAS 0.625", ["Ge5Si3"]),
+        ("species.name LENGTH 1", ["Ge5Si3", "Si"]),
+        ('NOT species.chemical_symbols HAS "Ge"', ["NaOH", "Si"]),
+        ('NOT species.name HAS ANY "Na", "Si"', ["Ge5Si3"]),
+        ('species.attached HAS "H"', ["NaOH"]),
+        # HAS ONLY holds vacuously on the empty flattened list of the attachment-free structures.
+        ('species.attached HAS ONLY "H"', ["Ge5Si3", "NaOH", "Si"]),
+        ("species.original_name LENGTH 0", ["Ge5Si3", "Si"]),
+        ("species LENGTH 1", ["Ge5Si3", "Si"]),
+        ("species IS KNOWN", ["Ge5Si3", "NaOH", "Si"]),
+    ),
+)
+def test_structure_species_member_filters(member_api, filter_string: str, expected: list[str]) -> None:
+    response = member_api.get(
+        "/structures", params={"filter": filter_string, "response_fields": "chemical_formula_descriptive"}
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert sorted(resource["attributes"]["chemical_formula_descriptive"] for resource in data) == expected
+
+
+def test_structure_unknown_species_member_is_bad_request(member_api) -> None:
+    response = member_api.get("/structures", params={"filter": 'species.nosuch HAS "x"'})
+
+    assert response.status_code == 400
 
 
 def test_structure_provider_single_resource_response_fields(structure_api) -> None:

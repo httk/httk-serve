@@ -145,13 +145,25 @@ Relative to OPTIMADE v1.0.0, the implementation includes:
   still match nothing (deferred),
 - nested property names of dictionary properties, such as
   `_httk_errors.rmse < 0.01` or `_httk_errors.labels HAS "O"`, with every
-  operator family including `LENGTH` (the outer length of the member list as
-  served). `HAS` and its variants apply to one-dimensional list members, and a
+  operator family including `LENGTH` (the length of the flattened member
+  list). `HAS` and its variants apply to one-dimensional list members, and a
   member through a list of dictionaries flattens to the list of its values. The
-  in-memory provider route filters every member of a served dictionary; the
-  stored route filters the members whose backing declares member queries (typed
-  records do) and answers `501` for the others. An unknown member, or a member
-  of a non-dictionary property, is a `400 Bad Request`,
+  same names cover members of list-of-dictionary properties, flattened per
+  OPTIMADE: `species.chemical_symbols` is the list of every species' symbols,
+  and `authors.lastname` that of every author's last name. The in-memory
+  provider route filters every member of a served dictionary; the stored route
+  filters the members whose backing declares member queries (typed records do,
+  including structures `species` in *httk-atomistic* stores) and answers `501`
+  for the others, such as other stored list-of-dictionary members. An unknown
+  member, or a member of a property that is neither a dictionary nor a list of
+  dictionaries, is a `400 Bad Request`. A float literal compared with an exact
+  stored value (such as `species.concentration` or `elements_ratios`) uses
+  exact rational equality with the decimal literal on stored routes and float
+  equality with the served value on the in-memory route, so
+  `0.3333333333333333` matches 1/3 only in memory. The vendored upstream
+  definition of structures `assemblies` declares a dictionary rather than a
+  list of dictionaries (an upstream defect; trajectories `assemblies` is a
+  list), so its member types follow that declaration,
 - the `references`, `files`, and `trajectories` entry types,
 - per-property metadata (`meta.property_metadata` and the
   `x-optimade-metadata-definition` in property definitions),
