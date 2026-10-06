@@ -412,6 +412,64 @@ def test_structure_unknown_species_member_is_bad_request(member_api) -> None:
     assert response.status_code == 400
 
 
+@pytest.mark.parametrize("member_api", ["in-memory", "stored"], indirect=True)
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    (
+        ('elements:elements_ratios HAS "Si":0.375', ["Ge5Si3"]),
+        ('elements:elements_ratios HAS ALL "Ge":0.625, "Si":0.375', ["Ge5Si3"]),
+        ('elements:elements_ratios HAS ALL "Ge":0.625, "Si":1', []),
+        ('elements:elements_ratios HAS ONLY "Ge":0.625, "Si":0.375, "Si":1', ["Ge5Si3", "Si"]),
+        ('NOT elements:elements_ratios HAS "Si":0.375', ["NaOH", "Si"]),
+        ('elements:elements_ratios HAS "Si":0.625', []),
+        ('species.chemical_symbols:species.concentration HAS "Ge":0.625', ["Ge5Si3"]),
+        ('species.chemical_symbols:species.concentration HAS ALL "Ge":0.625, "Si":0.375', ["Ge5Si3"]),
+    ),
+)
+def test_structure_zip_filters(member_api, filter_string: str, expected: list[str]) -> None:
+    response = member_api.get(
+        "/structures", params={"filter": filter_string, "response_fields": "chemical_formula_descriptive"}
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert sorted(resource["attributes"]["chemical_formula_descriptive"] for resource in data) == expected
+
+
+# Stored structures order no exact rational and do not zip ``species_at_sites``.
+_IN_MEMORY_ONLY_ZIP_FILTERS = (
+    ('elements:elements_ratios HAS ANY "Si":1, "Na":<0.5', ["NaOH", "Si"]),
+    ('elements:elements_ratios HAS "Si":>0.3', ["Ge5Si3", "Si"]),
+    ('elements_ratios:elements HAS <0.5:"Si"', ["Ge5Si3"]),
+    # Lists of unequal length (elements vs. sites of Ge5Si3 and NaOH) make the filter unknown.
+    ('elements:species_at_sites HAS "Si":"Si"', ["Si"]),
+    ('NOT elements:species_at_sites HAS "Si":"Si"', []),
+)
+
+
+@pytest.mark.parametrize("member_api", ["in-memory"], indirect=True)
+@pytest.mark.parametrize(("filter_string", "expected"), _IN_MEMORY_ONLY_ZIP_FILTERS)
+def test_structure_in_memory_zip_filters(member_api, filter_string: str, expected: list[str]) -> None:
+    test_structure_zip_filters(member_api, filter_string, expected)
+
+
+@pytest.mark.parametrize("member_api", ["stored"], indirect=True)
+@pytest.mark.parametrize("filter_string", [filter_string for filter_string, _ in _IN_MEMORY_ONLY_ZIP_FILTERS])
+def test_structure_stored_zip_filters_without_stored_support_are_not_implemented(
+    member_api, filter_string: str
+) -> None:
+    response = member_api.get("/structures", params={"filter": filter_string})
+
+    assert response.status_code == 501, response.text
+
+
+@pytest.mark.parametrize("member_api", ["in-memory", "stored"], indirect=True)
+def test_structure_zip_filter_on_scalar_property_is_type_mismatch(member_api) -> None:
+    response = member_api.get("/structures", params={"filter": 'elements:nelements HAS "Si":2'})
+
+    assert response.status_code == 400, response.text
+
+
 def test_structure_provider_single_resource_response_fields(structure_api) -> None:
     _mode, client = structure_api
     response = client.get(

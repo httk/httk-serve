@@ -333,6 +333,34 @@ def test_provider_relationship_filter_auto_registered() -> None:
     assert response.json()["data"] == []
 
 
+def test_zip_with_relationship_key_is_not_implemented() -> None:
+    class ElementsLinkedProvider(LinkedProvider):
+        def entry_types(self) -> Mapping[str, EntryTypeDefinition]:
+            types = dict(super().entry_types())
+            elements = PropertyDefinition.from_simple("elements", description="e", fulltype="list of string")
+            types["structures"] = EntryTypeDefinition(
+                "structures", "Structures.", {**types["structures"].properties, "elements": elements}
+            )
+            return types
+
+        def property_keys(self, entry_type: str) -> Mapping[str, str]:
+            keys = dict(super().property_keys(entry_type))
+            return keys | {"elements": "elements"} if entry_type == "structures" else keys
+
+        def records(self, entry_type: str) -> Iterable[Mapping[str, Any]]:
+            return [
+                {**row, "elements": ["Si"]} if entry_type == "structures" else row
+                for row in super().records(entry_type)
+            ]
+
+    app = create_asgi_app(adapter_from_providers([ElementsLinkedProvider()]), baseurl="http://testserver/")
+    client = TestClient(app, base_url="http://testserver")
+    response = client.get(
+        "/structures", params={"filter": 'elements:_httk_relationships.references.id HAS "Si":"ref-1"'}
+    )
+    assert response.status_code == 501, response.text
+
+
 def test_provider_relationships_without_meta_have_no_meta_object() -> None:
     class BareLinkedProvider(LinkedProvider):
         def relationships(self, entry_type: str) -> Mapping[str, tuple[RelatedEntry, ...]]:

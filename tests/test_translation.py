@@ -175,10 +175,10 @@ def test_unknown_prefixed_property_raises() -> None:
     assert excinfo.value.response_code == 400
 
 
-def test_has_with_operator_untranslatable() -> None:
+def test_has_with_operator_not_implemented() -> None:
     with pytest.raises(TranslatorError) as excinfo:
         translate_one('elements HAS < 3')
-    assert excinfo.value.response_code == 500
+    assert excinfo.value.response_code == 501
 
 
 def test_has_all_with_operator_not_implemented() -> None:
@@ -233,36 +233,26 @@ def test_nsites_comparison_not_implemented() -> None:
 
 
 def test_list_typed_property_scalar_comparison_is_rejected() -> None:
-    # species_at_sites / cartesian_site_positions are 'list of ...'. With their
-    # bogus comparison handlers removed, a scalar comparison returns a clean 501.
-    with pytest.raises(TranslatorError) as excinfo:
-        translate_one('species_at_sites = "Si"')
-    assert excinfo.value.response_code == 501
-    with pytest.raises(TranslatorError) as excinfo:
-        translate_one('cartesian_site_positions = 0.5')
-    assert excinfo.value.response_code == 501
-    # The removed handlers were in any case unreachable: a scalar right-hand side
-    # against a 'list of ...' property is rejected by format_value (400) first.
-    from httk.serve.optimade.backend.translation import format_value
-
-    with pytest.raises(TranslatorError) as excinfo:
-        format_value('list of string', ('String', 'Si'))
-    assert excinfo.value.response_code == 400
+    # A scalar constant against a 'list of ...' property is a type mismatch,
+    # checked before the (absent) comparison handler is looked up.
+    for filter_string in ('species_at_sites = "Si"', 'cartesian_site_positions = 0.5'):
+        with pytest.raises(TranslatorError) as excinfo:
+            translate_one(filter_string)
+        assert excinfo.value.response_code == 400
 
 
 @pytest.mark.parametrize(
     "filter_string,response_code,response_msg",
     [
         # One filter per httk.store.FilterTranslationError
-        # category, locking the category -> HTTP status mapping:
+        # category reachable from a filter string (internal is checked below),
+        # locking the category -> HTTP status mapping:
         # unrecognized-property (a recognized-prefix property that does not exist)
         ('_httk_bananas = 3', 400, "Bad request"),
         # type-mismatch (string constant against an integer property)
         ('nelements = "three"', 400, "Bad request"),
         # not-implemented (identifier vs. identifier comparison)
         ('nelements = nsites', 501, "Not implemented"),
-        # internal (bare HAS with a non-equal operator is not a translatable node)
-        ('elements HAS < 3', 500, "Internal server error."),
     ],
 )
 def test_translation_error_categories_map_to_http_statuses(
@@ -272,6 +262,16 @@ def test_translation_error_categories_map_to_http_statuses(
         translate_one(filter_string)
     assert excinfo.value.response_code == response_code
     assert excinfo.value.response_msg == response_msg
+
+
+def test_internal_translation_category_maps_to_500() -> None:
+    # No parsed filter reaches an internal translation error, so the mapping is checked directly.
+    from httk.store import FilterTranslationError
+
+    from httk.serve.optimade.model.errors import translator_error_from
+
+    error = translator_error_from(FilterTranslationError("inconsistent", "internal"))
+    assert (error.response_code, error.response_msg) == (500, "Internal server error.")
 
 
 def test_simple_property_handlers_timestamp_generates_comparison() -> None:

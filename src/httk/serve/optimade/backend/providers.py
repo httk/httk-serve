@@ -14,6 +14,8 @@ from typing import Any
 
 from httk.core import EntryProvider, EntryTypeDefinition, RelatedEntry, apply_definition_prefix
 from httk.core.provenance import RUNS_DEFINITION_ID
+from httk.core.storage import ZipLiteral
+from httk.store import FilterTranslationError
 from httk.store.query.optimade_filters import (
     HandlerTable,
     relationship_id_handler,
@@ -25,9 +27,9 @@ _REL_ROOT = apply_definition_prefix("relationships", RUNS_DEFINITION_ID)
 from ..schema.served import build_served_schema, filter_fulltypes
 from ._property_handlers import value_aware_property_handlers
 from .adapter import BackendAdapter, EntrySource
-from .memory_store import InMemoryStore
+from .memory_store import InMemoryStore, MemoryExpression, Row
 
-_LENGTH_COMPARISONS: Mapping[str, Callable[[Any, Any], Any]] = {
+_COMPARISONS: Mapping[str, Callable[[Any, Any], Any]] = {
     '=': operator.eq,
     '!=': operator.ne,
     '<': operator.lt,
@@ -39,7 +41,57 @@ _LENGTH_COMPARISONS: Mapping[str, Callable[[Any, Any], Any]] = {
 
 def _length_handler(key: str) -> Callable[..., Any]:
     """A ``LENGTH`` filter handler comparing the length of the in-memory list at ``key``."""
-    return lambda entry, op, value, sv: _LENGTH_COMPARISONS[op](getattr(sv, key).length(), value)
+    return lambda entry, op, value, sv: _COMPARISONS[op](getattr(sv, key).length(), value)
+
+
+def _zip_handler(keys: Mapping[str, str]) -> Callable[..., MemoryExpression]:
+    """A correlated (zip) ``'HAS_ZIP'`` filter handler over in-memory list values.
+
+    ``keys`` maps each ``httk.core.storage.ZipLiteral`` path to its row
+    key or dotted member path. A value tuple matches at an element position when
+    every slot comparison holds. A ``None`` element never matches, and ``HAS
+    ONLY`` ignores positions holding one (as the stored routes do). The predicate
+    is unknown when any value is missing or not a list, or the lists differ in length.
+    """
+
+    def handler(owner: str, literal: ZipLiteral, search_variable: Any, has_type: str) -> MemoryExpression:
+        for path in literal.paths:
+            if path not in keys:
+                raise FilterTranslationError(
+                    "Correlated (zip) filters on " + path + " are not implemented.", "not-implemented"
+                )
+        fields = [getattr(search_variable, keys[path]) for path in literal.paths]
+        tests = [tuple(zip(ops, values, strict=True)) for ops, values in zip(literal.operators, literal.values)]
+
+        def slot(op: str, element: Any, value: Any) -> bool:
+            try:
+                return element is not None and bool(_COMPARISONS[op](element, value))
+            except TypeError:
+                return False
+
+        def predicate(row: Row) -> bool | None:
+            lists = [field._value(row) for field in fields]
+            if not all(isinstance(value, list | tuple) for value in lists) or len({len(value) for value in lists}) > 1:
+                return None
+            positions = list(zip(*lists))
+            if has_type == 'HAS_ZIP_ONLY':
+                positions = [position for position in positions if None not in position]
+            hits = [
+                [
+                    all(slot(op, element, value) for (op, value), element in zip(test, position))
+                    for position in positions
+                ]
+                for test in tests
+            ]
+            if has_type == 'HAS_ZIP_ONLY':
+                return all(any(column) for column in zip(*hits))
+            if has_type == 'HAS_ZIP_ANY':
+                return any(any(test_hits) for test_hits in hits)
+            return all(any(test_hits) for test_hits in hits)
+
+        return MemoryExpression(predicate)
+
+    return handler
 
 
 def _key_extractor(key: str) -> Callable[[Any], Any]:
@@ -104,7 +156,9 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
     :attr:`~httk.serve.optimade.backend.adapter.EntrySource.sort_keys`.
     Nested names of served dictionary properties (``name.member``) filter the
     record's dictionary value by path, and every list-valued name (top-level or
-    nested) also supports ``LENGTH``.
+    nested) also supports ``LENGTH`` and correlated (zip) filters such as
+    ``elements:elements_ratios HAS "Si":>0.3`` (lists of unequal length make
+    such a filter unknown).
 
     Declared relationships (:meth:`~httk.core.EntryProvider.relationships`) are
     fully auto-wired for serving *and* filtering: for each entry type with
@@ -230,8 +284,17 @@ def adapter_from_providers(providers: Iterable[EntryProvider], **options: Any) -
         property_fulltypes = filter_fulltypes(properties)
         handlers = value_aware_property_handlers(entry_type, filter_keys, property_fulltypes)
         for name, key in filter_keys.items():
-            if property_fulltypes.get(name, '').startswith('list of '):
+            fulltype = property_fulltypes.get(name, '')
+            if fulltype.startswith('list of '):
                 handlers[name] = {**handlers[name], 'length': _length_handler(key)}
+            # The translator routes a zip to its owner: a dictionary property
+            # (member paths relative to it; nested dictionary names never own one)
+            # or the first named list property.
+            if fulltype in ('dict', 'list of dict'):
+                members = {path: f'{key}.{path}' for path in properties.get(name, {}).get('member_fulltypes', {})}
+                handlers[name] = {**handlers[name], 'HAS_ZIP': _zip_handler(members)}
+            elif fulltype.startswith('list of '):
+                handlers[name] = {**handlers[name], 'HAS_ZIP': _zip_handler(filter_keys)}
         fields: dict[str, Callable[[Any], Any]] = {name: _key_extractor(key) for name, key in property_keys.items()}
         entry_relationships = relationships_by_entry.get(entry_type)
         relationships = _relationships_extractor(entry_relationships) if entry_relationships else None

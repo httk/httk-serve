@@ -271,3 +271,22 @@ def test_set_predicates_accept_unhashable_members() -> None:
     assert nested_ids(lambda v: getattr(v, "d.grid").has_any([9], [1, 2])) == {"a"}
     assert nested_ids(lambda v: getattr(v, "d.grid").has_only([1, 2], [3])) == {"a"}
     assert nested_ids(lambda v: getattr(v, "d.sites.v").has_only(1, 2, 3)) == {"b"}
+
+
+def test_zip_handler_null_elements() -> None:
+    from httk.core.storage import ZipLiteral
+
+    from httk.serve.optimade.backend.providers import _zip_handler
+
+    handler = _zip_handler({"a": "a", "b": "b"})
+    row = {"a": ["x", None], "b": [1, 2]}
+
+    def holds(has_type: str, values: tuple[object, object]) -> bool | None:
+        literal = ZipLiteral(("a", "b"), (("=", "="),), (values,))
+        return handler("a", literal, MemoryVariable("t"), has_type).predicate(row)
+
+    # HAS ONLY ignores the position holding a null element; ALL/ANY never match it.
+    assert holds("HAS_ZIP_ONLY", ("x", 1)) is True
+    assert holds("HAS_ZIP_ALL", ("x", 1)) is True
+    assert holds("HAS_ZIP_ALL", ("x", 2)) is False
+    assert holds("HAS_ZIP_ANY", ("x", 2)) is False
