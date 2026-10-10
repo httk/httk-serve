@@ -10,7 +10,7 @@ jobs:
         with: {node-version: "20", cache: npm}
       - uses: actions/setup-python@v5
         with: {python-version: "3.12", cache: pip}
-      - run: pip install -e .[dev]
+      - run: pip install -e .[dev,ci]
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: make ci
@@ -70,7 +70,7 @@ jobs:
         run: echo 'HTTK_TEST_MONGODB_URI=mongodb://127.0.0.1:27127/?replicaSet=rs0' >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,ci]"
 
       - name: Run the extended test profile
         env:
@@ -134,7 +134,7 @@ jobs:
         run: echo 'HTTK_TEST_CLICKHOUSE_URI=clickhousedb://default:@127.0.0.1:28123/httk_p5' >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: pip install -c constraints/clickhouse-p5.txt -e ".[dev]"
+        run: pip install -c constraints/clickhouse-p5.txt -e ".[dev,ci]"
 
       - name: Run the extended test profile
         env:
@@ -187,7 +187,7 @@ jobs:
         run: echo 'HTTK_TEST_POSTGRES_URI=postgresql+psycopg://postgres:postgres@127.0.0.1:5432/httk' >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]" "httk-store[postgresql]"
+        run: pip install -e ".[dev,ci]" "httk-store[postgresql]"
 
       - name: Run the extended test profile
         env:

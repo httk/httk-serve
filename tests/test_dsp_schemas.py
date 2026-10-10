@@ -8,6 +8,12 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+
+# The schema validators are CI-only test dependencies, in the [ci] extra.
+pytest.importorskip("openapi_spec_validator")
+pytest.importorskip("pyshacl")
+pytest.importorskip("rdflib")
+
 import yaml
 from jsonschema import Draft201909Validator
 from openapi_spec_validator import validate

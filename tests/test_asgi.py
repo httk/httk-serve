@@ -266,6 +266,10 @@ def test_cors_simple_responses_vary_for_every_origin(method: str, origin: str, a
     assert "access-control-allow-credentials" not in response.headers
 
 
+def _vary_tokens(response: Any) -> list[str]:
+    return [token.strip().lower() for token in response.headers["vary"].split(",")]
+
+
 def test_cors_preflight_allows_only_configured_origin_and_safe_get_header() -> None:
     origin = "https://table.example"
     client = TestClient(make_app(config=OptimadeConfig(cors_origins=(origin,))), base_url="http://testserver")
@@ -277,13 +281,14 @@ def test_cors_preflight_allows_only_configured_origin_and_safe_get_header() -> N
     accepted = client.options("/structures", headers=headers)
     assert accepted.status_code == 200
     assert accepted.headers["access-control-allow-origin"] == origin
-    assert accepted.headers["vary"] == "Origin"
+    # Starlette >= 1.7 also varies preflights on the Access-Control-Request-* headers.
+    assert _vary_tokens(accepted).count("origin") == 1
     assert "GET" in accepted.headers["access-control-allow-methods"]
     assert "access-control-allow-credentials" not in accepted.headers
 
     rejected = client.options("/structures", headers={**headers, "Origin": "https://other.example"})
     assert rejected.status_code == 400
-    assert rejected.headers["vary"] == "Origin"
+    assert _vary_tokens(rejected).count("origin") == 1
     assert "access-control-allow-origin" not in rejected.headers
     assert "access-control-allow-credentials" not in rejected.headers
 

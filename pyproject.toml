@@ -64,19 +64,23 @@ where = ["src"]
 
 [project.optional-dependencies]
 dev = [
-  # Store-backed OPTIMADE examples and cross-store integration tests run in CI.
   "httk-atomistic>=2.1.0,<3",
-  "httk-store[clickhouse,duckdb,mongodb,parallel]",
+  "httk-store[db,mongodb]",
   "pytest>=8.0",
   "httpx2>=2.0",
-  "openapi-spec-validator>=0.7,<0.8",
-  "rdflib>=7,<8",
-  "pyshacl>=0.30,<1",
   "types-jsonschema",
   "ruff>=0.16,<0.17",
   "pydoclint>=0.9,<1",
   "pyright",
   "mypy"
+]
+# Cross-store integration tests and the DSP schema validation run in the full
+# CI gate, which installs [dev,ci].
+ci = [
+  "httk-store[clickhouse,duckdb,parallel,postgresql]",
+  "openapi-spec-validator>=0.7,<0.8",
+  "rdflib>=7,<8",
+  "pyshacl>=0.30,<1",
 ]
 docs = [
   "sphinx",
