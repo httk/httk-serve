@@ -1,0 +1,121 @@
+httk.serve.http.webhook
+=======================
+
+.. py:module:: httk.serve.http.webhook
+
+.. autoapi-nested-parse::
+
+   Hardened outbound HTTPS JSON webhook delivery.
+
+   This module is a general-purpose hardened outbound webhook client: strict
+   HTTPS URL parsing (rejecting userinfo, query, fragment, control characters,
+   and non-ASCII after IDNA), DNS resolution filtered to globally-routable
+   addresses only, a connection pinned to a resolved numeric address with TLS SNI
+   carrying the original logical hostname (a DNS-rebinding defence), a bounded
+   HTTP/1.1 request and response cycle with header-size caps and Content-Length /
+   chunked / close-delimited body framing, per-address retry, a concurrency
+   semaphore, and layered connect/read/DNS/total timeouts.
+
+   It carries no protocol vocabulary. The Data Space Protocol consumes it through
+   :mod:`httk.serve.dsp.callbacks`, which retains the DSP-facing spelling of these
+   names.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.webhook.WebhookSender
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.webhook.WebhookTransportError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.http.webhook.PinnedHttpsJsonPoster
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.webhook.join_url_path
+   httk.serve.http.webhook.deliver_with_retries
+
+
+Module Contents
+---------------
+
+.. py:type:: WebhookSender
+   :canonical: Callable[[str, dict[str, JsonValue]], Awaitable[int]]
+
+
+.. py:exception:: WebhookTransportError(detail)
+
+   Bases: :py:obj:`RuntimeError`
+
+
+   Represent an outbound webhook transport or URL-policy failure.
+
+   :param detail: Safe detail suitable for local process-delivery state.
+
+
+   .. py:attribute:: detail
+
+
+.. py:function:: join_url_path(base_url, path)
+
+   Append a fixed absolute path without depending on a trailing slash.
+
+   :param base_url: Base URL from an inbound request.
+   :param path: Absolute path beginning with ``/``.
+   :return: Complete URL.
+   :raises ValueError: If the base or fixed path is malformed.
+
+
+.. py:class:: PinnedHttpsJsonPoster(*, connect_timeout = 5.0, read_timeout = 10.0, dns_timeout = 5.0, total_timeout = 20.0, response_body_limit = 65536, max_concurrency = 8, allow_private_addresses = False, resolver = None, connector = None)
+
+   Send one HTTPS JSON POST through a validated, pinned socket.
+
+   DNS resolution occurs inside the concurrency cap and produces the exact
+   numeric socket address dialed for the request. TLS SNI and the HTTP
+   ``Host`` header retain the original DNS hostname. The stdlib transport does
+   not consult proxy or environment settings; redirects are not implemented.
+   Both DNS and the complete operation have finite deadlines.
+
+   :param connect_timeout: Maximum seconds for TCP connect and TLS handshake.
+   :param read_timeout: Maximum seconds for reading a complete response body.
+   :param dns_timeout: Maximum seconds for DNS resolution.
+   :param total_timeout: Maximum seconds from the start of resolution through response completion.
+   :param response_body_limit: Maximum response bytes consumed before rejection.
+   :param max_concurrency: Maximum simultaneous resolution and send operations.
+   :param allow_private_addresses: Skip global-address filtering when ``True``; the default rejects private targets.
+   :param resolver: Optional test seam that resolves public pinned addresses.
+   :param connector: Optional test seam that dials a supplied pinned address.
+
+
+.. py:function:: deliver_with_retries(sender, url, document, *, attempts = 2)
+   :async:
+
+
+   Deliver a document through a sender at most ``attempts`` times, requiring a 2xx status.
+
+   :param sender: Awaitable sender returning a peer HTTP status code.
+   :param url: Complete webhook URL passed to the sender.
+   :param document: Plain JSON message document passed to the sender.
+   :param attempts: Maximum number of delivery attempts before failing.
+   :raises WebhookTransportError: If no attempt yields a 2xx acknowledgement.
+
+

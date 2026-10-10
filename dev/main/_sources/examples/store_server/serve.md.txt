@@ -1,0 +1,6 @@
+# Serve a live OPTIMADE structures endpoint directly from ``SqlStore``.
+
+```{literalinclude} ../../../examples/optimade/store_server/serve.py
+:language: python
+:lines: 3-
+```

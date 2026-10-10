@@ -1,0 +1,40 @@
+httk.serve.optimade.endpoints.partial_data
+==========================================
+
+.. py:module:: httk.serve.optimade.endpoints.partial_data
+
+.. autoapi-nested-parse::
+
+   The partial data endpoint, streaming large property values as JSON Lines.
+
+   See the OPTIMADE specification appendix "OPTIMADE JSON Lines partial data
+   format". A backend exposes a large or sliceable property value as a
+   :class:`~httk.serve.optimade.backend.partial.PartialValue`; this endpoint fetches it
+   in chunks of ``config.partial_data_chunk_size`` outer items and emits the
+   JSON Lines document, with a next-marker when more data remains.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.endpoints.partial_data.generate_partial_data_reply
+
+
+Module Contents
+---------------
+
+.. py:function:: generate_partial_data_reply(request, config, query_function, schema)
+
+   Produce the JSON Lines partial-data reply for one property value.
+
+   :param request: Validated partial-data request.
+   :param config: Service configuration controlling chunk size.
+   :param query_function: Callback used to retrieve the entry.
+   :param schema: Served schema used by the request engine.
+   :return: JSON Lines response.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If the entry, property, or partial-data length is unavailable.
+
+

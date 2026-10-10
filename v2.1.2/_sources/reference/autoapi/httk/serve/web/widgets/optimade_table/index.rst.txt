@@ -1,0 +1,139 @@
+httk.serve.web.widgets.optimade_table
+=====================================
+
+.. py:module:: httk.serve.web.widgets.optimade_table
+
+.. autoapi-nested-parse::
+
+   The HTML/configuration boundary for the browser-driven OPTIMADE table.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_URL_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_IDENTIFIER_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_TEXT_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_LABEL_CHARS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_ORIGINS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_COLUMNS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_SUMMARY_FIELDS
+   httk.serve.web.widgets.optimade_table.MAX_OPTIMADE_CLEARS
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_table.OptimadeTableProtocolError
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_table.render
+
+
+Module Contents
+---------------
+
+.. py:data:: MAX_OPTIMADE_URL_CHARS
+   :value: 2048
+
+
+.. py:data:: MAX_OPTIMADE_IDENTIFIER_CHARS
+   :value: 128
+
+
+.. py:data:: MAX_OPTIMADE_TEXT_CHARS
+   :value: 4096
+
+
+.. py:data:: MAX_OPTIMADE_LABEL_CHARS
+   :value: 256
+
+
+.. py:data:: MAX_OPTIMADE_ORIGINS
+   :value: 16
+
+
+.. py:data:: MAX_OPTIMADE_COLUMNS
+   :value: 32
+
+
+.. py:data:: MAX_OPTIMADE_SUMMARY_FIELDS
+   :value: 64
+
+
+.. py:data:: MAX_OPTIMADE_CLEARS
+   :value: 8
+
+
+.. py:exception:: OptimadeTableProtocolError
+
+   Bases: :py:obj:`ValueError`
+
+
+   A declared OPTIMADE table shell cannot meet the browser protocol.
+
+
+.. py:function:: render(context, *, base_url, entry_type = 'structures', columns, page_size = 50, page_size_options = None, page_size_query = None, caption = 'OPTIMADE results', filter = None, filter_query = None, sort = None, sort_query = None, sort_aliases = None, allowed_origins = (), detail_route = None, detail_column = None, detail_query = 'id', summary = None, advanced_filter = None)
+
+   Render an inert, accessible OPTIMADE table shell and trusted assets.
+
+   The browser negotiates continuation URLs from inert configuration; those
+   URLs are not placed in DOM attributes, events, storage, or history.
+   ``allowed_origins`` is a client continuation allow-list, not an access
+   control boundary. ``filter_query`` and ``sort_query`` replace the whole
+   browser filter and sort values.
+
+   :param context: Immutable widget invocation context.
+   :param base_url: Origin- or path-relative OPTIMADE endpoint base URL.
+   :param entry_type: OPTIMADE entry resource type.
+   :param columns: Column names or column mappings to display.
+   :param page_size: Number of entries requested per browser page.
+   :param page_size_options: Optional sequence of 1-8 distinct page-size integers (each
+       1..500) offered by the page-size dropdown. ``None`` uses ``(50, 100, 500)``. The
+       current ``page_size`` is always included as an option; the list is sorted ascending.
+   :param page_size_query: Query parameter name whose value selects a page size from the
+       options. The dropdown renders only when this is set.
+   :param caption: Accessible table caption.
+   :param filter: Initial OPTIMADE filter expression.
+   :param filter_query: Whole-filter query parameter name used by the browser.
+   :param sort: Optional OPTIMADE sort expression.
+   :param sort_query: Query parameter name whose complete value replaces ``sort``.
+   :param sort_aliases: Optional mapping of display sort values (e.g. a human-facing
+       ``"rank"``) to complete OPTIMADE sort expressions. The browser resolves an
+       authored or URL-supplied sort through this mapping before querying, so a
+       display alias is never sent to OPTIMADE; unmapped values pass through unchanged.
+   :param allowed_origins: Client-side allow-list for continuation origins.
+   :param detail_route: Optional site route for entry details.
+   :param detail_column: Column supplying the detail value.
+   :param detail_query: Query parameter receiving the detail value.
+   :param summary: Optional results-summary configuration. ``None`` disables it,
+       ``True`` enables it with defaults (noun ``"entries"``), and a mapping may set
+       ``noun`` and a ``fields`` mapping of property name to ``label``, ``format``,
+       ``values``, and ``clears`` overlays used to describe the active filter and sort
+       in human terms. Field presentation defaults to the matching column's label and
+       format. Every rendered filter/sort pill gets a removable "x"; ``clears`` names
+       1-8 additional source URL parameter(s) that a filter pill's "x" also deletes, so
+       a host page whose own form re-derives ``filter`` from those parameters does not
+       resurrect the removed predicate. Removing the sort pill (including an authored
+       default sort, which now renders as a pill like any other) writes an explicit
+       empty ``sort=`` that suppresses the default rather than re-applying it.
+   :param advanced_filter: Optional advanced-filter disclosure configuration. ``None``
+       disables it, ``True`` enables it with defaults, and a mapping may set ``label``
+       (the disclosure heading) and ``help_url`` (an absolute HTTP(S) URL or site-relative
+       path to an "available fields" reference). The disclosure is a plain GET form that
+       submits a raw OPTIMADE filter under the ``filter_query`` parameter, so it requires
+       ``filter_query`` to be set.
+   :return: Accessible table shell and its trusted assets.
+   :raises OptimadeTableProtocolError: If configuration violates the browser protocol.
+
+

@@ -1,0 +1,51 @@
+httk.serve.http.fields
+======================
+
+.. py:module:: httk.serve.http.fields
+
+.. autoapi-nested-parse::
+
+   Validate HTTP field names and values against the RFC 9110 grammar.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.fields.is_field_name
+   httk.serve.http.fields.is_field_value
+   httk.serve.http.fields.validated_headers
+
+
+Module Contents
+---------------
+
+.. py:function:: is_field_name(value)
+
+   Report whether a value is a valid RFC 9110 field name.
+
+   :param value: The candidate field name.
+   :return: ``True`` when the value is a string of RFC 9110 ``tchar`` characters.
+
+
+.. py:function:: is_field_value(value)
+
+   Report whether a value is an acceptable HTTP field value.
+
+   :param value: The candidate field value.
+   :return: ``True`` when the value is a non-empty string free of CR and LF.
+
+
+.. py:function:: validated_headers(pairs)
+
+   Validate response header name-value pairs, rejecting duplicate names.
+
+   Names must be RFC 9110 field names and values must be non-empty and free of
+   CR and LF; header names are compared case-insensitively for uniqueness.
+
+   :param pairs: The header name-value pairs to validate.
+   :return: The validated pairs as an immutable tuple.
+
+

@@ -1,0 +1,48 @@
+httk.serve.dsp.validation
+=========================
+
+.. py:module:: httk.serve.dsp.validation
+
+.. autoapi-nested-parse::
+
+   Load and validate the bundled DSP and local profile schemas offline.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.validation.DspSchemaError
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.dsp.validation.dsp_contract
+
+
+Module Contents
+---------------
+
+.. py:exception:: DspSchemaError
+
+   Bases: :py:obj:`ValueError`
+
+
+   Report a DSP schema-validation failure.
+
+
+.. py:function:: dsp_contract()
+
+   Return the cached bundled DSP OpenAPI contract and offline schema registry.
+
+   :return: Contract parsed exclusively from package data.
+   :raises DspSchemaError: If any bundled schema document is invalid.
+   :raises httk.serve.http.openapi.OpenAPIContractError: If the bundled
+       OpenAPI document uses an unsupported construct.
+
+

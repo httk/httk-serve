@@ -1,0 +1,38 @@
+httk.serve.web.widgets.optimade_assets
+======================================
+
+.. py:module:: httk.serve.web.widgets.optimade_assets
+
+.. autoapi-nested-parse::
+
+   Expose the built-in OPTIMADE protocol asset to site-local widgets.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_assets.optimade_protocol_asset
+   httk.serve.web.widgets.optimade_assets.optimade_protocol_href
+
+
+Module Contents
+---------------
+
+.. py:function:: optimade_protocol_asset()
+
+   Return the registered-compatible built-in OPTIMADE protocol module.
+
+   :return: The protocol module asset used by ``optimade_table``.
+
+
+.. py:function:: optimade_protocol_href(context)
+
+   Return the protocol module URL for a page.
+
+   :param context: Widget invocation context.
+   :return: Deployment-relative protocol module URL.
+
+

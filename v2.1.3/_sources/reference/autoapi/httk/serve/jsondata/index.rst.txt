@@ -1,0 +1,85 @@
+httk.serve.jsondata
+===================
+
+.. py:module:: httk.serve.jsondata
+
+.. autoapi-nested-parse::
+
+   Protocol-neutral JSON value model shared across httk serving protocols.
+
+   This module owns the recursive JSON data model used by every protocol
+   implementation in :mod:`httk.serve`, together with the deep freeze/thaw pair
+   that converts between ordinary caller-owned JSON containers and an immutable
+   snapshot representation.
+
+   :data:`httk.serve.http.JsonDocument` is a deliberately laxer alias
+   (``Mapping[str, object]``) for a single JSON object accepted by the GET-app
+   factories, whereas :data:`JsonValue` here models an arbitrary JSON value
+   recursively. The two are intentionally distinct and neither is defined in
+   terms of the other.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.jsondata.JsonScalar
+   httk.serve.jsondata.JsonValue
+   httk.serve.jsondata.FrozenJsonValue
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.jsondata.freeze_json
+   httk.serve.jsondata.thaw_json
+
+
+Module Contents
+---------------
+
+.. py:type:: JsonScalar
+   :canonical: str | int | float | bool | None
+
+
+   A JSON scalar -- string, number, boolean, or null.
+
+.. py:type:: JsonValue
+   :canonical: JsonScalar | list['JsonValue'] | dict[str, 'JsonValue']
+
+
+   An arbitrary JSON value modelled with ordinary mutable containers.
+
+.. py:type:: FrozenJsonValue
+   :canonical: JsonScalar | tuple['FrozenJsonValue', ...] | Mapping[str, 'FrozenJsonValue']
+
+
+   An immutable JSON value snapshot.
+
+   The mapping arm is typed as :class:`~collections.abc.Mapping` so a plain
+   mutable :class:`dict` satisfies it statically, while :func:`freeze_json`
+   guarantees a :class:`~types.MappingProxyType` at runtime. This static/runtime
+   gap is intentional and is not closed here.
+
+.. py:function:: freeze_json(value)
+
+   Freeze a JSON-compatible value without retaining caller-owned containers.
+
+   :param value: JSON-compatible value to copy into an immutable representation.
+   :return: An immutable JSON-compatible value.
+   :raises TypeError: If ``value`` is not JSON-compatible.
+   :raises ValueError: If a floating-point value is non-finite.
+
+
+.. py:function:: thaw_json(value)
+
+   Return an independent ordinary JSON value from an immutable snapshot.
+
+   :param value: Immutable JSON-compatible value to copy.
+   :return: Plain JSON-compatible lists and dictionaries.
+
+

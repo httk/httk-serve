@@ -1,0 +1,160 @@
+httk.serve.dsp.catalogue
+========================
+
+.. py:module:: httk.serve.dsp.catalogue
+
+.. autoapi-nested-parse::
+
+   Public catalogue-policy seam and the built-in DSP minimal policy.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.catalogue.DCAT_PROFILE
+   httk.serve.dsp.catalogue.DCAT_MEDIA_TYPE
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.dsp.catalogue.DspCatalogueRepresentation
+   httk.serve.dsp.catalogue.DspCataloguePolicy
+   httk.serve.dsp.catalogue.MinimalDspCataloguePolicy
+
+
+Module Contents
+---------------
+
+.. py:data:: DCAT_PROFILE
+   :value: 'https://semiceu.github.io/DCAT-AP/releases/3.0.1/'
+
+
+   DCAT-AP profile parameter used by the built-in alternate representation.
+
+.. py:data:: DCAT_MEDIA_TYPE
+   :value: 'application/ld+json; profile="https://semiceu.github.io/DCAT-AP/releases/3.0.1/"'
+
+
+   Full media type of the built-in alternate catalogue representation.
+
+.. py:class:: DspCatalogueRepresentation
+
+   Describe one selected HTTP representation of a catalogue response.
+
+   :param media_type: Exact response media type declared by the DSP OpenAPI contract.
+   :param alternate: Whether the policy should render its alternate catalogue projection.
+   :param headers: Additional response headers as immutable name-value pairs.
+
+
+   .. py:attribute:: media_type
+      :type:  str
+
+
+   .. py:attribute:: alternate
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: headers
+      :type:  tuple[tuple[str, str], ...]
+      :value: ()
+
+
+
+.. py:class:: DspCataloguePolicy
+
+   Bases: :py:obj:`Protocol`
+
+
+   Define the replaceable publication-profile part of a DSP provider.
+
+   Implementations own catalogue snapshot requirements, catalogue and dataset
+   serialization, offer serialization, filter policy, and selection of an
+   optional alternate catalogue representation. The provider continues to own
+   live publication retrieval and all DSP negotiation and transfer mechanics.
+
+
+   .. py:method:: build_profile(config, publications)
+
+      Build and validate one immutable live catalogue snapshot.
+
+
+
+   .. py:method:: validate_catalogue_request(config, message)
+
+      Validate profile-specific catalogue request constraints.
+
+
+
+   .. py:method:: select_catalogue_representation(config, accept)
+
+      Select the catalogue HTTP representation for an Accept field.
+
+
+
+   .. py:method:: serialize_catalogue(profile, *, alternate)
+
+      Serialize one catalogue snapshot in the selected projection.
+
+
+
+   .. py:method:: serialize_dataset(profile)
+
+      Serialize one dataset root response.
+
+
+
+   .. py:method:: serialize_offer(offer, *, include_target)
+
+      Serialize an offer consistently for catalogues and negotiations.
+
+
+
+.. py:class:: MinimalDspCataloguePolicy
+
+   Implement the built-in stable DSP minimal catalogue profile.
+
+
+   .. py:method:: build_profile(config, publications)
+
+      Build and cross-validate the built-in immutable snapshot.
+
+
+
+   .. py:method:: validate_catalogue_request(config, message)
+
+      Reject catalogue filtering in the built-in minimal profile.
+
+
+
+   .. py:method:: select_catalogue_representation(config, accept)
+
+      Apply the built-in exact alternate-representation negotiation rule.
+
+
+
+   .. py:method:: serialize_catalogue(profile, *, alternate)
+
+      Serialize the built-in DSP or context-substituted catalogue.
+
+
+
+   .. py:method:: serialize_dataset(profile)
+
+      Serialize one built-in DSP dataset document.
+
+
+
+   .. py:method:: serialize_offer(offer, *, include_target)
+
+      Serialize one built-in unconditional-use offer.
+
+
+

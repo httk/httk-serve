@@ -1,0 +1,346 @@
+httk.serve.http
+===============
+
+.. py:module:: httk.serve.http
+
+.. autoapi-nested-parse::
+
+   Public lightweight HTTP application helpers.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/http/accept/index
+   /reference/autoapi/httk/serve/http/api/index
+   /reference/autoapi/httk/serve/http/apptypes/index
+   /reference/autoapi/httk/serve/http/fields/index
+   /reference/autoapi/httk/serve/http/identifiers/index
+   /reference/autoapi/httk/serve/http/openapi/index
+   /reference/autoapi/httk/serve/http/webhook/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.JsonDocument
+   httk.serve.http.JsonDocumentFactory
+   httk.serve.http.ResponseHook
+   httk.serve.http.ServeApp
+   httk.serve.http.WebhookSender
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.http.WebhookTransportError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.http.MediaRange
+   httk.serve.http.PinnedHttpsJsonPoster
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.best_quality_ignoring_parameterised
+   httk.serve.http.best_quality_matching_parameters
+   httk.serve.http.http_parameter_value
+   httk.serve.http.parse_accept
+   httk.serve.http.parse_media_type
+   httk.serve.http.split_http_list
+   httk.serve.http.create_file_map_app
+   httk.serve.http.json_get_app
+   httk.serve.http.jsonld_get_app
+   httk.serve.http.is_field_name
+   httk.serve.http.is_field_value
+   httk.serve.http.validated_headers
+   httk.serve.http.is_json_encodable_text
+   httk.serve.http.urn_uuid
+   httk.serve.http.xsd_utc_timestamp
+   httk.serve.http.deliver_with_retries
+   httk.serve.http.join_url_path
+
+
+Package Contents
+----------------
+
+.. py:class:: MediaRange
+
+   One valid media range parsed from an HTTP ``Accept`` header.
+
+   :param major: Lowercase major type, or ``"*"`` for a wildcard.
+   :param minor: Lowercase minor type, or ``"*"`` for a wildcard.
+   :param parameters: Non-``q`` parameters as immutable lowercase name-value pairs.
+   :param quality: The ``q`` weight, defaulting to ``1.0`` when absent.
+
+
+   .. py:attribute:: major
+      :type:  str
+
+
+   .. py:attribute:: minor
+      :type:  str
+
+
+   .. py:attribute:: parameters
+      :type:  tuple[tuple[str, str], ...]
+
+
+   .. py:attribute:: quality
+      :type:  float
+
+
+.. py:function:: best_quality_ignoring_parameterised(ranges, major, minor)
+
+   Select the best range, discarding any range carrying a parameter.
+
+   Any range that carries a parameter is discarded outright. The specificity
+   tiebreak favours a more specific major/minor match, with a constant second
+   component.
+
+   :param ranges: The parsed media ranges to select among.
+   :param major: The response major type to match.
+   :param minor: The response minor type to match.
+   :return: The winning range's quality, or ``None`` when nothing matches.
+
+
+.. py:function:: best_quality_matching_parameters(ranges, major, minor, parameters)
+
+   Select the best range that keeps and matches its parameters.
+
+   A parameterised range is kept only when every one of its parameters is
+   present and equal in ``parameters``. The specificity tiebreak favours a more
+   specific major/minor match and then a range carrying more parameters.
+
+   :param ranges: The parsed media ranges to select among.
+   :param major: The response major type to match.
+   :param minor: The response minor type to match.
+   :param parameters: The response media-type parameters to match against.
+   :return: The winning range's quality, or ``None`` when nothing matches.
+
+
+.. py:function:: http_parameter_value(value)
+
+   Decode one token or quoted-string parameter value.
+
+   :param value: The raw parameter value, possibly a quoted string.
+   :return: The decoded value, or ``None`` when the value is malformed.
+
+
+.. py:function:: parse_accept(header)
+
+   Parse an ``Accept`` header into its valid media ranges.
+
+   :param header: The raw ``Accept`` header value.
+   :return: The valid parsed media ranges, or ``()`` when the header cannot be split.
+
+
+.. py:function:: parse_media_type(value)
+
+   Parse a JSON media type into its major, minor, and parameters.
+
+   :param value: The declared media type; only ``application/json`` and
+       ``application/*+json`` types with unique parameters are accepted.
+   :return: The lowercase major type, lowercase minor type, and parameter mapping.
+
+
+.. py:function:: split_http_list(value, delimiter)
+
+   Split an HTTP field outside quoted strings, rejecting broken quoting.
+
+   :param value: The raw HTTP field value to split.
+   :param delimiter: The single-character separator to split on outside quotes.
+   :return: The delimited parts, or ``None`` when a quoted string is unterminated.
+
+
+.. py:type:: JsonDocument
+   :canonical: Mapping[str, object]
+
+
+.. py:type:: JsonDocumentFactory
+   :canonical: Callable[[], JsonDocument | Awaitable[JsonDocument]]
+
+
+.. py:function:: create_file_map_app(files, *, debug = False)
+
+   Create an application exposing only explicitly mapped files.
+
+   :param files: Root-relative URL paths mapped to filesystem paths.
+   :param debug: Whether Starlette debug responses are enabled.
+   :return: A mountable application serving the declared files.
+
+
+.. py:function:: json_get_app(document, *, path = '/', media_type = 'application/json', profile = None, cache_control = 'public, max-age=60', cors_allow_origin = '*', debug = False)
+
+   Create a lightweight application serving one live JSON document.
+
+   :param document: JSON mapping or live zero-argument document factory.
+   :param path: Canonical root-relative route, normally ``/`` for mounting.
+   :param media_type: JSON response media type, including optional parameters.
+   :param profile: Optional profile IRI emitted as an RFC 6906 ``Link`` header.
+   :param cache_control: Optional ``Cache-Control`` response value.
+   :param cors_allow_origin: Optional ``Access-Control-Allow-Origin`` value.
+   :param debug: Whether Starlette debug responses are enabled.
+   :return: A mountable application serving the declared JSON resource.
+
+
+.. py:function:: jsonld_get_app(document, *, path = '/', media_type = 'application/ld+json', profile = None, cache_control = 'public, max-age=60', cors_allow_origin = '*', debug = False)
+
+   Create a lightweight application serving one live JSON-LD document.
+
+   :param document: JSON-LD mapping or live zero-argument document factory.
+   :param path: Canonical root-relative route, normally ``/`` for mounting.
+   :param media_type: JSON-LD response media type, including optional parameters.
+   :param profile: Optional profile IRI emitted as an RFC 6906 ``Link`` header.
+   :param cache_control: Optional ``Cache-Control`` response value.
+   :param cors_allow_origin: Optional ``Access-Control-Allow-Origin`` value.
+   :param debug: Whether Starlette debug responses are enabled.
+   :return: A mountable application serving the declared JSON-LD resource.
+
+
+.. py:type:: ResponseHook
+   :canonical: Callable[[], Awaitable[None]]
+
+
+   A zero-argument coroutine callback run once, after the response has been sent.
+
+.. py:type:: ServeApp
+   :canonical: Starlette
+
+
+   The httk-serve serving application type (a Starlette app; branded so consumers need not import Starlette).
+
+   Annotation-only: this is a type alias, not the ``Starlette`` class, so use ``Starlette``
+   itself for ``isinstance``/subclass checks.
+
+.. py:function:: is_field_name(value)
+
+   Report whether a value is a valid RFC 9110 field name.
+
+   :param value: The candidate field name.
+   :return: ``True`` when the value is a string of RFC 9110 ``tchar`` characters.
+
+
+.. py:function:: is_field_value(value)
+
+   Report whether a value is an acceptable HTTP field value.
+
+   :param value: The candidate field value.
+   :return: ``True`` when the value is a non-empty string free of CR and LF.
+
+
+.. py:function:: validated_headers(pairs)
+
+   Validate response header name-value pairs, rejecting duplicate names.
+
+   Names must be RFC 9110 field names and values must be non-empty and free of
+   CR and LF; header names are compared case-insensitively for uniqueness.
+
+   :param pairs: The header name-value pairs to validate.
+   :return: The validated pairs as an immutable tuple.
+
+
+.. py:function:: is_json_encodable_text(value)
+
+   Report whether a string is free of lone UTF-16 surrogate code points.
+
+   :param value: String to test for lone surrogate code points.
+   :return: ``False`` when the string contains a lone surrogate, otherwise ``True``.
+
+
+.. py:function:: urn_uuid(value)
+
+   Normalise a UUID factory result to the required ``urn:uuid:`` URN form.
+
+   :param value: UUID factory output rendered to text before normalisation.
+   :return: The identifier in ``urn:uuid:`` form.
+   :raises RuntimeError: If the rendered value is blank or contains a lone surrogate.
+
+
+.. py:function:: xsd_utc_timestamp(value)
+
+   Render a timezone-aware datetime as an XSD/RFC 3339 UTC timestamp.
+
+   :param value: Timezone-aware datetime to render as a UTC XML Schema date-time.
+   :return: The value in UTC with a ``Z`` suffix.
+   :raises TypeError: If ``value`` is not a :class:`~datetime.datetime`.
+   :raises ValueError: If ``value`` is naive or lacks a UTC offset.
+
+
+.. py:class:: PinnedHttpsJsonPoster(*, connect_timeout = 5.0, read_timeout = 10.0, dns_timeout = 5.0, total_timeout = 20.0, response_body_limit = 65536, max_concurrency = 8, allow_private_addresses = False, resolver = None, connector = None)
+
+   Send one HTTPS JSON POST through a validated, pinned socket.
+
+   DNS resolution occurs inside the concurrency cap and produces the exact
+   numeric socket address dialed for the request. TLS SNI and the HTTP
+   ``Host`` header retain the original DNS hostname. The stdlib transport does
+   not consult proxy or environment settings; redirects are not implemented.
+   Both DNS and the complete operation have finite deadlines.
+
+   :param connect_timeout: Maximum seconds for TCP connect and TLS handshake.
+   :param read_timeout: Maximum seconds for reading a complete response body.
+   :param dns_timeout: Maximum seconds for DNS resolution.
+   :param total_timeout: Maximum seconds from the start of resolution through response completion.
+   :param response_body_limit: Maximum response bytes consumed before rejection.
+   :param max_concurrency: Maximum simultaneous resolution and send operations.
+   :param allow_private_addresses: Skip global-address filtering when ``True``; the default rejects private targets.
+   :param resolver: Optional test seam that resolves public pinned addresses.
+   :param connector: Optional test seam that dials a supplied pinned address.
+
+
+.. py:type:: WebhookSender
+   :canonical: Callable[[str, dict[str, JsonValue]], Awaitable[int]]
+
+
+.. py:exception:: WebhookTransportError(detail)
+
+   Bases: :py:obj:`RuntimeError`
+
+
+   Represent an outbound webhook transport or URL-policy failure.
+
+   :param detail: Safe detail suitable for local process-delivery state.
+
+
+   .. py:attribute:: detail
+
+
+.. py:function:: deliver_with_retries(sender, url, document, *, attempts = 2)
+   :async:
+
+
+   Deliver a document through a sender at most ``attempts`` times, requiring a 2xx status.
+
+   :param sender: Awaitable sender returning a peer HTTP status code.
+   :param url: Complete webhook URL passed to the sender.
+   :param document: Plain JSON message document passed to the sender.
+   :param attempts: Maximum number of delivery attempts before failing.
+   :raises WebhookTransportError: If no attempt yields a 2xx acknowledgement.
+
+
+.. py:function:: join_url_path(base_url, path)
+
+   Append a fixed absolute path without depending on a trailing slash.
+
+   :param base_url: Base URL from an inbound request.
+   :param path: Absolute path beginning with ``/``.
+   :return: Complete URL.
+   :raises ValueError: If the base or fixed path is malformed.
+
+
