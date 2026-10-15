@@ -164,9 +164,7 @@ def test_optional_parameters_absent_use_defaults_and_present_bind() -> None:
     bound = bind_operation(op, handler)
     absent = run(bound(make_request(op, path={"item": "one"})))
     assert absent.body == {"item": "one", "view": None, "x_trace": None}
-    present = run(
-        bound(make_request(op, path={"item": "one"}, query={"view": "full"}, headers={"x-trace": "trace"}))
-    )
+    present = run(bound(make_request(op, path={"item": "one"}, query={"view": "full"}, headers={"x-trace": "trace"})))
     assert present.body == {"item": "one", "view": "full", "x_trace": "trace"}
 
 

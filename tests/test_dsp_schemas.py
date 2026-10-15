@@ -163,9 +163,7 @@ def test_dcat_graph_conforms_to_pinned_mandatory_range_and_vocabulary_profiles()
     """Run an actual generated minimal catalogue through all pinned constraints."""
     csv = publication("csv")
     csv_distribution = replace(csv.distribution, byte_size=7, sha256="0" * 64)
-    csv = DspDatasetPublication(
-        replace(csv.dataset, distributions=(csv_distribution,)), offer_id=csv.offer_id
-    )
+    csv = DspDatasetPublication(replace(csv.dataset, distributions=(csv_distribution,)), offer_id=csv.offer_id)
     provider = DspProvider(
         config(dcat_ap_content_negotiation=True),
         publications=(

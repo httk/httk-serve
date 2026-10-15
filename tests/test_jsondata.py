@@ -5,7 +5,7 @@ from types import MappingProxyType
 import pytest
 
 import httk.serve.dsp.models as dsp_models
-import httk.serve.jsondata as jsondata
+from httk.serve import jsondata
 from httk.serve.jsondata import freeze_json, thaw_json
 
 

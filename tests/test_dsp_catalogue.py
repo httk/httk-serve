@@ -65,9 +65,7 @@ def test_snapshot_rejects_duplicate_ids_and_mixed_publishers() -> None:
         )
         _ = DspProvider(
             config(),
-            publications=tuple(
-                DspPublicationRecord(dataset=item) for item in (duplicate, replacement)
-            ),
+            publications=tuple(DspPublicationRecord(dataset=item) for item in (duplicate, replacement)),
         ).profile
 
     other = publication("two")

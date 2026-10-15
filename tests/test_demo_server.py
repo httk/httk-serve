@@ -13,7 +13,7 @@ from httk.serve.optimade.filter import parse_optimade_filter
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "examples/optimade", "demo_server"))
 
-import serve  # noqa: E402
+import serve
 
 
 def structure_ids(filter_string: str) -> list[str]:

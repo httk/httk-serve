@@ -111,8 +111,7 @@ def test_publish_split_hosting_routes_links_by_page_dynamism(tmp_path: Path) -> 
     (src / "functions").mkdir(parents=True)
 
     (src / "functions" / "dynamic.py").write_text(
-        "def execute(global_data=None, **kwargs):\n"
-        "    return 'ok'\n",
+        "def execute(global_data=None, **kwargs):\n    return 'ok'\n",
         encoding="utf-8",
     )
     (src / "templates" / "dynamic_fragment.html.j2").write_text("{{ result }}", encoding="utf-8")
@@ -162,20 +161,13 @@ def test_publish_split_hosting_frontmatter_overrides(tmp_path: Path) -> None:
     (src / "functions").mkdir(parents=True)
 
     (src / "functions" / "dynamic.py").write_text(
-        "def execute(global_data=None, **kwargs):\n"
-        "    return 'ok'\n",
+        "def execute(global_data=None, **kwargs):\n    return 'ok'\n",
         encoding="utf-8",
     )
     (src / "templates" / "dynamic_fragment.html.j2").write_text("{{ result }}", encoding="utf-8")
 
     (src / "content" / "precomputed.md").write_text(
-        (
-            "---\n"
-            "title: Precomputed\n"
-            "hosting: static\n"
-            "result-function: dynamic::dynamic_fragment\n"
-            "---\n\nprecomputed\n"
-        ),
+        ("---\ntitle: Precomputed\nhosting: static\nresult-function: dynamic::dynamic_fragment\n---\n\nprecomputed\n"),
         encoding="utf-8",
     )
     (src / "content" / "docs.md").write_text(
@@ -315,13 +307,7 @@ def test_create_asgi_app_compatibility_mode_supports_legacy_repeat(tmp_path: Pat
     (src / "templates").mkdir(parents=True)
 
     (src / "content" / "index.md").write_text(
-        "---\n"
-        "template: default\n"
-        "menuitems:\n"
-        "  - alpha\n"
-        "  - beta\n"
-        "---\n\n"
-        "hello",
+        "---\ntemplate: default\nmenuitems:\n  - alpha\n  - beta\n---\n\nhello",
         encoding="utf-8",
     )
     (src / "templates" / "default.httkweb.html").write_text(
@@ -348,12 +334,7 @@ def test_create_asgi_app_compatibility_mode_supports_legacy_pages_call(tmp_path:
 
     (src / "content" / "about.md").write_text("---\ntitle: About Page\n---\n\nAbout body", encoding="utf-8")
     (src / "content" / "index.md").write_text(
-        "---\n"
-        "template: default\n"
-        "menuitems:\n"
-        "  - about\n"
-        "---\n\n"
-        "home",
+        "---\ntemplate: default\nmenuitems:\n  - about\n---\n\nhome",
         encoding="utf-8",
     )
     (src / "templates" / "default.httkweb.html").write_text(
@@ -401,8 +382,7 @@ def test_create_asgi_app_compatibility_mode_runs_init_function(tmp_path: Path) -
     (src / "functions").mkdir(parents=True)
 
     (src / "functions" / "init.py").write_text(
-        "def execute(global_data, **kwargs):\n"
-        "    global_data['website_name'] = 'Legacy Site'\n",
+        "def execute(global_data, **kwargs):\n    global_data['website_name'] = 'Legacy Site'\n",
         encoding="utf-8",
     )
     (src / "content" / "index.md").write_text("---\ntemplate: default\n---\n\nhello", encoding="utf-8")

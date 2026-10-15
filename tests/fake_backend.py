@@ -147,6 +147,7 @@ class FakeSearcher:
         # Stable multi-key sort: apply keys in reverse declaration order so the
         # first-declared sort key is the most significant. None sorts first.
         for name, descending in reversed(self.sorts):
+
             def key(row: Any, n: str = name) -> tuple[bool, Any]:
                 return getattr(row, n) is None, getattr(row, n)
 
@@ -162,9 +163,7 @@ class FakeSearcher:
             rows = rows[: self.limit]
         outputs = self.outputs if self.outputs else [(FakeVariable(None), "row")]
         names = tuple(name for _output, name in outputs)
-        return iter(
-            [SearchResult(tuple(self._value(output, row) for output, _name in outputs), names) for row in rows]
-        )
+        return iter([SearchResult(tuple(self._value(output, row) for output, _name in outputs), names) for row in rows])
 
 
 class FakeStore:

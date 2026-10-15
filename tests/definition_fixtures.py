@@ -15,7 +15,8 @@ module builds them:
 builds a :class:`~httk.serve.optimade.schema.served.ServedSchema`.
 """
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from httk.core import EntryTypeDefinition, PropertyDefinition, standard_entry_type
 

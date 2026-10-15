@@ -5,8 +5,8 @@ import pytest
 from definition_fixtures import references_definition, structures_definition
 from materials_fixtures import materials_schema
 
-from httk.serve.optimade.engine import process
 from httk.serve.optimade.backend.partial import PartialDimension, PartialValue
+from httk.serve.optimade.engine import process
 from httk.serve.optimade.model import OptimadeConfig, OptimadeError, RawRequest, ResultRow
 from httk.serve.optimade.schema.served import build_served_schema
 

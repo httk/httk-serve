@@ -77,9 +77,7 @@ def test_create_openapi_app_rejects_contract_with_schemas() -> None:
     """Passing schemas alongside a contract is contradictory and rejected."""
     contract = OpenAPIContract.from_package(PACKAGE)
 
-    async def handler(
-        id: str | None = None, provider_pid: str | None = None, body: Any = None
-    ) -> OpenAPIResponse:
+    async def handler(id: str | None = None, provider_pid: str | None = None, body: Any = None) -> OpenAPIResponse:
         raise AssertionError("handler should not run")
 
     def error_response(error: Any) -> OpenAPIResponse:
@@ -95,9 +93,7 @@ def test_create_openapi_app_requires_schemas_for_a_plain_mapping() -> None:
     contract = OpenAPIContract.from_package(PACKAGE)
     document = contract.document()
 
-    async def handler(
-        id: str | None = None, provider_pid: str | None = None, body: Any = None
-    ) -> OpenAPIResponse:
+    async def handler(id: str | None = None, provider_pid: str | None = None, body: Any = None) -> OpenAPIResponse:
         raise AssertionError("handler should not run")
 
     def error_response(error: Any) -> OpenAPIResponse:
@@ -114,9 +110,7 @@ def test_create_openapi_app_accepts_a_plain_mapping_with_schemas() -> None:
     document = contract.document()
     schemas: OpenAPISchemaRegistry = contract.schemas
 
-    async def handler(
-        id: str | None = None, provider_pid: str | None = None, body: Any = None
-    ) -> OpenAPIResponse:
+    async def handler(id: str | None = None, provider_pid: str | None = None, body: Any = None) -> OpenAPIResponse:
         raise AssertionError("handler should not run")
 
     def error_response(error: Any) -> OpenAPIResponse:

@@ -125,7 +125,9 @@ def test_entry_endpoint_reply() -> None:
         {"id": "1", "type": "structures", "nelements": 2},
         {"id": "2", "type": "structures", "nelements": 3},
     ]
-    reply = generate_entry_endpoint_reply(make_validated("structures"), make_config(), StubResults(rows), data_available=10)
+    reply = generate_entry_endpoint_reply(
+        make_validated("structures"), make_config(), StubResults(rows), data_available=10
+    )
     assert reply["links"]["next"] is None
     assert len(reply["data"]) == 2
     assert reply["data"][0]["id"] == "1"
