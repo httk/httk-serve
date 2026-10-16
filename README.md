@@ -8,7 +8,7 @@
 > and their APIs should not yet be regarded as stable, and may change between
 > releases.
 
-*httk-serve* is a [*httk₂*](https://github.com/httk/httk2) distribution providing a generic implementation of the [OPTIMADE](https://www.optimade.org/) protocol. Durable deployments can pass an `httk.store.EntryStore` directly to `create_asgi_app`, which discovers registered OPTIMADE families and queries them lazily; `EntryProvider` remains the in-memory path for generated and compatibility datasets.
+*httk-serve* is a [*httk₂*](https://github.com/httk/httk2) distribution providing a generic implementation of the [OPTIMADE](https://www.optimade.org/) protocol. Durable deployments can pass an `httk.store.EntryStore` directly to `create_asgi_app`, which discovers registered OPTIMADE families and queries them lazily; `EntryProvider` remains the in-memory path for generated and compatibility datasets. `httk serve optimade serve STORE` runs such a store file as a production ASGI service, suitable as the single command of a `systemd` unit behind Apache or Nginx (see `docs/optimade/deployment.md`).
 
 The served API version is **OPTIMADE v1.3.0**. Implemented optional parts of the
 specification include sorting, the `references`, `files`, and `trajectories` entry types,

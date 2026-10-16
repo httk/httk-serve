@@ -10,6 +10,9 @@ For new deployments, prefer:
 
 WSGI (`mod_wsgi`) is from the legacy path and is not the recommended runtime for `httk-serve`.
 
+To serve an *httk-store* file as an OPTIMADE API without an application module,
+use `httk serve optimade serve` instead; see {doc}`/optimade/deployment`.
+
 ## Minimal app runner
 
 Create a small app entrypoint (example: `/opt/my-site/app.py`):

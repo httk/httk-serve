@@ -8,6 +8,9 @@ For new deployments, prefer:
 - `uvicorn` running the `httk.serve.web` ASGI app
 - `systemd` to keep the ASGI worker process running
 
+To serve an *httk-store* file as an OPTIMADE API without an application module,
+use `httk serve optimade serve` instead; see {doc}`/optimade/deployment`.
+
 ## Minimal app runner
 
 Create a small app entrypoint (example: `/opt/my-site/app.py`):

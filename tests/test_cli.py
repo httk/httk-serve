@@ -2,7 +2,7 @@ from pathlib import Path
 
 from httk.core.cli import CLIContext
 
-from httk.serve.web.cli import command
+from httk.serve.cli import command
 
 
 def _src(tmp_path: Path) -> Path:
@@ -42,7 +42,7 @@ def test_web_registry_registers_lazy_umbrella_command() -> None:
 
     registered = cli_command("serve")
     assert registered is not None
-    assert registered.handler == "httk.serve.web.cli:command"
+    assert registered.handler == "httk.serve.cli:command"
 
 
 def test_umbrella_cli_dispatches_web_list(tmp_path: Path, capsys) -> None:

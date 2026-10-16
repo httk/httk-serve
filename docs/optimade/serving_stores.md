@@ -29,6 +29,10 @@ requests.
 The store remains caller-owned. Closing the ASGI application does not close the
 store or its database; the deployment's lifespan code should dispose them.
 
+To serve an existing store file without writing an application module, run
+`httk serve optimade serve STORE`; see {doc}`deployment` for `systemd` and
+reverse-proxy setups.
+
 For the provider snapshot approach, see
 {doc}`/examples/serve_as_optimade`, which walks through schema-derived
 properties, relationships, and in-process OPTIMADE queries.

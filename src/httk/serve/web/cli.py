@@ -3,9 +3,8 @@
 import argparse
 import os
 import sys
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol
+from typing import Any
 
 import uvicorn
 
@@ -23,30 +22,12 @@ _RELOAD_COMPATIBILITY_MODE = "HTTK_SERVE_WEB_RELOAD_COMPATIBILITY_MODE"
 _RELOAD_CONFIG_NAME = "HTTK_SERVE_WEB_RELOAD_CONFIG_NAME"
 
 
-class CLIContextLike(Protocol):
-    """The minimal root-command context consumed by :func:`command`."""
+def add_parser(groups: Any) -> None:
+    """Add the ``web`` command group to the ``httk serve`` parser.
 
-    @property
-    def program(self) -> str:
-        """Return the root program name."""
-        ...
-
-    @property
-    def cwd(self) -> Path:
-        """Return the root command's working directory."""
-        ...
-
-
-def build_parser(program: str) -> argparse.ArgumentParser:
-    """Build the public ``httk serve`` argument parser.
-
-    :param program: Program name displayed in command-line help.
-    :return: Configured argument parser.
+    :param groups: Sub-parser collection of the ``httk serve`` parser.
     """
 
-    parser = argparse.ArgumentParser(prog=program, description="Serve httk applications")
-    parser.set_defaults(handler=None, help_parser=parser)
-    groups = parser.add_subparsers(metavar="GROUP")
     web = groups.add_parser(
         "web",
         help="serve and validate httk-serve sites",
@@ -66,7 +47,6 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     list_parser = subparsers.add_parser("list", help="list available widgets")
     list_parser.set_defaults(handler=_list, help_parser=list_parser)
     _site_arguments(list_parser, multiple=True)
-    return parser
 
 
 def _site_arguments(parser: argparse.ArgumentParser, *, multiple: bool = False) -> None:
@@ -77,26 +57,6 @@ def _site_arguments(parser: argparse.ArgumentParser, *, multiple: bool = False) 
     )
     parser.add_argument("--compatibility-mode", action="store_true")
     parser.add_argument("--config-name", default="config")
-
-
-def command(argv: Sequence[str], context: CLIContextLike) -> int:
-    """Dispatch the command registered by ``httk.registry.cli.serve``.
-
-    :param argv: Command-line arguments after the root command.
-    :param context: Root-command program and working-directory context.
-    :return: Process-style command status code.
-    """
-
-    parser = build_parser(f"{context.program} serve")
-    try:
-        arguments = parser.parse_args(list(argv))
-    except SystemExit as exc:
-        return exc.code if isinstance(exc.code, int) else 1
-    handler = getattr(arguments, "handler", None)
-    if handler is None:
-        getattr(arguments, "help_parser", parser).print_help()
-        return 0
-    return handler(arguments)
 
 
 def _serve(arguments: argparse.Namespace) -> int:
@@ -230,9 +190,3 @@ def _reserved_route_collisions(config: SiteConfig, pages: list[str]) -> list[str
     if static_reserved.exists():
         collisions.append("Reserved httk-serve route collision in static: _httk")
     return collisions
-
-
-if __name__ == "__main__":
-    from httk.core.cli import CLIContext
-
-    raise SystemExit(command(sys.argv[1:], CLIContext("httk", Path.cwd())))
