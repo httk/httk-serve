@@ -12,12 +12,13 @@ same opening, discovery, and endpoint self-test without serving.
 import argparse
 import asyncio
 import datetime
+import importlib
 import json
 import logging
 import os
 import sys
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -94,6 +95,16 @@ def add_parser(groups: Any) -> None:
 def _store_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("store", metavar="STORE", type=Path, help="SQLite or DuckDB store file")
     parser.add_argument("--config", type=Path, help="TOML file with OPTIMADE service metadata")
+    parser.add_argument(
+        "--records",
+        metavar="MODULE:CLASS",
+        action="append",
+        default=[],
+        help=(
+            "record class the store was written with that no installed distribution registers, "
+            "imported with the working directory on the import path; repeatable"
+        ),
+    )
 
 
 def _port(value: str) -> int:
@@ -118,7 +129,7 @@ def _root_path(value: str) -> str:
     return value
 
 
-def open_store(path: str | os.PathLike[str]) -> "SqlStore":
+def open_store(path: str | os.PathLike[str], records: Sequence[type] = ()) -> "SqlStore":
     """Open an existing SQLite or DuckDB store file for serving.
 
     The format is recognized from the file header, not its name. A DuckDB file
@@ -127,6 +138,8 @@ def open_store(path: str | os.PathLike[str]) -> "SqlStore":
     A missing file is never created.
 
     :param path: Path of the store file.
+    :param records: Application record classes the store was written with,
+        forwarded as the store's ``records`` option.
     :return: The opened entry store, owned by the caller.
     :raises ValueError: If the file is missing or is neither SQLite nor DuckDB.
     :raises OSError: If the file cannot be read.
@@ -141,10 +154,11 @@ def open_store(path: str | os.PathLike[str]) -> "SqlStore":
         header = stream.read(16)
     from httk.store import DuckdbStore, SqliteStore
 
+    options: dict[str, Any] = {"records": list(records)} if records else {}
     if header == _SQLITE_HEADER:
-        return SqliteStore(path)
+        return SqliteStore(path, **options)
     if header[8:12] == b"DUCK":
-        return DuckdbStore(path, read_only=True)
+        return DuckdbStore(path, read_only=True, **options)
     raise ValueError(f"not an SQLite or DuckDB store file: {path}")
 
 
@@ -282,11 +296,41 @@ def _self_test(app: ServeApp) -> list[str]:
     return failures
 
 
-def _store_app(store_path: Path, config_path: Path | None, baseurl: str | None) -> tuple["SqlStore", ServeApp]:
+def _record_classes(specs: Sequence[str], app_dir: str | os.PathLike[str]) -> list[type]:
+    """Import application record classes named as ``MODULE:CLASS``.
+
+    :param specs: Record class references, e.g. ``result_record:Result``.
+    :param app_dir: Directory placed first on the import path when any class
+        is named, as uvicorn does for application modules.
+    :return: The imported classes, in order.
+    :raises ValueError: If a reference is malformed, cannot be imported, or
+        does not name a class.
+    """
+
+    classes = []
+    if specs and os.fspath(app_dir) not in sys.path:
+        sys.path.insert(0, os.fspath(app_dir))
+    for spec in specs:
+        module_name, separator, name = spec.partition(":")
+        if not separator or not module_name or not name:
+            raise ValueError(f"record class must be given as MODULE:CLASS, not {spec!r}")
+        try:
+            value = getattr(importlib.import_module(module_name), name)
+        except (ImportError, AttributeError) as exc:
+            raise ValueError(f"cannot import record class {spec}: {exc}") from exc
+        if not isinstance(value, type):
+            raise ValueError(f"{spec} is not a class")
+        classes.append(value)
+    return classes
+
+
+def _store_app(
+    store_path: Path, config_path: Path | None, baseurl: str | None, records: Sequence[str], app_dir: Path
+) -> tuple["SqlStore", ServeApp]:
     from .api import create_asgi_app
 
     config = load_config(config_path)
-    store = open_store(store_path)
+    store = open_store(store_path, _record_classes(records, app_dir))
     try:
         app = create_asgi_app(store, config, baseurl=baseurl)
     except BaseException:
@@ -320,7 +364,9 @@ def worker_app() -> ServeApp:
     values = json.loads(settings)
     config = Path(values["config"]) if values["config"] is not None else None
     try:
-        return _store_app(Path(values["store"]), config, values["baseurl"])[1]
+        return _store_app(Path(values["store"]), config, values["baseurl"], values["records"], Path(values["app_dir"]))[
+            1
+        ]
     except _OPEN_ERRORS as exc:
         _LOGGER.error("httk serve optimade worker cannot open %s: %s", values["store"], exc)
         sys.exit(STARTUP_FAILURE)
@@ -331,7 +377,7 @@ def _serve(arguments: argparse.Namespace) -> int:
     store_path = arguments.store.resolve()
     config_path = arguments.config.resolve() if arguments.config is not None else None
     try:
-        store, app = _store_app(store_path, config_path, arguments.baseurl)
+        store, app = _store_app(store_path, config_path, arguments.baseurl, arguments.records, Path.cwd())
     except _OPEN_ERRORS as exc:
         print(f"httk serve optimade serve: {exc}", file=sys.stderr)
         return 2
@@ -366,6 +412,8 @@ def _serve(arguments: argparse.Namespace) -> int:
             "store": str(store_path),
             "config": str(config_path) if config_path is not None else None,
             "baseurl": arguments.baseurl,
+            "records": arguments.records,
+            "app_dir": str(Path.cwd()),
         }
     )
     uvicorn.run("httk.serve.optimade.cli:worker_app", factory=True, workers=arguments.workers, **options)
@@ -374,7 +422,7 @@ def _serve(arguments: argparse.Namespace) -> int:
 
 def _check(arguments: argparse.Namespace) -> int:
     try:
-        store, app = _store_app(arguments.store, arguments.config, None)
+        store, app = _store_app(arguments.store, arguments.config, None, arguments.records, Path.cwd())
     except _OPEN_ERRORS as exc:
         print(f"httk serve optimade check: {exc}", file=sys.stderr)
         return 2

@@ -35,11 +35,29 @@ $ python3 -m venv /opt/optimade/.venv
 $ /opt/optimade/.venv/bin/pip install httk2
 ```
 
+## Application record classes
+
+A store that saved instances of your own record classes, for example an
+`@entry_record` class passed as `SqliteStore(..., records=[Result])`, must be
+reopened with those classes. Name each one with `--records`:
+
+```console
+$ cd /srv/optimade
+$ httk serve optimade serve results.sqlite --records result_record:Result
+```
+
+The module is imported with the working directory first on the import path,
+as uvicorn does for application modules, so in a `systemd` unit set
+`WorkingDirectory=` to the directory holding it. Stores whose record classes
+come from installed distributions, such as those written by
+`httk collect --into`, need no `--records`.
+
 ## Options
 
 | Option | Meaning |
 | --- | --- |
 | `--config FILE` | TOML file with the service metadata described below. |
+| `--records MODULE:CLASS` | Record class the store was written with that no installed distribution registers; repeatable. |
 | `--baseurl URL` | Public base URL of the API. Without it, links are derived from each request's host, scheme, and ASGI root path. |
 | `--host HOST`, `--port PORT` | TCP interface and port to bind (default `127.0.0.1:8080`). |
 | `--uds PATH` | Bind a Unix domain socket instead of a TCP port. |

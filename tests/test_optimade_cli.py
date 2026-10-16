@@ -174,7 +174,13 @@ def test_serve_workers_use_the_worker_factory(tmp_path: Path, monkeypatch: pytes
     assert target == "httk.serve.optimade.cli:worker_app"
     assert options["factory"] is True
     assert options["workers"] == 3
-    assert json.loads(options["environment"]) == {"store": str(store), "config": str(config), "baseurl": None}
+    assert json.loads(options["environment"]) == {
+        "store": str(store),
+        "config": str(config),
+        "baseurl": None,
+        "records": [],
+        "app_dir": str(Path.cwd()),
+    }
     app = optimade_cli.worker_app()
     response = TestClient(app).get("/v1/structures")
     assert response.json()["meta"]["data_returned"] == 1
@@ -257,9 +263,80 @@ def test_worker_that_cannot_open_the_store_reports_startup_failure(
 ) -> None:
     monkeypatch.setenv(
         optimade_cli._WORKER_ENVIRONMENT,
-        json.dumps({"store": str(tmp_path / "removed.sqlite"), "config": None, "baseurl": None}),
+        json.dumps(
+            {
+                "store": str(tmp_path / "removed.sqlite"),
+                "config": None,
+                "baseurl": None,
+                "records": [],
+                "app_dir": str(tmp_path),
+            }
+        ),
     )
 
     with pytest.raises(SystemExit) as raised:
         optimade_cli.worker_app()
     assert raised.value.code == uvicorn.config.STARTUP_FAILURE
+
+
+_RECORD_MODULE = '''
+from typing import Annotated
+
+from httk.atomistic import UnitcellStructureRecord
+from httk.core import DataEntryRecord, Property, entry_record
+
+
+@entry_record("example.cli_result")
+class CliResult(DataEntryRecord):
+    energy: Annotated[float, Property(unit="eV", description="An energy.")]
+    structure: UnitcellStructureRecord
+'''
+
+
+def test_records_option_serves_application_record_classes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import sys
+
+    from httk.atomistic import UnitcellStructureView
+
+    (tmp_path / "cli_result_record.py").write_text(_RECORD_MODULE, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.delitem(sys.modules, "cli_result_record", raising=False)
+    (record,) = optimade_cli._record_classes(["cli_result_record:CliResult"], tmp_path)
+    path = tmp_path / "results.sqlite"
+    with SqliteStore(path, records=[record], entry_ids=EntryIdScheme("example", "1")) as store:
+        sid = store.save(
+            UnitcellStructureView(
+                UnitcellStructure(
+                    [[4, 0, 0], [0, 4, 0], [0, 0, 4]], [[0, 0, 0]], [Species("Mg", ("Mg",), (1,))], ["Mg"]
+                )
+            )
+        )
+        store.save(record(-0.5, store.fetch(UnitcellStructureRecord, sid)))
+
+    assert _run(["check", str(path)], tmp_path) == 2
+    assert "not registered" in capsys.readouterr().err
+    assert _run(["check", str(path), "--records", "cli_result_record:CliResult"], tmp_path) == 0
+    assert capsys.readouterr().out.split() == ["_httk_records", "structures"]
+
+    calls = _capture_uvicorn(monkeypatch)
+    argv = ["serve", str(path), "--records", "cli_result_record:CliResult", "--workers", "2"]
+    assert _run(argv, tmp_path) == 0
+    settings = json.loads(calls[0][1]["environment"])
+    assert settings["records"] == ["cli_result_record:CliResult"]
+    assert settings["app_dir"] == str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("spec", "message"),
+    [
+        ("cli_result_record", "MODULE:CLASS"),
+        ("no_such_module_for_httk:Result", "cannot import record class"),
+        ("json:dumps", "is not a class"),
+    ],
+)
+def test_records_option_rejects_bad_references(tmp_path: Path, spec: str, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        optimade_cli._record_classes([spec], tmp_path)
