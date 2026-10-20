@@ -320,7 +320,8 @@ def test_records_option_serves_application_record_classes(
     assert _run(["check", str(path)], tmp_path) == 2
     assert "not registered" in capsys.readouterr().err
     assert _run(["check", str(path), "--records", "cli_result_record:CliResult"], tmp_path) == 0
-    assert capsys.readouterr().out.split() == ["_httk_records", "structures"]
+    # The nested UnitcellStructureRecord reaches FileRecord through source_file.
+    assert capsys.readouterr().out.split() == ["_httk_records", "files", "structures"]
 
     calls = _capture_uvicorn(monkeypatch)
     argv = ["serve", str(path), "--records", "cli_result_record:CliResult", "--workers", "2"]

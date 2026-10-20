@@ -21,8 +21,8 @@ _ELSEWHERE = "https://elsewhere/x"
 def _files_store(tmp_path: Path) -> Path:
     path = tmp_path / "files.sqlite"
     with SqliteStore(path, entry_records={FileEntry: FileRecord}, entry_ids=EntryIdScheme("httk.test", "1")) as store:
-        store.save(FileRecord(url=_STORED, name="out.json"))
-        store.save(FileRecord(url=_ELSEWHERE, name="x"))
+        store.save(FileRecord(url=_STORED, name="out.json", sha256="a" * 64))
+        store.save(FileRecord(url=_ELSEWHERE, name="x", sha256="b" * 64))
     return path
 
 

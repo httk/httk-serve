@@ -6,6 +6,7 @@ from collections.abc import Callable
 from pprint import pformat
 from typing import Any
 
+from httk.core import ALTERNATIVE_KIND_PATTERN
 from httk.core.optimade import FilterAst, ParserSyntaxError, parse_optimade_filter
 
 from ..endpoints.entries import (
@@ -24,7 +25,7 @@ from ..endpoints.partial_data import generate_partial_data_reply
 from ..model.config import OptimadeConfig, OptimadeIndexConfig
 from ..model.errors import OptimadeError, TranslatorError
 from ..model.request import EndpointResponse, RawRequest
-from ..model.results import QueryFunction
+from ..model.results import QueryFunction, QueryResults
 from ..schema.served import _RELATIONSHIPS_ROOT, ServedSchema
 from .validate import validate_optimade_request
 
@@ -45,45 +46,35 @@ def _make_related_resolver(
     Given a mapping of related entry type to the set of related ids, it queries
     each entry type (depth-1 only, never recursing further) with its default
     response fields, formats each result as a full resource object (including
-    its own relationships block), and returns the deduplicated list.
+    its own relationships block), and returns the deduplicated list. A composite
+    ``<id>~<kind>`` id on an entry type that serves alternatives is fetched as
+    that alternative, with the alternative endpoint's default fields, and is
+    skipped when absent like an unknown main id.
     """
+
+    alt_endpoint_of = {base: alt for alt, base in schema.alt_base.items()}
+
+    def response_fields_of(endpoint: str) -> list[str]:
+        fields = list(schema.default_response_fields.get(endpoint, ()))
+        for required in schema.required_response_fields.get(endpoint, ()):
+            if required not in fields:
+                fields.append(required)
+        return fields
+
+    def is_alternative_id(rid: str) -> bool:
+        # Kinds never contain ``~``, so the composite ``<id>~<kind>`` splits at the last one.
+        entry_id, _sep, kind = rid.rpartition("~")
+        return bool(entry_id) and ALTERNATIVE_KIND_PATTERN.fullmatch(kind) is not None
 
     def resolve(collected: dict[str, set[str]]) -> list[dict[str, Any]]:
         included: list[dict[str, Any]] = []
         seen: set[tuple[str, str]] = set()
-        for etype, ids in collected.items():
-            if not ids or etype not in schema.all_entries:
-                continue
-            id_list = sorted(ids)
 
-            response_fields = list(schema.default_response_fields.get(etype, ()))
-            for required in schema.required_response_fields.get(etype, ()):
-                if required not in response_fields:
-                    response_fields.append(required)
-
-            # Build a balanced OR tree: the filter translator recurses per node,
-            # so a linear chain would overflow the stack for many related ids.
-            nodes: list[FilterAst] = [('=', ('Identifier', 'id'), ('String', rid)) for rid in id_list]
-            while len(nodes) > 1:
-                nodes = [
-                    ('OR', nodes[i], nodes[i + 1]) if i + 1 < len(nodes) else nodes[i] for i in range(0, len(nodes), 2)
-                ]
-            filter_ast: FilterAst | None = nodes[0] if nodes else None
-
-            results = query_function(
-                [etype],
-                response_fields,
-                [],
-                len(id_list),
-                0,
-                filter_ast,
-                as_of=as_of,
-                debug=debug,
-            )
+        def add(results: QueryResults, endpoint: str) -> None:
             # Included resources are assembled with default fields and no
             # request context, so they always follow the "no response_fields"
             # omission rule: drop null-valued attributes except must/always.
-            keep_null_fields = frozenset(schema.never_omitted_response_fields.get(etype, ()))
+            keep_null_fields = frozenset(schema.never_omitted_response_fields.get(endpoint, ()))
             for row in results:
                 obj = _resource_object(row, baseurl, omit_nulls=True, keep_null_fields=keep_null_fields)
                 key = (obj['type'], obj['id'])
@@ -91,6 +82,45 @@ def _make_related_resolver(
                     continue
                 seen.add(key)
                 included.append(obj)
+
+        for etype, ids in collected.items():
+            if not ids or etype not in schema.all_entries:
+                continue
+            # Alternative ids resolve only where the entry type serves alternatives.
+            alt_endpoint = alt_endpoint_of.get(etype)
+            alt_ids = sorted(filter(is_alternative_id, ids)) if alt_endpoint is not None else []
+            id_list = sorted(ids.difference(alt_ids))
+
+            if id_list:
+                # Build a balanced OR tree: the filter translator recurses per node,
+                # so a linear chain would overflow the stack for many related ids.
+                nodes: list[FilterAst] = [('=', ('Identifier', 'id'), ('String', rid)) for rid in id_list]
+                while len(nodes) > 1:
+                    nodes = [
+                        ('OR', nodes[i], nodes[i + 1]) if i + 1 < len(nodes) else nodes[i]
+                        for i in range(0, len(nodes), 2)
+                    ]
+                results = query_function(
+                    [etype], response_fields_of(etype), [], len(id_list), 0, nodes[0], as_of=as_of, debug=debug
+                )
+                add(results, etype)
+
+            if alt_endpoint is not None:
+                # ponytail: one fetch_alternative query per related alternative id;
+                # batch through an alternatives-mode id filter if include pages grow large.
+                for rid in alt_ids:
+                    results = query_function(
+                        [etype],
+                        response_fields_of(alt_endpoint),
+                        [],
+                        1,
+                        0,
+                        as_of=as_of,
+                        alternatives=True,
+                        immutable_id=rid,
+                        debug=debug,
+                    )
+                    add(results, alt_endpoint)
         return included
 
     return resolve
