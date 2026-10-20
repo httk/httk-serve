@@ -105,6 +105,15 @@ def _store_arguments(parser: argparse.ArgumentParser) -> None:
             "imported with the working directory on the import path; repeatable"
         ),
     )
+    parser.add_argument(
+        "--data-path",
+        metavar="PATH",
+        type=_data_path,
+        help=(
+            "serve file-entry URLs that start with data/ under PATH instead, "
+            "e.g. https://example.org/files (stored entries are unchanged)"
+        ),
+    )
 
 
 def _port(value: str) -> int:
@@ -126,6 +135,12 @@ def _root_path(value: str) -> str:
         _normalized_root_path(value)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from exc
+    return value
+
+
+def _data_path(value: str) -> str:
+    if not value.rstrip("/"):
+        raise argparse.ArgumentTypeError("must name a location, such as https://example.org/files")
     return value
 
 
@@ -325,14 +340,19 @@ def _record_classes(specs: Sequence[str], app_dir: str | os.PathLike[str]) -> li
 
 
 def _store_app(
-    store_path: Path, config_path: Path | None, baseurl: str | None, records: Sequence[str], app_dir: Path
+    store_path: Path,
+    config_path: Path | None,
+    baseurl: str | None,
+    records: Sequence[str],
+    app_dir: Path,
+    data_path: str | None = None,
 ) -> tuple["SqlStore", ServeApp]:
     from .api import create_asgi_app
 
     config = load_config(config_path)
     store = open_store(store_path, _record_classes(records, app_dir))
     try:
-        app = create_asgi_app(store, config, baseurl=baseurl)
+        app = create_asgi_app(store, config, baseurl=baseurl, data_path=data_path)
     except BaseException:
         store.close()
         raise
@@ -364,9 +384,14 @@ def worker_app() -> ServeApp:
     values = json.loads(settings)
     config = Path(values["config"]) if values["config"] is not None else None
     try:
-        return _store_app(Path(values["store"]), config, values["baseurl"], values["records"], Path(values["app_dir"]))[
-            1
-        ]
+        return _store_app(
+            Path(values["store"]),
+            config,
+            values["baseurl"],
+            values["records"],
+            Path(values["app_dir"]),
+            values.get("data_path"),
+        )[1]
     except _OPEN_ERRORS as exc:
         _LOGGER.error("httk serve optimade worker cannot open %s: %s", values["store"], exc)
         sys.exit(STARTUP_FAILURE)
@@ -377,7 +402,9 @@ def _serve(arguments: argparse.Namespace) -> int:
     store_path = arguments.store.resolve()
     config_path = arguments.config.resolve() if arguments.config is not None else None
     try:
-        store, app = _store_app(store_path, config_path, arguments.baseurl, arguments.records, Path.cwd())
+        store, app = _store_app(
+            store_path, config_path, arguments.baseurl, arguments.records, Path.cwd(), arguments.data_path
+        )
     except _OPEN_ERRORS as exc:
         print(f"httk serve optimade serve: {exc}", file=sys.stderr)
         return 2
@@ -414,6 +441,7 @@ def _serve(arguments: argparse.Namespace) -> int:
             "baseurl": arguments.baseurl,
             "records": arguments.records,
             "app_dir": str(Path.cwd()),
+            "data_path": arguments.data_path,
         }
     )
     uvicorn.run("httk.serve.optimade.cli:worker_app", factory=True, workers=arguments.workers, **options)
@@ -422,7 +450,9 @@ def _serve(arguments: argparse.Namespace) -> int:
 
 def _check(arguments: argparse.Namespace) -> int:
     try:
-        store, app = _store_app(arguments.store, arguments.config, None, arguments.records, Path.cwd())
+        store, app = _store_app(
+            arguments.store, arguments.config, None, arguments.records, Path.cwd(), arguments.data_path
+        )
     except _OPEN_ERRORS as exc:
         print(f"httk serve optimade check: {exc}", file=sys.stderr)
         return 2

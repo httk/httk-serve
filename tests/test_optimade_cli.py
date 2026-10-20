@@ -180,6 +180,7 @@ def test_serve_workers_use_the_worker_factory(tmp_path: Path, monkeypatch: pytes
         "baseurl": None,
         "records": [],
         "app_dir": str(Path.cwd()),
+        "data_path": None,
     }
     app = optimade_cli.worker_app()
     response = TestClient(app).get("/v1/structures")

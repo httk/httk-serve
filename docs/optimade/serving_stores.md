@@ -169,6 +169,32 @@ as served (the semantic keys plus typed aliases such as
 `_httk_relationships.references.id`); see
 [how it works](how_it_works.md#the-httk-relationships-filter-extension).
 
+## File URLs and `data_path`
+
+`httk collect --into STORE` from *httk-workflow* stores job output files as
+`files` entries whose `url` is the fixed relative form
+`data/<workspace name>/<workspace-relative path>`. The URL is part of each
+file entry's content identity, so it does not depend on where a deployment
+keeps the files. The deployment chooses that location at serving time:
+
+```python
+app = create_asgi_app(store, data_path="https://example.org/files")
+```
+
+or `httk serve optimade serve STORE --data-path https://example.org/files`.
+Every served `files` URL that starts with `data/` then has that leading `data`
+replaced, so `data/diamond/jobs/.../child-outputs.json` is served as
+`https://example.org/files/diamond/jobs/.../child-outputs.json`; a local path
+such as `/srv/calcs` works the same way. Absolute URLs and other relative URLs
+are served unchanged, and other entry types are unaffected. This is a pure
+presentation mapping: stored entries, their URLs and ids are never modified,
+and the server does not serve the file bytes. Without `data_path` the stored
+URLs are served as they are.
+
+The mapping applies to responses only. Stores written with *httk-core*'s
+default file projections support neither filtering nor sorting on `url`, so a
+`url` filter or sort is refused as it is without `data_path`.
+
 ## Wire naming
 
 `EntryTypeDefinition.served_form()` is the single wire-naming transform applied

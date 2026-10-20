@@ -50,13 +50,24 @@ class StoredBackendAdapter:
 
     :param federations: Durable federations keyed by entry endpoint.
     :param schema: Schema describing the federations' served entries.
+    :param data_path: Location served in place of the leading ``data`` segment
+        of ``files`` entry URLs that start with ``data/``, e.g.
+        ``https://example.org/files``; ``None`` serves stored URLs unchanged.
+        Only responses are affected; stored entries are never modified.
+    :raises ValueError: If ``data_path`` names no location.
     """
 
     federations: Mapping[str, Any]
     schema: ServedSchema
+    data_path: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "federations", MappingProxyType(dict(self.federations)))
+        if self.data_path is not None:
+            data_path = self.data_path.rstrip("/")
+            if not data_path:
+                raise ValueError("data_path must name a location, such as https://example.org/files")
+            object.__setattr__(self, "data_path", data_path)
 
     def snapshot_cutoff_ns(self, entry_type: str, now_ns: int) -> int | None:
         """Return the resolution-aware snapshot cutoff for one entry type."""
@@ -92,6 +103,7 @@ class StoredBackendAdapter:
                 )
             entry_type = entries[0]
             federation = self.federations[entry_type]
+            data_path = self.data_path if entry_type == "files" else None
             limit = int(page_limit)
             offset = int(page_offset)
             try:
@@ -156,11 +168,14 @@ class StoredBackendAdapter:
 
             projected = tuple(
                 ResultRow(
-                    values=_project_public_row(
-                        row,
-                        entry_type,
-                        response_fields,
-                        unknown_response_fields,
+                    values=_served_url(
+                        _project_public_row(
+                            row,
+                            entry_type,
+                            response_fields,
+                            unknown_response_fields,
+                        ),
+                        data_path,
                     ),
                     relationships=_relationships_block(related),
                 )
@@ -234,6 +249,14 @@ def _exact_id_filter(filter_ast: FilterAst | None) -> str | None:
     ):
         return cast(str, filter_ast[2][1])
     return None
+
+
+def _served_url(values: dict[str, Any], data_path: str | None) -> dict[str, Any]:
+    """Serve a stored ``data/...`` file URL under ``data_path`` (in place)."""
+    url = values.get("url")
+    if data_path is not None and isinstance(url, str) and url.startswith("data/"):
+        values["url"] = f"{data_path}/{url[len('data/') :]}"
+    return values
 
 
 def _project_public_row(
@@ -345,6 +368,8 @@ def _sortable_intersection(plans: Sequence[Any], property_names: Sequence[str]) 
 
 def adapter_from_stores(
     sources: Sequence["StoredEntrySource"],
+    *,
+    data_path: str | None = None,
     **options: Any,
 ) -> StoredBackendAdapter:
     """Build a lazy store-backed adapter from durable entry sources.
@@ -355,12 +380,16 @@ def adapter_from_stores(
     the returned page into OPTIMADE result rows.
 
     :param sources: Durable entry sources to federate by entry type.
+    :param data_path: Location served in place of the leading ``data`` segment
+        of ``files`` URLs that start with ``data/`` (see
+        :class:`StoredBackendAdapter`); ``None`` serves stored URLs unchanged.
     :param \\*\\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`,
         e.g. ``default_includes`` (per served entry type, the served entry
         types to include by default on single-entry requests; always unioned
         with ``references``).
     :return: Lazy adapter over the supplied durable sources.
-    :raises ValueError: If sources conflict or expose incomplete sort mappings.
+    :raises ValueError: If sources conflict, expose incomplete sort mappings,
+        or ``data_path`` names no location.
     :raises TypeError: If a source is not a stored entry source.
     """
     from httk.store.backend.sql import (
@@ -445,10 +474,10 @@ def adapter_from_stores(
         )
         for entry_type, entry_sources in grouped.items()
     }
-    return StoredBackendAdapter(federations, schema)
+    return StoredBackendAdapter(federations, schema, data_path)
 
 
-def adapter_from_store(store: EntryStore, **options: Any) -> StoredBackendAdapter:
+def adapter_from_store(store: EntryStore, *, data_path: str | None = None, **options: Any) -> StoredBackendAdapter:
     """Build a lazy OPTIMADE adapter from every described family in one store.
 
     Families declared without an entry-type definition are deliberately
@@ -456,10 +485,14 @@ def adapter_from_store(store: EntryStore, **options: Any) -> StoredBackendAdapte
     declarations, coexist with OPTIMADE records in one durable layout.
 
     :param store: Entry store whose configured layout is discovered.
+    :param data_path: Location served in place of the leading ``data`` segment
+        of ``files`` URLs that start with ``data/``; forwarded to
+        :func:`adapter_from_stores`.
     :param \\*\\*options: Schema options forwarded to :func:`adapter_from_stores`.
     :return: Lazy adapter over all configured OPTIMADE families.
     :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
-    :raises ValueError: If the store contains no OPTIMADE-described family.
+    :raises ValueError: If the store contains no OPTIMADE-described family,
+        or ``data_path`` names no location.
     """
     from httk.store.backend.sql import StoredEntrySource
 
@@ -472,4 +505,4 @@ def adapter_from_store(store: EntryStore, **options: Any) -> StoredBackendAdapte
     )
     if not sources:
         raise ValueError("store has no configured entry family with an OPTIMADE definition")
-    return adapter_from_stores(sources, **options)
+    return adapter_from_stores(sources, data_path=data_path, **options)

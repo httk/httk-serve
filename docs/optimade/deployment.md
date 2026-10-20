@@ -58,12 +58,16 @@ come from installed distributions, such as those written by
 | --- | --- |
 | `--config FILE` | TOML file with the service metadata described below. |
 | `--records MODULE:CLASS` | Record class the store was written with that no installed distribution registers; repeatable. |
+| `--data-path PATH` | Serve `files` entry URLs that start with `data/`, such as those written by `httk collect --into`, under `PATH` instead, e.g. `https://example.org/files`; stored entries are unchanged (see {doc}`serving_stores`). |
 | `--baseurl URL` | Public base URL of the API. Without it, links are derived from each request's host, scheme, and ASGI root path. |
 | `--host HOST`, `--port PORT` | TCP interface and port to bind (default `127.0.0.1:8080`). |
 | `--uds PATH` | Bind a Unix domain socket instead of a TCP port. |
 | `--root-path PATH` | ASGI root path when the proxy forwards a sub-path without its prefix and no `--baseurl` is given. |
 | `--workers N` | Number of worker processes (default 1). |
 | `--no-access-log` | Disable uvicorn's per-request access log, e.g. when the proxy already logs requests. |
+
+`httk serve optimade check` takes the same `STORE`, `--config`, `--records`, and
+`--data-path` arguments.
 
 Setting `--baseurl` is the most robust choice behind a proxy, since generated
 links then do not depend on forwarded headers. Request-derived links need the

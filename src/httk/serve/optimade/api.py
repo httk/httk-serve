@@ -23,6 +23,7 @@ def create_asgi_app(
     debug: bool = False,
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
+    data_path: str | None = None,
 ) -> ServeApp:
     """Create an ASGI application serving an OPTIMADE API for a backend or store.
 
@@ -36,12 +37,22 @@ def create_asgi_app(
     :param debug: Enable application and backend diagnostics.
     :param report_level: Minimum report level collected per request.
     :param report_context_levels: Context-specific report levels.
+    :param data_path: When serving an entry store, the location served in place
+        of the leading ``data`` segment of ``files`` URLs that start with
+        ``data/``, e.g. ``https://example.org/files``; stored entries are unchanged.
     :return: Configured serving application.
+    :raises TypeError: If ``data_path`` is given with an adapter rather than an entry store.
+    :raises ValueError: If ``data_path`` names no location.
     """
     if isinstance(adapter, EntryStore):
         from .backend.stores import adapter_from_store
 
-        adapter = adapter_from_store(adapter)
+        adapter = adapter_from_store(adapter, data_path=data_path)
+    elif data_path is not None:
+        raise TypeError(
+            "data_path applies only when serving an EntryStore; build the adapter with "
+            "adapter_from_store(..., data_path=...)"
+        )
     if config is None:
         config = OptimadeConfig()
     if isinstance(config, OptimadeIndexConfig):
