@@ -179,7 +179,7 @@ The declaration accepts `base_url`, `entry_type="structures"`, `columns`,
 `page_size=50`, `page_size_options`, `page_size_query`, `caption="OPTIMADE results"`,
 `filter`, `filter_query`,
 `sort`, `sort_query`, `sort_aliases`, `allowed_origins=()`, `detail_route`, `detail_column`,
-`detail_query="id"`, `summary`, and `advanced_filter`. URLs, identifiers, columns, origins, and display text are
+`detail_query="id"`, `detail_parameters`, `summary`, and `advanced_filter`. URLs, identifiers, columns, origins, and display text are
 strictly bounded and validated. `filter_query` names a browser URL parameter
 whose complete value overrides `filter`, while `sort_query` similarly overrides
 `sort`; neither is access control. `sort_aliases` maps display sort values (a
@@ -323,6 +323,30 @@ The achievable page size is capped by the OPTIMADE service's own maximum page
 limit — for httk-serve services this is `OptimadeConfig.page_limit_max` (default
 50), and a larger `page_limit` is rejected with HTTP 403 per the OPTIMADE spec —
 so pick `page_size_options` your service actually accepts.
+
+`detail_parameters` is a mapping of 1-8 fixed extra query parameters added to
+every detail link, e.g. `{"type": "structures"}`; it requires `detail_route`
+and must not name `detail_query`.
+
+## OPTIMADE explorer
+
+Three built-ins make a browsing site over an OPTIMADE API (the
+{doc}`../combined/index` default site is just these three pages). Each takes
+`base_url`, absolute, root-relative, or site-root-relative (`"optimade"`):
+
+```md
+{{ widget("optimade_catalog", base_url="optimade", browse_route="browse") }}
+{{ widget("optimade_browser", base_url="optimade", entry_route="entry", page_size=50) }}
+{{ widget("optimade_entry", base_url="optimade", entry_route="entry", browse_route="browse") }}
+```
+
+- `optimade_catalog(base_url, browse_route="browse")`: cards for the served
+  entry types with counts, and links for result-record kinds.
+- `optimade_browser(base_url, entry_route="entry", page_size=50)`: type/kind
+  picker, condition builder, raw filter, and an `optimade_table` linking to
+  `entry_route`. Reads `type`, `kind`, `filter` and `sort` from the page URL.
+- `optimade_entry(base_url, entry_route="entry", browse_route="browse")`: one
+  entry from `?type=<type>&id=<id>`, with provenance and alternatives.
 
 ## OPTIMADE field definitions
 

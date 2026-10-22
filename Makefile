@@ -72,7 +72,7 @@ test:
 	$(PYTHON) -m pytest
 
 test-js:
-	$(NODE) --test tests/serve-optimade-table-protocol.test.mjs tests/serve-optimade-table-controller.test.mjs
+	$(NODE) --test tests/serve-optimade-table-protocol.test.mjs tests/serve-optimade-table-controller.test.mjs tests/serve-optimade-present.test.mjs
 
 test-browser:
 	$(NPM) run test-browser

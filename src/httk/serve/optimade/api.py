@@ -39,10 +39,12 @@ def create_asgi_app(
     :param report_context_levels: Context-specific report levels.
     :param data_path: When serving an entry store, the location served in place
         of the leading ``data`` segment of ``files`` URLs that start with
-        ``data/``, e.g. ``https://example.org/files``; stored entries are unchanged.
+        ``data/``, e.g. ``https://example.org/files`` or a root-relative
+        ``/files`` resolved against each request's origin; the rest of the URL
+        is percent-encoded and stored entries are unchanged.
     :return: Configured serving application.
     :raises TypeError: If ``data_path`` is given with an adapter rather than an entry store.
-    :raises ValueError: If ``data_path`` names no location.
+    :raises ValueError: If ``data_path`` names no location or is protocol-relative.
     """
     if isinstance(adapter, EntryStore):
         from .backend.stores import adapter_from_store

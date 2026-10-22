@@ -242,6 +242,9 @@ BUILTIN_WIDGETS.register(
 
 # Imported after the public contracts above so the table implementation can use
 # the same WidgetContext and WidgetRenderResult types without an import cycle.
+from .optimade_browser import render as _render_optimade_browser
+from .optimade_catalog import render as _render_optimade_catalog
+from .optimade_entry import render as _render_optimade_entry
 from .optimade_fields import render as _render_optimade_fields
 from .optimade_table import render as _render_optimade_table
 from .table import TableWidget
@@ -263,3 +266,13 @@ BUILTIN_WIDGETS.register(
     ),
     alias="optimade_fields",
 )
+for _name, _render in (
+    ("optimade_catalog", _render_optimade_catalog),
+    ("optimade_browser", _render_optimade_browser),
+    ("optimade_entry", _render_optimade_entry),
+):
+    BUILTIN_WIDGETS.register(
+        FunctionWidget(name=f"httk.serve.{_name}", render_function=_render, source=f"httk.serve.web.widgets.{_name}"),
+        alias=_name,
+    )
+del _name, _render

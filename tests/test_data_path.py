@@ -1,7 +1,7 @@
 """Serving-time ``data_path`` presentation of stored ``files`` entry URLs."""
 
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 
 import pytest
 from httk.core import FileEntry, FileRecord
@@ -52,6 +52,26 @@ def test_data_path_rewrites_served_urls_only(tmp_path: Path) -> None:
         assert "not implemented" in mapped.json()["errors"][0]["detail"]
 
 
+def test_data_path_percent_encodes_and_resolves_root_relative(tmp_path: Path) -> None:
+    path = tmp_path / "odd.sqlite"
+    stored = "data/ws/a dir/r#1 50%?é.txt"
+    with SqliteStore(path, entry_records={FileEntry: FileRecord}, entry_ids=EntryIdScheme("httk.test", "1")) as store:
+        store.save(FileRecord(url=stored, name="r.txt", sha256="c" * 64))
+    with SqliteStore(path) as store:
+        (url,) = _urls(TestClient(create_asgi_app(store, data_path="https://example.org/files"))).values()
+        assert url == "https://example.org/files/ws/a%20dir/r%231%2050%25%3F%C3%A9.txt"
+        assert unquote(urlsplit(url).path) == "/files/" + stored.removeprefix("data/")
+
+        # A root-relative data_path is made absolute against each request's link origin.
+        app = create_asgi_app(store, data_path="/files")
+        (url,) = _urls(TestClient(app)).values()
+        assert url == "http://testserver/files/ws/a%20dir/r%231%2050%25%3F%C3%A9.txt"
+        (url,) = _urls(TestClient(app, base_url="https://other.example:8443")).values()
+        assert url.startswith("https://other.example:8443/files/ws/")
+        explicit = create_asgi_app(store, baseurl="https://public.example/optimade", data_path="/files")
+        assert next(iter(_urls(TestClient(explicit)).values())).startswith("https://public.example/files/ws/")
+
+
 def test_data_path_validation(tmp_path: Path) -> None:
     with SqliteStore(_files_store(tmp_path)) as store:
         adapter = adapter_from_store(store)
@@ -59,6 +79,8 @@ def test_data_path_validation(tmp_path: Path) -> None:
             create_asgi_app(adapter, data_path="/srv/calcs")
         with pytest.raises(ValueError, match="data_path must name a location"):
             StoredBackendAdapter(adapter.federations, adapter.schema, "///")
+        with pytest.raises(ValueError, match="not protocol-relative"):
+            StoredBackendAdapter(adapter.federations, adapter.schema, "//cdn.example/files")
 
 
 def test_cli_data_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

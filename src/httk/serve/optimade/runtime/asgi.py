@@ -19,7 +19,7 @@ from ..endpoints.meta import merge_collected_warnings
 from ..engine.processing import SnapshotCutoff, process
 from ..engine.validate import determine_optimade_version
 from ..model.config import OptimadeConfig
-from ..model.request import EndpointResponse, RawRequest
+from ..model.request import _REQUEST_ORIGIN, EndpointResponse, RawRequest
 from ..model.results import QueryFunction
 from ..model.versions import optimade_default_version
 from ..schema.served import ServedSchema
@@ -169,24 +169,31 @@ async def _handle_request(request: Request) -> Response:
         query=dict(request.query_params),
     )
 
-    with collect_reports(level=state.report_level, context_levels=state.report_context_levels):
-        try:
-            version = determine_optimade_version(raw_request)
-            output = process(
-                raw_request,
-                state.query_function,
-                version,
-                state.config,
-                state.schema,
-                snapshot_cutoff_ns=state.snapshot_cutoff_ns,
-                debug=state.debug,
-            )
-        except Exception as ex:
-            output = _error_output(ex, raw_request, state.config)
-        if output.content_type in ('application/vnd.api+json', 'application/json') and isinstance(
-            output.json_response, dict
-        ):
-            merge_collected_warnings(output.json_response)
+    # Backends resolve root-relative locations (a stored adapter's data_path)
+    # against the same origin the response links use.
+    parsed_baseurl = urlsplit(baseurl)
+    origin_token = _REQUEST_ORIGIN.set(f"{parsed_baseurl.scheme}://{parsed_baseurl.netloc}")
+    try:
+        with collect_reports(level=state.report_level, context_levels=state.report_context_levels):
+            try:
+                version = determine_optimade_version(raw_request)
+                output = process(
+                    raw_request,
+                    state.query_function,
+                    version,
+                    state.config,
+                    state.schema,
+                    snapshot_cutoff_ns=state.snapshot_cutoff_ns,
+                    debug=state.debug,
+                )
+            except Exception as ex:
+                output = _error_output(ex, raw_request, state.config)
+            if output.content_type in ('application/vnd.api+json', 'application/json') and isinstance(
+                output.json_response, dict
+            ):
+                merge_collected_warnings(output.json_response)
+    finally:
+        _REQUEST_ORIGIN.reset(origin_token)
 
     return _render(output)
 

@@ -77,6 +77,12 @@ def test_staged_structure_input_serves_through_its_file_alternative(tmp_path: Pa
         # source_file is no attribute: it serves as the alternative's files relationship,
         # naming the same deduplicated entry as the top-level save.
         assert single["relationships"]["files"]["data"] == [{"type": "files", "id": file_id}]
+        # The single-alternative route honours an explicit include= like a main entry.
+        alt_route = f"/v1/structures/{main}/_httk_alts/{_KIND}"
+        assert "included" not in client.get(alt_route).json()
+        (included_file,) = client.get(alt_route, params={"include": "files"}).json()["included"]
+        assert (included_file["type"], included_file["id"]) == ("files", file_id)
+        assert client.get(alt_route, params={"include": "_httk_has_input"}).status_code == 400
         assert client.get("/v1/files").json()["meta"]["data_returned"] == 1
         served_file = client.get(f"/v1/files/{quote(file_id, safe='')}").json()["data"]
         assert served_file["attributes"]["checksums"]["sha256"] == _SHA256

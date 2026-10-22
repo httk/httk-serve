@@ -135,11 +135,11 @@ def _validate_query(
     ):
         validated_parameters.sort = query['sort']
 
-    # The include parameter is only meaningful for entry endpoints. The raw
-    # string is stored here only when the client explicitly provides it (so
-    # next-links reproduce the user's intent); parsing into the list of served
-    # entry types happens in validate_optimade_request.
-    if 'include' in query and query['include'] is not None and endpoint in schema.all_entries:
+    # The include parameter is only meaningful for entry and alternative
+    # endpoints. The raw string is stored here only when the client explicitly
+    # provides it (so next-links reproduce the user's intent); parsing into the
+    # list of served entry types happens in validate_optimade_request.
+    if 'include' in query and query['include'] is not None and endpoint in schema.all_entries + schema.alt_endpoints:
         validated_parameters.include = query['include']
 
     if '_httk_as_of' in query and query['_httk_as_of'] is not None:
@@ -406,8 +406,9 @@ def validate_optimade_request(
     # unioned with 'references' (filtered to the served entry types); an
     # explicit empty string means include nothing; each listed path must be a
     # served entry type (only depth-1 paths are supported) or the request is
-    # rejected with 400.
-    if endpoint in schema.all_entries:
+    # rejected with 400. Alternative endpoints honour an explicit include and
+    # have no default includes.
+    if endpoint in schema.all_entries + schema.alt_endpoints:
         if validated_request.query.include is None:
             validated_request.include_paths = list(schema.default_include_paths.get(endpoint, ()))
         elif validated_request.query.include.strip() == "":

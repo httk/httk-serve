@@ -58,7 +58,7 @@ come from installed distributions, such as those written by
 | --- | --- |
 | `--config FILE` | TOML file with the service metadata described below. |
 | `--records MODULE:CLASS` | Record class the store was written with that no installed distribution registers; repeatable. |
-| `--data-path PATH` | Serve `files` entry URLs that start with `data/`, such as those written by `httk collect --into`, under `PATH` instead, e.g. `https://example.org/files`; stored entries are unchanged (see {doc}`serving_stores`). |
+| `--data-path PATH` | Serve `files` entry URLs that start with `data/`, such as those written by `httk collect --into`, under the URL `PATH` instead, e.g. `https://example.org/files` (a leading single `/` is root-relative to the request origin; not a filesystem path); stored entries are unchanged (see {doc}`serving_stores`). |
 | `--baseurl URL` | Public base URL of the API. Without it, links are derived from each request's host, scheme, and ASGI root path. |
 | `--host HOST`, `--port PORT` | TCP interface and port to bind (default `127.0.0.1:8080`). |
 | `--uds PATH` | Bind a Unix domain socket instead of a TCP port. |

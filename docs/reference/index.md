@@ -6,4 +6,5 @@
 autoapi/httk/serve/web/index
 autoapi/httk/serve/http/index
 autoapi/httk/serve/optimade/index
+autoapi/httk/serve/combined/index
 ```

@@ -25,6 +25,7 @@ MAX_OPTIMADE_ORIGINS = 16
 MAX_OPTIMADE_COLUMNS = 32
 MAX_OPTIMADE_SUMMARY_FIELDS = 64
 MAX_OPTIMADE_CLEARS = 8
+MAX_OPTIMADE_DETAIL_PARAMETERS = 8
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _ALIGNMENTS = frozenset({"start", "center", "end"})
 _OPTIMADE_TABLE_ASSETS: tuple[WidgetAsset, ...] | None = None
@@ -53,6 +54,7 @@ def render(
     detail_route: str | None = None,
     detail_column: str | None = None,
     detail_query: str = "id",
+    detail_parameters: Mapping[str, str] | None = None,
     summary: object = None,
     advanced_filter: object = None,
 ) -> WidgetRenderResult:
@@ -87,6 +89,9 @@ def render(
     :param detail_route: Optional site route for entry details.
     :param detail_column: Column supplying the detail value.
     :param detail_query: Query parameter receiving the detail value.
+    :param detail_parameters: Optional mapping of 1-8 fixed extra query parameters added to
+        every detail link (for example ``{"type": "structures"}``); requires ``detail_route``
+        and must not name ``detail_query``.
     :param summary: Optional results-summary configuration. ``None`` disables it,
         ``True`` enables it with defaults (noun ``"entries"``), and a mapping may set
         ``noun`` and a ``fields`` mapping of property name to ``label``, ``format``,
@@ -126,6 +131,9 @@ def render(
         detail_column,
         column_keys={column["key"] for column in normalized_columns if isinstance(column["key"], str)},
     )
+    normalized_detail_parameters = _detail_parameters(
+        detail_parameters, detail_route=normalized_detail_route, detail_query=normalized_detail_query
+    )
     if normalized_detail_route is not None:
         normalized_detail_route = context.url_for(normalized_detail_route)
     normalized_page_size_options = _page_size_options(page_size_options, page_size)
@@ -140,6 +148,7 @@ def render(
         "caption": normalized_caption,
         "columns": normalized_columns,
         "detail_column": normalized_detail_column,
+        "detail_parameters": normalized_detail_parameters,
         "detail_query": normalized_detail_query,
         "detail_route": normalized_detail_route,
         "entry_type": normalized_entry_type,
@@ -609,6 +618,24 @@ def _detail(value_route: object, value_column: object, *, column_keys: set[str])
     if column not in column_keys:
         raise OptimadeTableProtocolError("detail_column must select one declared column")
     return route, column
+
+
+def _detail_parameters(value: object, *, detail_route: str | None, detail_query: str) -> dict[str, str] | None:
+    if value is None:
+        return None
+    if detail_route is None:
+        raise OptimadeTableProtocolError("detail_parameters requires detail_route")
+    if not isinstance(value, Mapping) or not 1 <= len(value) <= MAX_OPTIMADE_DETAIL_PARAMETERS:
+        raise OptimadeTableProtocolError(
+            f"detail_parameters must be a mapping of 1-{MAX_OPTIMADE_DETAIL_PARAMETERS} query parameters"
+        )
+    parameters: dict[str, str] = {}
+    for name, parameter in value.items():
+        key = _identifier(name, field="detail_parameters key")
+        if key == detail_query:
+            raise OptimadeTableProtocolError("detail_parameters must not name detail_query")
+        parameters[key] = _text(parameter, field="detail_parameters value", maximum=MAX_OPTIMADE_TEXT_CHARS)
+    return parameters
 
 
 def _internal_root(context: WidgetContext) -> str:

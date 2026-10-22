@@ -1,5 +1,11 @@
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
+
+# The public origin (``scheme://host[:port]``) of the request being processed,
+# set by the ASGI runtime around each request; backends resolve root-relative
+# locations against it.
+_REQUEST_ORIGIN: ContextVar[str | None] = ContextVar("httk_serve_optimade_request_origin", default=None)
 
 
 @dataclass(slots=True)

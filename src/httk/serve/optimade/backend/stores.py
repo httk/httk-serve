@@ -15,6 +15,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, NoReturn, cast
+from urllib.parse import quote
 
 from httk.core import ALTERNATIVE_KIND_PATTERN, EntryTypeDefinition, RelatedEntry
 from httk.core.optimade import FilterAst
@@ -22,6 +23,7 @@ from httk.core.storage import stored_property_projections
 from httk.store import EntryStore, FilterTranslationError
 
 from ..model.errors import OptimadeError, TranslatorError, translator_error_from
+from ..model.request import _REQUEST_ORIGIN
 from ..model.results import QueryFunction, QueryResults, ResultRow
 from ..schema.served import ServedSchema, build_served_schema
 
@@ -52,9 +54,13 @@ class StoredBackendAdapter:
     :param schema: Schema describing the federations' served entries.
     :param data_path: Location served in place of the leading ``data`` segment
         of ``files`` entry URLs that start with ``data/``, e.g.
-        ``https://example.org/files``; ``None`` serves stored URLs unchanged.
-        Only responses are affected; stored entries are never modified.
-    :raises ValueError: If ``data_path`` names no location.
+        ``https://example.org/files``, with the rest of the stored URL
+        percent-encoded; ``None`` serves stored URLs unchanged. A root-relative
+        path such as ``/files`` is made absolute per request against the
+        origin of the request's response links; outside the OPTIMADE ASGI
+        runtime (no request origin) it is served root-relative. Only responses are affected;
+        stored entries are never modified.
+    :raises ValueError: If ``data_path`` names no location or is protocol-relative.
     """
 
     federations: Mapping[str, Any]
@@ -67,6 +73,8 @@ class StoredBackendAdapter:
             data_path = self.data_path.rstrip("/")
             if not data_path:
                 raise ValueError("data_path must name a location, such as https://example.org/files")
+            if data_path.startswith("//"):
+                raise ValueError("data_path must be an absolute URL or a root-relative path, not protocol-relative")
             object.__setattr__(self, "data_path", data_path)
 
     def snapshot_cutoff_ns(self, entry_type: str, now_ns: int) -> int | None:
@@ -104,6 +112,8 @@ class StoredBackendAdapter:
             entry_type = entries[0]
             federation = self.federations[entry_type]
             data_path = self.data_path if entry_type == "files" else None
+            if data_path is not None and data_path.startswith("/"):
+                data_path = (_REQUEST_ORIGIN.get() or "") + data_path
             limit = int(page_limit)
             offset = int(page_offset)
             try:
@@ -252,10 +262,10 @@ def _exact_id_filter(filter_ast: FilterAst | None) -> str | None:
 
 
 def _served_url(values: dict[str, Any], data_path: str | None) -> dict[str, Any]:
-    """Serve a stored ``data/...`` file URL under ``data_path`` (in place)."""
+    """Serve a stored ``data/...`` file URL under ``data_path``, percent-encoding the rest (in place)."""
     url = values.get("url")
     if data_path is not None and isinstance(url, str) and url.startswith("data/"):
-        values["url"] = f"{data_path}/{url[len('data/') :]}"
+        values["url"] = f"{data_path}/{quote(url[len('data/') :], safe='/')}"
     return values
 
 
@@ -381,15 +391,16 @@ def adapter_from_stores(
 
     :param sources: Durable entry sources to federate by entry type.
     :param data_path: Location served in place of the leading ``data`` segment
-        of ``files`` URLs that start with ``data/`` (see
-        :class:`StoredBackendAdapter`); ``None`` serves stored URLs unchanged.
+        of ``files`` URLs that start with ``data/``, an absolute URL or a
+        root-relative path (see :class:`StoredBackendAdapter`); ``None`` serves
+        stored URLs unchanged.
     :param \\*\\*options: Schema options forwarded to :func:`~httk.serve.optimade.schema.served.build_served_schema`,
         e.g. ``default_includes`` (per served entry type, the served entry
         types to include by default on single-entry requests; always unioned
         with ``references``).
     :return: Lazy adapter over the supplied durable sources.
     :raises ValueError: If sources conflict, expose incomplete sort mappings,
-        or ``data_path`` names no location.
+        or ``data_path`` names no location or is protocol-relative.
     :raises TypeError: If a source is not a stored entry source.
     """
     from httk.store.backend.sql import (
@@ -492,7 +503,7 @@ def adapter_from_store(store: EntryStore, *, data_path: str | None = None, **opt
     :return: Lazy adapter over all configured OPTIMADE families.
     :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
     :raises ValueError: If the store contains no OPTIMADE-described family,
-        or ``data_path`` names no location.
+        or ``data_path`` names no location or is protocol-relative.
     """
     from httk.store.backend.sql import StoredEntrySource
 

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   composeFilter,
+  detailHref,
   discoveryCacheKey,
   effectiveFilter,
   effectivePageSize,
@@ -390,4 +391,12 @@ test("changing the page-size dropdown navigates to the size-only URL, preserving
   changeHandler();
   assert.equal(assigned, pageSizeHref("100", "page_size", location.search));
   assert.equal(assigned, "?filter=nsites+%3E%3D+2&sort=-nsites&page_size=100");
+});
+
+test("detail links add the fixed detail_parameters before the id, URL-encoded and same-origin only", () => {
+  const base = "https://site.example.test/browse?type=files";
+  const detail = { detail_route: "entry", detail_query: "id", detail_parameters: { type: "files" } };
+  assert.equal(detailHref(detail, "a b&c", base), "https://site.example.test/entry?type=files&id=a+b%26c");
+  assert.equal(detailHref({ ...detail, detail_parameters: null }, "x", base), "https://site.example.test/entry?id=x");
+  assert.throws(() => detailHref({ ...detail, detail_route: "https://evil.example/entry" }, "x", base), /detail route/);
 });

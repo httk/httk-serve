@@ -810,13 +810,21 @@ function renderRows(tbody, resources, configuration, document) {
   }
 }
 
-function detailLink(configuration, id, rendered, document) {
-  const route = new URL(configuration.detail_route, document.baseURI);
-  const local = new URL(document.baseURI);
+/** Build one same-origin detail URL: fixed detail_parameters first, then detail_query=id. */
+export function detailHref(configuration, id, baseURI) {
+  const route = new URL(configuration.detail_route, baseURI);
+  const local = new URL(baseURI);
   if (route.origin !== local.origin || !configuration.detail_query) throw new Error("OPTIMADE detail route is invalid.");
+  for (const [name, value] of Object.entries(configuration.detail_parameters ?? {})) {
+    if (typeof value === "string") route.searchParams.set(name, value);
+  }
   route.searchParams.set(configuration.detail_query, id);
+  return route.href;
+}
+
+function detailLink(configuration, id, rendered, document) {
   const link = document.createElement("a");
-  link.href = route.href;
+  link.href = detailHref(configuration, id, document.baseURI);
   if (rendered.missing) link.textContent = id;
   if (rendered.missing) link.setAttribute("aria-label", `View ${id}`);
   return link;

@@ -21,6 +21,8 @@ protocol.
 - **How the OPTIMADE side works**: {doc}`optimade/how_it_works`
 - **Build and deploy the website**: {doc}`web/index` — widgets, templates,
   Apache/nginx deployment
+- **Serve a store with a website and files**: {doc}`combined/index` —
+  `httk serve combined`
 - **Serve a small protocol contract**: {doc}`http/openapi` — caller-owned schemas
   and operation handlers
 - **Serve standalone JSON or files**: {doc}`http/index` — lightweight HTTP
@@ -58,5 +60,6 @@ dsp
 http/index
 web/index
 optimade/index
+combined/index
 reference/index
 ```

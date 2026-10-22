@@ -439,3 +439,61 @@ test("the default fetch is invoked with the global receiver so native fetch does
     globalThis.fetch = previous;
   }
 });
+
+test("fetchAlternative requests the encoded _httk_alts route and validates like fetchOne", async () => {
+  const one = `${BASE}/v1/structures/${encodeURIComponent("mp/1")}/_httk_alts/file_ab?include=files`;
+  const data = { id: "mp/1~file_ab", type: "structures", attributes: {}, relationships: { files: { data: [{ type: "files", id: "f" }] } } };
+  const setup = (body) => routes({
+    [`${BASE}/versions`]: () => text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: () => json(info(), `${BASE}/v1/info`),
+    [`${BASE}/v1/info/structures`]: () => json(entry(), `${BASE}/v1/info/structures`),
+    [one]: () => json({ meta: { api_version: "1.3.0" }, ...body }, one),
+  });
+  const ok = setup({ data, included: [{ type: "files", id: "f", attributes: { name: "POSCAR" } }] });
+  const result = await transport(ok.fetch, { columns: undefined, response_fields: [] }).fetchAlternative("mp/1", "file_ab", { include: ["files"] });
+  assert.deepEqual(result.resource, data);
+  assert.equal(result.included[0].attributes.name, "POSCAR");
+  assert.equal(ok.requests.at(-1).options.redirect, "error");
+  assert.equal(await transport(setup({ data: null }).fetch, { columns: undefined, response_fields: [] }).fetchAlternative("mp/1", "file_ab", { include: ["files"] }), null);
+  await assert.rejects(
+    transport(setup({ data: { ...data, type: "files" } }).fetch, { columns: undefined, response_fields: [] }).fetchAlternative("mp/1", "file_ab", { include: ["files"] }),
+    (error) => error.code === "single entry",
+  );
+  for (const kind of ["", "File", "a-b", "../x", "1a", 7]) {
+    await assert.rejects(transport(ok.fetch).fetchAlternative("mp/1", kind), (error) => error.code === "configuration");
+  }
+  await assert.rejects(transport(ok.fetch).fetchAlternative("", "file_ab"), (error) => error.code === "configuration");
+});
+
+test("discoverInfo exposes served types and a bounded provider, and seeds sibling transports", async () => {
+  const root = info("1.3.0", { entries: ["structures", "files"] });
+  root.meta = { provider: { name: "Example\u0000DB", description: "Data.", prefix: "exmpl" } };
+  const network = routes({
+    [`${BASE}/versions`]: () => text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: () => json(root, `${BASE}/v1/info`),
+    [`${BASE}/v1/info/files`]: json(entry("1.3.0", { id: "files", fields: ["name"] }), `${BASE}/v1/info/files`),
+  });
+  const first = transport(network.fetch, { entry_type: "info", columns: undefined, response_fields: [] });
+  const shared = await first.discoverInfo();
+  assert.deepEqual([...shared.entryTypes], ["structures", "files"]);
+  assert.deepEqual(shared.provider, { name: "Example DB", description: "Data.", prefix: "exmpl" });
+  const sibling = new OptimadeTransport({ base_url: BASE, entry_type: "files", response_fields: [] }, { fetch: network.fetch, documentBase: "https://site.example.test/", info: shared });
+  const discovery = await sibling.discover();
+  assert.equal(discovery.properties.name !== undefined, true);
+  assert.equal(network.requests.filter((request) => request.url.endsWith("/v1/info")).length, 1);
+  await assert.rejects(transport(network.fetch, { entry_type: "references", columns: undefined, response_fields: [] }).discover(), (error) => error.code === "discovery");
+});
+
+test("fetchPage surfaces validated included resources", async () => {
+  const next = `${BASE}/v1/structures/a/_httk_alts?page_limit=2&include=files`;
+  const body = (included) => () => json({ ...page({ data: [{ id: "a~k", type: "structures", attributes: { nsites: 1 } }] }), included }, next);
+  const setup = (included) => routes({
+    [`${BASE}/versions`]: () => text("version\n1\n", `${BASE}/versions`),
+    [`${BASE}/v1/info`]: () => json(info(), `${BASE}/v1/info`),
+    [`${BASE}/v1/info/structures`]: () => json(entry(), `${BASE}/v1/info/structures`),
+    [next]: body(included),
+  });
+  const result = await transport(setup([{ type: "files", id: "f", attributes: { name: "POSCAR" } }]).fetch).fetchPage({ nextUrl: next });
+  assert.deepEqual(result.included, [{ type: "files", id: "f", attributes: { name: "POSCAR" } }]);
+  await assert.rejects(transport(setup([{}]).fetch).fetchPage({ nextUrl: next }), OptimadeProtocolError);
+});

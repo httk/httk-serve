@@ -22,6 +22,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote
 
 import uvicorn
 from httk.core.report import configure_reporting
@@ -71,15 +72,7 @@ def add_parser(groups: Any) -> None:
         "--baseurl",
         help="public base URL of the API, e.g. https://example.org/optimade (default: derived from each request)",
     )
-    serve_parser.add_argument("--host", default="127.0.0.1", help="interface to bind (default: 127.0.0.1)")
-    bind = serve_parser.add_mutually_exclusive_group()
-    bind.add_argument("--port", type=_port, default=8080, help="TCP port to bind (default: 8080)")
-    bind.add_argument("--uds", type=Path, help="bind this Unix domain socket instead of a TCP port")
-    serve_parser.add_argument(
-        "--root-path", type=_root_path, default="", help="ASGI root path when proxied under a sub-path"
-    )
-    serve_parser.add_argument("--workers", type=_workers, default=1, help="number of worker processes (default: 1)")
-    serve_parser.add_argument("--no-access-log", action="store_true", help="disable the per-request access log")
+    _bind_arguments(serve_parser)
     check_parser = subparsers.add_parser(
         "check",
         help="open a store file and self-test the endpoints it would serve",
@@ -92,7 +85,17 @@ def add_parser(groups: Any) -> None:
     _store_arguments(check_parser)
 
 
-def _store_arguments(parser: argparse.ArgumentParser) -> None:
+def _bind_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--host", default="127.0.0.1", help="interface to bind (default: 127.0.0.1)")
+    bind = parser.add_mutually_exclusive_group()
+    bind.add_argument("--port", type=_port, default=8080, help="TCP port to bind (default: 8080)")
+    bind.add_argument("--uds", type=Path, help="bind this Unix domain socket instead of a TCP port")
+    parser.add_argument("--root-path", type=_root_path, default="", help="ASGI root path when proxied under a sub-path")
+    parser.add_argument("--workers", type=_workers, default=1, help="number of worker processes (default: 1)")
+    parser.add_argument("--no-access-log", action="store_true", help="disable the per-request access log")
+
+
+def _store_arguments(parser: argparse.ArgumentParser, data_path_group: Any = None) -> None:
     parser.add_argument("store", metavar="STORE", type=Path, help="SQLite or DuckDB store file")
     parser.add_argument("--config", type=Path, help="TOML file with OPTIMADE service metadata")
     parser.add_argument(
@@ -105,7 +108,7 @@ def _store_arguments(parser: argparse.ArgumentParser) -> None:
             "imported with the working directory on the import path; repeatable"
         ),
     )
-    parser.add_argument(
+    (data_path_group or parser).add_argument(
         "--data-path",
         metavar="PATH",
         type=_data_path,
@@ -266,7 +269,7 @@ async def _get(app: ServeApp, target: str) -> tuple[int, bytes]:
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
-        "path": path,
+        "path": unquote(path),
         "raw_path": path.encode(),
         "root_path": "",
         "query_string": query.encode(),
@@ -291,11 +294,15 @@ async def _get(app: ServeApp, target: str) -> tuple[int, bytes]:
     return status, bytes(body)
 
 
-def _self_test(app: ServeApp) -> list[str]:
-    """Request every served endpoint in-process and describe each failure."""
+def _self_test(app: ServeApp, *, prefix: str = "", entries: Sequence[str] | None = None) -> list[str]:
+    """Request every served endpoint in-process and describe each failure.
 
-    entries = app.state.schema.all_entries
-    targets = ["/v1/info", "/v1/links", *(f"/v1/{entry}?page_limit=1" for entry in entries)]
+    ``prefix`` is the API's mount path in ``app`` and ``entries`` its served
+    entry types (default: those of ``app`` itself).
+    """
+
+    served = app.state.schema.all_entries if entries is None else entries
+    targets = [f"{prefix}/v1/info", f"{prefix}/v1/links", *(f"{prefix}/v1/{entry}?page_limit=1" for entry in served)]
 
     async def run() -> list[tuple[int, bytes]]:
         return [await _get(app, target) for target in targets]

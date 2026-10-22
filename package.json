@@ -6,7 +6,7 @@
     "@playwright/test": "1.62.1"
   },
   "scripts": {
-    "test-js": "node --test tests/serve-optimade-table-protocol.test.mjs tests/serve-optimade-table-controller.test.mjs",
-    "test-browser": "playwright test tests/serve-optimade-table.browser.spec.mjs"
+    "test-js": "node --test tests/serve-optimade-table-protocol.test.mjs tests/serve-optimade-table-controller.test.mjs tests/serve-optimade-present.test.mjs",
+    "test-browser": "playwright test tests/serve-optimade-table.browser.spec.mjs tests/combined.browser.spec.mjs"
   }
 }

@@ -1,4 +1,4 @@
-"""The ``httk serve`` umbrella command and its ``web`` and ``optimade`` groups."""
+"""The ``httk serve`` umbrella command and its ``web``, ``optimade`` and ``combined`` groups."""
 
 import argparse
 import sys
@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
+from .combined import cli as combined_cli
 from .optimade import cli as optimade_cli
 from .web import cli as web_cli
 
@@ -36,6 +37,7 @@ def build_parser(program: str) -> argparse.ArgumentParser:
     groups = parser.add_subparsers(metavar="GROUP")
     web_cli.add_parser(groups)
     optimade_cli.add_parser(groups)
+    combined_cli.add_parser(groups)
     return parser
 
 

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{{ title }} | {{ maintitle }}</title>
+    <link rel="stylesheet" href="{{ page.relbaseurl }}/site.css">
+  </head>
+  <body>
+    {% set current = page.relurl or 'index' %}
+    <header class="site-header">
+      <a class="site-title" href="{{ page.relbaseurl }}/">{{ maintitle }}</a>
+      <nav class="site-nav" aria-label="Primary">
+        {% for item in menuitems %}
+        <a href="{{ page.relbaseurl }}/{{ pages(item, 'relurl') }}"{% if item == current %} aria-current="page"{% endif %}>{{ pages(item, 'name') }}</a>
+        {% endfor %}
+      </nav>
+    </header>
+    <main class="site-main">
+{{ content }}
+    </main>
+    <footer class="site-footer">
+      Served by <a href="https://httk.org/">httk</a>; data available through the <a href="{{ page.relbaseurl }}/api">OPTIMADE API</a>.
+    </footer>
+  </body>
+</html>

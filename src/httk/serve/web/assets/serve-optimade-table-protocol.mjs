@@ -13,6 +13,7 @@ export const DEFAULT_BODY_LIMIT_BYTES = 1_048_576;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const VERSION_MAJOR = /^(0|[1-9]\d*)$/;
 const EXPLICIT_VERSION = /^v1(?:\.3(?:\.0)?)?$/;
+const ALTERNATIVE_KIND = /^[a-z][a-z0-9_]*$/;
 
 /** A protocol failure suitable for an accessible, recoverable UI error. */
 export class OptimadeProtocolError extends Error {
@@ -91,7 +92,8 @@ export function parseVersionsCsv(text) {
  * @param {string[]} [configuration.allowed_origins] extra permitted origins
  * @param {string} [configuration.filter] complete OPTIMADE filter value
  * @param {string} [configuration.sort] complete OPTIMADE sort value
- * @param {object} options runtime dependencies, notably fetch and documentBase
+ * @param {object} options runtime dependencies, notably fetch and documentBase; `info` may
+ *   carry a discoverInfo() result for the same base URL so sibling transports skip /info
  */
 export class OptimadeTransport {
   constructor(configuration, options = {}) {
@@ -115,11 +117,16 @@ export class OptimadeTransport {
     this.allowedOrigins = new Set([...this.extraOrigins, this.requestedBase.origin]);
     this.apiBase = null;
     this.discovery = null;
+    this.info = options.info?.requestedBaseUrl === this.requestedBase.href ? options.info : null;
   }
 
-  /** Negotiate (when needed) and validate /info plus /info/<entry_type>. */
-  async discover() {
-    if (this.discovery !== null) return this.discovery;
+  /** Negotiate (when needed) and validate /info only: served entry types and provider. */
+  async discoverInfo() {
+    if (this.info !== null) {
+      this.apiBase ??= new URL(this.info.apiBaseUrl);
+      this.allowedOrigins = new Set([...this.extraOrigins, this.apiBase.origin]);
+      return this.info;
+    }
     const explicit = EXPLICIT_VERSION.test(lastPathSegment(this.requestedBase));
     if (!explicit && /^v/i.test(lastPathSegment(this.requestedBase))) {
       throw protocol("versions", "OPTIMADE base URL has a malformed explicit version");
@@ -135,16 +142,37 @@ export class OptimadeTransport {
     }
     this.allowedOrigins = new Set([...this.extraOrigins, this.apiBase.origin]);
 
-    const info = await this.#request(appendPath(this.apiBase, "info"), "json");
-    const apiVersion = validateInfo(parseJson(info.text, "/info"), this.entryType);
+    const response = await this.#request(appendPath(this.apiBase, "info"), "json");
+    const root = parseJson(response.text, "/info");
+    const { apiVersion, entryTypes, endpoints } = validateInfo(root);
+    this.info = Object.freeze({
+      requestedBaseUrl: this.requestedBase.href,
+      apiBaseUrl: this.apiBase.href,
+      apiVersion,
+      entryTypes: Object.freeze(entryTypes),
+      endpoints: Object.freeze(endpoints),
+      provider: validateProvider(root.meta),
+    });
+    return this.info;
+  }
+
+  /** Negotiate (when needed) and validate /info plus /info/<entry_type>. */
+  async discover() {
+    if (this.discovery !== null) return this.discovery;
+    const { apiVersion, entryTypes, endpoints } = await this.discoverInfo();
+    if (!entryTypes.includes(this.entryType) && !endpoints.includes(this.entryType)) {
+      throw protocol("discovery", `/info does not advertise entry type ${this.entryType}`);
+    }
     const entryInfo = await this.#request(appendPath(this.apiBase, `info/${encodeURIComponent(this.entryType)}`), "json");
-    const { advertisedFields, sortableFields } = validateEntryInfo(parseJson(entryInfo.text, `/info/${this.entryType}`), apiVersion, this.entryType, this.selectedFields);
+    const { advertisedFields, sortableFields, properties, description } = validateEntryInfo(parseJson(entryInfo.text, `/info/${this.entryType}`), apiVersion, this.entryType, this.selectedFields);
     this.discovery = Object.freeze({
       apiBaseUrl: this.apiBase.href,
       apiVersion,
       entryType: this.entryType,
       advertisedFields: Object.freeze([...advertisedFields]),
       sortableFields: Object.freeze([...sortableFields]),
+      properties,
+      description,
     });
     return this.discovery;
   }
@@ -180,13 +208,25 @@ export class OptimadeTransport {
 
   /** Fetch and validate one resource, including explicitly requested relations. */
   async fetchOne(id, { include = [], signal = undefined } = {}) {
+    return this.#fetchSingle(id, [], include, signal);
+  }
+
+  /** Fetch one httk alternative (`/<type>/<id>/_httk_alts/<kind>`), validated like fetchOne. */
+  async fetchAlternative(id, kind, { include = [], signal = undefined } = {}) {
+    if (typeof kind !== "string" || !ALTERNATIVE_KIND.test(kind)) {
+      throw protocol("configuration", "alternative kind must match ^[a-z][a-z0-9_]*$");
+    }
+    return this.#fetchSingle(id, ["_httk_alts", kind], include, signal);
+  }
+
+  async #fetchSingle(id, suffix, include, signal) {
     await this.discover();
     if (typeof id !== "string" || !id) throw protocol("configuration", "id must be a non-empty string");
     if (!Array.isArray(include) || include.some((item) => typeof item !== "string" || !item)) {
       throw protocol("configuration", "include must be an array of non-empty strings");
     }
     const requestUrl = appendPath(this.apiBase, encodeURIComponent(this.entryType));
-    requestUrl.pathname += `/${encodeURIComponent(id)}`;
+    requestUrl.pathname += [id, ...suffix].map((segment) => `/${encodeURIComponent(segment)}`).join("");
     const query = new URLSearchParams();
     const responseFields = this.selectedFields.filter((field) => field !== "id" && field !== "type");
     if (responseFields.length) query.set("response_fields", responseFields.join(","));
@@ -435,7 +475,7 @@ function stringArray(value, label) {
   return value;
 }
 
-function validateInfo(root, entryType) {
+function validateInfo(root) {
   const data = root.data;
   if (!isObject(data) || data.type !== "info" || data.id !== "/") {
     throw protocol("discovery", "/info data must identify the info resource");
@@ -446,17 +486,23 @@ function validateInfo(root, entryType) {
   if (!stringArray(attributes.formats, "/info formats").includes("json")) {
     throw protocol("discovery", "/info must advertise JSON support");
   }
-  let advertised = false;
+  let entryTypes = [];
+  let endpoints = [];
   if (Object.hasOwn(attributes, "entry_types_by_format")) {
     if (!isObject(attributes.entry_types_by_format)) throw protocol("discovery", "/info entry_types_by_format must be an object");
-    const entries = stringArray(attributes.entry_types_by_format.json, "/info entry_types_by_format.json");
-    advertised ||= entries.includes(entryType);
+    entryTypes = stringArray(attributes.entry_types_by_format.json, "/info entry_types_by_format.json");
   }
   if (Object.hasOwn(attributes, "available_endpoints")) {
-    advertised ||= stringArray(attributes.available_endpoints, "/info available_endpoints").includes(entryType);
+    endpoints = stringArray(attributes.available_endpoints, "/info available_endpoints");
   }
-  if (!advertised) throw protocol("discovery", `/info does not advertise entry type ${entryType}`);
-  return api;
+  return { apiVersion: api, entryTypes: [...entryTypes], endpoints: [...endpoints] };
+}
+
+function validateProvider(meta) {
+  const provider = isObject(meta) ? meta.provider : null;
+  if (!isObject(provider)) return null;
+  const text = (value, maximum) => (typeof value === "string" ? boundedText(value, maximum) : null);
+  return Object.freeze({ name: text(provider.name, 160), description: text(provider.description, 2000), prefix: text(provider.prefix, 64) });
 }
 
 function validateEntryInfo(root, api, entryType, selected) {
@@ -479,7 +525,8 @@ function validateEntryInfo(root, api, entryType, selected) {
   }
   // Only a strict boolean true marks a property sortable; anything else is not.
   const sortableFields = Object.keys(data.properties).filter((name) => data.properties[name]?.sortable === true);
-  return { advertisedFields: output, sortableFields };
+  const description = typeof data.description === "string" ? data.description : null;
+  return { advertisedFields: output, sortableFields, properties: data.properties, description };
 }
 
 function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, allowUrl }) {
@@ -509,7 +556,12 @@ function validatePage(root, { entryType, pageSize, selectedFields, responseUrl, 
     }
   }
   if (more !== (next !== null)) throw protocol("page", "OPTIMADE page has inconsistent more_data_available and links.next");
-  return Object.freeze({ resources: Object.freeze(root.data), nextUrl: next, moreDataAvailable: more, dataReturned, dataAvailable, responseUrl: responseUrl.href });
+  let included = [];
+  if (Object.hasOwn(root, "included")) {
+    if (!Array.isArray(root.included)) throw protocol("page", "OPTIMADE included must be an array");
+    included = root.included.map((item) => validateIncluded(item));
+  }
+  return Object.freeze({ resources: Object.freeze(root.data), included: Object.freeze(included), nextUrl: next, moreDataAvailable: more, dataReturned, dataAvailable, responseUrl: responseUrl.href });
 }
 
 function validateCount(meta, key) {

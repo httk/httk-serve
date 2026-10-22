@@ -184,8 +184,11 @@ app = create_asgi_app(store, data_path="https://example.org/files")
 or `httk serve optimade serve STORE --data-path https://example.org/files`.
 Every served `files` URL that starts with `data/` then has that leading `data`
 replaced, so `data/diamond/jobs/.../child-outputs.json` is served as
-`https://example.org/files/diamond/jobs/.../child-outputs.json`; a local path
-such as `/srv/calcs` works the same way. Absolute URLs and other relative URLs
+`https://example.org/files/diamond/jobs/.../child-outputs.json`. The rest of
+the path is percent-encoded. A `data_path` must be a URL: one starting with a
+single `/` (such as `/files`) is root-relative and served absolute against the
+request origin, so a filesystem path like `/srv/calcs` is not meaningful.
+Absolute URLs and other relative URLs
 are served unchanged, and other entry types are unaffected. This is a pure
 presentation mapping: stored entries, their URLs and ids are never modified,
 and the server does not serve the file bytes. Without `data_path` the stored
