@@ -58,7 +58,8 @@ come from installed distributions, such as those written by
 | --- | --- |
 | `--config FILE` | TOML file with the service metadata described below. |
 | `--records MODULE:CLASS` | Record class the store was written with that no installed distribution registers; repeatable. |
-| `--data-path PATH` | Serve `files` entry URLs that start with `data/`, such as those written by `httk collect --into`, under the URL `PATH` instead, e.g. `https://example.org/files` (a leading single `/` is root-relative to the request origin; not a filesystem path); stored entries are unchanged (see {doc}`serving_stores`). |
+| `--data-path PATH` or `NAME=PATH` | Filesystem location of the stored files (`PATH/<workspace name>`, or workspace `NAME` at `PATH`; `NAME=PATH` is repeatable). The service serves the bytes of registered files itself at `/data/...`. Exclusive with `--data-url` (see {doc}`serving_stores`). |
+| `--data-url URL` | External file server replacing the leading `data` of `files` entry URLs, e.g. `https://example.org/files` (absolute http(s), or a root-relative `/...`); stored entries are unchanged. |
 | `--baseurl URL` | Public base URL of the API. Without it, links are derived from each request's host, scheme, and ASGI root path. |
 | `--host HOST`, `--port PORT` | TCP interface and port to bind (default `127.0.0.1:8080`). |
 | `--uds PATH` | Bind a Unix domain socket instead of a TCP port. |
@@ -66,8 +67,10 @@ come from installed distributions, such as those written by
 | `--workers N` | Number of worker processes (default 1). |
 | `--no-access-log` | Disable uvicorn's per-request access log, e.g. when the proxy already logs requests. |
 
-`httk serve optimade check` takes the same `STORE`, `--config`, `--records`, and
-`--data-path` arguments.
+`httk serve optimade check` takes the same `STORE`, `--config`, `--records`,
+`--data-path`, and `--data-url` arguments.
+
+With `--data-path`, served `files` URLs are `<request origin>[<root path>]/data/<name>/<path>`; behind a reverse proxy, `--baseurl` decides them instead (`<baseurl>/data/...`), so route `/data/` to the service.
 
 Setting `--baseurl` is the most robust choice behind a proxy, since generated
 links then do not depend on forwarded headers. Request-derived links need the

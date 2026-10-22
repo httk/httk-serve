@@ -175,28 +175,49 @@ as served (the semantic keys plus typed aliases such as
 `files` entries whose `url` is the fixed relative form
 `data/<workspace name>/<workspace-relative path>`. The URL is part of each
 file entry's content identity, so it does not depend on where a deployment
-keeps the files. The deployment chooses that location at serving time:
+keeps the files. The deployment chooses that at serving time, with one of two
+exclusive options.
 
-```python
-app = create_asgi_app(store, data_path="https://example.org/files")
+`--data-path PATH` serves the bytes itself: the files are on disk at
+`PATH/<workspace name>/<path>` and are sent at `/data/...`. Repeat
+`--data-path NAME=PATH` instead to put workspace `NAME`'s files at `PATH`
+(do not mix the two forms):
+
+```bash
+httk serve optimade serve STORE --data-path /srv/workspaces
+httk serve optimade serve STORE --data-path diamond=/work/diamond
 ```
 
-or `httk serve optimade serve STORE --data-path https://example.org/files`.
+Only files registered in the store are served (exact stored-URL match, final
+component not a symlink, size must match), as attachments. Served `files.url`
+values are `<request origin>[<root path>]/data/<name>/<path>`, or under
+`--baseurl` when given.
+
+`--data-url URL` (Python: `data_url=`) points at an external file server
+instead:
+
+```python
+app = create_asgi_app(store, data_url="https://example.org/files")
+```
+
+or `httk serve optimade serve STORE --data-url https://example.org/files`.
 Every served `files` URL that starts with `data/` then has that leading `data`
 replaced, so `data/diamond/jobs/.../child-outputs.json` is served as
 `https://example.org/files/diamond/jobs/.../child-outputs.json`. The rest of
-the path is percent-encoded. A `data_path` must be a URL: one starting with a
-single `/` (such as `/files`) is root-relative and served absolute against the
-request origin, so a filesystem path like `/srv/calcs` is not meaningful.
-Absolute URLs and other relative URLs
-are served unchanged, and other entry types are unaffected. This is a pure
-presentation mapping: stored entries, their URLs and ids are never modified,
-and the server does not serve the file bytes. Without `data_path` the stored
-URLs are served as they are.
+the path is percent-encoded. `URL` is an absolute http(s) URL, or a `/...`
+path (such as `/files`) served absolute against the request origin. The server
+does not serve the bytes then. Absolute URLs and other relative URLs
+are served unchanged, and other entry types are unaffected.
+
+Both are a presentation mapping: stored entries, their URLs and ids are never
+modified. Without either option the stored URLs are served as they are.
+`adapter_from_store(store, data_url=...)` takes the same URL option;
+`create_combined_app` also takes `data_path`
+({doc}`../combined/index`).
 
 The mapping applies to responses only. Stores written with *httk-core*'s
 default file projections support neither filtering nor sorting on `url`, so a
-`url` filter or sort is refused as it is without `data_path`.
+`url` filter or sort is refused as it is without these options.
 
 ## Wire naming
 

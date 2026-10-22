@@ -1,6 +1,7 @@
 """Compose OPTIMADE, a web site and the file-bytes route over one entry store."""
 
 import os
+from collections.abc import Mapping
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -62,8 +63,8 @@ def create_combined_app(
     config: OptimadeConfig | None = None,
     *,
     site: str | os.PathLike[str] | None = None,
-    files_dir: str | os.PathLike[str] | None = None,
-    data_path: str | None = None,
+    data_path: str | os.PathLike[str] | Mapping[str, str | os.PathLike[str]] | None = None,
+    data_url: str | None = None,
     public_base_url: str | None = None,
     root_path: str = "",
     debug: bool = False,
@@ -72,10 +73,10 @@ def create_combined_app(
 
     The OPTIMADE API is mounted at ``/optimade`` (``/optimade`` itself
     redirects to ``/optimade/``), the web site at ``/``, and, with
-    ``files_dir``, the bytes of the registered stored files at ``/data``.
+    ``data_path``, the bytes of the registered stored files at ``/data``.
     Served ``files`` URLs that are stored as ``data/<path>`` then point at
     ``/data/<path>``: under ``public_base_url`` when it is given, otherwise
-    made absolute against each request's origin. With ``data_path`` they
+    made absolute against each request's origin. With ``data_url`` they
     point at an external file server instead and no ``/data`` route exists;
     with neither, stored URLs are served as stored. The store stays owned by
     the caller; the web site's engine is closed by the application's lifespan.
@@ -84,10 +85,12 @@ def create_combined_app(
     :param config: OPTIMADE service configuration.
     :param site: Web site source directory (default: the packaged site whose
         pages browse the store through the OPTIMADE API).
-    :param files_dir: Directory named by the leading ``data/`` of stored file
-        URLs, enabling the ``/data`` route.
-    :param data_path: Location served in place of the leading ``data``
-        segment of stored file URLs; see
+    :param data_path: Directory holding the workspaces named by stored
+        ``data/<name>/...`` file URLs, or a mapping from workspace names to
+        their directories, enabling the ``/data`` route; see
+        :func:`~httk.serve.combined.files.create_files_app`.
+    :param data_url: External location served in place of the leading
+        ``data`` segment of stored file URLs; see
         :func:`~httk.serve.optimade.create_asgi_app`.
     :param public_base_url: Absolute public HTTP(S) URL of the composed
         application, authoritative for OPTIMADE links and file URLs; by
@@ -97,36 +100,34 @@ def create_combined_app(
     :param debug: Enable Starlette and backend diagnostics.
     :return: Composed application; ``app.state.optimade_app`` and
         ``app.state.web_app`` hold the mounted children and
-        ``app.state.data_path`` the served file location.
-    :raises ValueError: If ``files_dir`` and ``data_path`` are both given,
-        ``files_dir`` is not a directory, ``public_base_url`` or
-        ``root_path`` is malformed, or a child application refuses its
-        configuration.
+        ``app.state.data_url`` the served file location.
+    :raises ValueError: If ``data_path`` and ``data_url`` are both given, a
+        ``data_path`` directory does not exist or a workspace name is not a
+        single path component, ``public_base_url`` or ``root_path`` is
+        malformed, or a child application refuses its configuration.
     :raises RuntimeError: If the packaged default site is not installed as a directory.
     """
 
-    if files_dir is not None and data_path is not None:
-        raise ValueError("files_dir and data_path are mutually exclusive")
+    if data_path is not None and data_url is not None:
+        raise ValueError("data_path and data_url are mutually exclusive")
     public = _public_base_url(public_base_url) if public_base_url is not None else None
     normalized_root = _normalized_root_path(root_path)
-    if files_dir is not None:
-        if not Path(files_dir).is_dir():
-            raise ValueError(f"files_dir is not a directory: {files_dir}")
-        data_path = f"{public or ('/' + normalized_root if normalized_root else '')}/data"
+    mounts = []
+    if data_path is not None:
+        mounts.append(ASGIAppMount("/data", create_files_app(store, data_path)))
+        data_url = f"{public or ('/' + normalized_root if normalized_root else '')}/data"
     site_dir = Path(site) if site is not None else _default_site()
 
     optimade_app = create_optimade_app(
         store,
         config,
         baseurl=f"{public}/optimade" if public is not None else None,
-        data_path=data_path,
+        data_url=data_url,
         debug=debug,
     )
+    mounts.append(ASGIAppMount("/optimade", optimade_app))
     web_app = create_web_app(site_dir, debug=debug)
     try:
-        mounts = [ASGIAppMount("/optimade", optimade_app)]
-        if files_dir is not None:
-            mounts.append(ASGIAppMount("/data", create_files_app(store, files_dir)))
         app = compose_asgi_apps(mounts, root=ASGIAppMount("/", web_app))
         app.router.routes.insert(0, Route("/optimade", _redirect_to_optimade_base, methods=["GET"]))
     except BaseException as exc:
@@ -137,5 +138,5 @@ def create_combined_app(
         raise
     app.state.optimade_app = optimade_app
     app.state.web_app = web_app
-    app.state.data_path = data_path
+    app.state.data_url = data_url
     return app

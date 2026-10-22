@@ -52,7 +52,7 @@ class StoredBackendAdapter:
 
     :param federations: Durable federations keyed by entry endpoint.
     :param schema: Schema describing the federations' served entries.
-    :param data_path: Location served in place of the leading ``data`` segment
+    :param data_url: Location served in place of the leading ``data`` segment
         of ``files`` entry URLs that start with ``data/``, e.g.
         ``https://example.org/files``, with the rest of the stored URL
         percent-encoded; ``None`` serves stored URLs unchanged. A root-relative
@@ -60,22 +60,22 @@ class StoredBackendAdapter:
         origin of the request's response links; outside the OPTIMADE ASGI
         runtime (no request origin) it is served root-relative. Only responses are affected;
         stored entries are never modified.
-    :raises ValueError: If ``data_path`` names no location or is protocol-relative.
+    :raises ValueError: If ``data_url`` names no location or is protocol-relative.
     """
 
     federations: Mapping[str, Any]
     schema: ServedSchema
-    data_path: str | None = None
+    data_url: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "federations", MappingProxyType(dict(self.federations)))
-        if self.data_path is not None:
-            data_path = self.data_path.rstrip("/")
-            if not data_path:
-                raise ValueError("data_path must name a location, such as https://example.org/files")
-            if data_path.startswith("//"):
-                raise ValueError("data_path must be an absolute URL or a root-relative path, not protocol-relative")
-            object.__setattr__(self, "data_path", data_path)
+        if self.data_url is not None:
+            data_url = self.data_url.rstrip("/")
+            if not data_url:
+                raise ValueError("data_url must name a location, such as https://example.org/files")
+            if data_url.startswith("//"):
+                raise ValueError("data_url must be an absolute URL or a root-relative path, not protocol-relative")
+            object.__setattr__(self, "data_url", data_url)
 
     def snapshot_cutoff_ns(self, entry_type: str, now_ns: int) -> int | None:
         """Return the resolution-aware snapshot cutoff for one entry type."""
@@ -111,9 +111,9 @@ class StoredBackendAdapter:
                 )
             entry_type = entries[0]
             federation = self.federations[entry_type]
-            data_path = self.data_path if entry_type == "files" else None
-            if data_path is not None and data_path.startswith("/"):
-                data_path = (_REQUEST_ORIGIN.get() or "") + data_path
+            data_url = self.data_url if entry_type == "files" else None
+            if data_url is not None and data_url.startswith("/"):
+                data_url = (_REQUEST_ORIGIN.get() or "") + data_url
             limit = int(page_limit)
             offset = int(page_offset)
             try:
@@ -185,7 +185,7 @@ class StoredBackendAdapter:
                             response_fields,
                             unknown_response_fields,
                         ),
-                        data_path,
+                        data_url,
                     ),
                     relationships=_relationships_block(related),
                 )
@@ -261,11 +261,11 @@ def _exact_id_filter(filter_ast: FilterAst | None) -> str | None:
     return None
 
 
-def _served_url(values: dict[str, Any], data_path: str | None) -> dict[str, Any]:
-    """Serve a stored ``data/...`` file URL under ``data_path``, percent-encoding the rest (in place)."""
+def _served_url(values: dict[str, Any], data_url: str | None) -> dict[str, Any]:
+    """Serve a stored ``data/...`` file URL under ``data_url``, percent-encoding the rest (in place)."""
     url = values.get("url")
-    if data_path is not None and isinstance(url, str) and url.startswith("data/"):
-        values["url"] = f"{data_path}/{quote(url[len('data/') :], safe='/')}"
+    if data_url is not None and isinstance(url, str) and url.startswith("data/"):
+        values["url"] = f"{data_url}/{quote(url[len('data/') :], safe='/')}"
     return values
 
 
@@ -379,7 +379,7 @@ def _sortable_intersection(plans: Sequence[Any], property_names: Sequence[str]) 
 def adapter_from_stores(
     sources: Sequence["StoredEntrySource"],
     *,
-    data_path: str | None = None,
+    data_url: str | None = None,
     **options: Any,
 ) -> StoredBackendAdapter:
     """Build a lazy store-backed adapter from durable entry sources.
@@ -390,7 +390,7 @@ def adapter_from_stores(
     the returned page into OPTIMADE result rows.
 
     :param sources: Durable entry sources to federate by entry type.
-    :param data_path: Location served in place of the leading ``data`` segment
+    :param data_url: Location served in place of the leading ``data`` segment
         of ``files`` URLs that start with ``data/``, an absolute URL or a
         root-relative path (see :class:`StoredBackendAdapter`); ``None`` serves
         stored URLs unchanged.
@@ -400,7 +400,7 @@ def adapter_from_stores(
         with ``references``).
     :return: Lazy adapter over the supplied durable sources.
     :raises ValueError: If sources conflict, expose incomplete sort mappings,
-        or ``data_path`` names no location or is protocol-relative.
+        or ``data_url`` names no location or is protocol-relative.
     :raises TypeError: If a source is not a stored entry source.
     """
     from httk.store.backend.sql import (
@@ -485,10 +485,10 @@ def adapter_from_stores(
         )
         for entry_type, entry_sources in grouped.items()
     }
-    return StoredBackendAdapter(federations, schema, data_path)
+    return StoredBackendAdapter(federations, schema, data_url)
 
 
-def adapter_from_store(store: EntryStore, *, data_path: str | None = None, **options: Any) -> StoredBackendAdapter:
+def adapter_from_store(store: EntryStore, *, data_url: str | None = None, **options: Any) -> StoredBackendAdapter:
     """Build a lazy OPTIMADE adapter from every described family in one store.
 
     Families declared without an entry-type definition are deliberately
@@ -496,14 +496,14 @@ def adapter_from_store(store: EntryStore, *, data_path: str | None = None, **opt
     declarations, coexist with OPTIMADE records in one durable layout.
 
     :param store: Entry store whose configured layout is discovered.
-    :param data_path: Location served in place of the leading ``data`` segment
+    :param data_url: Location served in place of the leading ``data`` segment
         of ``files`` URLs that start with ``data/``; forwarded to
         :func:`adapter_from_stores`.
     :param \\*\\*options: Schema options forwarded to :func:`adapter_from_stores`.
     :return: Lazy adapter over all configured OPTIMADE families.
     :raises TypeError: If ``store`` does not implement :class:`EntryStore`.
     :raises ValueError: If the store contains no OPTIMADE-described family,
-        or ``data_path`` names no location or is protocol-relative.
+        or ``data_url`` names no location or is protocol-relative.
     """
     from httk.store.backend.sql import StoredEntrySource
 
@@ -516,4 +516,4 @@ def adapter_from_store(store: EntryStore, *, data_path: str | None = None, **opt
     )
     if not sources:
         raise ValueError("store has no configured entry family with an OPTIMADE definition")
-    return adapter_from_stores(sources, data_path=data_path, **options)
+    return adapter_from_stores(sources, data_url=data_url, **options)

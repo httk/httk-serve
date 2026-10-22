@@ -169,7 +169,7 @@ async def _handle_request(request: Request) -> Response:
         query=dict(request.query_params),
     )
 
-    # Backends resolve root-relative locations (a stored adapter's data_path)
+    # Backends resolve root-relative locations (a stored adapter's data_url)
     # against the same origin the response links use.
     parsed_baseurl = urlsplit(baseurl)
     origin_token = _REQUEST_ORIGIN.set(f"{parsed_baseurl.scheme}://{parsed_baseurl.netloc}")

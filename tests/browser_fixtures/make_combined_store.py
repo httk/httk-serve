@@ -93,7 +93,7 @@ def main(directory: Path) -> None:
         )
     summary = {
         "store": str(directory / "collected.sqlite"),
-        "files_dir": str(directory / "files"),
+        "workspace": str(directory / "files" / "ws"),
         "main": main_id,
         "other": other,
         "alt": alt,

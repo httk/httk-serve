@@ -3,6 +3,7 @@
 import os
 import re
 import stat
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
 from httk.core import FileRecord
@@ -29,25 +30,59 @@ def _bounded(name: str, limit: int = 255) -> str:
     return name[: limit - len(suffix)] + suffix
 
 
-def create_files_app(store: EntryStore, files_dir: str | os.PathLike[str]) -> Starlette:
+def _directory(value: str | os.PathLike[str], name: str | None = None) -> Path:
+    where = "data_path" if name is None else f"data_path for workspace {name!r}"
+    if not os.fspath(value):
+        raise ValueError(f"{where} must name a directory")
+    directory = Path(value).resolve()
+    if not directory.is_dir():
+        raise ValueError(f"{where} is not a directory: {value}")
+    return directory
+
+
+def create_files_app(
+    store: EntryStore, data_path: str | os.PathLike[str] | Mapping[str, str | os.PathLike[str]]
+) -> Starlette:
     """Create the application serving the bytes of registered stored files.
 
-    Mounted at ``/data``, a request for ``<path>`` is answered only when some
-    stored :class:`~httk.core.FileRecord` has the ``url`` ``data/<path>``
-    (any revision); the bytes come from ``files_dir/<path>``, whose final
-    component must be a regular file, not a symbolic link, of the recorded
-    size. Every other request is answered with 404, so files under
-    ``files_dir`` that no entry registers are never served. ``GET`` and
-    ``HEAD`` with byte ranges are supported. The window between the
-    symbolic-link check and opening the file is accepted: ``files_dir`` is
-    operator-owned.
+    Mounted at ``/data``, a request for ``<name>/<rest>`` is answered only
+    when some stored :class:`~httk.core.FileRecord` has the ``url``
+    ``data/<name>/<rest>`` (any revision), where ``<name>`` is the workspace
+    name. The bytes come from ``data_path/<name>/<rest>``, or, when
+    ``data_path`` maps workspace names to directories, from
+    ``data_path[<name>]/<rest>`` (an unmapped name is not served).
+    Intermediate symbolic links are followed, since workspace placements may
+    live elsewhere; the final component must be a regular file, not a
+    symbolic link, and only registered URLs whose recorded size matches are
+    served. Every other request is answered with 404, so files that no entry
+    registers are never served. ``GET`` and ``HEAD`` with byte ranges are
+    supported. The window between the symbolic-link check and opening the
+    file is accepted: the directories are operator-owned.
 
     :param store: Entry store holding the ``files`` entries, owned by the caller.
-    :param files_dir: Directory that the leading ``data/`` of stored URLs names.
+    :param data_path: Directory holding one subdirectory per workspace name,
+        or a mapping from workspace names to their directories.
     :return: Application to mount at ``/data``.
+    :raises ValueError: If a directory is empty or does not exist, or a
+        mapping key is not a single path component.
     """
 
-    root = Path(files_dir).resolve()
+    base: Path | None = None
+    roots: dict[str, Path] = {}
+    if isinstance(data_path, Mapping):
+        for name in data_path:
+            if not isinstance(name, str) or name in ("", ".", "..") or any(c in name for c in "/\\\x00"):
+                raise ValueError(f"data_path workspace name must be a single path component: {name!r}")
+        roots = {name: _directory(directory, name) for name, directory in data_path.items()}
+    else:
+        base = _directory(data_path)
+
+    def locate(path: str) -> Path | None:
+        if base is not None:
+            return base / path
+        name, _separator, rest = path.partition("/")
+        root = roots.get(name)
+        return root / rest if root is not None and rest else None
 
     # The store lookup runs synchronously in the event loop, as the OPTIMADE
     # application's queries do.
@@ -61,7 +96,9 @@ def create_files_app(store: EntryStore, files_dir: str | os.PathLike[str]) -> St
         records = [row.file for row in search.results(file=record)]
         if not records:
             return _not_found()
-        target = root / path
+        target = locate(path)
+        if target is None:
+            return _not_found()
         try:
             if stat.S_ISLNK(os.lstat(target).st_mode):
                 return _not_found("file changed or missing")

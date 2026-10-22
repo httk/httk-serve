@@ -64,7 +64,7 @@ def _capture_uvicorn(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, dict[st
 def test_parser_mutual_exclusions(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = str(_store(tmp_path))
     files = str(tmp_path / "files")
-    assert _run(["check", store, "--files-dir", files, "--data-path", "https://f.example"], tmp_path) == 2
+    assert _run(["check", store, "--data-path", files, "--data-url", "https://f.example"], tmp_path) == 2
     assert "not allowed with argument" in capsys.readouterr().err
     assert _run(["serve", store, "--port", "8000", "--uds", str(tmp_path / "s")], tmp_path) == 2
     assert "not allowed with argument" in capsys.readouterr().err
@@ -76,33 +76,33 @@ def test_parser_mutual_exclusions(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert "does not exist" in capsys.readouterr().err
 
 
-def test_check_with_files_dir_and_custom_site(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_check_with_data_path_and_custom_site(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store, site = str(_store(tmp_path)), str(_site(tmp_path))
-    assert _run(["check", store, "--site", site, "--files-dir", str(tmp_path / "files")], tmp_path) == 0
+    assert _run(["check", store, "--site", site, "--data-path", str(tmp_path / "files")], tmp_path) == 0
     captured = capsys.readouterr()
     assert "/optimade/v1/files" in captured.out.split()
     assert "warning" not in captured.err
 
     # A registered file missing from the files directory is a warning, not a failure.
     (tmp_path / "files" / "ws" / "out.txt").unlink()
-    assert _run(["check", store, "--site", site, "--files-dir", str(tmp_path / "files")], tmp_path) == 0
+    assert _run(["check", store, "--site", site, "--data-path", str(tmp_path / "files")], tmp_path) == 0
     assert "not downloadable (HTTP 404)" in capsys.readouterr().err
 
     # Stored data/ URLs without a files location are reported.
     assert _run(["check", store, "--site", site], tmp_path) == 0
-    assert "neither --files-dir nor --data-path" in capsys.readouterr().err
+    assert "neither --data-path nor --data-url" in capsys.readouterr().err
 
     # The probe listing stays within the configured page limit.
     config = tmp_path / "optimade.toml"
     config.write_text("page_limit_max = 5\n", encoding="utf-8")
-    files_dir = str(tmp_path / "files")
-    assert _run(["check", store, "--site", site, "--files-dir", files_dir, "--config", str(config)], tmp_path) == 0
+    data_dir = str(tmp_path / "files")
+    assert _run(["check", store, "--site", site, "--data-path", data_dir, "--config", str(config)], tmp_path) == 0
     err = capsys.readouterr().err
     assert "not downloadable (HTTP 404)" in err and "cannot list" not in err
 
     # Only lost files: nothing to probe.
     lost = str(_store(tmp_path, lost_only=True))
-    assert _run(["check", lost, "--site", site, "--files-dir", str(tmp_path / "files")], tmp_path) == 0
+    assert _run(["check", lost, "--site", site, "--data-path", str(tmp_path / "files")], tmp_path) == 0
     assert "no downloadable file entries to probe" in capsys.readouterr().err
 
     # A custom site without a home page fails the check.
@@ -116,7 +116,7 @@ def test_serve_prints_the_endpoints_and_runs_the_app(
 ) -> None:
     store, site = str(_store(tmp_path)), str(_site(tmp_path))
     calls = _capture_uvicorn(monkeypatch)
-    argv = ["serve", store, "--site", site, "--files-dir", str(tmp_path / "files"), "--root-path", "/db"]
+    argv = ["serve", store, "--site", site, "--data-path", str(tmp_path / "files"), "--root-path", "/db"]
     assert _run([*argv, "--port", "9000"], tmp_path) == 0
     ((_app, options),) = calls
     assert options["root_path"] == "/db" and options["port"] == 9000
@@ -148,4 +148,4 @@ def test_serve_workers_use_the_worker_factory(tmp_path: Path, monkeypatch: pytes
     any(BUILTIN_WIDGETS.resolve(name) is None for name in _WIDGETS), reason="the explorer widgets are not registered"
 )
 def test_check_default_site(tmp_path: Path) -> None:
-    assert _run(["check", str(_store(tmp_path)), "--files-dir", str(tmp_path / "files")], tmp_path) == 0
+    assert _run(["check", str(_store(tmp_path)), "--data-path", str(tmp_path / "files")], tmp_path) == 0

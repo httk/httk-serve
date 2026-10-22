@@ -24,7 +24,7 @@ test.beforeAll(async () => {
   fixture = JSON.parse(execFileSync("python3", [fixtureScript, directory], { encoding: "utf8" }));
   const port = await freePort();
   origin = `http://127.0.0.1:${port}`;
-  server = spawn("httk", ["serve", "combined", "serve", fixture.store, "--files-dir", fixture.files_dir, "--host", "127.0.0.1", "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+  server = spawn("httk", ["serve", "combined", "serve", fixture.store, "--data-path", `ws=${fixture.workspace}`, "--host", "127.0.0.1", "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
   server.stdout.on("data", (chunk) => { serverLog += chunk; });
   server.stderr.on("data", (chunk) => { serverLog += chunk; });
   await waitReady(`${origin}/optimade/v1/info`);

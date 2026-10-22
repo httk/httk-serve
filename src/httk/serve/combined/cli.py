@@ -3,7 +3,7 @@
 ``httk serve combined serve STORE`` serves an SQLite or DuckDB store file
 built by *httk-store* over OPTIMADE at ``/optimade/`` together with the
 packaged browsing site (or ``--site DIR``) at ``/`` and, with
-``--files-dir``, the registered stored files at ``/data/``, under uvicorn.
+``--data-path``, the registered stored files at ``/data/``, under uvicorn.
 ``httk serve combined check STORE`` performs the same opening and an
 in-process self-test without serving.
 """
@@ -16,10 +16,8 @@ import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
 
 import uvicorn
-from httk.core import FileRecord
 from httk.store import EntryStore
 from uvicorn.config import STARTUP_FAILURE
 
@@ -28,6 +26,7 @@ from httk.serve.optimade.cli import (
     _OPEN_ERRORS,
     _bind_arguments,
     _console_reporting,
+    _file_warnings,
     _get,
     _record_classes,
     _root_path,
@@ -67,7 +66,7 @@ def add_parser(groups: Any) -> None:
         help="serve a store file over OPTIMADE with a web site",
         description=(
             "Serve an SQLite or DuckDB store file over OPTIMADE at /optimade/ with a web site at / "
-            "and, with --files-dir, the registered files at /data/, with uvicorn."
+            "and, with --data-path, the registered files at /data/, with uvicorn."
         ),
     )
     serve_parser.set_defaults(handler=_serve, help_parser=serve_parser)
@@ -86,14 +85,7 @@ def add_parser(groups: Any) -> None:
 
 
 def _arguments(parser: argparse.ArgumentParser) -> None:
-    files = parser.add_mutually_exclusive_group()
-    _store_arguments(parser, files)
-    files.add_argument(
-        "--files-dir",
-        metavar="DIR",
-        type=Path,
-        help="serve the registered files stored as data/<path> from DIR/<path> at /data/<path>",
-    )
+    _store_arguments(parser)
     parser.add_argument(
         "--public-base-url",
         metavar="URL",
@@ -112,8 +104,8 @@ def _settings(arguments: argparse.Namespace) -> dict[str, Any]:
         "records": arguments.records,
         "app_dir": str(Path.cwd()),
         "site": path(arguments.site),
-        "files_dir": path(arguments.files_dir),
         "data_path": arguments.data_path,
+        "data_url": arguments.data_url,
         "public_base_url": arguments.public_base_url,
         "root_path": arguments.root_path,
     }
@@ -127,8 +119,8 @@ def _combined_app(settings: dict[str, Any]) -> tuple["SqlStore", ServeApp]:
             store,
             config,
             site=settings["site"],
-            files_dir=settings["files_dir"],
             data_path=settings["data_path"],
+            data_url=settings["data_url"],
             public_base_url=settings["public_base_url"],
             root_path=settings["root_path"],
         )
@@ -173,44 +165,19 @@ def worker_app() -> ServeApp:
 def _self_test(app: ServeApp, store: EntryStore, settings: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Request the OPTIMADE endpoints and site pages in-process; return failures and warnings."""
 
-    entries = app.state.optimade_app.state.schema.all_entries
-    failures = _optimade_self_test(app, prefix="/optimade", entries=entries)
-    warnings: list[str] = []
-
-    def status_and_body(target: str) -> tuple[int, bytes]:
-        return asyncio.run(_get(app, target))
-
+    failures = _optimade_self_test(app, prefix="/optimade", entries=app.state.optimade_app.state.schema.all_entries)
     for target in _SITE_PAGES if settings["site"] is None else ("/",):
-        status, _body = status_and_body(target)
+        status, _body = asyncio.run(_get(app, target))
         if status != 200:
             failures.append(f"{target}: HTTP {status}")
-    if "files" not in entries:
-        return failures, warnings
-    if settings["files_dir"] is not None:
-        # A served URL is <data_path>/<percent-encoded stored path>; probe the first such one in-process.
-        limit = min(20, app.state.optimade_app.state.config.page_limit_max)
-        status, body = status_and_body(f"/optimade/v1/files?page_limit={limit}&response_fields=url")
-        prefix = urlsplit(app.state.data_path).path + "/"
-        urls = [entry["attributes"].get("url") for entry in json.loads(body).get("data", [])] if status == 200 else []
-        paths = [urlsplit(url).path for url in urls if isinstance(url, str) and url.startswith(("http://", "https://"))]
-        url_path = next((path for path in paths if path.startswith(prefix)), None)
-        if status != 200:
-            warnings.append(f"cannot list file entries to probe (HTTP {status})")
-        elif url_path is None:
-            warnings.append("no downloadable file entries to probe")
-        else:
-            probe = status_and_body("/data/" + url_path[len(prefix) :])[0]
-            if probe != 200:
-                warnings.append(f"served file {url_path} is not downloadable (HTTP {probe})")
-    elif settings["data_path"] is None:
-        search = store.searcher()
-        record = search.variable(FileRecord)
-        search.add(record.url.startswith("data/"))
-        if next(iter(search.results(file=record)), None) is not None:
-            warnings.append(
-                "stored file URLs start with data/ but neither --files-dir nor --data-path is given; "
-                "they are served as stored, relative URLs"
-            )
+    warnings = _file_warnings(
+        app,
+        store,
+        api=app.state.optimade_app,
+        prefix="/optimade",
+        data_path=settings["data_path"],
+        data_url=app.state.data_url,
+    )
     return failures, warnings
 
 

@@ -7,11 +7,11 @@ API, and optionally the stored files themselves, from a single process:
 | --- | --- |
 | `/` | the web site (default: a browser for the store) |
 | `/optimade/` | the OPTIMADE API (`/optimade` redirects) |
-| `/data/...` | bytes of registered stored files, only with `--files-dir` |
+| `/data/...` | bytes of registered stored files, only with `--data-path` |
 
 ```bash
-httk serve combined check  STORE --files-dir files
-httk serve combined serve  STORE --files-dir files --port 8080
+httk serve combined check  STORE --data-path /path/to/workspaces
+httk serve combined serve  STORE --data-path /path/to/workspaces --port 8080
 ```
 
 `STORE` is an SQLite or DuckDB store, e.g. written by `httk collect --into`.
@@ -19,8 +19,8 @@ Other options:
 
 | Option | Meaning |
 | --- | --- |
-| `--files-dir DIR` | Serve registered files at `/data/`; see below. Exclusive with `--data-path`. |
-| `--data-path URL` | Point served file URLs at an external file server instead; no `/data/` route. |
+| `--data-path PATH` or `NAME=PATH` | Filesystem location of the stored files, served at `/data/`; see below. `NAME=PATH` is repeatable. Exclusive with `--data-url`. |
+| `--data-url URL` | External file server that replaces the leading `data` of stored file URLs (absolute http(s) URL, or a root-relative `/...` path); no `/data/` route. |
 | `--public-base-url URL` | Public URL of the whole server; default derives from each request. |
 | `--site DIR` | Serve your own site at `/` instead of the default one. |
 | `--config TOML`, `--records MODULE:CLASS` | As for {doc}`../optimade/deployment`. |
@@ -34,27 +34,41 @@ From Python:
 ```python
 from httk.serve.combined import create_combined_app
 
-app = create_combined_app(store, files_dir="files")  # an ASGI application
+app = create_combined_app(store, data_path="/path/to/workspaces")  # an ASGI application
 ```
 
-It takes the same choices as keyword arguments (`site`, `files_dir`,
-`data_path`, `public_base_url`, `root_path`); the caller keeps ownership of
+It takes the same choices as keyword arguments (`site`, `data_path`,
+`data_url`, `public_base_url`, `root_path`); the caller keeps ownership of
 `store`.
 
 ## Serving files
 
-`--files-dir DIR` makes `DIR` what the stored `data/` prefix names. Stored file
-URLs look like `data/<workspace name>/<path>`, so each workspace must be
-reachable as `DIR/<workspace name>`:
+Stored file URLs look like `data/<workspace name>/<path>`. `--data-path` names
+where the files are on disk, and the server sends the bytes itself at `/data/...`.
+Either one `PATH` holding each workspace at `PATH/<workspace name>`:
 
 ```bash
-mkdir files && ln -s /path/to/workspace files/<name>
+httk serve combined serve STORE --data-path /srv/workspaces
 ```
 
-Only files registered in the store are served (exact URL match); the final path
-component may not be a symlink and the on-disk size must match the registered
-size. Files download as attachments. Served `files.url` values are absolute:
-`<request origin>/data/...`, or `<public base URL>/data/...`.
+or one or more `NAME=PATH` entries, giving workspace `NAME`'s files at `PATH`
+(no symlinks needed, so the old `ln -s` recipe is unnecessary):
+
+```bash
+httk serve combined serve STORE --data-path diamond=/work/diamond --data-path ice=/work/ice
+```
+
+In Python, `data_path` is a path or a `{name: path}` mapping.
+
+Only files registered in the store are served (exact stored-URL match); the
+final path component may not be a symlink and the on-disk size must match the
+registered size. Files download as attachments. Served `files.url` values are
+absolute: `<request origin>[<root path>]/data/<name>/<path>`, or
+`<public base URL>/data/<name>/<path>`.
+
+To use an external file server instead, give `--data-url URL` (or `data_url=`):
+it replaces the leading `data` of stored URLs, and the remainder is
+percent-encoded.
 
 ## Default site
 

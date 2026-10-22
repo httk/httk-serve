@@ -18,13 +18,14 @@ import logging
 import os
 import sys
 import tomllib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 import uvicorn
+from httk.core import FileRecord
 from httk.core.report import configure_reporting
 from uvicorn.config import STARTUP_FAILURE
 
@@ -34,6 +35,7 @@ from .model.config import OptimadeConfig
 from .runtime.asgi import _normalized_root_path
 
 if TYPE_CHECKING:
+    from httk.store import EntryStore
     from httk.store.backend.sql.store import SqlStore
 
 _WORKER_ENVIRONMENT = "HTTK_SERVE_OPTIMADE_WORKER"
@@ -95,7 +97,7 @@ def _bind_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-access-log", action="store_true", help="disable the per-request access log")
 
 
-def _store_arguments(parser: argparse.ArgumentParser, data_path_group: Any = None) -> None:
+def _store_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("store", metavar="STORE", type=Path, help="SQLite or DuckDB store file")
     parser.add_argument("--config", type=Path, help="TOML file with OPTIMADE service metadata")
     parser.add_argument(
@@ -108,12 +110,24 @@ def _store_arguments(parser: argparse.ArgumentParser, data_path_group: Any = Non
             "imported with the working directory on the import path; repeatable"
         ),
     )
-    (data_path_group or parser).add_argument(
+    files = parser.add_mutually_exclusive_group()
+    files.add_argument(
         "--data-path",
-        metavar="PATH",
+        metavar="[NAME=]PATH",
         type=_data_path,
+        action=_DataPathAction,
         help=(
-            "serve file-entry URLs that start with data/ under PATH instead, "
+            "serve the registered files stored as data/<name>/<path> from PATH/<name>/<path> at /data/; "
+            "or, repeated as NAME=PATH, the files of workspace NAME from PATH/<path> "
+            "(a value splits at its first = only when no / or \\ precedes it)"
+        ),
+    )
+    files.add_argument(
+        "--data-url",
+        metavar="URL",
+        type=_data_url,
+        help=(
+            "serve file-entry URLs that start with data/ under the external URL instead, "
             "e.g. https://example.org/files (stored entries are unchanged)"
         ),
     )
@@ -141,10 +155,50 @@ def _root_path(value: str) -> str:
     return value
 
 
-def _data_path(value: str) -> str:
+def _data_url(value: str) -> str:
     if not value.rstrip("/"):
         raise argparse.ArgumentTypeError("must name a location, such as https://example.org/files")
     return value
+
+
+def _data_path(value: str) -> tuple[str | None, str]:
+    """Parse ``PATH`` or ``NAME=PATH`` into the name and the absolute directory.
+
+    The value splits at its first ``=`` only when no ``/`` or ``\\`` precedes it.
+    """
+    prefix, separator, path = value.partition("=")
+    name: str | None = prefix
+    if not separator or any(character in prefix for character in ("/", "\\", os.sep)):
+        name, path = None, value
+    if not path:
+        raise argparse.ArgumentTypeError("must name a directory")
+    if not Path(path).is_dir():
+        raise argparse.ArgumentTypeError(f"not a directory: {path}")
+    return name, str(Path(path).resolve())
+
+
+class _DataPathAction(argparse.Action):
+    """Collect ``--data-path`` values into one directory or a workspace-name mapping."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        name, path = values
+        current = getattr(namespace, self.dest)
+        if name is None and current is None:
+            setattr(namespace, self.dest, path)
+            return
+        if name is None or isinstance(current, str):
+            parser.error("argument --data-path: give either one PATH or one or more NAME=PATH, not both or two PATHs")
+        mapping = dict(current or {})
+        if name in mapping:
+            parser.error(f"argument --data-path: workspace {name!r} is given twice")
+        mapping[name] = path
+        setattr(namespace, self.dest, mapping)
 
 
 def open_store(path: str | os.PathLike[str], records: Sequence[type] = ()) -> "SqlStore":
@@ -318,6 +372,68 @@ def _self_test(app: ServeApp, *, prefix: str = "", entries: Sequence[str] | None
     return failures
 
 
+def _file_warnings(
+    app: ServeApp,
+    store: "EntryStore",
+    *,
+    api: ServeApp,
+    prefix: str = "",
+    data_path: str | Mapping[str, str] | None = None,
+    data_url: str | None = None,
+) -> list[str]:
+    """Describe file-serving problems of an application serving ``store``.
+
+    ``api`` is the OPTIMADE application mounted at ``prefix`` in ``app``.
+    With ``data_path`` the first listed ``files`` entry under ``data_url``
+    whose workspace ``data_path`` serves (a single directory serves every
+    name) is requested from ``app``'s ``/data`` route; with neither option,
+    stored ``data/`` URLs that are served unchanged are reported.
+    """
+
+    if "files" not in api.state.schema.all_entries:
+        return []
+
+    def get(target: str) -> tuple[int, bytes]:
+        return asyncio.run(_get(app, target))
+
+    warnings: list[str] = []
+    if data_path is not None and data_url is not None:
+        # A served URL is <data_url>/<percent-encoded stored path>; probe the first such one in-process.
+        status, body = get(
+            f"{prefix}/v1/files?page_limit={min(20, api.state.config.page_limit_max)}&response_fields=url"
+        )
+        location = urlsplit(data_url).path + "/"
+        urls = [entry["attributes"].get("url") for entry in json.loads(body).get("data", [])] if status == 200 else []
+        paths = [urlsplit(url).path for url in urls if isinstance(url, str) and url.startswith(("http://", "https://"))]
+        url_path = next(
+            (
+                path
+                for path in paths
+                if path.startswith(location)
+                and (isinstance(data_path, str) or unquote(path[len(location) :].partition("/")[0]) in data_path)
+            ),
+            None,
+        )
+        if status != 200:
+            warnings.append(f"cannot list file entries to probe (HTTP {status})")
+        elif url_path is None:
+            warnings.append("no downloadable file entries to probe")
+        else:
+            probe = get("/data/" + url_path[len(location) :])[0]
+            if probe != 200:
+                warnings.append(f"served file {url_path} is not downloadable (HTTP {probe})")
+    elif data_url is None:
+        search = store.searcher()
+        record = search.variable(FileRecord)
+        search.add(record.url.startswith("data/"))
+        if next(iter(search.results(file=record)), None) is not None:
+            warnings.append(
+                "stored file URLs start with data/ but neither --data-path nor --data-url is given; "
+                "they are served as stored, relative URLs"
+            )
+    return warnings
+
+
 def _record_classes(specs: Sequence[str], app_dir: str | os.PathLike[str]) -> list[type]:
     """Import application record classes named as ``MODULE:CLASS``.
 
@@ -352,14 +468,38 @@ def _store_app(
     baseurl: str | None,
     records: Sequence[str],
     app_dir: Path,
-    data_path: str | None = None,
+    data_url: str | None = None,
+    data_path: str | dict[str, str] | None = None,
+    root_path: str = "",
 ) -> tuple["SqlStore", ServeApp]:
+    """Open the store and build the served application.
+
+    With ``data_path`` the OPTIMADE application is composed at ``/`` with the
+    file-bytes route at ``/data``, beside ``/v1``, and serves file URLs there.
+    The returned application's ``state.optimade_app`` is the OPTIMADE
+    application (itself without ``data_path``) and ``state.data_url`` the
+    served file location.
+    """
+    from httk.serve.combined.files import create_files_app
+    from httk.serve.composition import ASGIAppMount, compose_asgi_apps
+
     from .api import create_asgi_app
 
     config = load_config(config_path)
     store = open_store(store_path, _record_classes(records, app_dir))
     try:
-        app = create_asgi_app(store, config, baseurl=baseurl, data_path=data_path)
+        if data_path is None:
+            app = optimade_app = create_asgi_app(store, config, baseurl=baseurl, data_url=data_url)
+        else:
+            root = _normalized_root_path(root_path)
+            data_url = f"{baseurl.rstrip('/')}/data" if baseurl else f"{'/' + root if root else ''}/data"
+            optimade_app = create_asgi_app(store, config, baseurl=baseurl, data_url=data_url)
+            if "data" in optimade_app.state.schema.all_entries:
+                raise ValueError("--data-path cannot serve /data beside the store's OPTIMADE entry type named 'data'")
+            mount = ASGIAppMount("/data", create_files_app(store, data_path))
+            app = compose_asgi_apps([mount], root=ASGIAppMount("/", optimade_app))
+        app.state.optimade_app = optimade_app
+        app.state.data_url = data_url
     except BaseException:
         store.close()
         raise
@@ -397,7 +537,9 @@ def worker_app() -> ServeApp:
             values["baseurl"],
             values["records"],
             Path(values["app_dir"]),
+            values.get("data_url"),
             values.get("data_path"),
+            values.get("root_path", ""),
         )[1]
     except _OPEN_ERRORS as exc:
         _LOGGER.error("httk serve optimade worker cannot open %s: %s", values["store"], exc)
@@ -410,19 +552,34 @@ def _serve(arguments: argparse.Namespace) -> int:
     config_path = arguments.config.resolve() if arguments.config is not None else None
     try:
         store, app = _store_app(
-            store_path, config_path, arguments.baseurl, arguments.records, Path.cwd(), arguments.data_path
+            store_path,
+            config_path,
+            arguments.baseurl,
+            arguments.records,
+            Path.cwd(),
+            arguments.data_url,
+            arguments.data_path,
+            arguments.root_path,
         )
     except _OPEN_ERRORS as exc:
         print(f"httk serve optimade serve: {exc}", file=sys.stderr)
         return 2
-    failures = _self_test(app)
+    try:
+        api = app.state.optimade_app
+        failures = _self_test(app, entries=api.state.schema.all_entries)
+        warnings = _file_warnings(app, store, api=api, data_path=arguments.data_path, data_url=app.state.data_url)
+    except BaseException:
+        store.close()
+        raise
     if failures:
         store.close()
         for failure in failures:
             print(f"httk serve optimade serve: {failure}", file=sys.stderr)
         return 2
+    for warning in warnings:
+        print(f"httk serve optimade serve: warning: {warning}", file=sys.stderr)
     location = f"unix:{arguments.uds}" if arguments.uds is not None else f"http://{arguments.host}:{arguments.port}"
-    print(f"Serving {store_path} ({', '.join(app.state.schema.all_entries)}) at {location}", flush=True)
+    print(f"Serving {store_path} ({', '.join(api.state.schema.all_entries)}) at {location}", flush=True)
     options: dict[str, Any] = {
         "root_path": arguments.root_path,
         "access_log": not arguments.no_access_log,
@@ -448,7 +605,9 @@ def _serve(arguments: argparse.Namespace) -> int:
             "baseurl": arguments.baseurl,
             "records": arguments.records,
             "app_dir": str(Path.cwd()),
+            "data_url": arguments.data_url,
             "data_path": arguments.data_path,
+            "root_path": arguments.root_path,
         }
     )
     uvicorn.run("httk.serve.optimade.cli:worker_app", factory=True, workers=arguments.workers, **options)
@@ -458,19 +617,29 @@ def _serve(arguments: argparse.Namespace) -> int:
 def _check(arguments: argparse.Namespace) -> int:
     try:
         store, app = _store_app(
-            arguments.store, arguments.config, None, arguments.records, Path.cwd(), arguments.data_path
+            arguments.store,
+            arguments.config,
+            None,
+            arguments.records,
+            Path.cwd(),
+            arguments.data_url,
+            arguments.data_path,
         )
     except _OPEN_ERRORS as exc:
         print(f"httk serve optimade check: {exc}", file=sys.stderr)
         return 2
     try:
-        failures = _self_test(app)
+        api = app.state.optimade_app
+        failures = _self_test(app, entries=api.state.schema.all_entries)
+        warnings = _file_warnings(app, store, api=api, data_path=arguments.data_path, data_url=app.state.data_url)
     finally:
         store.close()
     for failure in failures:
         print(f"httk serve optimade check: {failure}", file=sys.stderr)
+    for warning in warnings:
+        print(f"httk serve optimade check: warning: {warning}", file=sys.stderr)
     if failures:
         return 1
-    for entry in app.state.schema.all_entries:
+    for entry in api.state.schema.all_entries:
         print(entry)
     return 0

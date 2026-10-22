@@ -33,9 +33,9 @@ def served(tmp_path: Path) -> Iterator[tuple[SqliteStore, Path]]:
     (workspace / "jobs" / "a" / "changed.txt").write_bytes(b"short")
     (workspace / "jobs" / "a" / "page.html").write_bytes(b"<p>x</p>")
     (workspace / "jobs" / "a" / "link.txt").symlink_to(workspace / _ODD.removeprefix("ws/"))
-    files_dir = tmp_path / "files"
-    files_dir.mkdir()
-    (files_dir / "ws").symlink_to(workspace, target_is_directory=True)
+    data_dir = tmp_path / "files"
+    data_dir.mkdir()
+    (data_dir / "ws").symlink_to(workspace, target_is_directory=True)
 
     path = tmp_path / "collected.sqlite"
     with SqliteStore(
@@ -57,7 +57,7 @@ def served(tmp_path: Path) -> Iterator[tuple[SqliteStore, Path]]:
         edges = (RunEdge("output", "files", output), RunEdge("energy", "records", energy))
         store.save(Run(inputs=(RunEdge("input", "files", output),), outputs=edges, source_id="ws:a"))
     with SqliteStore(path) as store:
-        yield store, files_dir
+        yield store, data_dir
 
 
 def _urls(client: TestClient, prefix: str = "") -> dict[str, str]:
@@ -66,8 +66,8 @@ def _urls(client: TestClient, prefix: str = "") -> dict[str, str]:
 
 
 def test_combined_app_serves_optimade_and_the_byte_route(served: tuple[SqliteStore, Path]) -> None:
-    store, files_dir = served
-    client = TestClient(create_combined_app(store, files_dir=files_dir))
+    store, data_dir = served
+    client = TestClient(create_combined_app(store, data_path=data_dir))
 
     assert client.get("/optimade/v1/info").status_code == 200
     redirect = client.get("/optimade", params={"x": "1"}, follow_redirects=False)
@@ -106,25 +106,25 @@ def test_combined_app_serves_optimade_and_the_byte_route(served: tuple[SqliteSto
         assert client.get(target).status_code == 404, target
 
 
-def test_combined_app_without_files_dir_serves_stored_urls(served: tuple[SqliteStore, Path]) -> None:
-    store, _files_dir = served
+def test_combined_app_without_data_path_serves_stored_urls(served: tuple[SqliteStore, Path]) -> None:
+    store, _data_dir = served
     client = TestClient(create_combined_app(store))
     assert _urls(client)["out put#1 50%?é.txt"] == f"data/{_ODD}"
     assert client.get(f"/data/{_ODD_SERVED}").status_code == 404
 
-    external = TestClient(create_combined_app(store, data_path="https://files.example/d"))
+    external = TestClient(create_combined_app(store, data_url="https://files.example/d"))
     assert _urls(external)["out put#1 50%?é.txt"] == f"https://files.example/d/{_ODD_SERVED}"
     assert external.get(f"/data/{_ODD_SERVED}").status_code == 404
 
 
 def test_combined_app_public_base_url_and_root_path(served: tuple[SqliteStore, Path]) -> None:
-    store, files_dir = served
-    public = TestClient(create_combined_app(store, files_dir=files_dir, public_base_url="https://db.example/x/"))
+    store, data_dir = served
+    public = TestClient(create_combined_app(store, data_path=data_dir, public_base_url="https://db.example/x/"))
     assert _urls(public)["out put#1 50%?é.txt"] == f"https://db.example/x/data/{_ODD_SERVED}"
     links = public.get("/optimade/v1/files", params={"page_limit": 1}).json()["links"]
     assert links["next"].startswith("https://db.example/x/optimade/v1/files?")
 
-    app = create_combined_app(store, files_dir=files_dir, root_path="/sub")
+    app = create_combined_app(store, data_path=data_dir, root_path="/sub")
     mounted = TestClient(app, root_path="/sub")
     url = _urls(mounted, "/sub")["out put#1 50%?é.txt"]
     assert url == f"http://testserver/sub/data/{_ODD_SERVED}"
@@ -134,24 +134,51 @@ def test_combined_app_public_base_url_and_root_path(served: tuple[SqliteStore, P
 
 
 def test_combined_app_validation(served: tuple[SqliteStore, Path], tmp_path: Path) -> None:
-    store, files_dir = served
+    store, data_dir = served
     with pytest.raises(ValueError, match="mutually exclusive"):
-        create_combined_app(store, files_dir=files_dir, data_path="https://files.example/d")
+        create_combined_app(store, data_path=data_dir, data_url="https://files.example/d")
     with pytest.raises(ValueError, match="not a directory"):
-        create_combined_app(store, files_dir=tmp_path / "missing")
+        create_combined_app(store, data_path=tmp_path / "missing")
     for bad in ("ftp://db.example", "https://db.example/?q=1", "https://db.example/#f", "/relative", "https://"):
         with pytest.raises(ValueError, match="public_base_url"):
             create_combined_app(store, public_base_url=bad)
     with pytest.raises(ValueError, match="root_path"):
-        create_combined_app(store, files_dir=files_dir, root_path="sub")
+        create_combined_app(store, data_path=data_dir, root_path="sub")
+
+
+def test_combined_app_maps_workspace_names_to_directories(tmp_path: Path) -> None:
+    roots = {"a": tmp_path / "one" / "deep", "b": tmp_path / "two", "c": tmp_path / "three"}
+    path = tmp_path / "mapped.sqlite"
+    with SqliteStore(path, entry_records={FileEntry: FileRecord}, entry_ids=EntryIdScheme("httk.test", "1")) as store:
+        for name, root in roots.items():
+            (root / "jobs").mkdir(parents=True)
+            (root / "jobs" / "out.txt").write_bytes(name.encode())
+            store.save(FileRecord(url=f"data/{name}/jobs/out.txt", name="out.txt", size=1, sha256=name * 64))
+    with SqliteStore(path) as store:
+        client = TestClient(create_combined_app(store, data_path={"a": roots["a"], "b": str(roots["b"])}))
+        data = client.get("/optimade/v1/files").json()["data"]
+        urls = sorted(entry["attributes"]["url"] for entry in data)
+        assert urls == [f"http://testserver/data/{name}/jobs/out.txt" for name in "abc"]
+        assert [client.get(url).content for url in urls[:2]] == [b"a", b"b"]
+        assert client.get(urls[2]).status_code == 404  # registered, but workspace c is not mapped
+        assert client.get("/data/a").status_code == 404
+        for bad in ("", ".", "..", "a/b", "a\\b", "a\x00"):
+            with pytest.raises(ValueError, match="single path component"):
+                create_combined_app(store, data_path={bad: roots["a"]})
+        with pytest.raises(ValueError, match="data_path for workspace 'a' is not a directory"):
+            create_combined_app(store, data_path={"a": tmp_path / "missing"})
+        with pytest.raises(ValueError, match="data_path must name a directory"):
+            create_combined_app(store, data_path="")
+        with pytest.raises(ValueError, match="workspace 'a' must name a directory"):
+            create_combined_app(store, data_path={"a": ""})
 
 
 @pytest.mark.skipif(
     any(BUILTIN_WIDGETS.resolve(name) is None for name in _WIDGETS), reason="the explorer widgets are not registered"
 )
 def test_default_site_pages_render(served: tuple[SqliteStore, Path]) -> None:
-    store, files_dir = served
-    client = TestClient(create_combined_app(store, files_dir=files_dir))
+    store, data_dir = served
+    client = TestClient(create_combined_app(store, data_path=data_dir))
     expected = {
         "/": {"base_url": "./optimade", "browse_route": "browse"},
         "/browse?type=files": {"base_url": "./optimade", "entry_type": "files"},

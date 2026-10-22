@@ -23,7 +23,7 @@ def create_asgi_app(
     debug: bool = False,
     report_level: str | int = "warning",
     report_context_levels: Mapping[str, str | int] | None = None,
-    data_path: str | None = None,
+    data_url: str | None = None,
 ) -> ServeApp:
     """Create an ASGI application serving an OPTIMADE API for a backend or store.
 
@@ -37,23 +37,23 @@ def create_asgi_app(
     :param debug: Enable application and backend diagnostics.
     :param report_level: Minimum report level collected per request.
     :param report_context_levels: Context-specific report levels.
-    :param data_path: When serving an entry store, the location served in place
+    :param data_url: When serving an entry store, the location served in place
         of the leading ``data`` segment of ``files`` URLs that start with
         ``data/``, e.g. ``https://example.org/files`` or a root-relative
         ``/files`` resolved against each request's origin; the rest of the URL
         is percent-encoded and stored entries are unchanged.
     :return: Configured serving application.
-    :raises TypeError: If ``data_path`` is given with an adapter rather than an entry store.
-    :raises ValueError: If ``data_path`` names no location or is protocol-relative.
+    :raises TypeError: If ``data_url`` is given with an adapter rather than an entry store.
+    :raises ValueError: If ``data_url`` names no location or is protocol-relative.
     """
     if isinstance(adapter, EntryStore):
         from .backend.stores import adapter_from_store
 
-        adapter = adapter_from_store(adapter, data_path=data_path)
-    elif data_path is not None:
+        adapter = adapter_from_store(adapter, data_url=data_url)
+    elif data_url is not None:
         raise TypeError(
-            "data_path applies only when serving an EntryStore; build the adapter with "
-            "adapter_from_store(..., data_path=...)"
+            "data_url applies only when serving an EntryStore; build the adapter with "
+            "adapter_from_store(..., data_url=...)"
         )
     if config is None:
         config = OptimadeConfig()
