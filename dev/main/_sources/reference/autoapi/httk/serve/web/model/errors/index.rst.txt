@@ -1,0 +1,130 @@
+httk.serve.web.model.errors
+===========================
+
+.. py:module:: httk.serve.web.model.errors
+
+.. autoapi-nested-parse::
+
+   Define public exceptions raised while serving or publishing web sites.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.model.errors.WebError
+   httk.serve.web.model.errors.NotFoundError
+   httk.serve.web.model.errors.FunctionInjectionError
+   httk.serve.web.model.errors.WidgetError
+   httk.serve.web.model.errors.WidgetParseError
+   httk.serve.web.model.errors.WidgetDiscoveryError
+   httk.serve.web.model.errors.WidgetValidationError
+   httk.serve.web.model.errors.WidgetRenderingError
+
+
+Module Contents
+---------------
+
+.. py:exception:: WebError(message, *, status_code = 500)
+
+   Bases: :py:obj:`Exception`
+
+
+   Represent a handled web failure with an HTTP status code.
+
+   :param message: Human-readable failure message.
+   :param status_code: HTTP status code associated with the failure.
+
+
+   .. py:attribute:: status_code
+      :value: 500
+
+
+
+.. py:exception:: NotFoundError(message = 'Not Found')
+
+   Bases: :py:obj:`WebError`
+
+
+   Represent a route or site resource that cannot be found.
+
+   :param message: Human-readable not-found message.
+
+
+.. py:exception:: FunctionInjectionError(message)
+
+   Bases: :py:obj:`WebError`
+
+
+   Represent a failure while injecting a site function result.
+
+   :param message: Human-readable failure message.
+
+
+.. py:exception:: WidgetError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WebError`
+
+
+   Base error for a widget invocation with source-aware diagnostics.
+
+
+   .. py:attribute:: phase
+      :value: 'widget'
+
+
+
+.. py:exception:: WidgetParseError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget invocation that cannot be parsed.
+
+
+   .. py:attribute:: phase
+      :value: 'parse'
+
+
+
+.. py:exception:: WidgetDiscoveryError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget that cannot be discovered or loaded.
+
+
+   .. py:attribute:: phase
+      :value: 'discovery'
+
+
+
+.. py:exception:: WidgetValidationError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget declaration that violates its contract.
+
+
+   .. py:attribute:: phase
+      :value: 'validation'
+
+
+
+.. py:exception:: WidgetRenderingError(message, *, source_path = None, line = None, column = None, snippet = None, widget_name = None, widget_id = None, correction = None)
+
+   Bases: :py:obj:`WidgetError`
+
+
+   Report a widget that failed while producing output.
+
+
+   .. py:attribute:: phase
+      :value: 'rendering'
+
+
+

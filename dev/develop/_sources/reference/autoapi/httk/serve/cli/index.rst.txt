@@ -1,0 +1,70 @@
+httk.serve.cli
+==============
+
+.. py:module:: httk.serve.cli
+
+.. autoapi-nested-parse::
+
+   The ``httk serve`` umbrella command and its ``web``, ``optimade`` and ``combined`` groups.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.cli.CLIContextLike
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.cli.build_parser
+   httk.serve.cli.command
+
+
+Module Contents
+---------------
+
+.. py:class:: CLIContextLike
+
+   Bases: :py:obj:`Protocol`
+
+
+   The minimal root-command context consumed by :func:`command`.
+
+
+   .. py:property:: program
+      :type: str
+
+
+      Return the root program name.
+
+
+   .. py:property:: cwd
+      :type: pathlib.Path
+
+
+      Return the root command's working directory.
+
+
+.. py:function:: build_parser(program)
+
+   Build the public ``httk serve`` argument parser.
+
+   :param program: Program name displayed in command-line help.
+   :return: Configured argument parser.
+
+
+.. py:function:: command(argv, context)
+
+   Dispatch the command registered by ``httk.registry.cli.serve``.
+
+   :param argv: Command-line arguments after the root command.
+   :param context: Root-command program and working-directory context.
+   :return: Process-style command status code.
+
+

@@ -1,0 +1,92 @@
+httk.serve.optimade.backend.translation
+=======================================
+
+.. py:module:: httk.serve.optimade.backend.translation
+
+.. autoapi-nested-parse::
+
+   Translation of OPTIMADE filter syntax trees into backend search expressions.
+
+   The generic translation is implemented in :mod:`httk.store.query.optimade_filters`;
+   :func:`translate_filter` delegates to
+   :func:`~httk.store.query.optimade_filters.translate_filter_ast` and wraps its neutral
+   :class:`~httk.store.FilterTranslationError` failure categories
+   into :class:`~httk.serve.optimade.model.errors.TranslatorError` HTTP errors.
+   :func:`format_value` and :func:`translate_filter_node` are thin
+   OPTIMADE-side wrappers over the upstream functions.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.translation.format_value
+   httk.serve.optimade.backend.translation.translate_filter
+   httk.serve.optimade.backend.translation.translate_filter_node
+
+
+Module Contents
+---------------
+
+.. py:function:: format_value(fulltype, val, allow_null = False)
+
+   Convert a filter value and translate neutral failures to HTTP errors.
+
+   Delegates to :func:`httk.store.query.optimade_filters.format_value` and raises
+   :class:`~httk.serve.optimade.model.errors.TranslatorError` for its neutral
+   :class:`~httk.store.FilterTranslationError` failures.
+
+   :param fulltype: Simplified OPTIMADE property type.
+   :param val: Parsed filter values.
+   :param allow_null: Allow a null value for the property.
+   :return: Backend-ready filter value.
+   :raises httk.serve.optimade.model.errors.TranslatorError: If the value cannot be translated.
+
+
+.. py:function:: translate_filter(filter_ast, entries, adapter, sort = None)
+
+   Build one searcher per entry source, with the filter applied to each.
+
+   Relationship-property filters (dotted identifiers over served entry types)
+   are resolved through the adapter's related-property resolver (built by
+   ``_related_property_resolver``), so filtering ``references.doi`` behaves
+   exactly like filtering ``/references`` directly.
+
+   :param filter_ast: Parsed filter, or ``None`` for an unfiltered query.
+   :param entries: Entry endpoints to search.
+   :param adapter: Backend adapter supplying sources and handlers.
+   :param sort: Response fields and descending flags for sorting.
+   :return: Source/searcher pairs with the filter and sort applied.
+   :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
+
+
+.. py:function:: translate_filter_node(node, search_variable, entry, entry_info, handlers, recognized_prefixes, served_entries = ())
+
+   Translate one filter node against an OPTIMADE *entry-info* property mapping.
+
+   An OPTIMADE-side adaptation of
+   :func:`~httk.store.query.optimade_filters.translate_filter_ast`: ``entry_info`` maps
+   property names to their property dictionaries (only their ``'fulltype'``
+   keys are read) rather than straight to fulltypes, ``served_entries`` names
+   the relationship targets, and failures surface as
+   :class:`~httk.serve.optimade.model.errors.TranslatorError` instead of the
+   upstream neutral :class:`~httk.store.FilterTranslationError`.
+
+   No related-property resolver is threaded through, so relationship-property
+   filters other than ``<type>.id HAS ...`` raise a not-implemented (501)
+   error. Use :func:`translate_filter` (which builds the resolver from its
+   adapter) for full relationship-property filtering.
+
+   :param node: Filter node to translate.
+   :param search_variable: Backend variable used by the expression.
+   :param entry: Entry endpoint being filtered.
+   :param entry_info: Simplified property metadata for the entry.
+   :param handlers: Property handlers used for translation.
+   :param recognized_prefixes: Property-definition prefixes accepted by the filter.
+   :param served_entries: Entry types available as relationship targets.
+   :return: Backend search expression.
+   :raises httk.serve.optimade.model.errors.TranslatorError: If the filter cannot be translated.
+
+

@@ -1,0 +1,48 @@
+httk.serve.web.runtime.asgi
+===========================
+
+.. py:module:: httk.serve.web.runtime.asgi
+
+.. autoapi-nested-parse::
+
+   Adapt a site engine to Starlette request and lifecycle handling.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.runtime.asgi.MAX_POST_BODY_BYTES
+   httk.serve.web.runtime.asgi.MAX_TABLE_POST_BODY_BYTES
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.runtime.asgi.create_app
+
+
+Module Contents
+---------------
+
+.. py:data:: MAX_POST_BODY_BYTES
+   :value: 1000000
+
+
+.. py:data:: MAX_TABLE_POST_BODY_BYTES
+   :value: 64000
+
+
+.. py:function:: create_app(*, engine, debug = False)
+
+   Create the Starlette application for a site engine.
+
+   :param engine: Site engine owned by the ASGI application lifecycle.
+   :param debug: Whether to enable Starlette debug responses.
+   :return: Configured Starlette application.
+
+

@@ -1,0 +1,80 @@
+httk.serve.web.widgets.assets
+=============================
+
+.. py:module:: httk.serve.web.widgets.assets
+
+.. autoapi-nested-parse::
+
+   Engine-owned registration for trusted widget assets.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.assets.WidgetAssetConflictError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.assets.WidgetAssetRegistry
+
+
+Module Contents
+---------------
+
+.. py:exception:: WidgetAssetConflictError(path)
+
+   Bases: :py:obj:`ValueError`
+
+
+   Report conflicting declarations for one widget asset path.
+
+   :param path: Conflicting deployment-relative asset path.
+
+
+   .. py:attribute:: path
+
+
+.. py:class:: WidgetAssetRegistry
+
+   Register immutable widget assets for one engine instance.
+
+   Registration is atomic across a batch and rejects conflicting content before
+   changing the registry.
+
+
+   .. py:method:: register(asset)
+
+      Register one widget asset.
+
+      :param asset: Asset declaration to register.
+      :return: The registered asset.
+      :raises WidgetAssetConflictError: If the path has different content.
+
+
+
+   .. py:method:: register_many(assets)
+
+      Register a batch after preflighting every conflict.
+
+      :param assets: Asset declarations to register.
+      :return: Registered assets in input order.
+      :raises WidgetAssetConflictError: If any path has different content.
+
+
+
+   .. py:method:: get(path)
+
+      Look up an asset by its deployment-relative path.
+
+      :param path: Registered asset path.
+      :return: Registered asset, or ``None`` when absent.
+
+
+

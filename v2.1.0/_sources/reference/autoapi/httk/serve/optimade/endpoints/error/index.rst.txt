@@ -1,0 +1,33 @@
+httk.serve.optimade.endpoints.error
+===================================
+
+.. py:module:: httk.serve.optimade.endpoints.error
+
+.. autoapi-nested-parse::
+
+   Format exceptions as OPTIMADE JSON:API error responses.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.endpoints.error.format_optimade_error
+
+
+Module Contents
+---------------
+
+.. py:function:: format_optimade_error(ex, request, config, version = optimade_default_version)
+
+   Format an exception as an OPTIMADE error response.
+
+   :param ex: Exception raised while handling the request.
+   :param request: Raw request used to construct response metadata.
+   :param config: Service metadata configuration.
+   :param version: API version to report in response metadata.
+   :return: JSON:API error response.
+
+

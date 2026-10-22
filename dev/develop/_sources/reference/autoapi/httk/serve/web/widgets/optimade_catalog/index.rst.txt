@@ -1,0 +1,43 @@
+httk.serve.web.widgets.optimade_catalog
+=======================================
+
+.. py:module:: httk.serve.web.widgets.optimade_catalog
+
+.. autoapi-nested-parse::
+
+   The browser-driven OPTIMADE catalog widget and the shell shared by the explorer widgets.
+
+   ``optimade_catalog``, ``optimade_browser`` and ``optimade_entry`` emit an inert
+   shell plus JSON configuration; their browser modules fetch only through
+   ``OptimadeTransport`` and render served data as DOM text, never as markup.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_catalog.render
+
+
+Module Contents
+---------------
+
+.. py:function:: render(context, *, base_url, browse_route = 'browse')
+
+   Render a home-page catalog of the entry types an OPTIMADE service serves.
+
+   The browser shows the provider name and description from ``/info``, one card per
+   served entry type with its description and entry count, and the result-record
+   kinds of ``_httk_records`` as links into the browse page.
+
+   :param context: Immutable widget invocation context.
+   :param base_url: OPTIMADE base URL: absolute, root-relative, or site-root-relative
+       (no scheme and no leading ``/``, resolved against the page's relative base URL).
+   :param browse_route: Site route of the browse page receiving ``type`` and ``kind``.
+   :return: Catalog shell and its trusted assets.
+   :raises httk.serve.web.widgets.optimade_table.OptimadeTableProtocolError: If ``base_url`` or
+       ``browse_route`` is invalid.
+
+

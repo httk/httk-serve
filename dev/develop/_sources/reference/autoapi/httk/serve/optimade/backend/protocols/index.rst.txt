@@ -1,0 +1,62 @@
+httk.serve.optimade.backend.protocols
+=====================================
+
+.. py:module:: httk.serve.optimade.backend.protocols
+
+.. autoapi-nested-parse::
+
+   Typed protocols for the store/searcher contract the OPTIMADE backend uses.
+
+   The store/searcher protocols are defined in :mod:`httk.store.query` (httk-store
+   is where httk's data stores live, and this backend programs against their
+   shared query contract); this module re-exports them for the backend's use,
+   together with the OPTIMADE-specific query-callable types from the result
+   model.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.optimade.backend.protocols.QueryFunction
+   httk.serve.optimade.backend.protocols.QueryResults
+
+
+Module Contents
+---------------
+
+.. py:class:: QueryFunction
+
+   Bases: :py:obj:`Protocol`
+
+
+   The callback seam through which the request engine runs queries on a backend.
+
+
+.. py:class:: QueryResults
+
+   Bases: :py:obj:`Protocol`
+
+
+   The results of a query against a backend, as consumed by the entry endpoints.
+
+   Iteration yields one :class:`~httk.serve.optimade.model.results.ResultRow` per entry; its ``values`` map
+   OPTIMADE response-field names to values, and the ``id`` and ``type`` keys
+   are always present.
+
+
+   .. py:property:: more_data_available
+      :type: bool
+
+
+      Report whether another page is available.
+
+
+   .. py:method:: count()
+
+      Return the total number of matches before pagination.
+
+
+
