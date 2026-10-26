@@ -333,9 +333,19 @@ async def _get(app: ServeApp, target: str) -> tuple[int, bytes]:
     }
     status = 0
     body = bytearray()
+    requested = False
+    complete = asyncio.Event()
 
+    # Like a real client: deliver the request once, then wait for the whole
+    # response before disconnecting (starlette's FileResponse polls receive()
+    # while streaming and would spin on a client that never blocks).
     async def receive() -> dict[str, Any]:
-        return {"type": "http.request", "body": b"", "more_body": False}
+        nonlocal requested
+        if not requested:
+            requested = True
+            return {"type": "http.request", "body": b"", "more_body": False}
+        await complete.wait()
+        return {"type": "http.disconnect"}
 
     async def send(message: dict[str, Any]) -> None:
         nonlocal status
@@ -343,6 +353,8 @@ async def _get(app: ServeApp, target: str) -> tuple[int, bytes]:
             status = message["status"]
         elif message["type"] == "http.response.body":
             body.extend(message.get("body", b""))
+            if not message.get("more_body", False):
+                complete.set()
 
     await app(scope, receive, send)  # type: ignore[arg-type]
     return status, bytes(body)
