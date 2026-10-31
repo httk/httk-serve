@@ -9,8 +9,9 @@ from ..model.request import (
     RequestedSlice,
     ValidatedParameters,
     ValidatedRequest,
+    representation_below_base,
 )
-from ..model.versions import optimade_default_version, optimade_supported_versions
+from ..model.versions import optimade_default_url_version, optimade_default_version, optimade_supported_versions
 from ..schema.served import ServedSchema, derived_endpoint_name
 
 # The filter lexer is quadratic in input length (16 KB ~ 6 s of CPU) and runs
@@ -26,11 +27,18 @@ _CANONICAL_NONNEGATIVE_INTEGER_RE = re.compile(r'[0-9]+')
 _CANONICAL_POSITIVE_INTEGER_RE = re.compile(r'[1-9][0-9]*')
 # An alternative-kind token: a lowercase letter then lowercase alphanumerics/underscores.
 _ALTERNATIVE_KIND_RE = re.compile(r'[a-z][a-z0-9_]*')
+# An api_hint value, vMAJOR[.MINOR[.PATCH]] (matched with fullmatch).
+_API_HINT_RE = re.compile(r'v([0-9]+)(?:\.[0-9]+){0,2}')
 
 
 def _is_printable_ascii(value: str) -> bool:
     """Return whether ``value`` is a non-empty printable ASCII identifier."""
     return len(value) > 0 and all(ord(char) >= 32 and ord(char) <= 126 for char in value)
+
+
+def _is_url_version_segment(segment: str) -> bool:
+    """Return whether a path segment has the form of a versioned base URL segment (``v1``, ``v1.3``...)."""
+    return len(segment) >= 2 and segment[0] == 'v' and segment[1] in "0123456789"
 
 
 def _versioned_baseurl(baseurl: str, url_version: str | None) -> str:
@@ -182,11 +190,7 @@ def validate_optimade_request(
 
     potential_optimade_version, _sep, rest = endpoint_str.partition('/')
 
-    if (
-        len(potential_optimade_version) >= 2
-        and potential_optimade_version[0] == 'v'
-        and potential_optimade_version[1] in "0123456789"
-    ):
+    if _is_url_version_segment(potential_optimade_version):
         if potential_optimade_version in optimade_supported_versions:
             validated_version = optimade_supported_versions[potential_optimade_version]
             url_version = potential_optimade_version
@@ -326,7 +330,7 @@ def validate_optimade_request(
 
     validated_request = ValidatedRequest(
         baseurl=_versioned_baseurl(request.baseurl, url_version),
-        representation=request.representation,
+        representation=representation_below_base(request.representation),
         endpoint=endpoint,
         version=validated_version,
         url_version=url_version,
@@ -455,6 +459,54 @@ def validate_optimade_request(
     return validated_request
 
 
+def redirect_url_version(request: RawRequest) -> str | None:
+    """Return the versioned base URL segment an unversioned API request redirects to.
+
+    The base URL landing page, ``/versions`` and requests that already name a
+    version segment are served directly. Other requests are API requests under
+    the unversioned base URL: they redirect to the default major version, or
+    to the major version named by an ``api_hint`` query parameter
+    (``vMAJOR``, ``vMAJOR.MINOR`` or ``vMAJOR.MINOR.PATCH``; ``v01`` names
+    ``v1``). The minor and patch versions of a hint are not checked, since
+    best-effort serving of the supported major version is allowed.
+
+    :param request: Raw request whose relative path and query are inspected.
+    :return: The major-only version segment (for example ``v1``), or ``None`` to serve directly.
+    :raises httk.serve.optimade.model.errors.OptimadeError: 400 for a malformed ``api_hint``;
+        553 for a hinted major version that is not supported.
+    """
+    if request.relurl is not None:
+        relurl = request.relurl
+    else:
+        relurl = request.representation.partition('?')[0]
+    endpoint_str = relurl.strip("/")
+    if endpoint_str in ("", "versions") or _is_url_version_segment(endpoint_str.partition('/')[0]):
+        return None
+
+    if request.query is not None:
+        query = request.query
+    else:
+        querystr = request.querystr if request.querystr is not None else urlparse(request.representation).query
+        query = dict(parse_qsl(querystr, keep_blank_values=True))
+    api_hint = query.get('api_hint')
+    if api_hint is None:
+        return optimade_default_url_version
+    match = _API_HINT_RE.fullmatch(api_hint)
+    if match is None:
+        raise OptimadeError(
+            "api_hint must have the form vMAJOR, vMAJOR.MINOR or vMAJOR.MINOR.PATCH.", 400, "Bad request"
+        )
+    major = f"v{int(match.group(1))}"
+    if major in optimade_supported_versions:
+        return major
+    raise OptimadeError(
+        "Unsupported api_hint version. Supported versioned base URLs are: "
+        + ", ".join("/" + v for v in optimade_supported_versions),
+        553,
+        "Version Not Supported",
+    )
+
+
 def determine_optimade_version(request: RawRequest) -> str:
     """Determine the OPTIMADE version named by a request path.
 
@@ -471,11 +523,7 @@ def determine_optimade_version(request: RawRequest) -> str:
 
     potential_optimade_version, _sep, _rest = endpoint.partition('/')
 
-    if (
-        len(potential_optimade_version) >= 2
-        and potential_optimade_version[0] == 'v'
-        and potential_optimade_version[1] in "0123456789"
-    ):
+    if _is_url_version_segment(potential_optimade_version):
         if potential_optimade_version in optimade_supported_versions:
             return optimade_supported_versions[potential_optimade_version]
         else:

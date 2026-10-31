@@ -2,10 +2,31 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
+from .versions import optimade_supported_versions
+
 # The public origin (``scheme://host[:port]``) of the request being processed,
 # set by the ASGI runtime around each request; backends resolve root-relative
 # locations against it.
 _REQUEST_ORIGIN: ContextVar[str | None] = ContextVar("httk_serve_optimade_request_origin", default=None)
+
+
+def representation_below_base(representation: str) -> str:
+    """Return a request representation relative to the unversioned base URL.
+
+    OPTIMADE defines ``meta.query.representation`` as the part of the URL that
+    follows the versioned or unversioned base URL, so a leading supported
+    version segment (``/v1/structures`` or ``/v1.3.0/info``) is removed and
+    ``/v1`` becomes ``/``. Other paths, including unsupported versions such as
+    ``/v9/info``, are returned unchanged.
+
+    :param representation: Request path and query, starting with ``/``.
+    :return: The representation without a leading version segment.
+    """
+    path, sep, querystr = representation.partition('?')
+    first, _slash, rest = path.lstrip('/').partition('/')
+    if first not in optimade_supported_versions:
+        return representation
+    return '/' + rest + sep + querystr
 
 
 @dataclass(slots=True)

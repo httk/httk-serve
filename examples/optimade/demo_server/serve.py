@@ -6,7 +6,7 @@ Run with::
 
 then query, e.g.::
 
-    curl 'http://localhost:8080/structures?filter=elements HAS "Ga" AND nelements=2'
+    curl 'http://localhost:8080/v1/structures?filter=elements HAS "Ga" AND nelements=2'
 """
 
 from collections import Counter

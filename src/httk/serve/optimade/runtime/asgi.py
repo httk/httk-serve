@@ -3,21 +3,21 @@
 import json
 from collections.abc import Mapping
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from httk.core.report import collect_reports
 from starlette.applications import Starlette
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import RedirectResponse, Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..endpoints.error import format_optimade_error
 from ..endpoints.meta import merge_collected_warnings
 from ..engine.processing import SnapshotCutoff, process
-from ..engine.validate import determine_optimade_version
+from ..engine.validate import determine_optimade_version, redirect_url_version
 from ..model.config import OptimadeConfig
 from ..model.request import _REQUEST_ORIGIN, EndpointResponse, RawRequest
 from ..model.results import QueryFunction
@@ -48,10 +48,14 @@ def _normalized_root_path(root_path: object) -> str:
     return root_path.strip("/")
 
 
-def _implicit_baseurl(request: Request) -> str:
+def _mount_path(request: Request) -> str:
+    """Return the slash-terminated, path-absolute mount path of the request."""
     root_path = _normalized_root_path(request.scope.get("root_path", ""))
-    origin = f"{request.url.scheme}://{request.url.netloc}"
-    return origin + ("/" + root_path if root_path else "") + "/"
+    return "/" + root_path + "/" if root_path else "/"
+
+
+def _implicit_baseurl(request: Request) -> str:
+    return f"{request.url.scheme}://{request.url.netloc}" + _mount_path(request)
 
 
 def _canonical_cors_origin(origin: object) -> str:
@@ -154,12 +158,18 @@ def _error_output(ex: Exception, request: RawRequest, config: OptimadeConfig) ->
 async def _handle_request(request: Request) -> Response:
     state = request.app.state
     path = request.path_params.get("path", "")
-    querystr = request.url.query
+    # request.url is rebuilt from the decoded path, so a decoded '?' or '#' there
+    # would corrupt its query; take the raw query string from the scope.
+    querystr = request.scope.get("query_string", b"").decode("latin-1")
 
     if state.baseurl is not None:
         baseurl = state.baseurl
+        redirect_base = baseurl
     else:
         baseurl = _implicit_baseurl(request)
+        # Relative (path-absolute) redirect within the mount: it does not depend
+        # on the Host header or scheme seen behind a proxy.
+        redirect_base = _mount_path(request)
 
     raw_request = RawRequest(
         baseurl=baseurl,
@@ -176,6 +186,16 @@ async def _handle_request(request: Request) -> Response:
     try:
         with collect_reports(level=state.report_level, context_levels=state.report_context_levels):
             try:
+                url_version = redirect_url_version(raw_request)
+                if url_version is not None:
+                    return RedirectResponse(
+                        redirect_base
+                        + url_version
+                        + "/"
+                        + quote(path.lstrip("/"))
+                        + ("?" + querystr if querystr else ""),
+                        status_code=307,
+                    )
                 version = determine_optimade_version(raw_request)
                 output = process(
                     raw_request,
@@ -213,7 +233,14 @@ def create_app(
 
     An explicit ``baseurl`` is authoritative. Without one, the application
     derives links from the request origin and ASGI ``root_path``, preserving the
-    mount path and exactly one version segment. CORS remains disabled unless
+    mount path and exactly one version segment. API endpoints requested under
+    the unversioned base URL answer a 307 redirect to the same endpoint under
+    ``/v1/`` (query string preserved, ``api_hint`` honored per the OPTIMADE
+    version-negotiation rules), absolute below an explicit ``baseurl`` and
+    otherwise relative within the mount; the base URL landing page and ``/versions`` are
+    served at the unversioned base. The engine function
+    :func:`~httk.serve.optimade.engine.processing.process` itself still serves
+    unversioned requests for in-process callers. CORS remains disabled unless
     ``config.cors_origins`` contains a bounded exact allow-list; request report
     collections are merged into response warnings, including error responses.
 

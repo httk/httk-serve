@@ -5,9 +5,11 @@ from materials_fixtures import materials_schema
 
 from httk.serve.optimade.engine.validate import (
     determine_optimade_version,
+    redirect_url_version,
     validate_optimade_request,
 )
 from httk.serve.optimade.model import OptimadeError, RawRequest
+from httk.serve.optimade.model.request import representation_below_base
 from httk.serve.optimade.schema.served import build_served_schema
 
 SCHEMA = materials_schema()
@@ -373,3 +375,56 @@ def test_negative_page_limit_rejected() -> None:
     with pytest.raises(OptimadeError) as excinfo:
         validate_optimade_request(make_request("/structures?page_limit=-2"), "1.3.0", SCHEMA)
     assert excinfo.value.response_code == 400
+
+
+@pytest.mark.parametrize(
+    ("representation", "expected"),
+    [
+        ("/v1/structures?page_limit=2", "/structures?page_limit=2"),
+        ("/v1.3.0/info/structures", "/info/structures"),
+        ("/v1", "/"),
+        ("/v1/", "/"),
+        ("/structures?x=1", "/structures?x=1"),
+        ("/versions", "/versions"),
+        ("/", "/"),
+        ("/v9/info", "/v9/info"),
+        ("/v1x/info?a=b", "/v1x/info?a=b"),
+    ],
+)
+def test_representation_below_base(representation: str, expected: str) -> None:
+    assert representation_below_base(representation) == expected
+
+
+def test_validated_representation_excludes_version_segment() -> None:
+    validated = validate_optimade_request(make_request("/v1/structures?page_limit=2"), "1.3.0", SCHEMA)
+    assert validated.representation == "/structures?page_limit=2"
+
+
+@pytest.mark.parametrize("representation", ["/", "/versions", "/v1/structures", "/v1.3/info", "/v9/info"])
+def test_redirect_url_version_serves_directly(representation: str) -> None:
+    assert redirect_url_version(make_request(representation)) is None
+
+
+@pytest.mark.parametrize(
+    "representation",
+    [
+        "/structures",
+        "/info?api_hint=v1",
+        "/links?api_hint=v1.7",
+        "/links?api_hint=v1.3.0",
+        "/links?api_hint=v01",
+        "/structures/x?a=b",
+    ],
+)
+def test_redirect_url_version_redirects_to_major(representation: str) -> None:
+    assert redirect_url_version(make_request(representation)) == "v1"
+
+
+@pytest.mark.parametrize(
+    ("hint", "status"),
+    [("v2", 553), ("v2.0", 553), ("latest", 400), ("1", 400), ("v1.x", 400), ("V1", 400), ("", 400), ("v1.2.3.4", 400)],
+)
+def test_redirect_url_version_rejects_api_hint(hint: str, status: int) -> None:
+    with pytest.raises(OptimadeError) as excinfo:
+        redirect_url_version(make_request("/structures?api_hint=" + hint))
+    assert excinfo.value.response_code == status

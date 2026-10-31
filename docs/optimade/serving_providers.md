@@ -114,7 +114,9 @@ provider links) that `adapter_from_providers` automates.
 When `create_asgi_app()` has no explicit `baseurl`, generated resource and
 pagination links use the ASGI mount path. For example, mounting the app at
 `/optimade` makes a request to `/optimade/v1/structures` generate links below
-`/optimade/v1/`; an unversioned request remains below `/optimade/`. If the
+`/optimade/v1/`. An unversioned API request such as `/optimade/structures`
+answers a 307 redirect to `/optimade/v1/structures`; the landing page and
+`/versions` stay at the unversioned base `/optimade/`. If the
 public URL differs from ASGI's incoming scheme or host, pass `baseurl` as the
 unversioned public API base instead. It remains authoritative, while a
 versioned request still adds its single `/v1/` segment to generated links.

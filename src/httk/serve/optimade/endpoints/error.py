@@ -2,7 +2,7 @@
 
 from ..model.config import OptimadeConfig
 from ..model.errors import OptimadeError
-from ..model.request import EndpointResponse, RawRequest
+from ..model.request import EndpointResponse, RawRequest, representation_below_base
 from ..model.versions import optimade_default_version
 from .meta import generate_meta
 
@@ -39,7 +39,7 @@ def format_optimade_error(
             }
         ],
         "meta": generate_meta(
-            representation=request.representation,
+            representation=representation_below_base(request.representation),
             api_version=version,
             config=config,
             data_returned=None,

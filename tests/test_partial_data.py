@@ -234,7 +234,7 @@ def test_listing_omits_partial_value_with_links() -> None:
     assert resource["attributes"]["cartesian_site_positions"] is None
     links = resource["meta"]["partial_data_links"]["cartesian_site_positions"]
     assert links[0]["format"] == "jsonlines"
-    assert links[0]["link"] == "http://testserver/partial_data/structures/demo-1/cartesian_site_positions"
+    assert links[0]["link"] == "http://testserver/v1/partial_data/structures/demo-1/cartesian_site_positions"
     axes = resource["meta"]["property_metadata"]["cartesian_site_positions"]["list_axes"]
     assert axes[0] == {"dimension_name": "dim_sites", "length": 5, "sliceable": True}
     assert axes[1] == {"dimension_name": "dim_spatial", "length": 3, "sliceable": False}
@@ -245,7 +245,7 @@ def test_revision_partial_data_link_resolves() -> None:
     listing = client.get("/_httk_structures~revs")
     assert listing.status_code == 200
     link = listing.json()["data"][0]["meta"]["partial_data_links"]["cartesian_site_positions"][0]["link"]
-    assert link == "http://testserver/partial_data/_httk_structures~revs/demo-1~1/cartesian_site_positions"
+    assert link == "http://testserver/v1/partial_data/_httk_structures~revs/demo-1~1/cartesian_site_positions"
     partial = client.get(link)
     assert partial.status_code == 200
     assert json.loads(partial.text.splitlines()[0])["entry"] == {"id": "demo-1~1", "type": "structures"}
@@ -306,7 +306,7 @@ def test_partial_data_endpoint_chunking_next_marker() -> None:
     assert len(lines) == 1 + 2 + 1
     assert lines[-1] == [
         "PARTIAL-DATA-NEXT",
-        ["http://testserver/partial_data/structures/demo-1/cartesian_site_positions?offset=2"],
+        ["http://testserver/v1/partial_data/structures/demo-1/cartesian_site_positions?offset=2"],
     ]
 
 

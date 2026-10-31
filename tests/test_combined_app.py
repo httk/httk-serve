@@ -133,6 +133,19 @@ def test_combined_app_public_base_url_and_root_path(served: tuple[SqliteStore, P
     assert (redirect.status_code, redirect.headers["location"]) == (308, "/sub/optimade/")
 
 
+def test_combined_app_redirects_unversioned_optimade_requests(served: tuple[SqliteStore, Path]) -> None:
+    store, data_dir = served
+    plain = TestClient(create_combined_app(store, data_path=data_dir))
+    redirect = plain.get("/optimade/structures", follow_redirects=False)
+    assert redirect.status_code == 307
+    assert redirect.headers["location"] == "/optimade/v1/structures"
+
+    mounted = TestClient(create_combined_app(store, data_path=data_dir, root_path="/sub"), root_path="/sub")
+    redirect = mounted.get("/sub/optimade/structures", follow_redirects=False)
+    assert redirect.status_code == 307
+    assert redirect.headers["location"] == "/sub/optimade/v1/structures"
+
+
 def test_combined_app_validation(served: tuple[SqliteStore, Path], tmp_path: Path) -> None:
     store, data_dir = served
     with pytest.raises(ValueError, match="mutually exclusive"):

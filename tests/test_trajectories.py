@@ -256,7 +256,7 @@ def test_e2e_positions_null_with_partial_data_links() -> None:
     assert resource["attributes"]["cartesian_site_positions"] is None
     links = resource["meta"]["partial_data_links"]["cartesian_site_positions"]
     assert links[0]["format"] == "jsonlines"
-    assert links[0]["link"] == "http://testserver/partial_data/trajectories/traj-1/cartesian_site_positions"
+    assert links[0]["link"] == "http://testserver/v1/partial_data/trajectories/traj-1/cartesian_site_positions"
     axes = resource["meta"]["property_metadata"]["cartesian_site_positions"]["list_axes"]
     assert len(axes) == 3
     assert axes[0] == {"dimension_name": "dim_frames", "length": 5, "sliceable": True}
@@ -303,5 +303,5 @@ def test_e2e_partial_data_endpoint_chunk_next_marker() -> None:
     assert len(lines) == 1 + 2 + 1
     assert lines[-1] == [
         "PARTIAL-DATA-NEXT",
-        ["http://testserver/partial_data/trajectories/traj-1/cartesian_site_positions?offset=2"],
+        ["http://testserver/v1/partial_data/trajectories/traj-1/cartesian_site_positions?offset=2"],
     ]

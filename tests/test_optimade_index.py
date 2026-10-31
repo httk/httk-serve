@@ -66,13 +66,19 @@ def test_index_serves_all_version_aliases(endpoint: str, alias: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "path", ["/", "/structures", "/info/structures", "/partial_data/structures/a/x", "/v1/versions"]
+    "path", ["/", "/v1/structures", "/v1/info/structures", "/v1/partial_data/structures/a/x", "/v1/versions"]
 )
 def test_index_rejects_non_index_endpoints(path: str) -> None:
     with TestClient(create_index_asgi_app(index_config())) as client:
-        response = client.get(path)
+        response = client.get(path, follow_redirects=False)
     assert response.status_code == 404
     assert response.json()["errors"][0]["status"] == 404
+
+
+def test_index_redirects_unversioned_endpoints() -> None:
+    with TestClient(create_index_asgi_app(index_config())) as client:
+        response = client.get("/info", follow_redirects=False)
+    assert (response.status_code, response.headers["location"]) == (307, "/v1/info")
 
 
 def test_index_default_relationship_can_be_null() -> None:

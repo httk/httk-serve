@@ -4,7 +4,7 @@ from typing import Any
 
 from ..model.config import OptimadeConfig, OptimadeIndexConfig
 from ..model.request import ValidatedRequest
-from ..model.versions import optimade_supported_versions
+from ..model.versions import optimade_default_url_version, optimade_supported_versions
 from ..schema.served import ServedSchema
 from .meta import generate_meta
 
@@ -147,9 +147,7 @@ def generate_versions_endpoint_reply(request: ValidatedRequest, config: Optimade
     :param config: Service configuration.
     :return: Restricted ``/versions`` CSV body.
     """
-    return """version
-1
-"""
+    return "version\n" + optimade_default_url_version.removeprefix("v") + "\n"
 
 
 def generate_links_endpoint_reply(request: ValidatedRequest, config: OptimadeConfig) -> dict[str, Any]:

@@ -28,7 +28,10 @@ def create_asgi_app(
     """Create an ASGI application serving an OPTIMADE API for a backend or store.
 
     An absent ``baseurl`` makes the application derive a mount-aware URL from
-    the request. An explicit value is authoritative.
+    the request. An explicit value is authoritative. API endpoints requested
+    under the unversioned base URL answer a 307 redirect to the same endpoint
+    under ``/v1/`` (query string preserved, ``api_hint`` honored); the base URL
+    landing page and ``/versions`` are served at the unversioned base.
 
     :param adapter: Backend providing the served schema/query callback, or an
         entry store whose configured OPTIMADE families are discovered lazily.
@@ -82,8 +85,10 @@ def create_index_asgi_app(
     """Create an ASGI application for an OPTIMADE index meta-database.
 
     The index serves only discovery, links, and unversioned version
-    negotiation. It has no backend adapter and performs no query calls. The
-    supplied configuration is retained as the response metadata source; the
+    negotiation; like :func:`create_asgi_app`, it redirects (307) API endpoints
+    requested under the unversioned base URL to ``/v1/``. It has no backend
+    adapter and performs no query calls. The supplied configuration is retained
+    as the response metadata source; the
     composed application's caller owns its lifetime and configuration.
 
     :param config: Validated index metadata and configured database links.

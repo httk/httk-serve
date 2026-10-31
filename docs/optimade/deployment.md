@@ -164,6 +164,16 @@ The service then answers, for example,
 `https://example.org/optimade/v1/structures`. To serve the API at the root of a
 virtual host instead, proxy `/` and pass the corresponding `--baseurl`.
 
+Unversioned API URLs such as `https://example.org/optimade/structures` redirect
+(HTTP 307, query string preserved) to the versioned URL, so the URLs users copy
+from a browser are the versioned ones that keep working when the default
+version changes. With an explicit `--baseurl` the redirect points below that
+base; otherwise it is a relative redirect within the mount, independent of the
+host and scheme the proxy forwards. An `api_hint` query parameter (`vMAJOR`,
+`vMAJOR.MINOR` or `vMAJOR.MINOR.PATCH`) on an unversioned URL selects the
+redirect target by its major version (553 when that version is unsupported).
+`/versions` and the base landing page are served at the unversioned base.
+
 To avoid a TCP port, bind a Unix domain socket in a runtime directory that
 `systemd` creates for the service, and point Apache at it:
 

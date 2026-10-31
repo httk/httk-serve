@@ -237,7 +237,9 @@ def test_asgi_known_unknown_filters_inspect_each_resource_value() -> None:
 
     async def request(filter_string: str) -> httpx2.Response:
         transport = httpx2.ASGITransport(app=app)
-        async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx2.AsyncClient(
+            transport=transport, base_url="http://testserver", follow_redirects=True
+        ) as client:
             return await client.get("/widgets", params={"filter": filter_string})
 
     known = asyncio.run(request("cogs IS KNOWN"))

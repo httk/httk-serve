@@ -1,7 +1,8 @@
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import pytest
 from fake_backend import FakeStore
@@ -121,7 +122,7 @@ def test_structures_pagination_next_link() -> None:
     assert len(payload["data"]) == 2
     assert payload["meta"]["more_data_available"] is True
     next_link = payload["links"]["next"]
-    assert next_link.startswith("http://testserver/structures?")
+    assert next_link.startswith("http://testserver/v1/structures?")
     assert "page_offset=2" in next_link
 
     response2 = client.get(next_link)
@@ -149,7 +150,7 @@ def test_page_limit_max_is_configurable_end_to_end() -> None:
 @pytest.mark.parametrize(
     ("endpoint", "expected_path"),
     [
-        ("/structures", "/optimade/structures"),
+        ("/structures", "/optimade/v1/structures"),
         ("/v1/structures", "/optimade/v1/structures"),
     ],
 )
@@ -378,3 +379,167 @@ def test_json_output_is_pretty_printed_and_sorted() -> None:
     response = client.get("/v1/info")
     parsed = json.loads(response.text)
     assert response.text == json.dumps(parsed, indent=4, separators=(",", ": "), sort_keys=True)
+
+
+def test_unversioned_api_request_redirects_to_v1() -> None:
+    client = make_client()
+    response = client.get("/structures?page_limit=2", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "http://testserver/v1/structures?page_limit=2"
+    followed = client.get(response.headers["location"])
+    assert followed.status_code == 200
+    assert followed.json()["meta"]["query"]["representation"] == "/structures?page_limit=2"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/info",
+        "/links",
+        "/info/structures",
+        "/structures/s1",
+        "/partial_data/structures/s1/cartesian_site_positions",
+    ],
+)
+def test_unversioned_endpoints_redirect_to_v1_equivalents(path: str) -> None:
+    response = make_client().get(path, follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "http://testserver/v1" + path
+
+
+def test_redirect_quotes_the_decoded_path() -> None:
+    response = make_client().get("/structures/a b", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "http://testserver/v1/structures/a%20b"
+
+
+def test_head_unversioned_request_redirects() -> None:
+    response = make_client().head("/structures", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "http://testserver/v1/structures"
+
+
+def test_base_versions_and_versioned_paths_are_served_directly() -> None:
+    client = make_client()
+    base = client.get("/", follow_redirects=False)
+    assert base.status_code == 200
+    assert base.headers["content-type"].startswith("text/html")
+    versions = client.get("/versions", follow_redirects=False)
+    assert versions.status_code == 200
+    assert versions.text == "version\n1\n"
+    assert client.get("/v1/versions", follow_redirects=False).status_code == 404
+    assert client.get("/v1/structures", follow_redirects=False).status_code == 200
+    assert client.get("/v2/info", follow_redirects=False).status_code == 553
+
+
+@pytest.mark.parametrize("hint", ["v1", "v1.0", "v1.3.0", "v01"])
+def test_supported_api_hint_redirects_with_query_preserved(hint: str) -> None:
+    response = make_client().get(f"/structures?api_hint={hint}&page_limit=2", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == f"http://testserver/v1/structures?api_hint={hint}&page_limit=2"
+
+
+@pytest.mark.parametrize(("hint", "status"), [("v2", 553), ("latest", 400), ("V1", 400), ("", 400)])
+def test_rejected_api_hint_is_jsonapi_error(hint: str, status: int) -> None:
+    response = make_client().get(f"/structures?api_hint={hint}", follow_redirects=False)
+    assert response.status_code == status
+    assert response.headers["content-type"] == "application/vnd.api+json"
+    assert response.json()["errors"][0]["status"] == status
+
+
+def test_redirect_uses_explicit_baseurl() -> None:
+    client = TestClient(make_app(baseurl="https://example.org/optimade"), base_url="http://testserver")
+    response = client.get("/structures", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "https://example.org/optimade/v1/structures"
+
+
+def test_mounted_redirect_preserves_mount_path() -> None:
+    parent = Starlette(routes=[Mount("/optimade", make_app(baseurl=None))])
+    with TestClient(parent, base_url="http://testserver") as client:
+        response = client.get("/optimade/structures", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "/optimade/v1/structures"
+
+
+def test_implicit_base_redirect_is_relative() -> None:
+    client = TestClient(make_app(baseurl=None), base_url="http://testserver")
+    response = client.get("/structures?page_limit=2", follow_redirects=False)
+    assert (response.status_code, response.headers["location"]) == (307, "/v1/structures?page_limit=2")
+    assert client.get("/structures?page_limit=2").status_code == 200
+
+
+def test_api_hint_is_ignored_on_versioned_urls() -> None:
+    response = make_client().get("/v1/structures?api_hint=v2", follow_redirects=False)
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("method", ["get", "head"])
+def test_redirect_carries_cors_headers(method: str) -> None:
+    config = OptimadeConfig(cors_origins=("https://site.example",))
+    client = TestClient(make_app(config=config), base_url="http://testserver")
+    response = getattr(client, method)(
+        "/structures", headers={"Origin": "https://site.example"}, follow_redirects=False
+    )
+    assert response.status_code == 307
+    assert response.headers["access-control-allow-origin"] == "https://site.example"
+
+
+@pytest.mark.parametrize(
+    ("path", "status", "representation"),
+    [
+        ("/v1/structures?page_limit=2", 200, "/structures?page_limit=2"),
+        ("/v1/info", 200, "/info"),
+        ("/v1/nonexistent", 404, "/nonexistent"),
+    ],
+)
+def test_representation_excludes_version_segment(path: str, status: int, representation: str) -> None:
+    response = make_client().get(path)
+    assert response.status_code == status
+    assert response.json()["meta"]["query"]["representation"] == representation
+
+
+def _raw_get(app: Starlette, raw_path: bytes, query_string: bytes = b"") -> tuple[int, dict[str, str]]:
+    """Call the ASGI app with a hand-built scope, keeping percent-encoded path bytes the client would rewrite."""
+    messages: list[Any] = []
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: Any) -> None:
+        messages.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "server": ("testserver", 80),
+        "client": ("testclient", 50000),
+        "root_path": "",
+        "path": unquote(raw_path.decode("ascii")),
+        "raw_path": raw_path,
+        "query_string": query_string,
+        "headers": [(b"host", b"testserver")],
+    }
+    asyncio.run(app(scope, receive, send))
+    headers = {name.decode("latin-1"): value.decode("latin-1") for name, value in messages[0]["headers"]}
+    return messages[0]["status"], headers
+
+
+@pytest.mark.parametrize(
+    ("raw_path", "location"),
+    [
+        (b"/structures/a%23b", "http://testserver/v1/structures/a%23b?page_limit=1"),
+        (b"/structures/a%3Fb", "http://testserver/v1/structures/a%3Fb?page_limit=1"),
+    ],
+)
+def test_redirect_keeps_raw_query_when_the_decoded_path_has_url_delimiters(raw_path: bytes, location: str) -> None:
+    status, headers = _raw_get(make_app(), raw_path, b"page_limit=1")
+    assert (status, headers["location"]) == (307, location)
+
+
+def test_redirect_collapses_leading_slashes() -> None:
+    status, headers = _raw_get(make_app(), b"//structures")
+    assert (status, headers["location"]) == (307, "http://testserver/v1/structures")

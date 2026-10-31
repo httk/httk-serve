@@ -20,7 +20,10 @@ ASGI request
 1. **Runtime** (`httk.serve.optimade.runtime`): a Starlette application with a single
    catch-all GET route. It builds a `RawRequest` (base URL, representation,
    query string) and renders the resulting `EndpointResponse`. All errors are
-   converted to OPTIMADE JSON:API error documents.
+   converted to OPTIMADE JSON:API error documents. Before calling `process()`,
+   the runtime answers API requests under the unversioned base URL with a 307
+   redirect to the same endpoint under `/v1/` (honoring `api_hint`); the
+   engine itself still serves unversioned requests for in-process callers.
 
 2. **Engine** (`httk.serve.optimade.engine`): `validate_optimade_request()` resolves
    the endpoint (including versioned base URLs like `/v1.0.0/structures`),

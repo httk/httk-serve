@@ -65,7 +65,9 @@ def _app(query_function) -> object:
 def _get(app: object, path: str, params: dict[str, str] | None = None) -> httpx2.Response:
     async def request() -> httpx2.Response:
         transport = httpx2.ASGITransport(app=app)
-        async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx2.AsyncClient(
+            transport=transport, base_url="http://testserver", follow_redirects=True
+        ) as client:
             return await client.get(path, params=params)
 
     return asyncio.run(request())

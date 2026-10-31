@@ -70,7 +70,7 @@ class AsgiSyncClient:
 
         async def request() -> httpx2.Response:
             transport = httpx2.ASGITransport(app=self.app)
-            async with httpx2.AsyncClient(transport=transport) as client:
+            async with httpx2.AsyncClient(transport=transport, follow_redirects=True) as client:
                 return await client.get(url)
 
         return asyncio.run(request())
