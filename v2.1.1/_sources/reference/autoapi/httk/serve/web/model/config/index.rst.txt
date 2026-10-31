@@ -1,0 +1,154 @@
+httk.serve.web.model.config
+===========================
+
+.. py:module:: httk.serve.web.model.config
+
+.. autoapi-nested-parse::
+
+   Define immutable configuration for a web site source tree.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.model.config.SiteConfig
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteConfig
+
+   Describe the directories and URL policy used by a site engine.
+
+   :param srcdir: Absolute or relative site source directory.
+   :param content_subdir: Content directory name relative to ``srcdir``.
+   :param static_subdir: Static directory name relative to ``srcdir``.
+   :param template_subdir: Template directory name relative to ``srcdir``.
+   :param functions_subdir: Function directory name relative to ``srcdir``.
+   :param widgets_subdir: Widget directory name relative to ``srcdir``.
+   :param baseurl: Optional site base URL.
+   :param host_static: Optional host URL for static assets.
+   :param compatibility_mode: Whether to use legacy site conventions.
+   :param config_name: Configuration module name.
+   :param publish_use_urls_without_ext: Whether published page links omit extensions.
+
+
+   .. py:attribute:: srcdir
+      :type:  pathlib.Path
+
+
+   .. py:attribute:: content_subdir
+      :type:  str
+      :value: 'content'
+
+
+
+   .. py:attribute:: static_subdir
+      :type:  str
+      :value: 'static'
+
+
+
+   .. py:attribute:: template_subdir
+      :type:  str
+      :value: 'templates'
+
+
+
+   .. py:attribute:: functions_subdir
+      :type:  str
+      :value: 'functions'
+
+
+
+   .. py:attribute:: widgets_subdir
+      :type:  str
+      :value: 'widgets'
+
+
+
+   .. py:attribute:: baseurl
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: host_static
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: compatibility_mode
+      :type:  bool
+      :value: False
+
+
+
+   .. py:attribute:: config_name
+      :type:  str
+      :value: 'config'
+
+
+
+   .. py:attribute:: publish_use_urls_without_ext
+      :type:  bool
+      :value: True
+
+
+
+   .. py:method:: from_srcdir(srcdir, *, baseurl = None, host_static = None, compatibility_mode = False, config_name = 'config', publish_use_urls_without_ext = True)
+      :classmethod:
+
+
+      Build site configuration from a source directory.
+
+      :param srcdir: Site source directory.
+      :param baseurl: Optional site base URL.
+      :param host_static: Optional host URL for static assets.
+      :param compatibility_mode: Whether to use legacy site conventions.
+      :param config_name: Configuration module name.
+      :param publish_use_urls_without_ext: Whether published page links omit extensions.
+      :return: Immutable site configuration.
+
+
+
+   .. py:property:: content_dir
+      :type: pathlib.Path
+
+
+      Return the configured content directory.
+
+
+   .. py:property:: static_dir
+      :type: pathlib.Path
+
+
+      Return the configured static directory.
+
+
+   .. py:property:: template_dir
+      :type: pathlib.Path
+
+
+      Return the configured template directory.
+
+
+   .. py:property:: functions_dir
+      :type: pathlib.Path
+
+
+      Return the active site function directory.
+
+
+   .. py:property:: widgets_dir
+      :type: pathlib.Path
+
+
+      Return the configured widget directory.
+
+

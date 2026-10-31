@@ -1,0 +1,63 @@
+httk.serve.combined.api
+=======================
+
+.. py:module:: httk.serve.combined.api
+
+.. autoapi-nested-parse::
+
+   Compose OPTIMADE, a web site and the file-bytes route over one entry store.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.combined.api.create_combined_app
+
+
+Module Contents
+---------------
+
+.. py:function:: create_combined_app(store, config = None, *, site = None, data_path = None, data_url = None, public_base_url = None, root_path = '', debug = False)
+
+   Create one application serving a store over OPTIMADE together with a web site.
+
+   The OPTIMADE API is mounted at ``/optimade`` (``/optimade`` itself
+   redirects to ``/optimade/``), the web site at ``/``, and, with
+   ``data_path``, the bytes of the registered stored files at ``/data``.
+   Served ``files`` URLs that are stored as ``data/<path>`` then point at
+   ``/data/<path>``: under ``public_base_url`` when it is given, otherwise
+   made absolute against each request's origin. With ``data_url`` they
+   point at an external file server instead and no ``/data`` route exists;
+   with neither, stored URLs are served as stored. The store stays owned by
+   the caller; the web site's engine is closed by the application's lifespan.
+
+   :param store: Entry store to serve, owned by the caller.
+   :param config: OPTIMADE service configuration.
+   :param site: Web site source directory (default: the packaged site whose
+       pages browse the store through the OPTIMADE API).
+   :param data_path: Directory holding the workspaces named by stored
+       ``data/<name>/...`` file URLs, or a mapping from workspace names to
+       their directories, enabling the ``/data`` route; see
+       :func:`~httk.serve.combined.files.create_files_app`.
+   :param data_url: External location served in place of the leading
+       ``data`` segment of stored file URLs; see
+       :func:`~httk.serve.optimade.create_asgi_app`.
+   :param public_base_url: Absolute public HTTP(S) URL of the composed
+       application, authoritative for OPTIMADE links and file URLs; by
+       default both derive from each request.
+   :param root_path: ASGI root path the application is served under (the
+       value given to uvicorn), used for root-relative file URLs.
+   :param debug: Enable Starlette and backend diagnostics.
+   :return: Composed application; ``app.state.optimade_app`` and
+       ``app.state.web_app`` hold the mounted children and
+       ``app.state.data_url`` the served file location.
+   :raises ValueError: If ``data_path`` and ``data_url`` are both given, a
+       ``data_path`` directory does not exist or a workspace name is not a
+       single path component, ``public_base_url`` or ``root_path`` is
+       malformed, or a child application refuses its configuration.
+   :raises RuntimeError: If the packaged default site is not installed as a directory.
+
+

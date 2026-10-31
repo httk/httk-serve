@@ -1,0 +1,48 @@
+httk.serve.combined.files
+=========================
+
+.. py:module:: httk.serve.combined.files
+
+.. autoapi-nested-parse::
+
+   The file-bytes route of ``httk serve combined``: registered ``files`` entries only.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.combined.files.create_files_app
+
+
+Module Contents
+---------------
+
+.. py:function:: create_files_app(store, data_path)
+
+   Create the application serving the bytes of registered stored files.
+
+   Mounted at ``/data``, a request for ``<name>/<rest>`` is answered only
+   when some stored :class:`~httk.core.FileRecord` has the ``url``
+   ``data/<name>/<rest>`` (any revision), where ``<name>`` is the workspace
+   name. The bytes come from ``data_path/<name>/<rest>``, or, when
+   ``data_path`` maps workspace names to directories, from
+   ``data_path[<name>]/<rest>`` (an unmapped name is not served).
+   Intermediate symbolic links are followed, since workspace placements may
+   live elsewhere; the final component must be a regular file, not a
+   symbolic link, and only registered URLs whose recorded size matches are
+   served. Every other request is answered with 404, so files that no entry
+   registers are never served. ``GET`` and ``HEAD`` with byte ranges are
+   supported. The window between the symbolic-link check and opening the
+   file is accepted: the directories are operator-owned.
+
+   :param store: Entry store holding the ``files`` entries, owned by the caller.
+   :param data_path: Directory holding one subdirectory per workspace name,
+       or a mapping from workspace names to their directories.
+   :return: Application to mount at ``/data``.
+   :raises ValueError: If a directory is empty or does not exist, or a
+       mapping key is not a single path component.
+
+

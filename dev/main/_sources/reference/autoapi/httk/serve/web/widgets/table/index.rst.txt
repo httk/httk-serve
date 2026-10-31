@@ -1,0 +1,241 @@
+httk.serve.web.widgets.table
+============================
+
+.. py:module:: httk.serve.web.widgets.table
+
+.. autoapi-nested-parse::
+
+   The built-in, cursor-paginated ``httk.serve.table`` widget.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.table.TABLE_ENDPOINT
+   httk.serve.web.widgets.table.TABLE_ASSET_ROOT
+   httk.serve.web.widgets.table.DEFAULT_PAGE_SIZE
+   httk.serve.web.widgets.table.MAX_PAGE_SIZE
+   httk.serve.web.widgets.table.MAX_CURSOR_CHARS
+   httk.serve.web.widgets.table.MAX_TOKEN_BYTES
+   httk.serve.web.widgets.table.MAX_TOKEN_PAYLOAD_BYTES
+   httk.serve.web.widgets.table.MAX_TABLE_HTML_BYTES
+   httk.serve.web.widgets.table.MAX_TABLE_RESPONSE_BYTES
+   httk.serve.web.widgets.table.TOKEN_VERSION
+   httk.serve.web.widgets.table.DEFAULT_TOKEN_TTL_SECONDS
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.table.TableProtocolError
+   httk.serve.web.widgets.table.TableContinuationError
+   httk.serve.web.widgets.table.TableContinuationExpired
+   httk.serve.web.widgets.table.TableProviderError
+   httk.serve.web.widgets.table.TableRevisionMismatch
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.table.TableTokenSigner
+   httk.serve.web.widgets.table.TableRuntime
+   httk.serve.web.widgets.table.TableWidget
+
+
+Module Contents
+---------------
+
+.. py:data:: TABLE_ENDPOINT
+   :value: '/_httk/serve/table/page'
+
+
+.. py:data:: TABLE_ASSET_ROOT
+   :value: '/_httk/serve/assets'
+
+
+.. py:data:: DEFAULT_PAGE_SIZE
+   :value: 50
+
+
+.. py:data:: MAX_PAGE_SIZE
+   :value: 500
+
+
+.. py:data:: MAX_CURSOR_CHARS
+   :value: 16384
+
+
+.. py:data:: MAX_TOKEN_BYTES
+   :value: 48000
+
+
+.. py:data:: MAX_TOKEN_PAYLOAD_BYTES
+   :value: 32768
+
+
+.. py:data:: MAX_TABLE_HTML_BYTES
+   :value: 512000
+
+
+.. py:data:: MAX_TABLE_RESPONSE_BYTES
+   :value: 600000
+
+
+.. py:data:: TOKEN_VERSION
+   :value: 2
+
+
+.. py:data:: DEFAULT_TOKEN_TTL_SECONDS
+   :value: 900
+
+
+.. py:exception:: TableProtocolError
+
+   Bases: :py:obj:`ValueError`
+
+
+   An expected bad table declaration, continuation, or provider result.
+
+
+.. py:exception:: TableContinuationError
+
+   Bases: :py:obj:`TableProtocolError`
+
+
+   A continuation token did not meet the endpoint protocol.
+
+
+.. py:exception:: TableContinuationExpired
+
+   Bases: :py:obj:`TableContinuationError`
+
+
+   A valid continuation token has passed its expiry.
+
+
+.. py:exception:: TableProviderError
+
+   Bases: :py:obj:`TableProtocolError`
+
+
+   A site-local provider could not safely supply the requested page.
+
+
+.. py:exception:: TableRevisionMismatch
+
+   Bases: :py:obj:`TableProviderError`
+
+
+   A provider changed a revision-pinned result while paging.
+
+
+.. py:class:: TableTokenSigner(secret = None)
+
+   Authenticate, but do not encrypt, bounded table continuation state.
+
+   Continuation state expires and cursor values must not contain secrets.
+
+   :param secret: Optional signing secret; generated per process when omitted.
+
+
+   .. py:method:: sign(payload)
+
+      Sign canonical continuation state.
+
+      :param payload: Bounded JSON-like continuation state.
+      :return: Authenticated continuation token.
+      :raises TableProtocolError: If the state or token exceeds protocol limits.
+
+
+
+   .. py:method:: verify(token)
+
+      Verify and decode an authenticated continuation token.
+
+      :param token: Token supplied by the browser.
+      :return: Authenticated continuation state.
+      :raises TableContinuationError: If the token is malformed or unauthenticated.
+
+
+
+.. py:class:: TableRuntime(*, engine, token_secret = None, token_ttl_seconds = DEFAULT_TOKEN_TTL_SECONDS)
+
+   Dispatch providers, render table pages, and authenticate continuations.
+
+   :param engine: Site engine that owns this runtime.
+   :param token_secret: Optional signing secret for continuation tokens.
+   :param token_ttl_seconds: Lifetime of authenticated continuation tokens.
+
+
+   .. py:attribute:: engine
+
+
+   .. py:attribute:: signer
+
+
+   .. py:attribute:: token_ttl_seconds
+      :value: 900
+
+
+
+   .. py:method:: render(context, **props)
+
+      Render the first bounded table page and live pagination controls.
+
+      Static publication renders only the first page with pagination disabled;
+      live rendering registers the browser assets and continuation endpoint.
+
+      :param context: Immutable widget invocation context.
+      :param \*\*props: Literal table provider and presentation properties.
+      :return: Rendered table shell and any live assets.
+      :raises TableProtocolError: If widget properties or provider state are invalid.
+      :raises TableProviderError: If the site provider cannot supply the page.
+
+
+
+   .. py:method:: continuation(payload)
+
+      Resolve one authenticated browser continuation request.
+
+      :param payload: Request mapping containing token, route, and widget ID.
+      :return: Rendered next-page body and continuation metadata.
+      :raises TableContinuationError: If the request or token is invalid.
+      :raises TableContinuationExpired: If the token has expired.
+      :raises TableRevisionMismatch: If the provider revision changed.
+      :raises TableProviderError: If the provider cannot supply the page.
+
+
+
+.. py:class:: TableWidget
+
+   Adapt the built-in table runtime to the widget protocol.
+
+
+   .. py:attribute:: name
+      :value: 'httk.serve.table'
+
+
+
+   .. py:attribute:: source
+      :value: 'httk.serve.web.widgets.table'
+
+
+
+   .. py:method:: render(context, **props)
+
+      Render a table through the engine-local table runtime.
+
+      :param context: Immutable widget invocation context.
+      :param \*\*props: Literal table provider and presentation properties.
+      :return: Rendered table shell and any live assets.
+      :raises TableProtocolError: If the context has no table runtime.
+
+
+

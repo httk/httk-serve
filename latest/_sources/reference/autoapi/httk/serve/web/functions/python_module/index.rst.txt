@@ -1,0 +1,59 @@
+httk.serve.web.functions.python_module
+======================================
+
+.. py:module:: httk.serve.web.functions.python_module
+
+.. autoapi-nested-parse::
+
+   Load and invoke site-local Python function modules safely.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.functions.python_module.PythonFunctionHandler
+
+
+Module Contents
+---------------
+
+.. py:class:: PythonFunctionHandler(functions_dir)
+
+   Load cached site function modules and invoke their public facades.
+
+   :param functions_dir: Directory containing trusted site function modules.
+
+
+   .. py:attribute:: functions_dir
+
+
+   .. py:method:: execute(*, function_name, params, global_data)
+
+      Execute a site function with request parameters and global data.
+
+      :param function_name: Relative function module name.
+      :param params: String parameters passed as keyword arguments.
+      :param global_data: Site-global values passed as ``global_data``.
+      :return: Value returned by the module's ``execute`` facade.
+      :raises FileNotFoundError: If the function module does not exist.
+      :raises ValueError: If the module path or execute facade is invalid.
+
+
+
+   .. py:method:: execute_provider(*, provider_name, context, request, provider_args)
+
+      Call a contained site function module's explicit ``provide`` facade.
+
+      :param provider_name: Relative provider module name.
+      :param context: Immutable provider context.
+      :param request: Bounded table page request.
+      :param provider_args: Literal provider arguments from the widget.
+      :return: Value returned by the module's ``provide`` facade.
+      :raises FileNotFoundError: If the provider module does not exist.
+      :raises ValueError: If the module or provider signature is invalid.
+
+
+

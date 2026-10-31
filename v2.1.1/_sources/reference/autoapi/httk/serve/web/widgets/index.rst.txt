@@ -1,0 +1,346 @@
+httk.serve.web.widgets
+======================
+
+.. py:module:: httk.serve.web.widgets
+
+.. autoapi-nested-parse::
+
+   Static, safe widget authoring contracts and discovery helpers.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/widgets/assets/index
+   /reference/autoapi/httk/serve/web/widgets/core/index
+   /reference/autoapi/httk/serve/web/widgets/extraction/index
+   /reference/autoapi/httk/serve/web/widgets/loader/index
+   /reference/autoapi/httk/serve/web/widgets/optimade_assets/index
+   /reference/autoapi/httk/serve/web/widgets/optimade_fields/index
+   /reference/autoapi/httk/serve/web/widgets/optimade_table/index
+   /reference/autoapi/httk/serve/web/widgets/table/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.MAX_WIDGET_ASSET_BYTES
+   httk.serve.web.widgets.SUPPORTED_WIDGET_ASSET_CONTENT_TYPES
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.OptimadeTableProtocolError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.FunctionWidget
+   httk.serve.web.widgets.Widget
+   httk.serve.web.widgets.WidgetAsset
+   httk.serve.web.widgets.WidgetContext
+   httk.serve.web.widgets.WidgetRegistry
+   httk.serve.web.widgets.WidgetRenderResult
+   httk.serve.web.widgets.SiteWidgetLoader
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.function_widget
+   httk.serve.web.widgets.trusted_html
+   httk.serve.web.widgets.optimade_protocol_asset
+   httk.serve.web.widgets.optimade_protocol_href
+
+
+Package Contents
+----------------
+
+.. py:data:: MAX_WIDGET_ASSET_BYTES
+   :value: 1000000
+
+
+   Largest individual trusted widget asset accepted by :class:`WidgetAsset`.
+
+.. py:data:: SUPPORTED_WIDGET_ASSET_CONTENT_TYPES
+
+   The deliberately small content-type vocabulary for internal widget assets.
+
+.. py:class:: FunctionWidget
+
+   Adapt a module-level ``render`` facade to the widget protocol.
+
+   :param name: Canonical widget name.
+   :param render_function: Function used to render the widget.
+   :param source: Source identifier for diagnostics and discovery.
+
+
+   .. py:attribute:: name
+      :type:  str
+
+
+   .. py:attribute:: render_function
+      :type:  WidgetRenderer
+
+
+   .. py:attribute:: source
+      :type:  str
+
+
+   .. py:method:: render(context, **props)
+
+      Render the widget through its wrapped callable.
+
+      :param context: Immutable widget invocation context.
+      :param \*\*props: Literal widget properties.
+      :return: HTML string or explicitly trusted render result.
+
+
+
+.. py:class:: Widget
+
+   Bases: :py:obj:`Protocol`
+
+
+   Define the advanced immutable widget protocol.
+
+
+   .. py:property:: name
+      :type: str
+
+
+      Return the widget's canonical name.
+
+
+   .. py:property:: source
+      :type: str
+
+
+      Return the widget's source identifier.
+
+
+   .. py:method:: render(context, **props)
+
+      Render trusted widget output for one invocation.
+
+
+
+.. py:class:: WidgetAsset
+
+   Declare an immutable, deployment-relative asset from trusted widget code.
+
+   ``path`` is relative to ``/_httk/serve/assets/`` and is never interpreted as a
+   filesystem path.  The engine serves only assets it has registered while
+   rendering this site instance.
+
+   :param path: Safe path below ``/_httk/serve/assets/``.
+   :param content: Immutable asset bytes.
+   :param content_type: Supported asset content type.
+
+
+   .. py:attribute:: path
+      :type:  str
+
+
+   .. py:attribute:: content
+      :type:  bytes
+
+
+   .. py:attribute:: content_type
+      :type:  str
+
+
+.. py:class:: WidgetContext
+
+   Provide immutable request and page information to a widget.
+
+   :param route: Route containing the widget.
+   :param render_mode: ``serve`` for live rendering or ``publish`` for static output.
+   :param widget_id: Stable identifier for this widget placement.
+   :param query: Request query values.
+   :param postvars: Parsed request body values.
+   :param page: Page metadata and context.
+   :param source_path: Source file containing the widget invocation.
+   :param url_for: Builder for site-relative URLs.
+   :param absolute_url_for: Builder for absolute site URLs.
+   :param table_runtime: Engine-local table runtime when available.
+
+
+   .. py:attribute:: route
+      :type:  str
+
+
+   .. py:attribute:: render_mode
+      :type:  str
+
+
+   .. py:attribute:: widget_id
+      :type:  str
+
+
+   .. py:attribute:: query
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: postvars
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: page
+      :type:  collections.abc.Mapping[str, object]
+
+
+   .. py:attribute:: source_path
+      :type:  pathlib.Path
+
+
+   .. py:attribute:: url_for
+      :type:  collections.abc.Callable[[str], str]
+
+
+   .. py:attribute:: absolute_url_for
+      :type:  collections.abc.Callable[[str], str]
+
+
+   .. py:attribute:: table_runtime
+      :type:  object | None
+      :value: None
+
+
+
+.. py:class:: WidgetRegistry
+
+   Register built-in widgets whose aliases do not resolve site widgets.
+
+
+   .. py:method:: register(widget, *, alias = None)
+
+      Register one built-in widget and optional display alias.
+
+      :param widget: Built-in widget to register.
+      :param alias: Optional shorthand alias.
+      :raises ValueError: If the name or alias is already registered.
+
+
+
+   .. py:method:: resolve(name)
+
+      Resolve a built-in name or alias.
+
+      :param name: Built-in widget name or alias.
+      :return: Matching widget, or ``None`` when absent.
+
+
+
+   .. py:method:: available()
+
+      List built-in widget names and source identifiers.
+
+      :return: Sorted ``(name, source)`` pairs.
+
+
+
+.. py:class:: WidgetRenderResult
+
+   Return explicitly trusted HTML and its declared widget assets.
+
+   :param html: Trusted HTML output.
+   :param assets: Immutable assets used by the output.
+
+
+   .. py:attribute:: html
+      :type:  str
+
+
+   .. py:attribute:: assets
+      :type:  tuple[WidgetAsset, ...]
+      :value: ()
+
+
+
+.. py:function:: function_widget(render, *, name = '', source = '')
+
+   Wrap a callable as a :class:`FunctionWidget`.
+
+   Site-local modules normally need no wrapper: a module-level ``render`` is
+   discovered automatically.  The helper is useful for explicit definitions.
+
+   :param render: Function used to render the widget.
+   :param name: Canonical widget name.
+   :param source: Source identifier for diagnostics and discovery.
+   :return: Immutable function-backed widget.
+
+
+.. py:function:: trusted_html(value)
+
+   Mark a widget's reviewed HTML output as trusted.
+
+   :param value: HTML reviewed by the widget author.
+   :return: Trusted widget render result.
+
+
+.. py:class:: SiteWidgetLoader(widgets_dir)
+
+   Load site widgets without allowing paths to escape their directory.
+
+   :param widgets_dir: Directory containing trusted site widget modules.
+
+
+   .. py:attribute:: widgets_dir
+
+
+   .. py:method:: available()
+
+      List valid site-local widget modules.
+
+      :return: Sorted ``(name, source path)`` pairs.
+
+
+
+   .. py:method:: resolve(name)
+
+      Resolve and load one site-local widget.
+
+      :param name: Site widget name beginning with ``site.``.
+      :return: Loaded widget, or ``None`` when the name or file is absent.
+      :raises ValueError: If the widget module or definition is invalid.
+
+
+
+.. py:function:: optimade_protocol_asset()
+
+   Return the registered-compatible built-in OPTIMADE protocol module.
+
+   :return: The protocol module asset used by ``optimade_table``.
+
+
+.. py:function:: optimade_protocol_href(context)
+
+   Return the protocol module URL for a page.
+
+   :param context: Widget invocation context.
+   :return: Deployment-relative protocol module URL.
+
+
+.. py:exception:: OptimadeTableProtocolError
+
+   Bases: :py:obj:`ValueError`
+
+
+   A declared OPTIMADE table shell cannot meet the browser protocol.
+
+

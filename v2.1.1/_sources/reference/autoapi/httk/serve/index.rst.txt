@@ -1,0 +1,146 @@
+httk.serve
+==========
+
+.. py:module:: httk.serve
+
+.. autoapi-nested-parse::
+
+   Provide unified web-serving, application-composition, and OPTIMADE capabilities.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/composition/index
+   /reference/autoapi/httk/serve/dsp/index
+   /reference/autoapi/httk/serve/http/index
+   /reference/autoapi/httk/serve/jsondata/index
+   /reference/autoapi/httk/serve/optimade/index
+   /reference/autoapi/httk/serve/web/index
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.ServeApp
+   httk.serve.FrozenJsonValue
+   httk.serve.JsonScalar
+   httk.serve.JsonValue
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.ASGIAppMount
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.compose_asgi_apps
+   httk.serve.freeze_json
+   httk.serve.thaw_json
+
+
+Package Contents
+----------------
+
+.. py:class:: ASGIAppMount
+
+   Associate a Starlette application with an explicit absolute path.
+
+   :param path: Canonical absolute URL path, with ``/`` reserved for a root
+       fallback.
+   :param app: Starlette application to mount.
+
+   The composed application owns the mounted applications for the duration of
+   its lifespan and enters each distinct child's Starlette lifespan once.
+   Constructing a mount or a composition does not close or otherwise mutate
+   caller-owned applications when validation fails.
+
+
+   .. py:attribute:: path
+      :type:  str
+
+
+   .. py:attribute:: app
+      :type:  starlette.applications.Starlette
+
+
+.. py:function:: compose_asgi_apps(mounts, *, root = None)
+
+   Compose Starlette applications at caller-selected URL paths.
+
+   More-specific paths are routed before their ancestors regardless of caller
+   order. At application startup, each distinct mounted child is entered in
+   that deterministic route order and is exited in reverse order; a failed
+   startup unwinds children that already started. The returned parent owns
+   lifespan coordination but not application configuration or data.
+
+   :param mounts: Service mounts with paths other than ``/``.
+   :param root: Optional ``ASGIAppMount`` at ``/`` used as the fallback route.
+   :return: Parent Starlette application containing the requested mounts.
+   :raises TypeError: If a descriptor or application has the wrong type.
+   :raises ValueError: If paths are malformed, noncanonical, or duplicated.
+
+
+.. py:type:: ServeApp
+   :canonical: Starlette
+
+
+   The httk-serve serving application type (a Starlette app; branded so consumers need not import Starlette).
+
+   Annotation-only: this is a type alias, not the ``Starlette`` class, so use ``Starlette``
+   itself for ``isinstance``/subclass checks.
+
+.. py:type:: FrozenJsonValue
+   :canonical: JsonScalar | tuple['FrozenJsonValue', ...] | Mapping[str, 'FrozenJsonValue']
+
+
+   An immutable JSON value snapshot.
+
+   The mapping arm is typed as :class:`~collections.abc.Mapping` so a plain
+   mutable :class:`dict` satisfies it statically, while :func:`freeze_json`
+   guarantees a :class:`~types.MappingProxyType` at runtime. This static/runtime
+   gap is intentional and is not closed here.
+
+.. py:type:: JsonScalar
+   :canonical: str | int | float | bool | None
+
+
+   A JSON scalar -- string, number, boolean, or null.
+
+.. py:type:: JsonValue
+   :canonical: JsonScalar | list['JsonValue'] | dict[str, 'JsonValue']
+
+
+   An arbitrary JSON value modelled with ordinary mutable containers.
+
+.. py:function:: freeze_json(value)
+
+   Freeze a JSON-compatible value without retaining caller-owned containers.
+
+   :param value: JSON-compatible value to copy into an immutable representation.
+   :return: An immutable JSON-compatible value.
+   :raises TypeError: If ``value`` is not JSON-compatible.
+   :raises ValueError: If a floating-point value is non-finite.
+
+
+.. py:function:: thaw_json(value)
+
+   Return an independent ordinary JSON value from an immutable snapshot.
+
+   :param value: Immutable JSON-compatible value to copy.
+   :return: Plain JSON-compatible lists and dictionaries.
+
+

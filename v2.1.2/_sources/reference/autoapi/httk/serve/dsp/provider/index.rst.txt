@@ -1,0 +1,440 @@
+httk.serve.dsp.provider
+=======================
+
+.. py:module:: httk.serve.dsp.provider
+
+.. autoapi-nested-parse::
+
+   In-memory business implementation of the constrained DSP provider.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.provider.UuidFactory
+   httk.serve.dsp.provider.UtcClock
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.dsp.provider.DspProvider
+
+
+Module Contents
+---------------
+
+.. py:type:: UuidFactory
+   :canonical: Callable[[], UUID | str]
+
+
+.. py:type:: UtcClock
+   :canonical: Callable[[], datetime]
+
+
+.. py:class:: DspProvider(config, *, store = None, publications = None, catalogue_policy = None, callback_sender = None, uuid_factory = uuid4, utc_clock = None)
+
+   Serve a live dataset catalogue and manage non-durable DSP processes.
+
+   Business methods accept and return only ordinary JSON dictionaries; a thin
+   HTTP adapter is responsible for route and response-code presentation. All
+   process state is in memory and is lost on restart. Callback transitions are
+   never committed until a peer acknowledges a 2xx response.
+
+   :param config: Validated fixed provider configuration.
+   :param store: Caller-owned entry store containing the DSP publication
+       family. Exactly one of ``store`` and ``publications`` is required.
+   :param publications: Inline dataset and service publication envelopes.
+       Exactly one of ``publications`` and ``store`` is required.
+   :param catalogue_policy: Optional replaceable catalogue requirements and
+       serialization policy. The built-in minimal policy is used by default.
+   :param callback_sender: Optional asynchronous callback transport. Supplying
+       one bypasses default network policy and is useful for deterministic tests.
+   :param uuid_factory: Optional source for provider and agreement identifiers.
+   :param utc_clock: Optional UTC clock used for agreement timestamps.
+
+
+   .. py:attribute:: config
+
+
+   .. py:attribute:: catalogue_policy
+
+
+   .. py:property:: profile
+      :type: httk.serve.dsp.models.CatalogueProfile
+
+
+      Return a freshly validated catalogue snapshot.
+
+
+   .. py:method:: automatic_batch()
+
+      Create a response-local holder for automatic callback actions.
+
+      The HTTP adapter uses the returned private holder to release callbacks
+      only from that response's background hook.  Ordinary callers do not
+      need this seam: their automatic callbacks are managed immediately after
+      the business method returns.
+
+      :return: An empty response-local automatic callback holder.
+
+
+
+   .. py:method:: has_automatic_actions(batch)
+
+      Report whether a response-local holder has callbacks to release.
+
+      :param batch: Holder returned by :meth:`automatic_batch`.
+      :return: Whether the holder contains at least one action.
+
+
+
+   .. py:method:: release_automatic(batch)
+      :async:
+
+
+      Start one response's automatic callbacks after its body was sent.
+
+      :param batch: Holder returned by :meth:`automatic_batch`.
+
+
+
+   .. py:method:: drain_automatic()
+      :async:
+
+
+      Wait until all provider-managed automatic callback tasks settle.
+
+
+
+   .. py:method:: cancel_automatic()
+      :async:
+
+
+      Cancel and drain provider-managed automatic callbacks at shutdown.
+
+
+
+   .. py:method:: version_document()
+
+      Return the DSP 2025-1 HTTPS version-discovery document.
+
+      :return: Plain DSP protocol-version document.
+
+
+
+   .. py:method:: dsp_catalogue(request)
+
+      Return the DSP catalogue snapshot for an empty catalogue filter.
+
+      :param request: Catalog request message JSON.
+      :return: Plain DSP catalogue document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the request is malformed or filters are unsupported.
+
+
+
+   .. py:method:: catalogue(request, representation)
+
+      Return a catalogue in a representation selected by the policy.
+
+      :param request: Catalog request message JSON.
+      :param representation: Value returned by :meth:`select_catalogue_representation`.
+      :return: Plain catalogue document.
+
+
+
+   .. py:method:: select_catalogue_representation(accept)
+
+      Select a catalogue response representation through the active policy.
+
+      :param accept: Raw HTTP ``Accept`` field, or ``None`` when absent.
+      :return: Selected representation metadata.
+
+
+
+   .. py:method:: validate_catalogue_request(request)
+
+      Validate the one unfiltered catalogue request supported by DSP minimal.
+
+
+
+   .. py:method:: dsp_dataset(dataset_id)
+
+      Return one DSP dataset only when its ID exactly matches.
+
+      :param dataset_id: Requested dataset identifier.
+      :return: Plain DSP dataset document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the identifier is absent or unknown.
+
+
+
+   .. py:method:: dcat_catalogue()
+
+      Return the separate strict owned-context DCAT-AP projection.
+
+      :return: Plain DCAT-AP-compatible JSON-LD catalogue document.
+
+
+
+   .. py:method:: get_negotiation(provider_pid)
+      :async:
+
+
+      Return one acknowledged negotiation process.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :return: Plain DSP negotiation document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the process is unknown.
+
+
+
+   .. py:method:: request_negotiation(message, *, _automatic_batch = None)
+      :async:
+
+
+      Accept an initial consumer contract request.
+
+      The initial request must omit ``providerPid``, identify the configured
+      offer and dataset exactly, and provide an HTTPS callback. With automatic
+      progression enabled, the agreement callback is scheduled only after
+      the returned process snapshot has been acknowledged to the caller.
+
+      :param message: Contract request message JSON.
+      :param _automatic_batch: Optional response-local holder used by the HTTP adapter.
+      :return: Newly created DSP negotiation document.
+      :raises httk.serve.dsp.models.DspProtocolError: If message validation fails.
+
+
+
+   .. py:method:: counter_request(provider_pid, message)
+      :async:
+
+
+      Receive a consumer counter-request after a provider offer.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Consumer contract request message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs, policy, or the transition are invalid.
+
+
+
+   .. py:method:: negotiation_event(provider_pid, message)
+      :async:
+
+
+      Receive the only permitted consumer negotiation event, ``ACCEPTED``.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Contract-negotiation event message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs, event, or transition are invalid.
+
+
+
+   .. py:method:: verify_agreement(provider_pid, message, *, _automatic_batch = None)
+      :async:
+
+
+      Receive consumer verification of an acknowledged agreement.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Agreement-verification message JSON.
+      :param _automatic_batch: Optional response-local holder used by the HTTP adapter.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs, state, or finalization delivery are invalid.
+
+
+
+   .. py:method:: receive_negotiation_termination(provider_pid, message)
+      :async:
+
+
+      Receive consumer termination of a nonterminal negotiation.
+
+      :param provider_pid: Provider negotiation process identifier from the route.
+      :param message: Negotiation-termination message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: get_transfer(provider_pid)
+      :async:
+
+
+      Return one acknowledged transfer process.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :return: Plain DSP transfer-process document.
+      :raises httk.serve.dsp.models.DspProtocolError: If the process is unknown.
+
+
+
+   .. py:method:: request_transfer(message, *, _automatic_batch = None)
+      :async:
+
+
+      Accept a consumer pull transfer request under a finalized agreement.
+
+      Identical repeated consumer process IDs return the original transfer.
+      A reuse with different agreement, callback, or format is rejected.
+
+      :param message: Transfer request message JSON.
+      :param _automatic_batch: Optional response-local holder used by the HTTP adapter.
+      :return: Newly created or idempotently recovered transfer-process document.
+      :raises httk.serve.dsp.models.DspProtocolError: If request validation or callback delivery fails.
+
+
+
+   .. py:method:: resume_transfer(provider_pid, message)
+      :async:
+
+
+      Receive a consumer start message that resumes a suspended transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-start message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: receive_transfer_suspension(provider_pid, message)
+      :async:
+
+
+      Receive consumer suspension of a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-suspension message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: receive_transfer_completion(provider_pid, message)
+      :async:
+
+
+      Receive consumer completion of a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-completion message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: receive_transfer_termination(provider_pid, message)
+      :async:
+
+
+      Receive consumer termination of a nonterminal transfer.
+
+      :param provider_pid: Provider transfer-process identifier from the route.
+      :param message: Transfer-termination message JSON.
+      :raises httk.serve.dsp.models.DspProtocolError: If PIDs or the transition are invalid.
+
+
+
+   .. py:method:: send_offer(provider_pid)
+      :async:
+
+
+      Send a provider contract offer and acknowledge ``REQUESTED`` to ``OFFERED``.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: send_agreement(provider_pid)
+      :async:
+
+
+      Send a provider agreement from ``REQUESTED`` or ``ACCEPTED``.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: finalize_negotiation(provider_pid)
+      :async:
+
+
+      Send provider finalization after consumer agreement verification.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: terminate_negotiation(provider_pid, *, code = 'terminated', reason = 'negotiation terminated by provider')
+      :async:
+
+
+      Send provider termination for any nonterminal negotiation state.
+
+      :param provider_pid: Provider negotiation process identifier.
+      :param code: Machine-readable termination code.
+      :param reason: Human-readable termination reason.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: start_transfer(provider_pid)
+      :async:
+
+
+      Send provider transfer start with the configured pull data address.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: suspend_transfer(provider_pid, *, code = 'suspended', reason = 'transfer suspended by provider')
+      :async:
+
+
+      Send provider suspension for a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :param code: Machine-readable suspension code.
+      :param reason: Human-readable suspension reason.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: complete_transfer(provider_pid)
+      :async:
+
+
+      Send provider completion for a started transfer.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
+   .. py:method:: terminate_transfer(provider_pid, *, code = 'terminated', reason = 'transfer terminated by provider')
+      :async:
+
+
+      Send provider termination for any nonterminal transfer state.
+
+      :param provider_pid: Provider transfer-process identifier.
+      :param code: Machine-readable termination code.
+      :param reason: Human-readable termination reason.
+      :raises httk.serve.dsp.models.DspProtocolError: If state or callback delivery is invalid.
+      :raises httk.serve.dsp.models.DspTransitionSuperseded: If a concurrent transition won the callback commit.
+
+
+
