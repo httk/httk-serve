@@ -144,6 +144,32 @@ def simplified_property(
     return info
 
 
+def _served_property_definition(
+    definition: PropertyDefinition, *, sortable: bool, response_default: bool
+) -> dict[str, Any]:
+    """Build the document describing a property on the entry listing info endpoint.
+
+    The document carries the deployment's implementation flags (see
+    :meth:`~httk.core.PropertyDefinition.with_implementation`). It is served as
+    the outermost level of a Property Definition, where ``$schema`` is REQUIRED,
+    whereas definitions nested in a standard entry-type definition omit it. A
+    missing ``$schema`` is therefore set to the meta-schema of the definition's
+    ``x-optimade-definition`` format.
+
+    :param definition: The property definition to serve.
+    :param sortable: Whether the deployment can sort on the property.
+    :param response_default: Whether the property is returned by default.
+    :return: The served property-definition document.
+    """
+    document = definition.with_implementation(sortable=sortable, response_default=response_default).as_optimade()
+    if "$schema" not in document:
+        definition_format = document.get("x-optimade-definition", {}).get("format", "1.2")
+        document["$schema"] = (
+            f"https://schemas.optimade.org/meta/v{definition_format}/optimade/property_definition.json"
+        )
+    return document
+
+
 def filter_fulltypes(properties: Mapping[str, Mapping[str, Any]], default: str = "string") -> dict[str, str]:
     """Return the filter fulltypes of simplified properties, nested names included.
 
@@ -431,7 +457,7 @@ def build_served_schema(
                 default_response=is_default,
                 queryable=is_queryable,
             )
-            prop_defs[name] = prop.with_implementation(sortable=is_sortable, response_default=is_default).as_optimade()
+            prop_defs[name] = _served_property_definition(prop, sortable=is_sortable, response_default=is_default)
             if is_default:
                 defaults.append(name)
             if is_required:

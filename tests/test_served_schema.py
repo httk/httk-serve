@@ -44,6 +44,15 @@ def test_built_schema_property_definitions() -> None:
     assert nelements["x-optimade-implementation"]["response-default"] is True
 
 
+def test_built_schema_property_definitions_carry_schema() -> None:
+    """Served definitions are outermost, where ``$schema`` is REQUIRED; standard entry types nest them without it."""
+    calculations = calculations_definition()
+    assert "$schema" not in calculations.properties["id"].as_optimade()
+    definitions = build_served_schema({"calculations": calculations}).property_definitions["calculations"]
+    assert definitions["id"]["$schema"] == "https://schemas.optimade.org/meta/v1.2/optimade/property_definition.json"
+    assert all("$schema" in definition for definition in definitions.values())
+
+
 def test_built_schema_retains_only_exact_entry_definition_ids() -> None:
     schema = build_served_schema({"references": references_definition(), "calculations": calculations_definition()})
     assert schema.entry_definition_ids == {"references": references_definition().definition_id}
