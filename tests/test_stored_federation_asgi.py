@@ -289,6 +289,7 @@ def test_multiple_sources_push_filter_sort_and_pagination() -> None:
                 "/structures",
                 params={"filter": 'chemical_formula_reduced = "NaCl"'},
             )
+            # A projection's QueryLiteralError is an invalid filter value: 400.
             assert invalid_filter.status_code == 400
 
 

@@ -129,12 +129,13 @@ def test_in_memory_legit_relationship_filter_accepted() -> None:
     assert response.status_code == 200
 
 
-def test_unprefixed_unknown_property_is_not_rejected() -> None:
-    # Unprefixed unknown names keep the translator's warn/unknown semantics (match
-    # nothing), not an engine-level 400.
+def test_unprefixed_unknown_property_is_rejected() -> None:
+    # OPTIMADE: an unknown name without a database-specific prefix MUST be a 400
+    # (the translator rejects it; gadgets is not a standard entry type).
     with _inmemory_client() as client:
         response = client.get("/gadgets", params={"filter": "bogus = 1"})
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "bogus" in response.json()["errors"][0]["detail"]
 
 
 def test_non_queryable_property_stays_unsortable() -> None:

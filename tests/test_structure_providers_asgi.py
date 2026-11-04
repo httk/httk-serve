@@ -467,7 +467,7 @@ def test_structure_stored_zip_filters_without_stored_support_are_not_implemented
 def test_structure_zip_filter_on_scalar_property_is_type_mismatch(member_api) -> None:
     response = member_api.get("/structures", params={"filter": 'elements:nelements HAS "Si":2'})
 
-    assert response.status_code == 400, response.text
+    assert response.status_code == 501, response.text
 
 
 def test_structure_provider_single_resource_response_fields(structure_api) -> None:

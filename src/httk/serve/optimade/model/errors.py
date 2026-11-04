@@ -22,10 +22,12 @@ class TranslatorError(OptimadeError):
 
 
 # HTTP status and title for each neutral filter-translation failure category
-# reported by httk.store.
+# reported by httk.store. OPTIMADE reports differing value types as 501 (no type
+# conversion), but an uninterpretable value such as a non-RFC 3339 timestamp as 400.
 _CATEGORY_STATUS: dict[str, tuple[int, str]] = {
     "unrecognized-property": (400, "Bad request"),
-    "type-mismatch": (400, "Bad request"),
+    "invalid-value": (400, "Bad request"),
+    "type-mismatch": (501, "Not implemented"),
     "not-implemented": (501, "Not implemented"),
     "internal": (500, "Internal server error."),
 }

@@ -164,8 +164,16 @@ def test_is_unknown_on_always_known_property_is_false() -> None:
     assert searcher.expressions[0].tree == ("always_false",)
 
 
-def test_unknown_nonprefixed_property_matches_nothing() -> None:
-    (searcher,) = translate_one('bananas = 3')
+def test_unknown_unprefixed_property_is_unrecognized() -> None:
+    with pytest.raises(TranslatorError) as excinfo:
+        translate_one('bananas = 3')
+    assert excinfo.value.response_code == 400
+    assert "bananas" in str(excinfo.value)
+
+
+def test_unserved_standard_property_matches_nothing() -> None:
+    # A property the standard structures definition defines but this schema does not serve is unknown-valued.
+    (searcher,) = translate_one('space_group_it_number = 225')
     assert searcher.expressions[0].tree == ("always_false",)
 
 
@@ -196,7 +204,8 @@ def test_identifier_vs_identifier_not_implemented() -> None:
 def test_type_mismatch_raises() -> None:
     with pytest.raises(TranslatorError) as excinfo:
         translate_one('nelements = "three"')
-    assert excinfo.value.response_code == 400
+    # OPTIMADE: "Different types of values MUST be reported as 501 Not Implemented".
+    assert excinfo.value.response_code == 501
 
 
 def test_calculation_total_energy_comparison() -> None:
@@ -207,7 +216,7 @@ def test_calculation_total_energy_comparison() -> None:
 
 
 def test_boolean_comparison_on_unknown_property_matches_nothing() -> None:
-    (searcher,) = translate_one('bananas = TRUE')
+    (searcher,) = translate_one('_exmpl_flag = TRUE')
     assert searcher.expressions[0].tree == ("always_false",)
 
 
@@ -220,7 +229,7 @@ def test_boolean_with_ordering_operator_not_implemented() -> None:
 def test_boolean_vs_nonboolean_property_type_mismatch() -> None:
     with pytest.raises(TranslatorError) as excinfo:
         translate_one('nelements = TRUE')
-    assert excinfo.value.response_code == 400
+    assert excinfo.value.response_code == 501
 
 
 def test_nsites_comparison_not_implemented() -> None:
@@ -238,7 +247,7 @@ def test_list_typed_property_scalar_comparison_is_rejected() -> None:
     for filter_string in ('species_at_sites = "Si"', 'cartesian_site_positions = 0.5'):
         with pytest.raises(TranslatorError) as excinfo:
             translate_one(filter_string)
-        assert excinfo.value.response_code == 400
+        assert excinfo.value.response_code == 501
 
 
 @pytest.mark.parametrize(
@@ -250,7 +259,7 @@ def test_list_typed_property_scalar_comparison_is_rejected() -> None:
         # unrecognized-property (a recognized-prefix property that does not exist)
         ('_httk_bananas = 3', 400, "Bad request"),
         # type-mismatch (string constant against an integer property)
-        ('nelements = "three"', 400, "Bad request"),
+        ('nelements = "three"', 501, "Not implemented"),
         # not-implemented (identifier vs. identifier comparison)
         ('nelements = nsites', 501, "Not implemented"),
     ],
@@ -272,6 +281,9 @@ def test_internal_translation_category_maps_to_500() -> None:
 
     error = translator_error_from(FilterTranslationError("inconsistent", "internal"))
     assert (error.response_code, error.response_msg) == (500, "Internal server error.")
+    # invalid-value (e.g. a non-RFC 3339 timestamp string) stays a 400 per OPTIMADE.
+    error = translator_error_from(FilterTranslationError("not RFC 3339", "invalid-value"))
+    assert (error.response_code, error.response_msg) == (400, "Bad request")
 
 
 def test_simple_property_handlers_timestamp_generates_comparison() -> None:

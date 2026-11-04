@@ -125,8 +125,9 @@ def _validate_query(
         else:
             validated_parameters.response_fields = ""
 
-    # Validating the filter string is deferred to its parser
-    if 'filter' in query and query['filter'] is not None:
+    # Validating the filter string is deferred to its parser. An empty or
+    # whitespace-only filter is no filter (as in optimade-python-tools).
+    if 'filter' in query and query['filter'] is not None and query['filter'].strip():
         if len(query['filter']) > FILTER_LENGTH_MAX:
             raise OptimadeError(
                 "The filter exceeds the maximum supported length (4096 characters).", 400, "Bad request"

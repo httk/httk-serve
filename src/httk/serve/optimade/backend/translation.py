@@ -83,6 +83,7 @@ def _related_property_resolver(adapter: BackendAdapter) -> RelatedPropertyResolv
                     adapter.schema.recognized_prefixes,
                     relationship_targets=(),
                     related_property_resolver=None,
+                    entry_type=related_type,
                 )
             )
             id_extractor = source.fields['id']
@@ -136,6 +137,7 @@ def translate_filter(
                         adapter.schema.recognized_prefixes,
                         relationship_targets=adapter.schema.all_entries,
                         related_property_resolver=resolver,
+                        entry_type=entry,
                     )
                 except FilterTranslationError as error:
                     raise translator_error_from(error) from error
@@ -190,6 +192,7 @@ def translate_filter_node(
             handlers,
             recognized_prefixes,
             relationship_targets=served_entries,
+            entry_type=entry,
         )
     except FilterTranslationError as error:
         raise translator_error_from(error) from error
