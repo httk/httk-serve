@@ -109,6 +109,11 @@ from the provider's descriptions. A runnable version of this example is in
 wiring (custom `EntrySource`s, handler tables, and an `OptimadeConfig` with
 provider links) that `adapter_from_providers` automates.
 
+A property definition may carry the provider key `x-httk-normalization`; `/info/<entry>` serves it
+unchanged. When it names a `field` (a per-atom value times that sibling gives the extensive
+quantity), httk-serve refuses to build the schema unless the sibling is served as an integer property
+of the same entry type. Omitted or null: no normalization is declared, and thus none should be inferred.
+
 ### Mounted deployments and browser access
 
 When `create_asgi_app()` has no explicit `baseurl`, generated resource and

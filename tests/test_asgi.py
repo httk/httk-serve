@@ -5,13 +5,16 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 import pytest
+from definition_fixtures import widgets_definition
 from fake_backend import FakeStore
+from httk.core import Normalization, PropertyDefinition
 from materials_fixtures import materials_field_handlers, materials_schema
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.testclient import TestClient
 
 from httk.serve.optimade import BackendAdapter, EntrySource, OptimadeConfig, create_asgi_app
+from httk.serve.optimade.schema.served import build_served_schema
 
 
 @dataclass
@@ -543,3 +546,25 @@ def test_redirect_keeps_raw_query_when_the_decoded_path_has_url_delimiters(raw_p
 def test_redirect_collapses_leading_slashes() -> None:
     status, headers = _raw_get(make_app(), b"//structures")
     assert (status, headers["location"]) == (307, "http://testserver/v1/structures")
+
+
+def test_info_serves_normalization_unchanged() -> None:
+    definition = widgets_definition().extended(
+        {
+            "_httk_natoms": PropertyDefinition.from_simple("_httk_natoms", description="Atoms.", fulltype="integer"),
+            "_httk_energy": PropertyDefinition.from_simple(
+                "_httk_energy",
+                description="Energy per atom.",
+                fulltype="float",
+                normalization=Normalization(per="atom", field="_httk_natoms"),
+            ),
+        }
+    )
+    adapter = BackendAdapter(
+        store=FakeStore(rows_by_target={"w": []}),
+        sources={"widgets": (EntrySource(target="w", fields={}),)},
+        schema=build_served_schema({"widgets": definition}),
+    )
+    client = TestClient(create_asgi_app(adapter, None, baseurl="http://testserver/"))
+    props = client.get("/v1/info/widgets").json()["data"]["properties"]
+    assert props["_httk_energy"]["x-httk-normalization"] == {"per": "atom", "field": "_httk_natoms"}

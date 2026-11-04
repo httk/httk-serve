@@ -5,7 +5,7 @@ from definition_fixtures import (
     structures_definition,
     widgets_definition,
 )
-from httk.core import EntryTypeDefinition, PropertyDefinition
+from httk.core import EntryTypeDefinition, Normalization, PropertyDefinition
 from materials_fixtures import materials_schema
 
 from httk.serve.optimade.engine.validate import validate_optimade_request
@@ -237,3 +237,55 @@ def test_response_should_not_is_excluded_from_defaults_but_explicitly_retrievabl
     assert "hidden" in explicit.recognized_response_fields
     assert "must_not" not in default.recognized_response_fields
     assert "must_not" in explicit.recognized_response_fields
+
+
+def _normalized_widgets(normalization: Normalization, sibling_type: str = "integer") -> EntryTypeDefinition:
+    return widgets_definition().extended(
+        {
+            "_httk_natoms": PropertyDefinition.from_simple("_httk_natoms", description="Atoms.", fulltype=sibling_type),
+            "_httk_energy": PropertyDefinition.from_simple(
+                "_httk_energy", description="Energy per atom.", fulltype="float", normalization=normalization
+            ),
+        }
+    )
+
+
+_PER_ATOM = Normalization(per="atom", field="_httk_natoms")
+
+
+def test_normalization_sibling_served_as_integer_builds() -> None:
+    schema = build_served_schema({"widgets": _normalized_widgets(_PER_ATOM)})
+    assert schema.property_definitions["widgets"]["_httk_energy"]["x-httk-normalization"] == {
+        "per": "atom",
+        "field": "_httk_natoms",
+    }
+
+
+def test_normalization_sibling_not_served_is_rejected() -> None:
+    served = {"widgets": ["id", "type", "_httk_energy"]}
+    with pytest.raises(ValueError, match="'_httk_energy'.*'_httk_natoms'.*integer property"):
+        build_served_schema({"widgets": _normalized_widgets(_PER_ATOM)}, served)
+
+
+def test_normalization_sibling_not_integer_is_rejected() -> None:
+    with pytest.raises(ValueError, match="integer property"):
+        build_served_schema({"widgets": _normalized_widgets(_PER_ATOM, "float")})
+
+
+def test_normalization_count_form_needs_no_sibling() -> None:
+    definition = widgets_definition().extended(
+        {
+            "_httk_energy": PropertyDefinition.from_simple(
+                "_httk_energy",
+                description="Cell energy.",
+                fulltype="float",
+                normalization=Normalization(per="simulation cell", count=1),
+            )
+        }
+    )
+    build_served_schema({"widgets": definition})
+
+
+def test_normalization_carries_over_to_revision_endpoint() -> None:
+    schema = build_served_schema({"widgets": _normalized_widgets(_PER_ATOM)}, revisions=("widgets",))
+    assert "_httk_natoms" in schema.properties_by_entry["_httk_widgets~revs"]

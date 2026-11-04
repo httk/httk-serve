@@ -279,6 +279,22 @@ def derived_endpoint_name(base: str, suffix: str) -> str:
     return f"{base}~{suffix}" if base.startswith("_") else f"_httk_{base}~{suffix}"
 
 
+def _check_normalization_siblings(
+    entry: str, described: Mapping[str, PropertyDefinition], served_names: Sequence[str]
+) -> None:
+    """Require every served ``x-httk-normalization`` ``field`` to be a served integer property of *entry*."""
+    for name in served_names:
+        normalization = described[name].normalization
+        if normalization is None or normalization.field is None:
+            continue
+        sibling = described.get(normalization.field)
+        if normalization.field not in served_names or sibling is None or sibling.optimade_type != "integer":
+            raise ValueError(
+                f"{entry}: property {name!r} declares x-httk-normalization per {normalization.per!r} via field "
+                f"{normalization.field!r}, which must be served as an integer property of the same entry type"
+            )
+
+
 def build_served_schema(
     definitions: Mapping[str, EntryTypeDefinition],
     served: Mapping[str, Sequence[str]] | None = None,
@@ -435,6 +451,7 @@ def build_served_schema(
                 + "."
             )
 
+        _check_normalization_siblings(entry, described, served_names)
         sortable_names = set(expanded_sortable.get(entry, ()))
         default_names = set(expanded_defaults.get(entry, ()))
 
