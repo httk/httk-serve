@@ -14,6 +14,8 @@ from httk.atomistic import (
     ASUStructure,
     ASUStructureRecord,
     Cell,
+    NumericUnitcellStructure,
+    NumericUnitcellStructureRecord,
     Sites,
     Species,
     StructureEntry,
@@ -227,6 +229,41 @@ def test_one_store_serves_multiple_concrete_backings() -> None:
                 "unit_cell",
                 "asymmetric_unit",
             }
+
+
+def test_one_store_serves_and_filters_exact_and_numeric_structures() -> None:
+    exact = _structure("Na", "Cl")
+    numeric = NumericUnitcellStructure(exact)
+    alloy = NumericUnitcellStructure(
+        [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]],
+        [[0.0, 0.0, 0.0]],
+        (Species("FeNi", ("Fe", "Ni"), (Fraction(1, 3), Fraction(2, 3))),),
+        ("FeNi",),
+    )
+    with Backend.sqlite() as database:
+        store = SqlStore(
+            database,
+            entry_records={StructureEntry: (UnitcellStructureRecord, NumericUnitcellStructureRecord)},
+            entry_ids=EntryIdScheme("httk.test", "1"),
+        )
+        exact_id, numeric_id, alloy_id = (_save_entry(store, value) for value in (exact, numeric, alloy))
+        adapter = adapter_from_stores((StoredEntrySource(store, StructureEntry, "mixed"),))
+
+        def ids(filter_string: str) -> list[str]:
+            response = client.get("/v1/structures", params={"filter": filter_string, "sort": "id"})
+            assert response.status_code == 200, response.text
+            return [item["id"] for item in response.json()["data"]]
+
+        with _client(adapter) as client:
+            assert ids('chemical_formula_reduced="ClNa" AND nsites=2') == sorted((exact_id, numeric_id))
+            assert ids('elements HAS "Fe" AND species.concentration HAS 0.3333333333333333') == [alloy_id]
+            assert ids("elements_ratios HAS 0.5") == sorted((exact_id, numeric_id))
+            response = client.get(f"/v1/structures/{numeric_id}")
+            assert response.status_code == 200
+            attributes = response.json()["data"]["attributes"]
+            assert attributes["lattice_vectors"] == [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]
+            assert attributes["cartesian_site_positions"] == [[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]
+            assert attributes.get("space_group_it_number") is None
 
 
 def test_multiple_sources_push_filter_sort_and_pagination() -> None:

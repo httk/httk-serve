@@ -169,32 +169,32 @@ def _entries() -> dict[str, UnitcellStructure]:
     return {"mixed": mixed, "silicon": silicon}
 
 
-def test_stored_structure_preserves_signed_zero_through_view_and_asgi() -> None:
-    species = Species(name="Si", chemical_symbols=("Si",), concentration=(1,), mass=(-0.0,))
-    structure = UnitcellStructure(
-        [[4, 0, 0], [0, 4, 0], [0, 0, 4]],
-        [[0, 0, 0]],
-        [species],
-        ["Si"],
-    )
-    content_id = structure.id
+def test_stored_structure_folds_signed_zero_through_view_and_asgi() -> None:
+    # Signed zero is not content: -0.0 is stored and served as 0.0 and identifies like 0.0.
+    def structure(mass: float) -> UnitcellStructure:
+        species = Species(name="Si", chemical_symbols=("Si",), concentration=(1,), mass=(mass,))
+        return UnitcellStructure([[4, 0, 0], [0, 4, 0], [0, 0, 4]], [[0, 0, 0]], [species], ["Si"])
+
+    negative = structure(-0.0)
+    content_id = negative.id
+    assert content_id == structure(0.0).id
     with Backend.sqlite() as database:
         store = SqlStore(
             database,
             entry_records={StructureEntry: UnitcellStructureRecord},
             entry_ids=EntryIdScheme("httk.test", "1"),
         )
-        store.save(structure)
-        record = store.fetch_entry(StructureEntry, structure.id)
+        store.save(negative)
+        record = store.fetch_entry(StructureEntry, content_id)
         assert isinstance(record, UnitcellStructureRecord)
         key = record.id
         reopened = SqlStore(database)
-        record = reopened.fetch_entry(StructureEntry, structure.id)
+        record = reopened.fetch_entry(StructureEntry, content_id)
         assert isinstance(record, UnitcellStructureRecord)
         view = UnitcellStructureView(record)
         assert record.id == key
         assert view.id == content_id
-        assert math.copysign(1.0, view.species[0].mass[0]) == -1.0
+        assert math.copysign(1.0, view.species[0].mass[0]) == 1.0
 
         app = create_asgi_app(
             adapter_from_stores([StoredEntrySource(reopened, StructureEntry, "signed-zero")]),
@@ -204,7 +204,7 @@ def test_stored_structure_preserves_signed_zero_through_view_and_asgi() -> None:
             response = client.get(f"/structures/{key}")
         assert response.status_code == 200
         served_mass = response.json()["data"]["attributes"]["species"][0]["mass"][0]
-        assert math.copysign(1.0, served_mass) == -1.0
+        assert served_mass == 0.0 and math.copysign(1.0, served_mass) == 1.0
 
 
 @pytest.fixture(params=("atomistic", "sqlite-record"))
