@@ -1,0 +1,149 @@
+httk.serve.web.templating
+=========================
+
+.. py:module:: httk.serve.web.templating
+
+.. autoapi-nested-parse::
+
+   Provide template engine contracts and built-in implementations.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/templating/base/index
+   /reference/autoapi/httk/serve/web/templating/httk_compat/index
+   /reference/autoapi/httk/serve/web/templating/jinja2_engine/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.templating.TemplateEngine
+   httk.serve.web.templating.TemplateRenderInput
+   httk.serve.web.templating.HttkCompatTemplateEngine
+   httk.serve.web.templating.JinjaTemplateEngine
+
+
+Package Contents
+----------------
+
+.. py:class:: TemplateEngine
+
+   Bases: :py:obj:`Protocol`
+
+
+   Define the page and fragment template-engine protocol.
+
+
+   .. py:method:: render(render_input)
+
+      Render page content through the configured templates.
+
+
+
+   .. py:method:: render_fragment(*, template_name, context)
+
+      Render one optional fragment template.
+
+
+
+.. py:class:: TemplateRenderInput
+
+   Carry page content and context into a template engine.
+
+   :param content_html: Rendered page HTML supplied to the template.
+   :param template_name: Optional content template name.
+   :param base_template_name: Optional base template name.
+   :param context: Values exposed to templates.
+
+
+   .. py:attribute:: content_html
+      :type:  str
+
+
+   .. py:attribute:: template_name
+      :type:  str | None
+
+
+   .. py:attribute:: base_template_name
+      :type:  str | None
+
+
+   .. py:attribute:: context
+      :type:  dict[str, object]
+
+
+.. py:class:: HttkCompatTemplateEngine(template_dir)
+
+   Bases: :py:obj:`httk.serve.web.templating.jinja2_engine.JinjaTemplateEngine`
+
+
+   Legacy-oriented template resolution for old httkweb projects.
+
+   The compatibility engine keeps Jinja rendering but prioritizes legacy
+   template suffixes so old `.httkweb.html` files resolve first.
+
+   :param template_dir: Directory containing site templates.
+
+
+   .. py:method:: render(render_input)
+
+      Render page content using legacy-compatible template resolution.
+
+      :param render_input: Content, template names, and template context.
+      :return: Rendered HTML.
+
+
+
+   .. py:method:: render_fragment(*, template_name, context)
+
+      Render an optional fragment using legacy template conventions.
+
+      :param template_name: Fragment template name.
+      :param context: Values exposed to the fragment.
+      :return: Rendered fragment, or ``None`` when no template exists.
+
+
+
+.. py:class:: JinjaTemplateEngine(template_dir, *, template_suffixes = TEMPLATE_SUFFIXES)
+
+   Resolve and render Jinja templates from a site directory.
+
+   :param template_dir: Directory containing site templates.
+   :param template_suffixes: Suffixes probed for bare template names.
+
+
+   .. py:attribute:: template_dir
+
+
+   .. py:attribute:: template_suffixes
+      :value: ('.html.j2', '.jinja', '.j2', '.html', '.httkweb.html')
+
+
+
+   .. py:method:: render(render_input)
+
+      Render page content through optional content and base templates.
+
+      :param render_input: Content, template names, and template context.
+      :return: Rendered HTML.
+
+
+
+   .. py:method:: render_fragment(*, template_name, context)
+
+      Render an optional named fragment template.
+
+      :param template_name: Fragment template name.
+      :param context: Values exposed to the fragment.
+      :return: Rendered fragment, or ``None`` when no template exists.
+
+
+

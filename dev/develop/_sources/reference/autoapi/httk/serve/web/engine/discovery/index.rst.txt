@@ -1,0 +1,53 @@
+httk.serve.web.engine.discovery
+===============================
+
+.. py:module:: httk.serve.web.engine.discovery
+
+.. autoapi-nested-parse::
+
+   Resolve site routes to static files and renderable content sources.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.engine.discovery.DEFAULT_CONTENT_EXTENSIONS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.engine.discovery.normalize_route
+   httk.serve.web.engine.discovery.resolve_route
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_CONTENT_EXTENSIONS
+   :type:  tuple[str, ...]
+   :value: ('.md', '.rst', '.html', '.httkweb')
+
+
+.. py:function:: normalize_route(route)
+
+   Normalize a site route for lookup.
+
+   :param route: Route text supplied by a caller or request.
+   :return: Route without a leading slash, using ``index`` for the root.
+
+
+.. py:function:: resolve_route(config, route)
+
+   Resolve a route against the configured static and content directories.
+
+   :param config: Site directory configuration.
+   :param route: Route to resolve.
+   :return: The matching static, content, or missing route description.
+
+

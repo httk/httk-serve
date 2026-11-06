@@ -1,0 +1,6 @@
+# Serve an existing SQL database over OPTIMADE without copying it into httk.
+
+```{literalinclude} ../../../examples/optimade/existing_database/serve.py
+:language: python
+:lines: 3-
+```

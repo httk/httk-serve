@@ -1,0 +1,78 @@
+httk.serve.web.cli
+==================
+
+.. py:module:: httk.serve.web.cli
+
+.. autoapi-nested-parse::
+
+   The ``httk serve web`` command: serve, validate, and list static widgets.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.cli.CLIContextLike
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.cli.build_parser
+   httk.serve.web.cli.command
+   httk.serve.web.cli.reload_app
+
+
+Module Contents
+---------------
+
+.. py:class:: CLIContextLike
+
+   Bases: :py:obj:`Protocol`
+
+
+   The minimal root-command context consumed by :func:`command`.
+
+
+   .. py:property:: program
+      :type: str
+
+
+      Return the root program name.
+
+
+   .. py:property:: cwd
+      :type: pathlib.Path
+
+
+      Return the root command's working directory.
+
+
+.. py:function:: build_parser(program)
+
+   Build the public ``httk serve`` argument parser.
+
+   :param program: Program name displayed in command-line help.
+   :return: Configured argument parser.
+
+
+.. py:function:: command(argv, context)
+
+   Dispatch the command registered by ``httk.registry.cli.serve``.
+
+   :param argv: Command-line arguments after the root command.
+   :param context: Root-command program and working-directory context.
+   :return: Process-style command status code.
+
+
+.. py:function:: reload_app()
+
+   Create the app selected by the process-level reload dispatcher.
+
+   :return: Fresh application configured from reload environment variables.
+
+

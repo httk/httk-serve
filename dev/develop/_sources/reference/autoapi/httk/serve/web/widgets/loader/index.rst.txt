@@ -1,0 +1,50 @@
+httk.serve.web.widgets.loader
+=============================
+
+.. py:module:: httk.serve.web.widgets.loader
+
+.. autoapi-nested-parse::
+
+   Safe loading and deterministic discovery of trusted site-local widgets.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.loader.SiteWidgetLoader
+
+
+Module Contents
+---------------
+
+.. py:class:: SiteWidgetLoader(widgets_dir)
+
+   Load site widgets without allowing paths to escape their directory.
+
+   :param widgets_dir: Directory containing trusted site widget modules.
+
+
+   .. py:attribute:: widgets_dir
+
+
+   .. py:method:: available()
+
+      List valid site-local widget modules.
+
+      :return: Sorted ``(name, source path)`` pairs.
+
+
+
+   .. py:method:: resolve(name)
+
+      Resolve and load one site-local widget.
+
+      :param name: Site widget name beginning with ``site.``.
+      :return: Loaded widget, or ``None`` when the name or file is absent.
+      :raises ValueError: If the widget module or definition is invalid.
+
+
+

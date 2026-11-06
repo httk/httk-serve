@@ -1,0 +1,51 @@
+httk.serve.combined.cli
+=======================
+
+.. py:module:: httk.serve.combined.cli
+
+.. autoapi-nested-parse::
+
+   The ``httk serve combined`` command: one server for OPTIMADE, a web site and file bytes.
+
+   ``httk serve combined serve STORE`` serves an SQLite or DuckDB store file
+   built by *httk-store* over OPTIMADE at ``/optimade/`` together with the
+   packaged browsing site (or ``--site DIR``) at ``/`` and, with
+   ``--data-path``, the registered stored files at ``/data/``, under uvicorn.
+   ``httk serve combined check STORE`` performs the same opening and an
+   in-process self-test without serving.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.combined.cli.add_parser
+   httk.serve.combined.cli.worker_app
+
+
+Module Contents
+---------------
+
+.. py:function:: add_parser(groups)
+
+   Add the ``combined`` command group to the ``httk serve`` parser.
+
+   :param groups: Sub-parser collection of the ``httk serve`` parser.
+
+
+.. py:function:: worker_app()
+
+   Create the application of one uvicorn worker process.
+
+   Uvicorn imports this factory in each worker; ``httk serve combined serve
+   --workers`` passes the settings through the environment, and each worker
+   opens its own store for its lifetime. A worker that cannot open the store
+   exits with uvicorn's startup-failure status, which stops the supervising
+   process instead of respawning the worker.
+
+   :return: Application serving the configured store.
+   :raises RuntimeError: If the process was not started by the serve command.
+
+

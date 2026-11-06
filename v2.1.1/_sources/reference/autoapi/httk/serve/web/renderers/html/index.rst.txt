@@ -1,0 +1,36 @@
+httk.serve.web.renderers.html
+=============================
+
+.. py:module:: httk.serve.web.renderers.html
+
+.. autoapi-nested-parse::
+
+   Render HTML source files while extracting literal widget invocations.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.renderers.html.HtmlRenderer
+
+
+Module Contents
+---------------
+
+.. py:class:: HtmlRenderer
+
+   Render HTML source files.
+
+
+   .. py:method:: render(source_path)
+
+      Render one HTML source file.
+
+      :param source_path: HTML source file to render.
+      :return: Rendered HTML, metadata, and widget placements.
+
+
+

@@ -1,0 +1,21 @@
+httk.serve.optimade.schema
+==========================
+
+.. py:module:: httk.serve.optimade.schema
+
+.. autoapi-nested-parse::
+
+   Public served-schema helpers and derived entry metadata.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/optimade/schema/served/index
+   /reference/autoapi/httk/serve/optimade/schema/trajectories/index
+
+

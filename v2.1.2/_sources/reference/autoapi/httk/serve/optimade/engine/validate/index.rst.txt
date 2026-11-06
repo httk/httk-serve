@@ -1,0 +1,56 @@
+httk.serve.optimade.engine.validate
+===================================
+
+.. py:module:: httk.serve.optimade.engine.validate
+
+.. autoapi-nested-parse::
+
+   Validate OPTIMADE paths, versions, and query parameters.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.engine.validate.FILTER_LENGTH_MAX
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.engine.validate.validate_optimade_request
+   httk.serve.optimade.engine.validate.determine_optimade_version
+
+
+Module Contents
+---------------
+
+.. py:data:: FILTER_LENGTH_MAX
+   :value: 4096
+
+
+.. py:function:: validate_optimade_request(request, version, schema, page_limit_max = 50)
+
+   Validate a raw request against an explicit served schema.
+
+   :param request: Raw request supplied by the web layer.
+   :param version: API version selected for the request.
+   :param schema: Served entry and property schema.
+   :param page_limit_max: Largest accepted ``page_limit``; larger requests raise 403.
+   :return: Canonical request and validated query parameters.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If the path, version, or query is invalid.
+
+
+.. py:function:: determine_optimade_version(request)
+
+   Determine the OPTIMADE version named by a request path.
+
+   :param request: Raw request whose relative path is inspected.
+   :return: Supported API version, using the default when unversioned.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If the path names an unsupported version.
+
+

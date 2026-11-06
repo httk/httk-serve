@@ -1,0 +1,38 @@
+httk.serve.web.widgets.optimade_entry
+=====================================
+
+.. py:module:: httk.serve.web.widgets.optimade_entry
+
+.. autoapi-nested-parse::
+
+   The browser-driven single-entry OPTIMADE widget.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_entry.render
+
+
+Module Contents
+---------------
+
+.. py:function:: render(context, *, base_url, entry_route = 'entry', browse_route = 'browse')
+
+   Render a single-entry page shell for ``entry?type=<type>&id=<id>``.
+
+   The browser shows the entry's header and type panel, its provenance and other
+   relationships with inline summaries of the related entries, its alternatives,
+   and every served property. An id ``<main>~<kind>`` opens that httk alternative.
+
+   :param context: Immutable widget invocation context.
+   :param base_url: OPTIMADE base URL: absolute, root-relative, or site-root-relative.
+   :param entry_route: Site route of this entry page, used for links to related entries.
+   :param browse_route: Site route of the browse page, used for the not-found state.
+   :return: Entry shell and its trusted assets.
+   :raises httk.serve.web.widgets.optimade_table.OptimadeTableProtocolError: If an argument is invalid.
+
+

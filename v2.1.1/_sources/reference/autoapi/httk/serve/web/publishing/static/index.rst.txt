@@ -1,0 +1,43 @@
+httk.serve.web.publishing.static
+================================
+
+.. py:module:: httk.serve.web.publishing.static
+
+.. autoapi-nested-parse::
+
+   Publish rendered pages and only the widget assets they use.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.publishing.static.CONTENT_EXTENSIONS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.publishing.static.publish_site
+
+
+Module Contents
+---------------
+
+.. py:data:: CONTENT_EXTENSIONS
+   :type:  set[str]
+
+.. py:function:: publish_site(*, engine, outdir)
+
+   Publish a site engine into a static output directory.
+
+   :param engine: Site engine used to render pages and collect assets.
+   :param outdir: Destination directory for static output.
+   :return: Report of written files and rendering warnings.
+   :raises ValueError: If a used widget asset collides with site static output.
+
+

@@ -1,0 +1,952 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
+
+    <!-- Generated with Sphinx 9.1.1 and Furo 2025.12.19 -->
+        <title>httk.serve.optimade.cli - httk-serve dev:develop documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx_autodoc_typehints.css?v=057ac668" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/selector.css?v=626bada3" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     Development documentation (dev:develop) — built from the GitHub develop branch; content may differ from any release. 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../../index.html"><div class="brand">httk-serve dev:develop documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
+  
+  <span class="sidebar-brand-text">httk-serve dev:develop documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dsp.html">DSP minimal and DCAT-AP minimal public catalogues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../http/index.html">HTTP application helpers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../web/index.html">Web guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../optimade/index.html">OPTIMADE guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../combined/index.html">Combined server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/autoapi/index.html">API Reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for httk.serve.optimade.cli</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""The ``httk serve optimade`` command: serve an entry-store file over OPTIMADE.</span>
+
+<span class="sd">``httk serve optimade serve STORE`` is a production ASGI runner meant to be the</span>
+<span class="sd">single ``ExecStart`` command of a service unit behind a front-line web server</span>
+<span class="sd">such as Apache or nginx. It opens an SQLite or DuckDB store file built by</span>
+<span class="sd">*httk-store*, discovers its OPTIMADE entry families, and runs the</span>
+<span class="sd">:func:`~httk.serve.optimade.create_asgi_app` application under uvicorn on a TCP</span>
+<span class="sd">port or a Unix domain socket. ``httk serve optimade check STORE`` performs the</span>
+<span class="sd">same opening, discovery, and endpoint self-test without serving.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tomllib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">fields</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">unquote</span><span class="p">,</span> <span class="n">urlsplit</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">uvicorn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileRecord</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.core.report</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_reporting</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">uvicorn.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">STARTUP_FAILURE</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">httk.serve.http</span><span class="w"> </span><span class="kn">import</span> <span class="n">ServeApp</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.model.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimadeConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.runtime.asgi</span><span class="w"> </span><span class="kn">import</span> <span class="n">_normalized_root_path</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.store</span><span class="w"> </span><span class="kn">import</span> <span class="n">EntryStore</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.store.backend.sql.store</span><span class="w"> </span><span class="kn">import</span> <span class="n">SqlStore</span>
+
+<span class="n">_WORKER_ENVIRONMENT</span> <span class="o">=</span> <span class="s2">"HTTK_SERVE_OPTIMADE_WORKER"</span>
+<span class="n">_SQLITE_HEADER</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"SQLite format 3</span><span class="se">\x00</span><span class="s2">"</span>
+<span class="n">_LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># Operator-facing failures to open or discover a store: a missing driver extra,</span>
+<span class="c1"># an unreadable or foreign file, a layout refusal, or invalid configuration.</span>
+<span class="n">_OPEN_ERRORS</span> <span class="o">=</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="add_parser">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/serve/optimade/cli/index.html#httk.serve.optimade.cli.add_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_parser</span><span class="p">(</span><span class="n">groups</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Add the ``optimade`` command group to the ``httk serve`` parser.</span>
+
+<span class="sd">    :param groups: Sub-parser collection of the ``httk serve`` parser.</span>
+<span class="sd">    """</span>
+
+    <span class="n">optimade</span> <span class="o">=</span> <span class="n">groups</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"optimade"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"serve entry-store files over OPTIMADE"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"Serve and check httk-store files as OPTIMADE APIs"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">optimade</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">help_parser</span><span class="o">=</span><span class="n">optimade</span><span class="p">)</span>
+    <span class="n">subparsers</span> <span class="o">=</span> <span class="n">optimade</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">metavar</span><span class="o">=</span><span class="s2">"COMMAND"</span><span class="p">)</span>
+    <span class="n">serve_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"serve"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"serve a store file over OPTIMADE"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Serve an SQLite or DuckDB store file as an OPTIMADE API with uvicorn, "</span>
+            <span class="s2">"e.g. as the ExecStart command of a systemd unit behind a reverse proxy."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">serve_parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">handler</span><span class="o">=</span><span class="n">_serve</span><span class="p">,</span> <span class="n">help_parser</span><span class="o">=</span><span class="n">serve_parser</span><span class="p">)</span>
+    <span class="n">_store_arguments</span><span class="p">(</span><span class="n">serve_parser</span><span class="p">)</span>
+    <span class="n">serve_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--baseurl"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"public base URL of the API, e.g. https://example.org/optimade (default: derived from each request)"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">_bind_arguments</span><span class="p">(</span><span class="n">serve_parser</span><span class="p">)</span>
+    <span class="n">check_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">"check"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"open a store file and self-test the endpoints it would serve"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Open a store file and its configuration, request every OPTIMADE endpoint "</span>
+            <span class="s2">"in-process, and list the entry endpoints it would serve."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">check_parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">handler</span><span class="o">=</span><span class="n">_check</span><span class="p">,</span> <span class="n">help_parser</span><span class="o">=</span><span class="n">check_parser</span><span class="p">)</span>
+    <span class="n">_store_arguments</span><span class="p">(</span><span class="n">check_parser</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_bind_arguments</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--host"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"127.0.0.1"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"interface to bind (default: 127.0.0.1)"</span><span class="p">)</span>
+    <span class="n">bind</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_mutually_exclusive_group</span><span class="p">()</span>
+    <span class="n">bind</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--port"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">_port</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"TCP port to bind (default: 8080)"</span><span class="p">)</span>
+    <span class="n">bind</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--uds"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">Path</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"bind this Unix domain socket instead of a TCP port"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--root-path"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">_root_path</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"ASGI root path when proxied under a sub-path"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--workers"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">_workers</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"number of worker processes (default: 1)"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--no-access-log"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"disable the per-request access log"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_store_arguments</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"store"</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">"STORE"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">Path</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"SQLite or DuckDB store file"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">"--config"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">Path</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"TOML file with OPTIMADE service metadata"</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--records"</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"MODULE:CLASS"</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">"append"</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
+        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"record class the store was written with that no installed distribution registers, "</span>
+            <span class="s2">"imported with the working directory on the import path; repeatable"</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_mutually_exclusive_group</span><span class="p">()</span>
+    <span class="n">files</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--data-path"</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"[NAME=]PATH"</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">_data_path</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="n">_DataPathAction</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"serve the registered files stored as data/&lt;name&gt;/&lt;path&gt; from PATH/&lt;name&gt;/&lt;path&gt; at /data/; "</span>
+            <span class="s2">"or, repeated as NAME=PATH, the files of workspace NAME from PATH/&lt;path&gt; "</span>
+            <span class="s2">"(a value splits at its first = only when no / or </span><span class="se">\\</span><span class="s2"> precedes it)"</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">files</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">"--data-url"</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">"URL"</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">_data_url</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"serve file-entry URLs that start with data/ under the external URL instead, "</span>
+            <span class="s2">"e.g. https://example.org/files (stored entries are unchanged)"</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_port</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">port</span> <span class="o">&lt;=</span> <span class="mi">65535</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span><span class="s2">"must be between 1 and 65535"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">port</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_workers</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">workers</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">workers</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span><span class="s2">"must be at least 1"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">workers</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_root_path</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">_normalized_root_path</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_data_url</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span><span class="s2">"must name a location, such as https://example.org/files"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_data_path</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Parse ``PATH`` or ``NAME=PATH`` into the name and the absolute directory.</span>
+
+<span class="sd">    The value splits at its first ``=`` only when no ``/`` or ``\\`` precedes it.</span>
+<span class="sd">    """</span>
+    <span class="n">prefix</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"="</span><span class="p">)</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">prefix</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">separator</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">character</span> <span class="ow">in</span> <span class="n">prefix</span> <span class="k">for</span> <span class="n">character</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="s2">"</span><span class="se">\\</span><span class="s2">"</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)):</span>
+        <span class="n">name</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">value</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span><span class="s2">"must name a directory"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"not a directory: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_DataPathAction</span><span class="p">(</span><span class="n">argparse</span><span class="o">.</span><span class="n">Action</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Collect ``--data-path`` values into one directory or a workspace-name mapping."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">,</span>
+        <span class="n">namespace</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">option_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">name</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="n">values</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"argument --data-path: give either one PATH or one or more NAME=PATH, not both or two PATHs"</span><span class="p">)</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">current</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">:</span>
+            <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"argument --data-path: workspace </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is given twice"</span><span class="p">)</span>
+        <span class="n">mapping</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">path</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">,</span> <span class="n">mapping</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="open_store">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/serve/optimade/cli/index.html#httk.serve.optimade.cli.open_store">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">open_store</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">records</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span> <span class="o">-&gt;</span> <span class="s2">"SqlStore"</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Open an existing SQLite or DuckDB store file for serving.</span>
+
+<span class="sd">    The format is recognized from the file header, not its name. A DuckDB file</span>
+<span class="sd">    is opened read-only so several worker processes can share it; an SQLite</span>
+<span class="sd">    file is served correctly when the serving user has read-only access to it.</span>
+<span class="sd">    A missing file is never created.</span>
+
+<span class="sd">    :param path: Path of the store file.</span>
+<span class="sd">    :param records: Application record classes the store was written with,</span>
+<span class="sd">        forwarded as the store's ``records`` option.</span>
+<span class="sd">    :return: The opened entry store, owned by the caller.</span>
+<span class="sd">    :raises ValueError: If the file is missing or is neither SQLite nor DuckDB.</span>
+<span class="sd">    :raises OSError: If the file cannot be read.</span>
+<span class="sd">    :raises ImportError: If the database driver for the file is not installed.</span>
+<span class="sd">    :raises RuntimeError: If the file's store layout is refused on reopen.</span>
+<span class="sd">    """</span>
+
+    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"store file does not exist: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.store</span><span class="w"> </span><span class="kn">import</span> <span class="n">DuckdbStore</span><span class="p">,</span> <span class="n">SqliteStore</span>
+
+    <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"records"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">records</span><span class="p">)}</span> <span class="k">if</span> <span class="n">records</span> <span class="k">else</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">header</span> <span class="o">==</span> <span class="n">_SQLITE_HEADER</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SqliteStore</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">options</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">header</span><span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">12</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">"DUCK"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DuckdbStore</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">read_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">options</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"not an SQLite or DuckDB store file: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_string_list</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_number</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_integer</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_provider</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">,</span> <span class="s2">"prefix"</span><span class="p">))</span>
+
+
+<span class="c1"># The accepted TOML shape of every OptimadeConfig field, with its description.</span>
+<span class="n">_CONFIG_SHAPES</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">object</span><span class="p">],</span> <span class="nb">bool</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"provider"</span><span class="p">:</span> <span class="p">(</span><span class="n">_provider</span><span class="p">,</span> <span class="s2">"a table with string name, description and prefix"</span><span class="p">),</span>
+    <span class="s2">"links"</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">),</span> <span class="s2">"tables"</span><span class="p">),</span>
+    <span class="s2">"implementation"</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">),</span> <span class="s2">"a table"</span><span class="p">),</span>
+    <span class="s2">"database"</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">),</span> <span class="s2">"a table"</span><span class="p">),</span>
+    <span class="s2">"schema_url"</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span> <span class="s2">"a string"</span><span class="p">),</span>
+    <span class="s2">"request_delay"</span><span class="p">:</span> <span class="p">(</span><span class="n">_number</span><span class="p">,</span> <span class="s2">"a number"</span><span class="p">),</span>
+    <span class="s2">"license"</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">value</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">),</span> <span class="s2">"a string or a table"</span><span class="p">),</span>
+    <span class="s2">"available_licenses"</span><span class="p">:</span> <span class="p">(</span><span class="n">_string_list</span><span class="p">,</span> <span class="s2">"a list of strings"</span><span class="p">),</span>
+    <span class="s2">"available_licenses_for_entries"</span><span class="p">:</span> <span class="p">(</span><span class="n">_string_list</span><span class="p">,</span> <span class="s2">"a list of strings"</span><span class="p">),</span>
+    <span class="s2">"page_limit_max"</span><span class="p">:</span> <span class="p">(</span><span class="n">_integer</span><span class="p">,</span> <span class="s2">"an integer"</span><span class="p">),</span>
+    <span class="s2">"partial_data_chunk_size"</span><span class="p">:</span> <span class="p">(</span><span class="n">_integer</span><span class="p">,</span> <span class="s2">"an integer"</span><span class="p">),</span>
+    <span class="s2">"cors_origins"</span><span class="p">:</span> <span class="p">(</span><span class="n">_string_list</span><span class="p">,</span> <span class="s2">"a list of strings"</span><span class="p">),</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_has_datetime</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span> <span class="o">|</span> <span class="n">datetime</span><span class="o">.</span><span class="n">time</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">_has_datetime</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">_has_datetime</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="load_config">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/serve/optimade/cli/index.html#httk.serve.optimade.cli.load_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_config</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimadeConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Load OPTIMADE service metadata from a TOML file.</span>
+
+<span class="sd">    Top-level keys are the fields of</span>
+<span class="sd">    :class:`~httk.serve.optimade.model.config.OptimadeConfig`, e.g. a</span>
+<span class="sd">    ``[provider]`` table with ``name``, ``description`` and ``prefix``,</span>
+<span class="sd">    ``license``, ``page_limit_max`` and ``cors_origins``. Dates are written as</span>
+<span class="sd">    strings, not TOML date-time values.</span>
+
+<span class="sd">    :param path: TOML file path, or ``None`` for the default configuration.</span>
+<span class="sd">    :return: The service configuration.</span>
+<span class="sd">    :raises ValueError: If the file is not valid TOML, names unknown keys, or</span>
+<span class="sd">        gives a value of the wrong shape.</span>
+<span class="sd">    :raises OSError: If the file cannot be read.</span>
+<span class="sd">    """</span>
+
+    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">OptimadeConfig</span><span class="p">()</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">tomllib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">tomllib</span><span class="o">.</span><span class="n">TOMLDecodeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+    <span class="n">unknown</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">(</span><span class="n">OptimadeConfig</span><span class="p">)})</span>
+    <span class="k">if</span> <span class="n">unknown</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: unknown OPTIMADE configuration keys: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unknown</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">accepts</span><span class="p">,</span> <span class="n">shape</span> <span class="o">=</span> <span class="n">_CONFIG_SHAPES</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">accepts</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> must be </span><span class="si">{</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_has_datetime</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> contains a TOML date or time; write it as a string"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">"cors_origins"</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+        <span class="n">values</span><span class="p">[</span><span class="s2">"cors_origins"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">"cors_origins"</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">OptimadeConfig</span><span class="p">(</span><span class="o">**</span><span class="n">values</span><span class="p">)</span></div>
+
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_get</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">ServeApp</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]:</span>
+    <span class="n">path</span><span class="p">,</span> <span class="n">_separator</span><span class="p">,</span> <span class="n">query</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"?"</span><span class="p">)</span>
+    <span class="n">scope</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"http"</span><span class="p">,</span>
+        <span class="s2">"asgi"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"version"</span><span class="p">:</span> <span class="s2">"3.0"</span><span class="p">},</span>
+        <span class="s2">"http_version"</span><span class="p">:</span> <span class="s2">"1.1"</span><span class="p">,</span>
+        <span class="s2">"method"</span><span class="p">:</span> <span class="s2">"GET"</span><span class="p">,</span>
+        <span class="s2">"scheme"</span><span class="p">:</span> <span class="s2">"http"</span><span class="p">,</span>
+        <span class="s2">"path"</span><span class="p">:</span> <span class="n">unquote</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+        <span class="s2">"raw_path"</span><span class="p">:</span> <span class="n">path</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span>
+        <span class="s2">"root_path"</span><span class="p">:</span> <span class="s2">""</span><span class="p">,</span>
+        <span class="s2">"query_string"</span><span class="p">:</span> <span class="n">query</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span>
+        <span class="s2">"headers"</span><span class="p">:</span> <span class="p">[(</span><span class="sa">b</span><span class="s2">"host"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">"localhost"</span><span class="p">)],</span>
+        <span class="s2">"client"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"server"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"localhost"</span><span class="p">,</span> <span class="mi">80</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+    <span class="n">requested</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">complete</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+
+    <span class="c1"># Like a real client: deliver the request once, then wait for the whole</span>
+    <span class="c1"># response before disconnecting (starlette's FileResponse polls receive()</span>
+    <span class="c1"># while streaming and would spin on a client that never blocks).</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">receive</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">nonlocal</span> <span class="n">requested</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">requested</span><span class="p">:</span>
+            <span class="n">requested</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"http.request"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">:</span> <span class="sa">b</span><span class="s2">""</span><span class="p">,</span> <span class="s2">"more_body"</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+        <span class="k">await</span> <span class="n">complete</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"http.disconnect"</span><span class="p">}</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="n">message</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">nonlocal</span> <span class="n">status</span>
+        <span class="k">if</span> <span class="n">message</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"http.response.start"</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">"status"</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">message</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"http.response.body"</span><span class="p">:</span>
+            <span class="n">body</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"body"</span><span class="p">,</span> <span class="sa">b</span><span class="s2">""</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">message</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"more_body"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+                <span class="n">complete</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+
+    <span class="k">await</span> <span class="n">app</span><span class="p">(</span><span class="n">scope</span><span class="p">,</span> <span class="n">receive</span><span class="p">,</span> <span class="n">send</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+    <span class="k">return</span> <span class="n">status</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_self_test</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">ServeApp</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="n">entries</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Request every served endpoint in-process and describe each failure.</span>
+
+<span class="sd">    ``prefix`` is the API's mount path in ``app`` and ``entries`` its served</span>
+<span class="sd">    entry types (default: those of ``app`` itself).</span>
+<span class="sd">    """</span>
+
+    <span class="n">served</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">all_entries</span> <span class="k">if</span> <span class="n">entries</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">entries</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/v1/info"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/v1/links"</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/v1/</span><span class="si">{</span><span class="n">entry</span><span class="si">}</span><span class="s2">?page_limit=1"</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">served</span><span class="p">)]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="k">await</span> <span class="n">_get</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span> <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">]</span>
+
+    <span class="n">failures</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">target</span><span class="p">,</span> <span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run</span><span class="p">()),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">detail</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">body</span><span class="p">)[</span><span class="s2">"errors"</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">"detail"</span><span class="p">]</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="n">detail</span> <span class="o">=</span> <span class="n">body</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">errors</span><span class="o">=</span><span class="s2">"replace"</span><span class="p">)[:</span><span class="mi">200</span><span class="p">]</span>
+            <span class="n">failures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">: HTTP </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">detail</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">failures</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_file_warnings</span><span class="p">(</span>
+    <span class="n">app</span><span class="p">:</span> <span class="n">ServeApp</span><span class="p">,</span>
+    <span class="n">store</span><span class="p">:</span> <span class="s2">"EntryStore"</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">api</span><span class="p">:</span> <span class="n">ServeApp</span><span class="p">,</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+    <span class="n">data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">data_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Describe file-serving problems of an application serving ``store``.</span>
+
+<span class="sd">    ``api`` is the OPTIMADE application mounted at ``prefix`` in ``app``.</span>
+<span class="sd">    With ``data_path`` the first listed ``files`` entry under ``data_url``</span>
+<span class="sd">    whose workspace ``data_path`` serves (a single directory serves every</span>
+<span class="sd">    name) is requested from ``app``'s ``/data`` route; with neither option,</span>
+<span class="sd">    stored ``data/`` URLs that are served unchanged are reported.</span>
+<span class="sd">    """</span>
+
+    <span class="k">if</span> <span class="s2">"files"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">api</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">all_entries</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">_get</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">target</span><span class="p">))</span>
+
+    <span class="n">warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">data_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">data_url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># A served URL is &lt;data_url&gt;/&lt;percent-encoded stored path&gt;; probe the first such one in-process.</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">/v1/files?page_limit=</span><span class="si">{</span><span class="nb">min</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="n">api</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">page_limit_max</span><span class="p">)</span><span class="si">}</span><span class="s2">&amp;response_fields=url"</span>
+        <span class="p">)</span>
+        <span class="n">location</span> <span class="o">=</span> <span class="n">urlsplit</span><span class="p">(</span><span class="n">data_url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span> <span class="o">+</span> <span class="s2">"/"</span>
+        <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">entry</span><span class="p">[</span><span class="s2">"attributes"</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">)</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">body</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data"</span><span class="p">,</span> <span class="p">[])]</span> <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="mi">200</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="n">paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">urlsplit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="o">.</span><span class="n">path</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">"http://"</span><span class="p">,</span> <span class="s2">"https://"</span><span class="p">))]</span>
+        <span class="n">url_path</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">path</span>
+                <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span>
+                <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">data_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="n">unquote</span><span class="p">(</span><span class="n">path</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">location</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">in</span> <span class="n">data_path</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"cannot list file entries to probe (HTTP </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">url_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"no downloadable file entries to probe"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">probe</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="s2">"/data/"</span> <span class="o">+</span> <span class="n">url_path</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">location</span><span class="p">)</span> <span class="p">:])[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">probe</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"served file </span><span class="si">{</span><span class="n">url_path</span><span class="si">}</span><span class="s2"> is not downloadable (HTTP </span><span class="si">{</span><span class="n">probe</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">data_url</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">search</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">searcher</span><span class="p">()</span>
+        <span class="n">record</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="n">FileRecord</span><span class="p">)</span>
+        <span class="n">search</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"data/"</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">search</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="n">record</span><span class="p">)),</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="s2">"stored file URLs start with data/ but neither --data-path nor --data-url is given; "</span>
+                <span class="s2">"they are served as stored, relative URLs"</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">warnings</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_record_classes</span><span class="p">(</span><span class="n">specs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">app_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Import application record classes named as ``MODULE:CLASS``.</span>
+
+<span class="sd">    :param specs: Record class references, e.g. ``result_record:Result``.</span>
+<span class="sd">    :param app_dir: Directory placed first on the import path when any class</span>
+<span class="sd">        is named, as uvicorn does for application modules.</span>
+<span class="sd">    :return: The imported classes, in order.</span>
+<span class="sd">    :raises ValueError: If a reference is malformed, cannot be imported, or</span>
+<span class="sd">        does not name a class.</span>
+<span class="sd">    """</span>
+
+    <span class="n">classes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">specs</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">app_dir</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">app_dir</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">specs</span><span class="p">:</span>
+        <span class="n">module_name</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">":"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">separator</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">module_name</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"record class must be given as MODULE:CLASS, not </span><span class="si">{</span><span class="n">spec</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">),</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"cannot import record class </span><span class="si">{</span><span class="n">spec</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">spec</span><span class="si">}</span><span class="s2"> is not a class"</span><span class="p">)</span>
+        <span class="n">classes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">classes</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_store_app</span><span class="p">(</span>
+    <span class="n">store_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">config_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">baseurl</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">records</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">app_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">data_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">root_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="s2">"SqlStore"</span><span class="p">,</span> <span class="n">ServeApp</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Open the store and build the served application.</span>
+
+<span class="sd">    With ``data_path`` the OPTIMADE application is composed at ``/`` with the</span>
+<span class="sd">    file-bytes route at ``/data``, beside ``/v1``, and serves file URLs there.</span>
+<span class="sd">    The returned application's ``state.optimade_app`` is the OPTIMADE</span>
+<span class="sd">    application (itself without ``data_path``) and ``state.data_url`` the</span>
+<span class="sd">    served file location.</span>
+<span class="sd">    """</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.serve.combined.files</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_files_app</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">httk.serve.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASGIAppMount</span><span class="p">,</span> <span class="n">compose_asgi_apps</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.api</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_asgi_app</span>
+
+    <span class="n">config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span>
+    <span class="n">store</span> <span class="o">=</span> <span class="n">open_store</span><span class="p">(</span><span class="n">store_path</span><span class="p">,</span> <span class="n">_record_classes</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">app_dir</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">data_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">app</span> <span class="o">=</span> <span class="n">optimade_app</span> <span class="o">=</span> <span class="n">create_asgi_app</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">baseurl</span><span class="o">=</span><span class="n">baseurl</span><span class="p">,</span> <span class="n">data_url</span><span class="o">=</span><span class="n">data_url</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">_normalized_root_path</span><span class="p">(</span><span class="n">root_path</span><span class="p">)</span>
+            <span class="n">data_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">baseurl</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">'/'</span><span class="p">)</span><span class="si">}</span><span class="s2">/data"</span> <span class="k">if</span> <span class="n">baseurl</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">'/'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">root</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">root</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">''</span><span class="si">}</span><span class="s2">/data"</span>
+            <span class="n">optimade_app</span> <span class="o">=</span> <span class="n">create_asgi_app</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">baseurl</span><span class="o">=</span><span class="n">baseurl</span><span class="p">,</span> <span class="n">data_url</span><span class="o">=</span><span class="n">data_url</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">"data"</span> <span class="ow">in</span> <span class="n">optimade_app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">all_entries</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"--data-path cannot serve /data beside the store's OPTIMADE entry type named 'data'"</span><span class="p">)</span>
+            <span class="n">mount</span> <span class="o">=</span> <span class="n">ASGIAppMount</span><span class="p">(</span><span class="s2">"/data"</span><span class="p">,</span> <span class="n">create_files_app</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">data_path</span><span class="p">))</span>
+            <span class="n">app</span> <span class="o">=</span> <span class="n">compose_asgi_apps</span><span class="p">([</span><span class="n">mount</span><span class="p">],</span> <span class="n">root</span><span class="o">=</span><span class="n">ASGIAppMount</span><span class="p">(</span><span class="s2">"/"</span><span class="p">,</span> <span class="n">optimade_app</span><span class="p">))</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">optimade_app</span> <span class="o">=</span> <span class="n">optimade_app</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">data_url</span> <span class="o">=</span> <span class="n">data_url</span>
+    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+        <span class="n">store</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">raise</span>
+    <span class="k">return</span> <span class="n">store</span><span class="p">,</span> <span class="n">app</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_console_reporting</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"httk"</span><span class="p">)</span><span class="o">.</span><span class="n">handlers</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">handlers</span><span class="p">:</span>
+        <span class="n">configure_reporting</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="worker_app">
+<a class="viewcode-back" href="../../../../reference/autoapi/httk/serve/optimade/cli/index.html#httk.serve.optimade.cli.worker_app">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">worker_app</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ServeApp</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Create the application of one uvicorn worker process.</span>
+
+<span class="sd">    Uvicorn imports this factory in each worker; ``httk serve optimade serve</span>
+<span class="sd">    --workers`` passes the store and configuration through the environment.</span>
+<span class="sd">    The store stays open for the lifetime of the worker process. A worker that</span>
+<span class="sd">    cannot open the store exits with uvicorn's startup-failure status, which</span>
+<span class="sd">    stops the supervising process instead of respawning the worker.</span>
+
+<span class="sd">    :return: Application serving the configured store.</span>
+<span class="sd">    :raises RuntimeError: If the process was not started by the serve command.</span>
+<span class="sd">    """</span>
+
+    <span class="n">settings</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">_WORKER_ENVIRONMENT</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">settings</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"httk serve optimade worker factory has no store configuration"</span><span class="p">)</span>
+    <span class="n">_console_reporting</span><span class="p">()</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">settings</span><span class="p">)</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">"config"</span><span class="p">])</span> <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="s2">"config"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_store_app</span><span class="p">(</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">"store"</span><span class="p">]),</span>
+            <span class="n">config</span><span class="p">,</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">"baseurl"</span><span class="p">],</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">"records"</span><span class="p">],</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">"app_dir"</span><span class="p">]),</span>
+            <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_url"</span><span class="p">),</span>
+            <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_path"</span><span class="p">),</span>
+            <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"root_path"</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span>
+        <span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">except</span> <span class="n">_OPEN_ERRORS</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"httk serve optimade worker cannot open </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">values</span><span class="p">[</span><span class="s2">"store"</span><span class="p">],</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="n">STARTUP_FAILURE</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_serve</span><span class="p">(</span><span class="n">arguments</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">_console_reporting</span><span class="p">()</span>
+    <span class="n">store_path</span> <span class="o">=</span> <span class="n">arguments</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+    <span class="n">config_path</span> <span class="o">=</span> <span class="n">arguments</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="k">if</span> <span class="n">arguments</span><span class="o">.</span><span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">store</span><span class="p">,</span> <span class="n">app</span> <span class="o">=</span> <span class="n">_store_app</span><span class="p">(</span>
+            <span class="n">store_path</span><span class="p">,</span>
+            <span class="n">config_path</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">baseurl</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">records</span><span class="p">,</span>
+            <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">(),</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">data_url</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">root_path</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="n">_OPEN_ERRORS</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk serve optimade serve: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">2</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">optimade_app</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="n">_self_test</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">entries</span><span class="o">=</span><span class="n">api</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">all_entries</span><span class="p">)</span>
+        <span class="n">warnings</span> <span class="o">=</span> <span class="n">_file_warnings</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">store</span><span class="p">,</span> <span class="n">api</span><span class="o">=</span><span class="n">api</span><span class="p">,</span> <span class="n">data_path</span><span class="o">=</span><span class="n">arguments</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="n">data_url</span><span class="o">=</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">data_url</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+        <span class="n">store</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">raise</span>
+    <span class="k">if</span> <span class="n">failures</span><span class="p">:</span>
+        <span class="n">store</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">failure</span> <span class="ow">in</span> <span class="n">failures</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk serve optimade serve: </span><span class="si">{</span><span class="n">failure</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">2</span>
+    <span class="k">for</span> <span class="n">warning</span> <span class="ow">in</span> <span class="n">warnings</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk serve optimade serve: warning: </span><span class="si">{</span><span class="n">warning</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="n">location</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"unix:</span><span class="si">{</span><span class="n">arguments</span><span class="o">.</span><span class="n">uds</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">arguments</span><span class="o">.</span><span class="n">uds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"http://</span><span class="si">{</span><span class="n">arguments</span><span class="o">.</span><span class="n">host</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">arguments</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">"</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Serving </span><span class="si">{</span><span class="n">store_path</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">all_entries</span><span class="p">)</span><span class="si">}</span><span class="s2">) at </span><span class="si">{</span><span class="n">location</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"root_path"</span><span class="p">:</span> <span class="n">arguments</span><span class="o">.</span><span class="n">root_path</span><span class="p">,</span>
+        <span class="s2">"access_log"</span><span class="p">:</span> <span class="ow">not</span> <span class="n">arguments</span><span class="o">.</span><span class="n">no_access_log</span><span class="p">,</span>
+        <span class="s2">"server_header"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">arguments</span><span class="o">.</span><span class="n">uds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">options</span><span class="p">[</span><span class="s2">"uds"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">arguments</span><span class="o">.</span><span class="n">uds</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">arguments</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">arguments</span><span class="o">.</span><span class="n">port</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">arguments</span><span class="o">.</span><span class="n">workers</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">uvicorn</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="o">**</span><span class="n">options</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">store</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="c1"># Worker processes import an application factory and open their own store;</span>
+    <span class="c1"># the parent's open only verified the store before any worker started.</span>
+    <span class="n">store</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">_WORKER_ENVIRONMENT</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"store"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">store_path</span><span class="p">),</span>
+            <span class="s2">"config"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">config_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">"baseurl"</span><span class="p">:</span> <span class="n">arguments</span><span class="o">.</span><span class="n">baseurl</span><span class="p">,</span>
+            <span class="s2">"records"</span><span class="p">:</span> <span class="n">arguments</span><span class="o">.</span><span class="n">records</span><span class="p">,</span>
+            <span class="s2">"app_dir"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()),</span>
+            <span class="s2">"data_url"</span><span class="p">:</span> <span class="n">arguments</span><span class="o">.</span><span class="n">data_url</span><span class="p">,</span>
+            <span class="s2">"data_path"</span><span class="p">:</span> <span class="n">arguments</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span>
+            <span class="s2">"root_path"</span><span class="p">:</span> <span class="n">arguments</span><span class="o">.</span><span class="n">root_path</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">uvicorn</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"httk.serve.optimade.cli:worker_app"</span><span class="p">,</span> <span class="n">factory</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">arguments</span><span class="o">.</span><span class="n">workers</span><span class="p">,</span> <span class="o">**</span><span class="n">options</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check</span><span class="p">(</span><span class="n">arguments</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">store</span><span class="p">,</span> <span class="n">app</span> <span class="o">=</span> <span class="n">_store_app</span><span class="p">(</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">store</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">records</span><span class="p">,</span>
+            <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">(),</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">data_url</span><span class="p">,</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="n">_OPEN_ERRORS</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk serve optimade check: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">2</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">api</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">optimade_app</span>
+        <span class="n">failures</span> <span class="o">=</span> <span class="n">_self_test</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">entries</span><span class="o">=</span><span class="n">api</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">all_entries</span><span class="p">)</span>
+        <span class="n">warnings</span> <span class="o">=</span> <span class="n">_file_warnings</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">store</span><span class="p">,</span> <span class="n">api</span><span class="o">=</span><span class="n">api</span><span class="p">,</span> <span class="n">data_path</span><span class="o">=</span><span class="n">arguments</span><span class="o">.</span><span class="n">data_path</span><span class="p">,</span> <span class="n">data_url</span><span class="o">=</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">data_url</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">store</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">failure</span> <span class="ow">in</span> <span class="n">failures</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk serve optimade check: </span><span class="si">{</span><span class="n">failure</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">warning</span> <span class="ow">in</span> <span class="n">warnings</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"httk serve optimade check: warning: </span><span class="si">{</span><span class="n">warning</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">failures</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">api</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">all_entries</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">0</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, The httk-serve AUTHORS
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../../_static/documentation_options.js?v=952df46a"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../_static/copybutton.js?v=fd10adb8"></script>
+    <script src="../../../../_static/selector.js?v=d8e9b3ce"></script>
+    <script>window.HTTK_DOCS_VERSIONING = {"channel":"dev","version":"dev:develop","versionPathDepth":2};</script>
+    </body>
+</html>

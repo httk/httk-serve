@@ -1,0 +1,50 @@
+httk.serve.web.model.request
+============================
+
+.. py:module:: httk.serve.web.model.request
+
+.. autoapi-nested-parse::
+
+   Define the request data passed into site rendering.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.model.request.HttpRequestContext
+
+
+Module Contents
+---------------
+
+.. py:class:: HttpRequestContext
+
+   Carry the request values exposed to a rendered site page.
+
+   :param method: HTTP method.
+   :param query: Query-string values.
+   :param postvars: Parsed POST values.
+   :param headers: Lower-case request headers.
+
+
+   .. py:attribute:: method
+      :type:  str
+      :value: 'GET'
+
+
+
+   .. py:attribute:: query
+      :type:  dict[str, str]
+
+
+   .. py:attribute:: postvars
+      :type:  dict[str, str]
+
+
+   .. py:attribute:: headers
+      :type:  dict[str, str]
+
+

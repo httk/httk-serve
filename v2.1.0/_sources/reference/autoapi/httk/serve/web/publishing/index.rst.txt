@@ -1,0 +1,41 @@
+httk.serve.web.publishing
+=========================
+
+.. py:module:: httk.serve.web.publishing
+
+.. autoapi-nested-parse::
+
+   Provide static publication helpers for web sites.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/publishing/static/index
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.publishing.publish_site
+
+
+Package Contents
+----------------
+
+.. py:function:: publish_site(*, engine, outdir)
+
+   Publish a site engine into a static output directory.
+
+   :param engine: Site engine used to render pages and collect assets.
+   :param outdir: Destination directory for static output.
+   :return: Report of written files and rendering warnings.
+   :raises ValueError: If a used widget asset collides with site static output.
+
+

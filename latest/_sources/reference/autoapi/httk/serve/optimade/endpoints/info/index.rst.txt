@@ -1,0 +1,74 @@
+httk.serve.optimade.endpoints.info
+==================================
+
+.. py:module:: httk.serve.optimade.endpoints.info
+
+.. autoapi-nested-parse::
+
+   Generate OPTIMADE discovery and provider-link responses.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.endpoints.info.generate_info_endpoint_reply
+   httk.serve.optimade.endpoints.info.generate_entry_info_endpoint_reply
+   httk.serve.optimade.endpoints.info.generate_base_endpoint_reply
+   httk.serve.optimade.endpoints.info.generate_versions_endpoint_reply
+   httk.serve.optimade.endpoints.info.generate_links_endpoint_reply
+
+
+Module Contents
+---------------
+
+.. py:function:: generate_info_endpoint_reply(request, config, schema)
+
+   Build the service ``/info`` response.
+
+   :param request: Validated request supplying the API version and base URL.
+   :param config: Service metadata and license configuration.
+   :param schema: Served entry types and properties.
+   :return: JSON:API service-info document.
+
+
+.. py:function:: generate_entry_info_endpoint_reply(request, config, entry, schema)
+
+   Build the ``/info/{entry}`` response for one served entry type.
+
+   :param request: Validated request supplying response metadata context.
+   :param config: Service metadata configuration.
+   :param entry: Served entry endpoint name.
+   :param schema: Served entry definitions.
+   :return: JSON:API entry-info document.
+
+
+.. py:function:: generate_base_endpoint_reply(request, config)
+
+   Build the HTML response for the unversioned API base endpoint.
+
+   :param request: Validated request supplying the displayed API version.
+   :param config: Service configuration.
+   :return: HTML response body.
+
+
+.. py:function:: generate_versions_endpoint_reply(request, config)
+
+   Build the preference-ordered CSV of supported API major versions.
+
+   :param request: Validated request context.
+   :param config: Service configuration.
+   :return: Restricted ``/versions`` CSV body.
+
+
+.. py:function:: generate_links_endpoint_reply(request, config)
+
+   Build the provider-links response.
+
+   :param request: Validated request supplying response metadata context.
+   :param config: Service links and metadata configuration.
+   :return: JSON:API links document.
+
+

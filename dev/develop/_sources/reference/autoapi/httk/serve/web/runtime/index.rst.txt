@@ -1,0 +1,41 @@
+httk.serve.web.runtime
+======================
+
+.. py:module:: httk.serve.web.runtime
+
+.. autoapi-nested-parse::
+
+   Provide ASGI and development-server runtime helpers.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/web/runtime/asgi/index
+   /reference/autoapi/httk/serve/web/runtime/devserver/index
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.runtime.create_app
+
+
+Package Contents
+----------------
+
+.. py:function:: create_app(*, engine, debug = False)
+
+   Create the Starlette application for a site engine.
+
+   :param engine: Site engine owned by the ASGI application lifecycle.
+   :param debug: Whether to enable Starlette debug responses.
+   :return: Configured Starlette application.
+
+

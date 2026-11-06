@@ -1,0 +1,260 @@
+httk.serve.dsp.state
+====================
+
+.. py:module:: httk.serve.dsp.state
+
+.. autoapi-nested-parse::
+
+   Locked, non-durable state repository for DSP negotiations and transfers.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.dsp.state.DspState
+
+
+Module Contents
+---------------
+
+.. py:class:: DspState
+
+   Own immutable DSP process snapshots behind one asynchronous lock.
+
+   The repository is deliberately in-memory only. Callback transitions are
+   reserved with a unique pending token while holding the lock, sent by the
+   provider outside the lock, then committed only when the reservation still
+   belongs to that callback.
+
+
+   .. py:method:: create_negotiation(record)
+      :async:
+
+
+      Store a new negotiation process.
+
+      :param record: Initial negotiation record to store.
+      :return: Stored immutable snapshot.
+      :raises ValueError: If its provider process identifier already exists.
+
+
+
+   .. py:method:: create_transfer(record)
+      :async:
+
+
+      Store a new transfer process.
+
+      :param record: Initial transfer record to store.
+      :return: Stored immutable snapshot.
+      :raises ValueError: If its provider process identifier already exists.
+
+
+
+   .. py:method:: create_or_transfer_for_consumer(record)
+      :async:
+
+
+      Atomically create a transfer or recover one with the same consumer PID.
+
+      :param record: Candidate initial transfer record.
+      :return: ``(record, True)`` when stored, otherwise the existing record
+          and ``False``.
+      :raises ValueError: If its provider process identifier already exists.
+
+
+
+   .. py:method:: get_or_create_transfer_for_consumer(consumer_pid, create)
+      :async:
+
+
+      Atomically recover or construct one transfer for a consumer process ID.
+
+      ``create`` runs only when no existing consumer process is found and is
+      called while the lock is held. It must perform no I/O; this lets callers
+      defer ID allocation until an idempotent retry is known to be new.
+
+      :param consumer_pid: Consumer transfer-process identifier to recover.
+      :param create: Zero-argument constructor for a new immutable record.
+      :return: ``(record, True)`` when stored, otherwise the existing record
+          and ``False``.
+      :raises ValueError: If the constructed record conflicts or uses a different consumer PID.
+
+
+
+   .. py:method:: negotiation(provider_pid)
+      :async:
+
+
+      Return one negotiation snapshot.
+
+      :param provider_pid: Provider process identifier to resolve.
+      :return: Immutable negotiation snapshot.
+      :raises KeyError: If no such process exists.
+
+
+
+   .. py:method:: transfer(provider_pid)
+      :async:
+
+
+      Return one transfer snapshot.
+
+      :param provider_pid: Provider transfer-process identifier to resolve.
+      :return: Immutable transfer snapshot.
+      :raises KeyError: If no such process exists.
+
+
+
+   .. py:method:: transfer_for_consumer(consumer_pid)
+      :async:
+
+
+      Return an existing transfer identified by its consumer process ID.
+
+      :param consumer_pid: Consumer transfer-process identifier to find.
+      :return: Matching immutable snapshot, or ``None`` when absent.
+
+
+
+   .. py:method:: finalized_agreement(agreement_id)
+      :async:
+
+
+      Return an agreement only if its negotiation has reached ``FINALIZED``.
+
+      :param agreement_id: Agreement identifier to resolve.
+      :return: Finalized agreement record, or ``None`` when unavailable.
+
+
+
+   .. py:method:: agreement(agreement_id)
+      :async:
+
+
+      Return an agreement and its negotiation state regardless of finalization.
+
+      :param agreement_id: Agreement identifier to resolve.
+      :return: Agreement record paired with its current negotiation state, or
+          ``None`` when no process owns the identifier.
+
+
+
+   .. py:method:: reserve_negotiation(provider_pid, *, expected_states, transition)
+      :async:
+
+
+      Reserve an outbound negotiation transition without holding the lock for I/O.
+
+      :param provider_pid: Provider process identifier to transition.
+      :param expected_states: States from which the transition is valid.
+      :param transition: Descriptive local transition name.
+      :return: Pre-transition snapshot and unique reservation token.
+      :raises KeyError: If no such process exists.
+      :raises RuntimeError: If another callback is pending or the state is invalid.
+
+
+
+   .. py:method:: reserve_transfer(provider_pid, *, expected_states, transition)
+      :async:
+
+
+      Reserve an outbound transfer transition without holding the lock for I/O.
+
+      :param provider_pid: Provider transfer-process identifier to transition.
+      :param expected_states: States from which the transition is valid.
+      :param transition: Descriptive local transition name.
+      :return: Pre-transition snapshot and unique reservation token.
+      :raises KeyError: If no such process exists.
+      :raises RuntimeError: If another callback is pending or the state is invalid.
+
+
+
+   .. py:method:: commit_negotiation(provider_pid, token, *, state, agreement)
+      :async:
+
+
+      Commit an acknowledged negotiation callback when its token still matches.
+
+      :param provider_pid: Provider process identifier to update.
+      :param token: Reservation token returned by :meth:`reserve_negotiation`.
+      :param state: Newly acknowledged DSP state.
+      :param agreement: Agreement to store, if an agreement was acknowledged.
+      :return: Whether this reservation was still current and was committed.
+
+
+
+   .. py:method:: commit_transfer(provider_pid, token, *, state)
+      :async:
+
+
+      Commit an acknowledged transfer callback when its token still matches.
+
+      :param provider_pid: Provider transfer-process identifier to update.
+      :param token: Reservation token returned by :meth:`reserve_transfer`.
+      :param state: Newly acknowledged DSP state.
+      :return: Whether this reservation was still current and was committed.
+
+
+
+   .. py:method:: fail_negotiation(provider_pid, token, *, detail, retries)
+      :async:
+
+
+      Record an unacknowledged negotiation callback failure.
+
+      :param provider_pid: Provider process identifier to update.
+      :param token: Reservation token returned by :meth:`reserve_negotiation`.
+      :param detail: Safe callback failure detail.
+      :param retries: Delivery attempts used for the failed callback.
+      :return: Whether this reservation was still current and was updated.
+
+
+
+   .. py:method:: fail_transfer(provider_pid, token, *, detail, retries)
+      :async:
+
+
+      Record an unacknowledged transfer callback failure.
+
+      :param provider_pid: Provider transfer-process identifier to update.
+      :param token: Reservation token returned by :meth:`reserve_transfer`.
+      :param detail: Safe callback failure detail.
+      :param retries: Delivery attempts used for the failed callback.
+      :return: Whether this reservation was still current and was updated.
+
+
+
+   .. py:method:: receive_negotiation(provider_pid, *, expected_states, state)
+      :async:
+
+
+      Commit an inbound negotiation transition atomically.
+
+      :param provider_pid: Provider process identifier to update.
+      :param expected_states: States from which the inbound transition is valid.
+      :param state: Newly received DSP state.
+      :return: Updated immutable process snapshot.
+      :raises KeyError: If no such process exists.
+      :raises RuntimeError: If another callback is pending or the state is invalid.
+
+
+
+   .. py:method:: receive_transfer(provider_pid, *, expected_states, state)
+      :async:
+
+
+      Commit an inbound transfer transition atomically.
+
+      :param provider_pid: Provider transfer-process identifier to update.
+      :param expected_states: States from which the inbound transition is valid.
+      :param state: Newly received DSP state.
+      :return: Updated immutable process snapshot.
+      :raises KeyError: If no such process exists.
+      :raises RuntimeError: If another callback is pending or the state is invalid.
+
+
+

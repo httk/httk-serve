@@ -1,0 +1,90 @@
+httk.serve.optimade.cli
+=======================
+
+.. py:module:: httk.serve.optimade.cli
+
+.. autoapi-nested-parse::
+
+   The ``httk serve optimade`` command: serve an entry-store file over OPTIMADE.
+
+   ``httk serve optimade serve STORE`` is a production ASGI runner meant to be the
+   single ``ExecStart`` command of a service unit behind a front-line web server
+   such as Apache or nginx. It opens an SQLite or DuckDB store file built by
+   *httk-store*, discovers its OPTIMADE entry families, and runs the
+   :func:`~httk.serve.optimade.create_asgi_app` application under uvicorn on a TCP
+   port or a Unix domain socket. ``httk serve optimade check STORE`` performs the
+   same opening, discovery, and endpoint self-test without serving.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.cli.add_parser
+   httk.serve.optimade.cli.open_store
+   httk.serve.optimade.cli.load_config
+   httk.serve.optimade.cli.worker_app
+
+
+Module Contents
+---------------
+
+.. py:function:: add_parser(groups)
+
+   Add the ``optimade`` command group to the ``httk serve`` parser.
+
+   :param groups: Sub-parser collection of the ``httk serve`` parser.
+
+
+.. py:function:: open_store(path, records = ())
+
+   Open an existing SQLite or DuckDB store file for serving.
+
+   The format is recognized from the file header, not its name. A DuckDB file
+   is opened read-only so several worker processes can share it; an SQLite
+   file is served correctly when the serving user has read-only access to it.
+   A missing file is never created.
+
+   :param path: Path of the store file.
+   :param records: Application record classes the store was written with,
+       forwarded as the store's ``records`` option.
+   :return: The opened entry store, owned by the caller.
+   :raises ValueError: If the file is missing or is neither SQLite nor DuckDB.
+   :raises OSError: If the file cannot be read.
+   :raises ImportError: If the database driver for the file is not installed.
+   :raises RuntimeError: If the file's store layout is refused on reopen.
+
+
+.. py:function:: load_config(path)
+
+   Load OPTIMADE service metadata from a TOML file.
+
+   Top-level keys are the fields of
+   :class:`~httk.serve.optimade.model.config.OptimadeConfig`, e.g. a
+   ``[provider]`` table with ``name``, ``description`` and ``prefix``,
+   ``license``, ``page_limit_max`` and ``cors_origins``. Dates are written as
+   strings, not TOML date-time values.
+
+   :param path: TOML file path, or ``None`` for the default configuration.
+   :return: The service configuration.
+   :raises ValueError: If the file is not valid TOML, names unknown keys, or
+       gives a value of the wrong shape.
+   :raises OSError: If the file cannot be read.
+
+
+.. py:function:: worker_app()
+
+   Create the application of one uvicorn worker process.
+
+   Uvicorn imports this factory in each worker; ``httk serve optimade serve
+   --workers`` passes the store and configuration through the environment.
+   The store stays open for the lifetime of the worker process. A worker that
+   cannot open the store exits with uvicorn's startup-failure status, which
+   stops the supervising process instead of respawning the worker.
+
+   :return: Application serving the configured store.
+   :raises RuntimeError: If the process was not started by the serve command.
+
+

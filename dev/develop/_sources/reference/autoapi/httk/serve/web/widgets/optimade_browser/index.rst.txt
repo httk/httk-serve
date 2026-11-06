@@ -1,0 +1,52 @@
+httk.serve.web.widgets.optimade_browser
+=======================================
+
+.. py:module:: httk.serve.web.widgets.optimade_browser
+
+.. autoapi-nested-parse::
+
+   The server-rendered OPTIMADE browse widget: type/kind picker, condition builder, table.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_browser.MAX_QUERY_IDENTIFIER_CHARS
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.widgets.optimade_browser.render
+
+
+Module Contents
+---------------
+
+.. py:data:: MAX_QUERY_IDENTIFIER_CHARS
+   :value: 128
+
+
+.. py:function:: render(context, *, base_url, entry_route = 'entry', page_size = 50)
+
+   Render the browse page for ``?type=<type>&kind=<kind>&filter=<filter>&sort=<sort>``.
+
+   A missing or invalid ``type`` (or ``kind``) renders only the picker. A valid type
+   renders an ``optimade_table`` with curated columns, a raw-filter disclosure and
+   detail links to ``entry_route?type=<type>&id=<id>``; for ``_httk_records`` a
+   ``kind`` names a record-value property and selects records where it is known.
+   The browser fills the type/kind picker and the condition builder from ``/info``.
+
+   :param context: Immutable widget invocation context.
+   :param base_url: OPTIMADE base URL: absolute, root-relative, or site-root-relative.
+   :param entry_route: Site route of the single-entry page.
+   :param page_size: Default number of rows per table page.
+   :return: Browse shell, table, and their trusted assets.
+   :raises httk.serve.web.widgets.optimade_table.OptimadeTableProtocolError: If an authored argument is invalid.
+
+
