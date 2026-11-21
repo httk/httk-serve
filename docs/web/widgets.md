@@ -387,13 +387,13 @@ Prefix an otherwise standalone invocation with a backslash to render it literall
 Use the umbrella command during authoring:
 
 ```console
-httk serve web list src other-site/src
-httk serve web check src other-site/src
-httk serve web serve --reload src
+httk serve --site src --list-widgets
+httk serve --site src --check
+httk serve --site src --reload
 ```
 
-`check` validates every content page, including widget parsing, names, local
+Each invocation takes one site directory. `--check` validates every content page, including widget parsing, names, local
 module/provider signatures and first-page results, duplicate ids, a static
-render, and collisions with the reserved `/_httk/serve/` runtime route. `list` prints
+render, and collisions with the reserved `/_httk/serve/` runtime route. `--list-widgets` prints
 canonical widget names and their source locations, including `httk.serve.table`.
-`serve --reload` uses uvicorn's process-level reload supervisor.
+`--reload` uses uvicorn's process-level reload supervisor.

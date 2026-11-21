@@ -92,9 +92,9 @@ def test_cli_data_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     store = str(_files_store(tmp_path))
     context = CLIContext("httk", tmp_path)
 
-    assert command(["optimade", "check", store, "--data-url", ""], context) == 2
+    assert command([store, "--no-site", "--check", "--data-url", ""], context) == 2
     assert "argument --data-url" in capsys.readouterr().err
-    assert command(["optimade", "check", store, "--data-url", "https://example.org/files"], context) == 0
+    assert command([store, "--no-site", "--check", "--data-url", "https://example.org/files"], context) == 0
     assert capsys.readouterr().out.split() == ["files"]
 
 
@@ -106,8 +106,8 @@ def _workspace(tmp_path: Path) -> Path:
     return tmp_path / "files" / "ws"
 
 
-@pytest.mark.parametrize("group", ["optimade", "combined"])
-def test_cli_data_path_parsing(tmp_path: Path, group: str, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize("mode", [["--no-site"], []], ids=["optimade", "combined"])
+def test_cli_data_path_parsing(tmp_path: Path, mode: list[str], capsys: pytest.CaptureFixture[str]) -> None:
     store = str(_files_store(tmp_path))
     workspace = _workspace(tmp_path)
     context = CLIContext("httk", tmp_path)
@@ -117,7 +117,7 @@ def test_cli_data_path_parsing(tmp_path: Path, group: str, capsys: pytest.Captur
         ["--data-path", f"ws={workspace}"],
         ["--data-path", f"ws={workspace}", "--data-path", f"b={other}"],
     ):
-        assert command([group, "check", store, *argv], context) == 0, argv
+        assert command([store, *mode, "--check", *argv], context) == 0, argv
         assert "warning" not in capsys.readouterr().err, argv
     for argv, message in (
         (["--data-path", files, "--data-path", f"ws={workspace}"], "not both or two PATHs"),
@@ -131,14 +131,14 @@ def test_cli_data_path_parsing(tmp_path: Path, group: str, capsys: pytest.Captur
         (["--data-path", "ws="], "must name a directory"),
         (["--data-path", f"w\\s={workspace}"], "argument --data-path: not a directory"),
     ):
-        assert command([group, "check", store, *argv], context) == 2, argv
+        assert command([store, *mode, "--check", *argv], context) == 2, argv
         assert message in capsys.readouterr().err, argv
-    assert command([group, "check", store, "--data-path", f"..={workspace}"], context) == 2
+    assert command([store, *mode, "--check", "--data-path", f"..={workspace}"], context) == 2
     assert "single path component" in capsys.readouterr().err
 
     # An = after a path separator belongs to a plain PATH.
     (tmp_path / "dir=with").symlink_to(tmp_path / "files", target_is_directory=True)
-    assert command([group, "check", store, "--data-path", str(tmp_path / "dir=with")], context) == 0
+    assert command([store, *mode, "--check", "--data-path", str(tmp_path / "dir=with")], context) == 0
     assert "warning" not in capsys.readouterr().err
 
 
@@ -171,20 +171,20 @@ def test_optimade_check_probes_and_warns(tmp_path: Path, capsys: pytest.CaptureF
     store = str(_files_store(tmp_path))
     workspace = _workspace(tmp_path)
     context = CLIContext("httk", tmp_path)
-    assert command(["optimade", "check", store, "--data-path", f"ws={workspace}"], context) == 0
+    assert command([store, "--no-site", "--check", "--data-path", f"ws={workspace}"], context) == 0
     captured = capsys.readouterr()
     assert captured.out.split() == ["files"] and "warning" not in captured.err
 
-    assert command(["optimade", "check", store], context) == 0
+    assert command([store, "--no-site", "--check"], context) == 0
     assert "neither --data-path nor --data-url" in capsys.readouterr().err
 
     # Only workspaces that --data-path serves are probed.
-    assert command(["optimade", "check", store, "--data-path", f"other={tmp_path}"], context) == 0
+    assert command([store, "--no-site", "--check", "--data-path", f"other={tmp_path}"], context) == 0
     err = capsys.readouterr().err
     assert "no downloadable file entries to probe" in err and "not downloadable (HTTP" not in err
 
     (workspace / "jobs" / "a" / "out.json").unlink()
-    assert command(["optimade", "check", store, "--data-path", f"ws={workspace}"], context) == 0
+    assert command([store, "--no-site", "--check", "--data-path", f"ws={workspace}"], context) == 0
     assert "not downloadable (HTTP 404)" in capsys.readouterr().err
 
 
@@ -194,7 +194,7 @@ def test_optimade_serve_workers_build_the_composition(tmp_path: Path, monkeypatc
     monkeypatch.setattr(uvicorn, "run", lambda *_args, **_options: environments.append(os.environ[name]))
     name = optimade_cli._WORKER_ENVIRONMENT
     monkeypatch.delenv(name, raising=False)
-    argv = ["optimade", "serve", store, "--data-path", f"ws={workspace}", "--root-path", "/sub", "--workers", "2"]
+    argv = [store, "--no-site", "--data-path", f"ws={workspace}", "--root-path", "/sub", "--workers", "2"]
     assert command(argv, CLIContext("httk", tmp_path)) == 0
     monkeypatch.setenv(name, environments[0])
     client = TestClient(optimade_cli.worker_app(), root_path="/sub")

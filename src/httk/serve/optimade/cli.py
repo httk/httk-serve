@@ -1,11 +1,11 @@
-"""The ``httk serve optimade`` command: serve an entry-store file over OPTIMADE.
+"""The OPTIMADE-only mode of ``httk serve``: serve an entry-store file over OPTIMADE.
 
-``httk serve optimade serve STORE`` is a production ASGI runner meant to be the
+``httk serve STORE --no-site`` is a production ASGI runner meant to be the
 single ``ExecStart`` command of a service unit behind a front-line web server
 such as Apache or nginx. It opens an SQLite or DuckDB store file built by
 *httk-store*, discovers its OPTIMADE entry families, and runs the
 :func:`~httk.serve.optimade.create_asgi_app` application under uvicorn on a TCP
-port or a Unix domain socket. ``httk serve optimade check STORE`` performs the
+port or a Unix domain socket. ``httk serve STORE --no-site --check`` performs the
 same opening, discovery, and endpoint self-test without serving.
 """
 
@@ -45,92 +45,6 @@ _LOGGER = logging.getLogger(__name__)
 # Operator-facing failures to open or discover a store: a missing driver extra,
 # an unreadable or foreign file, a layout refusal, or invalid configuration.
 _OPEN_ERRORS = (ImportError, OSError, RuntimeError, TypeError, ValueError)
-
-
-def add_parser(groups: Any) -> None:
-    """Add the ``optimade`` command group to the ``httk serve`` parser.
-
-    :param groups: Sub-parser collection of the ``httk serve`` parser.
-    """
-
-    optimade = groups.add_parser(
-        "optimade",
-        help="serve entry-store files over OPTIMADE",
-        description="Serve and check httk-store files as OPTIMADE APIs",
-    )
-    optimade.set_defaults(help_parser=optimade)
-    subparsers = optimade.add_subparsers(metavar="COMMAND")
-    serve_parser = subparsers.add_parser(
-        "serve",
-        help="serve a store file over OPTIMADE",
-        description=(
-            "Serve an SQLite or DuckDB store file as an OPTIMADE API with uvicorn, "
-            "e.g. as the ExecStart command of a systemd unit behind a reverse proxy."
-        ),
-    )
-    serve_parser.set_defaults(handler=_serve, help_parser=serve_parser)
-    _store_arguments(serve_parser)
-    serve_parser.add_argument(
-        "--baseurl",
-        help="public base URL of the API, e.g. https://example.org/optimade (default: derived from each request)",
-    )
-    _bind_arguments(serve_parser)
-    check_parser = subparsers.add_parser(
-        "check",
-        help="open a store file and self-test the endpoints it would serve",
-        description=(
-            "Open a store file and its configuration, request every OPTIMADE endpoint "
-            "in-process, and list the entry endpoints it would serve."
-        ),
-    )
-    check_parser.set_defaults(handler=_check, help_parser=check_parser)
-    _store_arguments(check_parser)
-
-
-def _bind_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--host", default="127.0.0.1", help="interface to bind (default: 127.0.0.1)")
-    bind = parser.add_mutually_exclusive_group()
-    bind.add_argument("--port", type=_port, default=8080, help="TCP port to bind (default: 8080)")
-    bind.add_argument("--uds", type=Path, help="bind this Unix domain socket instead of a TCP port")
-    parser.add_argument("--root-path", type=_root_path, default="", help="ASGI root path when proxied under a sub-path")
-    parser.add_argument("--workers", type=_workers, default=1, help="number of worker processes (default: 1)")
-    parser.add_argument("--no-access-log", action="store_true", help="disable the per-request access log")
-
-
-def _store_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("store", metavar="STORE", type=Path, help="SQLite or DuckDB store file")
-    parser.add_argument("--config", type=Path, help="TOML file with OPTIMADE service metadata")
-    parser.add_argument(
-        "--records",
-        metavar="MODULE:CLASS",
-        action="append",
-        default=[],
-        help=(
-            "record class the store was written with that no installed distribution registers, "
-            "imported with the working directory on the import path; repeatable"
-        ),
-    )
-    files = parser.add_mutually_exclusive_group()
-    files.add_argument(
-        "--data-path",
-        metavar="[NAME=]PATH",
-        type=_data_path,
-        action=_DataPathAction,
-        help=(
-            "serve the registered files stored as data/<name>/<path> from PATH/<name>/<path> at /data/; "
-            "or, repeated as NAME=PATH, the files of workspace NAME from PATH/<path> "
-            "(a value splits at its first = only when no / or \\ precedes it)"
-        ),
-    )
-    files.add_argument(
-        "--data-url",
-        metavar="URL",
-        type=_data_url,
-        help=(
-            "serve file-entry URLs that start with data/ under the external URL instead, "
-            "e.g. https://example.org/files (stored entries are unchanged)"
-        ),
-    )
 
 
 def _port(value: str) -> int:
@@ -526,7 +440,7 @@ def _console_reporting() -> None:
 def worker_app() -> ServeApp:
     """Create the application of one uvicorn worker process.
 
-    Uvicorn imports this factory in each worker; ``httk serve optimade serve
+    Uvicorn imports this factory in each worker; ``httk serve STORE --no-site
     --workers`` passes the store and configuration through the environment.
     The store stays open for the lifetime of the worker process. A worker that
     cannot open the store exits with uvicorn's startup-failure status, which
@@ -538,7 +452,7 @@ def worker_app() -> ServeApp:
 
     settings = os.environ.get(_WORKER_ENVIRONMENT)
     if not settings:
-        raise RuntimeError("httk serve optimade worker factory has no store configuration")
+        raise RuntimeError("httk serve worker factory has no store configuration")
     _console_reporting()
     values = json.loads(settings)
     config = Path(values["config"]) if values["config"] is not None else None
@@ -554,7 +468,7 @@ def worker_app() -> ServeApp:
             values.get("root_path", ""),
         )[1]
     except _OPEN_ERRORS as exc:
-        _LOGGER.error("httk serve optimade worker cannot open %s: %s", values["store"], exc)
+        _LOGGER.error("httk serve worker cannot open %s: %s", values["store"], exc)
         sys.exit(STARTUP_FAILURE)
 
 
@@ -574,7 +488,7 @@ def _serve(arguments: argparse.Namespace) -> int:
             arguments.root_path,
         )
     except _OPEN_ERRORS as exc:
-        print(f"httk serve optimade serve: {exc}", file=sys.stderr)
+        print(f"httk serve: {exc}", file=sys.stderr)
         return 2
     try:
         api = app.state.optimade_app
@@ -586,10 +500,10 @@ def _serve(arguments: argparse.Namespace) -> int:
     if failures:
         store.close()
         for failure in failures:
-            print(f"httk serve optimade serve: {failure}", file=sys.stderr)
+            print(f"httk serve: {failure}", file=sys.stderr)
         return 2
     for warning in warnings:
-        print(f"httk serve optimade serve: warning: {warning}", file=sys.stderr)
+        print(f"httk serve: warning: {warning}", file=sys.stderr)
     location = f"unix:{arguments.uds}" if arguments.uds is not None else f"http://{arguments.host}:{arguments.port}"
     print(f"Serving {store_path} ({', '.join(api.state.schema.all_entries)}) at {location}", flush=True)
     options: dict[str, Any] = {
@@ -638,7 +552,7 @@ def _check(arguments: argparse.Namespace) -> int:
             arguments.data_path,
         )
     except _OPEN_ERRORS as exc:
-        print(f"httk serve optimade check: {exc}", file=sys.stderr)
+        print(f"httk serve: {exc}", file=sys.stderr)
         return 2
     try:
         api = app.state.optimade_app
@@ -647,9 +561,9 @@ def _check(arguments: argparse.Namespace) -> int:
     finally:
         store.close()
     for failure in failures:
-        print(f"httk serve optimade check: {failure}", file=sys.stderr)
+        print(f"httk serve: {failure}", file=sys.stderr)
     for warning in warnings:
-        print(f"httk serve optimade check: warning: {warning}", file=sys.stderr)
+        print(f"httk serve: warning: {warning}", file=sys.stderr)
     if failures:
         return 1
     for entry in api.state.schema.all_entries:

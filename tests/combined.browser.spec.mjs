@@ -1,4 +1,4 @@
-// End-to-end: `httk serve combined serve` with the default site, driven in a real browser.
+// End-to-end: `httk serve STORE` with the default site, driven in a real browser.
 // Needs the Python environment with httk-serve installed on PATH (python3 and httk).
 import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -24,7 +24,7 @@ test.beforeAll(async () => {
   fixture = JSON.parse(execFileSync("python3", [fixtureScript, directory], { encoding: "utf8" }));
   const port = await freePort();
   origin = `http://127.0.0.1:${port}`;
-  server = spawn("httk", ["serve", "combined", "serve", fixture.store, "--data-path", `ws=${fixture.workspace}`, "--host", "127.0.0.1", "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+  server = spawn("httk", ["serve", fixture.store, "--data-path", `ws=${fixture.workspace}`, "--host", "127.0.0.1", "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
   server.stdout.on("data", (chunk) => { serverLog += chunk; });
   server.stderr.on("data", (chunk) => { serverLog += chunk; });
   await waitReady(`${origin}/optimade/v1/info`);
@@ -202,7 +202,7 @@ function freePort() {
 async function waitReady(url) {
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
-    if (server.exitCode !== null) throw new Error(`httk serve combined exited (${server.exitCode}):\n${serverLog}`);
+    if (server.exitCode !== null) throw new Error(`httk serve exited (${server.exitCode}):\n${serverLog}`);
     try {
       if ((await fetch(url)).ok) return;
     } catch {
@@ -210,5 +210,5 @@ async function waitReady(url) {
     }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  throw new Error(`httk serve combined did not become ready:\n${serverLog}`);
+  throw new Error(`httk serve did not become ready:\n${serverLog}`);
 }

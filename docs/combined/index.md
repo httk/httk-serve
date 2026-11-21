@@ -1,6 +1,6 @@
 # Combined server
 
-`httk serve combined` serves one *httk-store* file as a website plus its OPTIMADE
+`httk serve STORE` serves one *httk-store* file as a website plus its OPTIMADE
 API, and optionally the stored files themselves, from a single process:
 
 | Path | Content |
@@ -10,8 +10,8 @@ API, and optionally the stored files themselves, from a single process:
 | `/data/...` | bytes of registered stored files, only with `--data-path` |
 
 ```bash
-httk serve combined check  STORE --data-path /path/to/workspaces
-httk serve combined serve  STORE --data-path /path/to/workspaces --port 8080
+httk serve STORE --check --data-path /path/to/workspaces
+httk serve STORE --data-path /path/to/workspaces --port 8080
 ```
 
 `STORE` is an SQLite or DuckDB store, e.g. written by `httk collect --into`.
@@ -21,13 +21,15 @@ Other options:
 | --- | --- |
 | `--data-path PATH` or `NAME=PATH` | Filesystem location of the stored files, served at `/data/`; see below. `NAME=PATH` is repeatable. Exclusive with `--data-url`. |
 | `--data-url URL` | External file server that replaces the leading `data` of stored file URLs (absolute http(s) URL, or a root-relative `/...` path); no `/data/` route. |
-| `--public-base-url URL` | Public URL of the whole server; default derives from each request. |
+| `--public-url URL` | Public URL of the whole server; default derives from each request. |
 | `--site DIR` | Serve your own site at `/` instead of the default one. |
-| `--config TOML`, `--records MODULE:CLASS` | As for {doc}`../optimade/deployment`. |
-| `--host`, `--port`, `--uds`, `--root-path`, `--workers N`, `--no-access-log` | As for `httk serve optimade serve`. |
+| `--optimade-config TOML`, `--record-class MODULE:CLASS` | As for {doc}`../optimade/deployment`. |
+| `--host`, `--port`, `--uds`, `--root-path`, `--workers N`, `--no-access-log` | As for `httk serve STORE --no-site`. |
 
-`check` opens the store and requests the OPTIMADE endpoints and site pages
-in-process without serving.
+`--check` opens the store and requests the OPTIMADE endpoints and site pages
+in-process without serving. With `--no-site` the same command serves only the
+OPTIMADE API ({doc}`../optimade/deployment`), and `--site DIR` without a
+`STORE` serves only a site ({doc}`../web/index`).
 
 From Python:
 
@@ -48,14 +50,14 @@ where the files are on disk, and the server sends the bytes itself at `/data/...
 Either one `PATH` holding each workspace at `PATH/<workspace name>`:
 
 ```bash
-httk serve combined serve STORE --data-path /srv/workspaces
+httk serve STORE --data-path /srv/workspaces
 ```
 
 or one or more `NAME=PATH` entries, giving workspace `NAME`'s files at `PATH`
 (no symlinks needed, so the old `ln -s` recipe is unnecessary):
 
 ```bash
-httk serve combined serve STORE --data-path diamond=/work/diamond --data-path ice=/work/ice
+httk serve STORE --data-path diamond=/work/diamond --data-path ice=/work/ice
 ```
 
 In Python, `data_path` is a path or a `{name: path}` mapping.

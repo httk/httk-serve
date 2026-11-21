@@ -131,7 +131,7 @@ def execute(global_data, **kwargs):
 ```
 
 Startup failures close resources registered so far before the original error is
-reported.  `publish()`, `httk serve web check`, and `httk serve web list` close their
+reported.  `publish()`, `httk serve --site DIR --check`, and `httk serve --site DIR --list-widgets` close their
 short-lived engines automatically; an ASGI app owns its engine until ASGI
 lifespan shutdown.  Call `engine.close()` (or use `with SiteEngine(...)`) when
 managing an engine directly.

@@ -1,11 +1,11 @@
-"""The ``httk serve combined`` command: one server for OPTIMADE, a web site and file bytes.
+"""The combined mode of ``httk serve``: one server for OPTIMADE, a web site and file bytes.
 
-``httk serve combined serve STORE`` serves an SQLite or DuckDB store file
-built by *httk-store* over OPTIMADE at ``/optimade/`` together with the
-packaged browsing site (or ``--site DIR``) at ``/`` and, with
-``--data-path``, the registered stored files at ``/data/``, under uvicorn.
-``httk serve combined check STORE`` performs the same opening and an
-in-process self-test without serving.
+``httk serve STORE`` serves an SQLite or DuckDB store file built by
+*httk-store* over OPTIMADE at ``/optimade/`` together with the packaged
+browsing site (or ``--site DIR``) at ``/`` and, with ``--data-path``, the
+registered stored files at ``/data/``, under uvicorn. ``httk serve STORE
+--check`` performs the same opening and an in-process self-test without
+serving.
 """
 
 import argparse
@@ -24,13 +24,10 @@ from uvicorn.config import STARTUP_FAILURE
 from httk.serve.http import ServeApp
 from httk.serve.optimade.cli import (
     _OPEN_ERRORS,
-    _bind_arguments,
     _console_reporting,
     _file_warnings,
     _get,
     _record_classes,
-    _root_path,
-    _store_arguments,
     load_config,
     open_store,
 )
@@ -46,52 +43,6 @@ _WORKER_ENVIRONMENT = "HTTK_SERVE_COMBINED_WORKER"
 # Pages of the packaged default site; a custom --site only needs its home page.
 _SITE_PAGES = ("/", "/browse", "/entry")
 _LOGGER = logging.getLogger(__name__)
-
-
-def add_parser(groups: Any) -> None:
-    """Add the ``combined`` command group to the ``httk serve`` parser.
-
-    :param groups: Sub-parser collection of the ``httk serve`` parser.
-    """
-
-    combined = groups.add_parser(
-        "combined",
-        help="serve a store over OPTIMADE together with a browsing web site",
-        description="Serve and check httk-store files over OPTIMADE with a web site and file downloads",
-    )
-    combined.set_defaults(help_parser=combined)
-    subparsers = combined.add_subparsers(metavar="COMMAND")
-    serve_parser = subparsers.add_parser(
-        "serve",
-        help="serve a store file over OPTIMADE with a web site",
-        description=(
-            "Serve an SQLite or DuckDB store file over OPTIMADE at /optimade/ with a web site at / "
-            "and, with --data-path, the registered files at /data/, with uvicorn."
-        ),
-    )
-    serve_parser.set_defaults(handler=_serve, help_parser=serve_parser)
-    _arguments(serve_parser)
-    _bind_arguments(serve_parser)
-    check_parser = subparsers.add_parser(
-        "check",
-        help="open a store file and self-test the combined server",
-        description="Open a store file, request the OPTIMADE endpoints and site pages in-process, and report.",
-    )
-    check_parser.set_defaults(handler=_check, help_parser=check_parser)
-    _arguments(check_parser)
-    check_parser.add_argument(
-        "--root-path", type=_root_path, default="", help="ASGI root path when proxied under a sub-path"
-    )
-
-
-def _arguments(parser: argparse.ArgumentParser) -> None:
-    _store_arguments(parser)
-    parser.add_argument(
-        "--public-base-url",
-        metavar="URL",
-        help="public http(s) URL of the server, e.g. https://example.org/db (default: derived from each request)",
-    )
-    parser.add_argument("--site", metavar="DIR", type=Path, help="web site source directory (default: built-in site)")
 
 
 def _settings(arguments: argparse.Namespace) -> dict[str, Any]:
@@ -140,7 +91,7 @@ def _close(store: "SqlStore", app: ServeApp) -> None:
 def worker_app() -> ServeApp:
     """Create the application of one uvicorn worker process.
 
-    Uvicorn imports this factory in each worker; ``httk serve combined serve
+    Uvicorn imports this factory in each worker; ``httk serve STORE
     --workers`` passes the settings through the environment, and each worker
     opens its own store for its lifetime. A worker that cannot open the store
     exits with uvicorn's startup-failure status, which stops the supervising
@@ -152,13 +103,13 @@ def worker_app() -> ServeApp:
 
     settings = os.environ.get(_WORKER_ENVIRONMENT)
     if not settings:
-        raise RuntimeError("httk serve combined worker factory has no store configuration")
+        raise RuntimeError("httk serve worker factory has no store configuration")
     _console_reporting()
     values = json.loads(settings)
     try:
         return _combined_app(values)[1]
     except _OPEN_ERRORS as exc:
-        _LOGGER.error("httk serve combined worker cannot open %s: %s", values["store"], exc)
+        _LOGGER.error("httk serve worker cannot open %s: %s", values["store"], exc)
         sys.exit(STARTUP_FAILURE)
 
 
@@ -187,7 +138,7 @@ def _serve(arguments: argparse.Namespace) -> int:
     try:
         store, app = _combined_app(settings)
     except _OPEN_ERRORS as exc:
-        print(f"httk serve combined serve: {exc}", file=sys.stderr)
+        print(f"httk serve: {exc}", file=sys.stderr)
         return 2
     try:
         failures, warnings = _self_test(app, store, settings)
@@ -197,10 +148,10 @@ def _serve(arguments: argparse.Namespace) -> int:
     if failures:
         _close(store, app)
         for failure in failures:
-            print(f"httk serve combined serve: {failure}", file=sys.stderr)
+            print(f"httk serve: {failure}", file=sys.stderr)
         return 2
     for warning in warnings:
-        print(f"httk serve combined serve: warning: {warning}", file=sys.stderr)
+        print(f"httk serve: warning: {warning}", file=sys.stderr)
     if arguments.public_base_url is not None:
         site = arguments.public_base_url.rstrip("/")
     else:
@@ -238,16 +189,16 @@ def _check(arguments: argparse.Namespace) -> int:
     try:
         store, app = _combined_app(settings)
     except _OPEN_ERRORS as exc:
-        print(f"httk serve combined check: {exc}", file=sys.stderr)
+        print(f"httk serve: {exc}", file=sys.stderr)
         return 2
     try:
         failures, warnings = _self_test(app, store, settings)
     finally:
         _close(store, app)
     for failure in failures:
-        print(f"httk serve combined check: {failure}", file=sys.stderr)
+        print(f"httk serve: {failure}", file=sys.stderr)
     for warning in warnings:
-        print(f"httk serve combined check: warning: {warning}", file=sys.stderr)
+        print(f"httk serve: warning: {warning}", file=sys.stderr)
     if failures:
         return 1
     for entry in app.state.optimade_app.state.schema.all_entries:

@@ -1,10 +1,9 @@
-"""The ``httk serve web`` command: serve, validate, and list static widgets."""
+"""The site-only mode of ``httk serve --site DIR``: serve, validate, and list widgets."""
 
 import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 import uvicorn
 
@@ -20,43 +19,6 @@ from .widgets.core import BUILTIN_WIDGETS
 _RELOAD_SRCDIR = "HTTK_SERVE_WEB_RELOAD_SRCDIR"
 _RELOAD_COMPATIBILITY_MODE = "HTTK_SERVE_WEB_RELOAD_COMPATIBILITY_MODE"
 _RELOAD_CONFIG_NAME = "HTTK_SERVE_WEB_RELOAD_CONFIG_NAME"
-
-
-def add_parser(groups: Any) -> None:
-    """Add the ``web`` command group to the ``httk serve`` parser.
-
-    :param groups: Sub-parser collection of the ``httk serve`` parser.
-    """
-
-    web = groups.add_parser(
-        "web",
-        help="serve and validate httk-serve sites",
-        description="Serve, validate, and list widgets for httk-serve web sites",
-    )
-    web.set_defaults(help_parser=web)
-    subparsers = web.add_subparsers(metavar="COMMAND")
-    serve_parser = subparsers.add_parser("serve", help="serve a site")
-    serve_parser.set_defaults(handler=_serve, help_parser=serve_parser)
-    _site_arguments(serve_parser)
-    serve_parser.add_argument("--host", default="127.0.0.1")
-    serve_parser.add_argument("--port", type=int, default=8080)
-    serve_parser.add_argument("--reload", action="store_true", help="restart the uvicorn process on source changes")
-    check_parser = subparsers.add_parser("check", help="validate all content pages and widgets")
-    check_parser.set_defaults(handler=_check, help_parser=check_parser)
-    _site_arguments(check_parser, multiple=True)
-    list_parser = subparsers.add_parser("list", help="list available widgets")
-    list_parser.set_defaults(handler=_list, help_parser=list_parser)
-    _site_arguments(list_parser, multiple=True)
-
-
-def _site_arguments(parser: argparse.ArgumentParser, *, multiple: bool = False) -> None:
-    parser.add_argument(
-        "srcdirs" if multiple else "srcdir",
-        metavar="SRCDIR",
-        nargs="+" if multiple else None,
-    )
-    parser.add_argument("--compatibility-mode", action="store_true")
-    parser.add_argument("--config-name", default="config")
 
 
 def _serve(arguments: argparse.Namespace) -> int:
@@ -93,7 +55,7 @@ def reload_app() -> ServeApp:
 
     srcdir = os.environ.get(_RELOAD_SRCDIR)
     if not srcdir:
-        raise RuntimeError("httk serve web reload factory has no source directory")
+        raise RuntimeError("httk serve reload factory has no source directory")
     return create_asgi_app(
         srcdir,
         compatibility_mode=os.environ.get(_RELOAD_COMPATIBILITY_MODE) == "1",
@@ -112,21 +74,10 @@ def _engine(arguments: argparse.Namespace) -> SiteEngine:
 
 
 def _check(arguments: argparse.Namespace) -> int:
-    failed = False
-    for srcdir in arguments.srcdirs:
-        arguments.srcdir = srcdir
-        if len(arguments.srcdirs) > 1:
-            print(f"==> {srcdir} <==")
-        if _check_one(arguments) != 0:
-            failed = True
-    return 1 if failed else 0
-
-
-def _check_one(arguments: argparse.Namespace) -> int:
     try:
         engine = _engine(arguments)
     except (OSError, ValueError, WebError) as exc:
-        print(f"httk serve web check: {exc}", file=sys.stderr)
+        print(f"httk serve: {exc}", file=sys.stderr)
         return 2
     with engine:
         pages = _content_routes(engine.config.content_dir)
@@ -139,28 +90,17 @@ def _check_one(arguments: argparse.Namespace) -> int:
         if errors:
             for error in errors:
                 print(error, file=sys.stderr)
-            print(f"httk serve web check: {len(errors)} error(s) across {len(pages)} page(s)", file=sys.stderr)
+            print(f"httk serve: {len(errors)} error(s) across {len(pages)} page(s)", file=sys.stderr)
             return 1
-        print(f"httk serve web check: {len(pages)} page(s) valid")
+        print(f"httk serve: {len(pages)} page(s) valid")
         return 0
 
 
 def _list(arguments: argparse.Namespace) -> int:
-    failed = False
-    for srcdir in arguments.srcdirs:
-        arguments.srcdir = srcdir
-        if len(arguments.srcdirs) > 1:
-            print(f"==> {srcdir} <==")
-        if _list_one(arguments) != 0:
-            failed = True
-    return 1 if failed else 0
-
-
-def _list_one(arguments: argparse.Namespace) -> int:
     try:
         engine = _engine(arguments)
     except (OSError, ValueError, WebError) as exc:
-        print(f"httk serve web list: {exc}", file=sys.stderr)
+        print(f"httk serve: {exc}", file=sys.stderr)
         return 2
     with engine:
         items = BUILTIN_WIDGETS.available() + engine.widget_loader.available()

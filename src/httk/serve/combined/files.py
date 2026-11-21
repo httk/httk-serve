@@ -1,4 +1,4 @@
-"""The file-bytes route of ``httk serve combined``: registered ``files`` entries only."""
+"""The file-bytes route of the combined ``httk serve`` mode: registered ``files`` entries only."""
 
 import os
 import re

@@ -9,7 +9,7 @@ For new deployments, prefer:
 - `systemd` to keep the ASGI worker process running
 
 To serve an *httk-store* file as an OPTIMADE API without an application module,
-use `httk serve optimade serve` instead; see {doc}`/optimade/deployment`.
+use `httk serve --no-site` instead; see {doc}`/optimade/deployment`.
 
 ## Minimal app runner
 

@@ -6,4 +6,5 @@ register_cli_command(
     "serve",
     "httk.serve.cli:command",
     "serve httk-serve sites and OPTIMADE store files",
+    section="Data",
 )

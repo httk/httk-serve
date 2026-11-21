@@ -52,7 +52,7 @@ prefix = "exmpl"
 
 
 def _run(argv: list[str], tmp_path: Path) -> int:
-    return command(["optimade", *argv], CLIContext("httk", tmp_path))
+    return command([*argv, "--no-site"], CLIContext("httk", tmp_path))
 
 
 def _capture_uvicorn(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, dict[str, Any]]]:
@@ -74,7 +74,7 @@ def _capture_uvicorn(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, dict[st
 def test_check_lists_served_entries(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = _sqlite_store(tmp_path)
 
-    assert _run(["check", str(store), "--config", str(_config(tmp_path))], tmp_path) == 0
+    assert _run(["--check", str(store), "--optimade-config", str(_config(tmp_path))], tmp_path) == 0
     assert capsys.readouterr().out.split() == ["structures"]
 
 
@@ -94,19 +94,19 @@ def test_check_serves_duckdb_read_only(tmp_path: Path, capsys: pytest.CaptureFix
     first.close()
     second.close()
 
-    assert _run(["check", str(path)], tmp_path) == 0
+    assert _run(["--check", str(path)], tmp_path) == 0
     assert capsys.readouterr().out.split() == ["structures"]
 
 
 def test_check_refuses_missing_and_foreign_files(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     missing = tmp_path / "missing.sqlite"
-    assert _run(["check", str(missing)], tmp_path) == 2
+    assert _run(["--check", str(missing)], tmp_path) == 2
     assert "does not exist" in capsys.readouterr().err
     assert not missing.exists()
 
     text = tmp_path / "notes.sqlite"
     text.write_text("not a database", encoding="utf-8")
-    assert _run(["check", str(text)], tmp_path) == 2
+    assert _run(["--check", str(text)], tmp_path) == 2
     assert "not an SQLite or DuckDB store file" in capsys.readouterr().err
 
     foreign = tmp_path / "foreign.sqlite"
@@ -114,8 +114,8 @@ def test_check_refuses_missing_and_foreign_files(tmp_path: Path, capsys: pytest.
     connection.execute("CREATE TABLE notes (text)")
     connection.commit()
     connection.close()
-    assert _run(["check", str(foreign)], tmp_path) == 2
-    assert "httk serve optimade check:" in capsys.readouterr().err
+    assert _run(["--check", str(foreign)], tmp_path) == 2
+    assert "httk serve:" in capsys.readouterr().err
     connection = sqlite3.connect(foreign)
     assert connection.execute("SELECT name FROM sqlite_master").fetchall() == [("notes",)]
     connection.close()
@@ -125,12 +125,12 @@ def test_config_rejects_unknown_keys_and_invalid_toml(tmp_path: Path, capsys: py
     store = _sqlite_store(tmp_path)
     unknown = tmp_path / "unknown.toml"
     unknown.write_text('baseurl = "https://example.org"\n', encoding="utf-8")
-    assert _run(["check", str(store), "--config", str(unknown)], tmp_path) == 2
+    assert _run(["--check", str(store), "--optimade-config", str(unknown)], tmp_path) == 2
     assert "unknown OPTIMADE configuration keys: baseurl" in capsys.readouterr().err
 
     invalid = tmp_path / "invalid.toml"
     invalid.write_text("provider = [\n", encoding="utf-8")
-    assert _run(["check", str(store), "--config", str(invalid)], tmp_path) == 2
+    assert _run(["--check", str(store), "--optimade-config", str(invalid)], tmp_path) == 2
     assert "invalid.toml" in capsys.readouterr().err
 
     config = optimade_cli.load_config(_config(tmp_path))
@@ -143,7 +143,7 @@ def test_serve_runs_the_store_application(tmp_path: Path, monkeypatch: pytest.Mo
     store = _sqlite_store(tmp_path)
     calls = _capture_uvicorn(monkeypatch)
 
-    argv = ["serve", str(store), "--config", str(_config(tmp_path)), "--baseurl", "https://example.org/optimade"]
+    argv = [str(store), "--optimade-config", str(_config(tmp_path)), "--public-url", "https://example.org/optimade"]
     assert _run([*argv, "--port", "8001", "--root-path", "/optimade", "--no-access-log"], tmp_path) == 0
     assert _run([*argv, "--uds", str(tmp_path / "optimade.sock")], tmp_path) == 0
 
@@ -168,7 +168,7 @@ def test_serve_workers_use_the_worker_factory(tmp_path: Path, monkeypatch: pytes
     calls = _capture_uvicorn(monkeypatch)
     monkeypatch.delenv(optimade_cli._WORKER_ENVIRONMENT, raising=False)
 
-    assert _run(["serve", str(store), "--config", str(config), "--workers", "3"], tmp_path) == 0
+    assert _run([str(store), "--optimade-config", str(config), "--workers", "3"], tmp_path) == 0
 
     ((target, options),) = calls
     assert target == "httk.serve.optimade.cli:worker_app"
@@ -195,7 +195,7 @@ def test_serve_refuses_a_missing_store_before_starting(
 ) -> None:
     calls = _capture_uvicorn(monkeypatch)
 
-    assert _run(["serve", str(tmp_path / "missing.sqlite"), "--workers", "2"], tmp_path) == 2
+    assert _run([str(tmp_path / "missing.sqlite"), "--workers", "2"], tmp_path) == 2
     assert calls == []
     assert "does not exist" in capsys.readouterr().err
 
@@ -203,7 +203,7 @@ def test_serve_refuses_a_missing_store_before_starting(
 def test_umbrella_cli_dispatches_optimade_check(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     from httk.core.cli import main
 
-    assert main(["serve", "optimade", "check", str(_sqlite_store(tmp_path))]) == 0
+    assert main(["serve", str(_sqlite_store(tmp_path)), "--no-site", "--check"]) == 0
     assert "structures" in capsys.readouterr().out
 
 
@@ -233,9 +233,9 @@ def test_serve_validates_bind_and_root_path_arguments(
     store = _sqlite_store(tmp_path)
     calls = _capture_uvicorn(monkeypatch)
 
-    assert _run(["serve", str(store), "--root-path", "optimade"], tmp_path) == 2
+    assert _run([str(store), "--root-path", "optimade"], tmp_path) == 2
     assert "argument --root-path" in capsys.readouterr().err
-    assert _run(["serve", str(store), "--port", "8001", "--uds", str(tmp_path / "s.sock")], tmp_path) == 2
+    assert _run([str(store), "--port", "8001", "--uds", str(tmp_path / "s.sock")], tmp_path) == 2
     assert "not allowed with argument --port" in capsys.readouterr().err
     assert calls == []
 
@@ -254,9 +254,9 @@ def test_endpoint_self_test_failures_stop_check_and_serve(
 
     monkeypatch.setattr(optimade_cli, "_get", failing_links)
 
-    assert _run(["check", str(store)], tmp_path) == 1
+    assert _run(["--check", str(store)], tmp_path) == 1
     assert "/v1/links: HTTP 500: broken links" in capsys.readouterr().err
-    assert _run(["serve", str(store)], tmp_path) == 2
+    assert _run([str(store)], tmp_path) == 2
     assert "/v1/links: HTTP 500: broken links" in capsys.readouterr().err
     assert calls == []
 
@@ -319,14 +319,14 @@ def test_records_option_serves_application_record_classes(
         )
         store.save(record(-0.5, store.fetch(UnitcellStructureRecord, sid)))
 
-    assert _run(["check", str(path)], tmp_path) == 2
+    assert _run(["--check", str(path)], tmp_path) == 2
     assert "not registered" in capsys.readouterr().err
-    assert _run(["check", str(path), "--records", "cli_result_record:CliResult"], tmp_path) == 0
+    assert _run(["--check", str(path), "--record-class", "cli_result_record:CliResult"], tmp_path) == 0
     # The nested UnitcellStructureRecord reaches FileRecord through source_file.
     assert capsys.readouterr().out.split() == ["_httk_records", "files", "structures"]
 
     calls = _capture_uvicorn(monkeypatch)
-    argv = ["serve", str(path), "--records", "cli_result_record:CliResult", "--workers", "2"]
+    argv = [str(path), "--record-class", "cli_result_record:CliResult", "--workers", "2"]
     assert _run(argv, tmp_path) == 0
     settings = json.loads(calls[0][1]["environment"])
     assert settings["records"] == ["cli_result_record:CliResult"]

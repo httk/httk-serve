@@ -30,7 +30,7 @@ The store remains caller-owned. Closing the ASGI application does not close the
 store or its database; the deployment's lifespan code should dispose them.
 
 To serve an existing store file without writing an application module, run
-`httk serve optimade serve STORE`; see {doc}`deployment` for `systemd` and
+`httk serve --no-site STORE`; see {doc}`deployment` for `systemd` and
 reverse-proxy setups.
 
 For the provider snapshot approach, see
@@ -184,14 +184,14 @@ exclusive options.
 (do not mix the two forms):
 
 ```bash
-httk serve optimade serve STORE --data-path /srv/workspaces
-httk serve optimade serve STORE --data-path diamond=/work/diamond
+httk serve --no-site STORE --data-path /srv/workspaces
+httk serve --no-site STORE --data-path diamond=/work/diamond
 ```
 
 Only files registered in the store are served (exact stored-URL match, final
 component not a symlink, size must match), as attachments. Served `files.url`
 values are `<request origin>[<root path>]/data/<name>/<path>`, or under
-`--baseurl` when given.
+`--public-url` when given.
 
 `--data-url URL` (Python: `data_url=`) points at an external file server
 instead:
@@ -200,7 +200,7 @@ instead:
 app = create_asgi_app(store, data_url="https://example.org/files")
 ```
 
-or `httk serve optimade serve STORE --data-url https://example.org/files`.
+or `httk serve --no-site STORE --data-url https://example.org/files`.
 Every served `files` URL that starts with `data/` then has that leading `data`
 replaced, so `data/diamond/jobs/.../child-outputs.json` is served as
 `https://example.org/files/diamond/jobs/.../child-outputs.json`. The rest of

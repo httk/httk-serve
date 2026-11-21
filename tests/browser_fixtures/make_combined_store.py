@@ -1,4 +1,4 @@
-"""Build the ``httk serve combined`` browser-test store and file tree in a directory.
+"""Build the ``httk serve STORE`` browser-test store and file tree in a directory.
 
 Usage: ``python make_combined_store.py DIR``. Writes ``DIR/collected.sqlite`` and
 ``DIR/files/ws/...`` (served at ``/data/ws/...``) and prints a JSON summary of the

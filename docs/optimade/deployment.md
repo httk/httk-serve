@@ -1,14 +1,14 @@
 # Deploying a store as an OPTIMADE service
 
-`httk serve optimade serve` runs an OPTIMADE API for an *httk-store* file as a
+`httk serve --no-site` runs an OPTIMADE API for an *httk-store* file as a
 production ASGI service with uvicorn. It is designed to be the single
 `ExecStart` command of a `systemd` unit behind a front-line web server such as
 Apache or Nginx, with no application module of your own:
 
 ```console
-$ httk serve optimade serve /srv/optimade/materials.sqlite \
-      --config /srv/optimade/optimade.toml \
-      --baseurl https://example.org/optimade \
+$ httk serve --no-site /srv/optimade/materials.sqlite \
+      --optimade-config /srv/optimade/optimade.toml \
+      --public-url https://example.org/optimade \
       --port 8001
 ```
 
@@ -19,7 +19,7 @@ created. Every entry family in the store's layout that has a registered
 OPTIMADE definition is served, as described in {doc}`serving_stores`.
 Before binding, the command requests the info, links, and every entry
 endpoint in-process and refuses to start if any of them fails.
-`httk serve optimade check STORE` performs the same opening and self-test and
+`httk serve --no-site --check STORE` performs the same opening and self-test and
 prints the endpoints that would be served.
 
 ## Installation
@@ -39,40 +39,40 @@ $ /opt/optimade/.venv/bin/pip install httk2
 
 A store that saved instances of your own record classes, for example an
 `@entry_record` class passed as `SqliteStore(..., records=[Result])`, must be
-reopened with those classes. Name each one with `--records`:
+reopened with those classes. Name each one with `--record-class`:
 
 ```console
 $ cd /srv/optimade
-$ httk serve optimade serve results.sqlite --records result_record:Result
+$ httk serve --no-site results.sqlite --record-class result_record:Result
 ```
 
 The module is imported with the working directory first on the import path,
 as uvicorn does for application modules, so in a `systemd` unit set
 `WorkingDirectory=` to the directory holding it. Stores whose record classes
 come from installed distributions, such as those written by
-`httk collect --into`, need no `--records`.
+`httk collect --into`, need no `--record-class`.
 
 ## Options
 
 | Option | Meaning |
 | --- | --- |
-| `--config FILE` | TOML file with the service metadata described below. |
-| `--records MODULE:CLASS` | Record class the store was written with that no installed distribution registers; repeatable. |
+| `--optimade-config FILE` | TOML file with the service metadata described below. |
+| `--record-class MODULE:CLASS` | Record class the store was written with that no installed distribution registers; repeatable. |
 | `--data-path PATH` or `NAME=PATH` | Filesystem location of the stored files (`PATH/<workspace name>`, or workspace `NAME` at `PATH`; `NAME=PATH` is repeatable). The service serves the bytes of registered files itself at `/data/...`. Exclusive with `--data-url` (see {doc}`serving_stores`). |
 | `--data-url URL` | External file server replacing the leading `data` of `files` entry URLs, e.g. `https://example.org/files` (absolute http(s), or a root-relative `/...`); stored entries are unchanged. |
-| `--baseurl URL` | Public base URL of the API. Without it, links are derived from each request's host, scheme, and ASGI root path. |
+| `--public-url URL` | Public base URL of the API. Without it, links are derived from each request's host, scheme, and ASGI root path. |
 | `--host HOST`, `--port PORT` | TCP interface and port to bind (default `127.0.0.1:8080`). |
 | `--uds PATH` | Bind a Unix domain socket instead of a TCP port. |
-| `--root-path PATH` | ASGI root path when the proxy forwards a sub-path without its prefix and no `--baseurl` is given. |
+| `--root-path PATH` | ASGI root path when the proxy forwards a sub-path without its prefix and no `--public-url` is given. |
 | `--workers N` | Number of worker processes (default 1). |
 | `--no-access-log` | Disable uvicorn's per-request access log, e.g. when the proxy already logs requests. |
 
-`httk serve optimade check` takes the same `STORE`, `--config`, `--records`,
-`--data-path`, and `--data-url` arguments.
+`--check` takes only `STORE` and the `--optimade-config`, `--record-class`,
+`--data-path`, and `--data-url` options.
 
-With `--data-path`, served `files` URLs are `<request origin>[<root path>]/data/<name>/<path>`; behind a reverse proxy, `--baseurl` decides them instead (`<baseurl>/data/...`), so route `/data/` to the service.
+With `--data-path`, served `files` URLs are `<request origin>[<root path>]/data/<name>/<path>`; behind a reverse proxy, `--public-url` decides them instead (`<public URL>/data/...`), so route `/data/` to the service.
 
-Setting `--baseurl` is the most robust choice behind a proxy, since generated
+Setting `--public-url` is the most robust choice behind a proxy, since generated
 links then do not depend on forwarded headers. Request-derived links need the
 proxy to preserve the `Host` header and send `X-Forwarded-Proto`. Uvicorn trusts
 forwarded headers only from the addresses in its `FORWARDED_ALLOW_IPS`
@@ -86,7 +86,7 @@ store.
 
 ## Service metadata
 
-The `--config` file has the fields of
+The `--optimade-config` file has the fields of
 {py:class}`~httk.serve.optimade.model.config.OptimadeConfig` as top-level keys.
 Unknown keys and values of the wrong shape are refused; write dates as strings
 rather than TOML date-time values. Without a file, the default `httk` provider is
@@ -130,7 +130,7 @@ After=network.target
 User=optimade
 Group=optimade
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/opt/optimade/.venv/bin/httk serve optimade serve /srv/optimade/materials.sqlite --config /srv/optimade/optimade.toml --baseurl https://example.org/optimade --port 8001 --workers 4
+ExecStart=/opt/optimade/.venv/bin/httk serve --no-site /srv/optimade/materials.sqlite --optimade-config /srv/optimade/optimade.toml --public-url https://example.org/optimade --port 8001 --workers 4
 Restart=always
 RestartSec=2
 
@@ -156,18 +156,18 @@ ProxyPassReverse /optimade/ http://127.0.0.1:8001/
 ```
 
 Apache neither preserves the `Host` header nor sends `X-Forwarded-Proto` by
-default, so keep `--baseurl` set. To rely on request-derived links instead, add
+default, so keep `--public-url` set. To rely on request-derived links instead, add
 `ProxyPreserveHost On` and, with `mod_headers`,
 `RequestHeader set X-Forwarded-Proto "https"`.
 
 The service then answers, for example,
 `https://example.org/optimade/v1/structures`. To serve the API at the root of a
-virtual host instead, proxy `/` and pass the corresponding `--baseurl`.
+virtual host instead, proxy `/` and pass the corresponding `--public-url`.
 
 Unversioned API URLs such as `https://example.org/optimade/structures` redirect
 (HTTP 307, query string preserved) to the versioned URL, so the URLs users copy
 from a browser are the versioned ones that keep working when the default
-version changes. With an explicit `--baseurl` the redirect points below that
+version changes. With an explicit `--public-url` the redirect points below that
 base; otherwise it is a relative redirect within the mount, independent of the
 host and scheme the proxy forwards. An `api_hint` query parameter (`vMAJOR`,
 `vMAJOR.MINOR` or `vMAJOR.MINOR.PATCH`) on an unversioned URL selects the
@@ -181,7 +181,7 @@ To avoid a TCP port, bind a Unix domain socket in a runtime directory that
 [Service]
 RuntimeDirectory=httk-optimade
 RuntimeDirectoryMode=0755
-ExecStart=/opt/optimade/.venv/bin/httk serve optimade serve /srv/optimade/materials.sqlite --config /srv/optimade/optimade.toml --baseurl https://example.org/optimade --uds /run/httk-optimade/optimade.sock
+ExecStart=/opt/optimade/.venv/bin/httk serve --no-site /srv/optimade/materials.sqlite --optimade-config /srv/optimade/optimade.toml --public-url https://example.org/optimade --uds /run/httk-optimade/optimade.sock
 ```
 
 ```apache
