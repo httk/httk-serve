@@ -84,7 +84,13 @@ def test_create_asgi_app_discovers_optimade_families_from_mixed_store_lazily() -
     )
     store.save(entries[0])
     adapter = adapter_from_store(store)
-    assert set(adapter.schema.all_entries) == {"structures"}
+    assert set(adapter.schema.all_entries) == {
+        "structures",
+        "_httk_external_database_entries",
+        "_httk_notes",
+        "_httk_tags",
+        "references",
+    }
     app = create_asgi_app(store, baseurl="http://testserver")
 
     with TestClient(app, base_url="http://testserver") as client:
@@ -114,7 +120,13 @@ def test_adapter_discovers_an_application_owned_optimade_family_from_layout() ->
 
     adapter = adapter_from_store(store)
 
-    assert set(adapter.schema.all_entries) == {"structures"}
+    assert set(adapter.schema.all_entries) == {
+        "structures",
+        "_httk_external_database_entries",
+        "_httk_notes",
+        "_httk_tags",
+        "references",
+    }
     with TestClient(create_asgi_app(store, baseurl="http://testserver"), base_url="http://testserver") as client:
         assert client.get("/structures").json()["meta"]["data_available"] == 1
 

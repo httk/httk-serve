@@ -95,7 +95,13 @@ def test_cli_data_url(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     assert command([store, "--no-site", "--check", "--data-url", ""], context) == 2
     assert "argument --data-url" in capsys.readouterr().err
     assert command([store, "--no-site", "--check", "--data-url", "https://example.org/files"], context) == 0
-    assert capsys.readouterr().out.split() == ["files"]
+    assert sorted(capsys.readouterr().out.split()) == [
+        "_httk_external_database_entries",
+        "_httk_notes",
+        "_httk_tags",
+        "files",
+        "references",
+    ]
 
 
 def _workspace(tmp_path: Path) -> Path:
@@ -173,7 +179,11 @@ def test_optimade_check_probes_and_warns(tmp_path: Path, capsys: pytest.CaptureF
     context = CLIContext("httk", tmp_path)
     assert command([store, "--no-site", "--check", "--data-path", f"ws={workspace}"], context) == 0
     captured = capsys.readouterr()
-    assert captured.out.split() == ["files"] and "warning" not in captured.err
+    assert (
+        sorted(captured.out.split())
+        == ["_httk_external_database_entries", "_httk_notes", "_httk_tags", "files", "references"]
+        and "warning" not in captured.err
+    )
 
     assert command([store, "--no-site", "--check"], context) == 0
     assert "neither --data-path nor --data-url" in capsys.readouterr().err

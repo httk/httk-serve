@@ -138,6 +138,13 @@ identifier's `meta` (the label as the provider-prefixed `_httk_label`). A
 resource with no such links carries no relationships, and `include=<wire type>`
 inlines the related resources when their family is mounted.
 
+Every served entry record also carries the standard weak links `references`,
+`notes`, `tags` and `external` without declaration. The notes, tags and external
+database entries are served as the entry types `_httk_notes`, `_httk_tags` and
+`_httk_external_database_entries`, with relationships under the same keys
+(`references` stays `references`). Filter through them, for example
+`_httk_external_database_entries.id HAS "<id>"`.
+
 ## Relationships from stored strong links (run provenance)
 
 A run's provenance edges are served as **semantic** OPTIMADE relationships in

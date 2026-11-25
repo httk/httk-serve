@@ -75,7 +75,9 @@ def test_check_lists_served_entries(tmp_path: Path, capsys: pytest.CaptureFixtur
     store = _sqlite_store(tmp_path)
 
     assert _run(["--check", str(store), "--optimade-config", str(_config(tmp_path))], tmp_path) == 0
-    assert capsys.readouterr().out.split() == ["structures"]
+    assert sorted(capsys.readouterr().out.split()) == sorted(
+        ["structures", "_httk_external_database_entries", "_httk_notes", "_httk_tags", "references"]
+    )
 
 
 def test_check_serves_duckdb_read_only(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -95,7 +97,9 @@ def test_check_serves_duckdb_read_only(tmp_path: Path, capsys: pytest.CaptureFix
     second.close()
 
     assert _run(["--check", str(path)], tmp_path) == 0
-    assert capsys.readouterr().out.split() == ["structures"]
+    assert sorted(capsys.readouterr().out.split()) == sorted(
+        ["structures", "_httk_external_database_entries", "_httk_notes", "_httk_tags", "references"]
+    )
 
 
 def test_check_refuses_missing_and_foreign_files(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -323,7 +327,17 @@ def test_records_option_serves_application_record_classes(
     assert "not registered" in capsys.readouterr().err
     assert _run(["--check", str(path), "--record-class", "cli_result_record:CliResult"], tmp_path) == 0
     # The nested UnitcellStructureRecord reaches FileRecord through source_file.
-    assert capsys.readouterr().out.split() == ["_httk_records", "files", "structures"]
+    assert sorted(capsys.readouterr().out.split()) == sorted(
+        [
+            "_httk_records",
+            "files",
+            "structures",
+            "_httk_external_database_entries",
+            "_httk_notes",
+            "_httk_tags",
+            "references",
+        ]
+    )
 
     calls = _capture_uvicorn(monkeypatch)
     argv = [str(path), "--record-class", "cli_result_record:CliResult", "--workers", "2"]
