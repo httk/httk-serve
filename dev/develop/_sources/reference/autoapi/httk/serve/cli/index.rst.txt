@@ -1,0 +1,76 @@
+httk.serve.cli
+==============
+
+.. py:module:: httk.serve.cli
+
+.. autoapi-nested-parse::
+
+   The ``httk serve`` command: serve a store over OPTIMADE, a web site, or both.
+
+   The arguments select one mode: ``STORE`` serves the store over OPTIMADE at
+   ``/optimade/`` with a web site (the built-in one unless ``--site DIR``),
+   ``STORE --no-site`` serves OPTIMADE only, and ``--site DIR`` without a store
+   serves the site only. ``--check`` validates the selected mode in-process
+   instead of serving, and ``--site DIR --list-widgets`` lists the site's widgets.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.cli.CLIContextLike
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.cli.build_parser
+   httk.serve.cli.command
+
+
+Module Contents
+---------------
+
+.. py:class:: CLIContextLike
+
+   Bases: :py:obj:`Protocol`
+
+
+   The minimal root-command context consumed by :func:`command`.
+
+
+   .. py:property:: program
+      :type: str
+
+
+      Return the root program name.
+
+
+   .. py:property:: cwd
+      :type: pathlib.Path
+
+
+      Return the root command's working directory.
+
+
+.. py:function:: build_parser(program)
+
+   Build the public ``httk serve`` argument parser.
+
+   :param program: Program name displayed in command-line help.
+   :return: Configured argument parser.
+
+
+.. py:function:: command(argv, context)
+
+   Dispatch the command registered by ``httk.registry.cli.serve``.
+
+   :param argv: Command-line arguments after the root command.
+   :param context: Root-command program and working-directory context.
+   :return: Process-style command status code.
+
+

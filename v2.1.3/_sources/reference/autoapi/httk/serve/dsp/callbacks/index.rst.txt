@@ -1,0 +1,37 @@
+httk.serve.dsp.callbacks
+========================
+
+.. py:module:: httk.serve.dsp.callbacks
+
+.. autoapi-nested-parse::
+
+   DSP-facing names for the hardened outbound webhook transport.
+
+   The implementation moved to :mod:`httk.serve.http.webhook`. These names are
+   retained as the DSP-facing spelling of the generic transport and resolve to the
+   same objects, so identity and :func:`isinstance` checks continue to hold.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.dsp.callbacks.CallbackSender
+   httk.serve.dsp.callbacks.CallbackTransportError
+   httk.serve.dsp.callbacks.DefaultCallbackSender
+   httk.serve.dsp.callbacks.callback_url
+
+
+Module Contents
+---------------
+
+.. py:data:: CallbackSender
+
+.. py:data:: CallbackTransportError
+
+.. py:data:: DefaultCallbackSender
+
+.. py:data:: callback_url
+

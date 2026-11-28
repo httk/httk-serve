@@ -1,0 +1,15 @@
+httk.serve.optimade.filter
+==========================
+
+.. py:module:: httk.serve.optimade.filter
+
+.. autoapi-nested-parse::
+
+   Re-exports of the OPTIMADE filter-language parser.
+
+   The parser is implemented in :mod:`httk.core.optimade`, beside the
+   vendored OPTIMADE property definitions, and is
+   also exposed through this package.
+
+
+

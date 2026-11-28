@@ -1,0 +1,69 @@
+httk.serve.composition
+======================
+
+.. py:module:: httk.serve.composition
+
+.. autoapi-nested-parse::
+
+   Compose caller-owned Starlette applications at explicit URL paths.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.composition.ASGIAppMount
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.composition.compose_asgi_apps
+
+
+Module Contents
+---------------
+
+.. py:class:: ASGIAppMount
+
+   Associate a Starlette application with an explicit absolute path.
+
+   :param path: Canonical absolute URL path, with ``/`` reserved for a root
+       fallback.
+   :param app: Starlette application to mount.
+
+   The composed application owns the mounted applications for the duration of
+   its lifespan and enters each distinct child's Starlette lifespan once.
+   Constructing a mount or a composition does not close or otherwise mutate
+   caller-owned applications when validation fails.
+
+
+   .. py:attribute:: path
+      :type:  str
+
+
+   .. py:attribute:: app
+      :type:  starlette.applications.Starlette
+
+
+.. py:function:: compose_asgi_apps(mounts, *, root = None)
+
+   Compose Starlette applications at caller-selected URL paths.
+
+   More-specific paths are routed before their ancestors regardless of caller
+   order. At application startup, each distinct mounted child is entered in
+   that deterministic route order and is exited in reverse order; a failed
+   startup unwinds children that already started. The returned parent owns
+   lifespan coordination but not application configuration or data.
+
+   :param mounts: Service mounts with paths other than ``/``.
+   :param root: Optional ``ASGIAppMount`` at ``/`` used as the fallback route.
+   :return: Parent Starlette application containing the requested mounts.
+   :raises TypeError: If a descriptor or application has the wrong type.
+   :raises ValueError: If paths are malformed, noncanonical, or duplicated.
+
+

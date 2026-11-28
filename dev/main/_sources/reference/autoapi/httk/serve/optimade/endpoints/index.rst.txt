@@ -1,0 +1,146 @@
+httk.serve.optimade.endpoints
+=============================
+
+.. py:module:: httk.serve.optimade.endpoints
+
+.. autoapi-nested-parse::
+
+   Public OPTIMADE endpoint response generators.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /reference/autoapi/httk/serve/optimade/endpoints/entries/index
+   /reference/autoapi/httk/serve/optimade/endpoints/error/index
+   /reference/autoapi/httk/serve/optimade/endpoints/info/index
+   /reference/autoapi/httk/serve/optimade/endpoints/meta/index
+   /reference/autoapi/httk/serve/optimade/endpoints/partial_data/index
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.endpoints.generate_entry_endpoint_reply
+   httk.serve.optimade.endpoints.generate_single_entry_endpoint_reply
+   httk.serve.optimade.endpoints.format_optimade_error
+   httk.serve.optimade.endpoints.generate_base_endpoint_reply
+   httk.serve.optimade.endpoints.generate_entry_info_endpoint_reply
+   httk.serve.optimade.endpoints.generate_info_endpoint_reply
+   httk.serve.optimade.endpoints.generate_links_endpoint_reply
+   httk.serve.optimade.endpoints.generate_versions_endpoint_reply
+   httk.serve.optimade.endpoints.generate_meta
+
+
+Package Contents
+----------------
+
+.. py:function:: generate_entry_endpoint_reply(request, config, data, data_available = None, related_resolver = None, *, omit_nulls = False, keep_null_fields = frozenset())
+
+   Build a JSON:API collection response for an entry endpoint.
+
+   :param request: Validated request controlling links and field selection.
+   :param config: Service configuration for metadata and links.
+   :param data: Query results for the current page.
+   :param data_available: Unfiltered endpoint total for the current instant, or ``None`` to omit it.
+   :param related_resolver: Optional depth-one resolver for included resources.
+   :param omit_nulls: Drop null-valued attributes not named in ``keep_null_fields``.
+   :param keep_null_fields: Names exempt from omission when ``omit_nulls`` is set.
+   :return: JSON:API collection document.
+
+
+.. py:function:: generate_single_entry_endpoint_reply(request, config, data, data_available = None, related_resolver = None, *, omit_nulls = False, keep_null_fields = frozenset())
+
+   Build a JSON:API single-resource response for an entry identifier.
+
+   :param request: Validated request controlling links and field selection.
+   :param config: Service configuration for metadata and links.
+   :param data: Query results expected to contain at most one row.
+   :param data_available: Unfiltered endpoint total for the current instant, or ``None`` to omit it.
+   :param related_resolver: Optional depth-one resolver for included resources.
+   :param omit_nulls: Drop null-valued attributes not named in ``keep_null_fields``.
+   :param keep_null_fields: Names exempt from omission when ``omit_nulls`` is set.
+   :return: JSON:API single-resource document.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If the query yields multiple rows or another page.
+
+
+.. py:function:: format_optimade_error(ex, request, config, version = optimade_default_version)
+
+   Format an exception as an OPTIMADE error response.
+
+   :param ex: Exception raised while handling the request.
+   :param request: Raw request used to construct response metadata.
+   :param config: Service metadata configuration.
+   :param version: API version to report in response metadata.
+   :return: JSON:API error response.
+
+
+.. py:function:: generate_base_endpoint_reply(request, config)
+
+   Build the HTML response for the unversioned API base endpoint.
+
+   :param request: Validated request supplying the displayed API version.
+   :param config: Service configuration.
+   :return: HTML response body.
+
+
+.. py:function:: generate_entry_info_endpoint_reply(request, config, entry, schema)
+
+   Build the ``/info/{entry}`` response for one served entry type.
+
+   :param request: Validated request supplying response metadata context.
+   :param config: Service metadata configuration.
+   :param entry: Served entry endpoint name.
+   :param schema: Served entry definitions.
+   :return: JSON:API entry-info document.
+
+
+.. py:function:: generate_info_endpoint_reply(request, config, schema)
+
+   Build the service ``/info`` response.
+
+   :param request: Validated request supplying the API version and base URL.
+   :param config: Service metadata and license configuration.
+   :param schema: Served entry types and properties.
+   :return: JSON:API service-info document.
+
+
+.. py:function:: generate_links_endpoint_reply(request, config)
+
+   Build the provider-links response.
+
+   :param request: Validated request supplying response metadata context.
+   :param config: Service links and metadata configuration.
+   :return: JSON:API links document.
+
+
+.. py:function:: generate_versions_endpoint_reply(request, config)
+
+   Build the preference-ordered CSV of supported API major versions.
+
+   :param request: Validated request context.
+   :param config: Service configuration.
+   :return: Restricted ``/versions`` CSV body.
+
+
+.. py:function:: generate_meta(*, representation, api_version, config, data_returned = None, more_data_available = False, data_available = None, warnings = None, last_id = None)
+
+   Build the OPTIMADE response metadata object.
+
+   :param representation: Request representation recorded in metadata.
+   :param api_version: OPTIMADE version used for the response.
+   :param config: Service metadata configuration.
+   :param data_returned: Total data objects for the current filter query, independent of pagination.
+   :param more_data_available: Whether another page is available.
+   :param data_available: Total data objects available in the database for the endpoint (unfiltered).
+   :param warnings: Warnings already associated with the request.
+   :param last_id: Identifier of the final returned entry.
+   :return: OPTIMADE metadata mapping.
+
+

@@ -1,0 +1,125 @@
+httk.serve.dsp.serializers
+==========================
+
+.. py:module:: httk.serve.dsp.serializers
+
+.. autoapi-nested-parse::
+
+   JSON projections for the DSP/DCAT catalogue and its process records.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.dsp.serializers.offer_policy
+   httk.serve.dsp.serializers.serialize_data_service
+   httk.serve.dsp.serializers.serialize_distribution
+   httk.serve.dsp.serializers.serialize_dsp_dataset
+   httk.serve.dsp.serializers.serialize_dsp_catalogue
+   httk.serve.dsp.serializers.serialize_dsp_dataset_document
+   httk.serve.dsp.serializers.serialize_dcat_catalogue
+   httk.serve.dsp.serializers.serialize_agreement
+   httk.serve.dsp.serializers.serialize_negotiation
+   httk.serve.dsp.serializers.serialize_transfer
+   httk.serve.dsp.serializers.version_document
+
+
+Module Contents
+---------------
+
+.. py:function:: offer_policy(offer, *, include_target)
+
+   Serialize the unconditional ODRL ``use`` offer.
+
+   :param offer: Fixed offer profile to serialize.
+   :param include_target: Whether to add the message-only dataset target.
+   :return: Fresh JSON policy object.
+
+
+.. py:function:: serialize_data_service(service)
+
+   Serialize a DSP data service embedded in a distribution.
+
+   :param service: Data-service profile to serialize.
+   :return: Fresh DSP data-service object.
+
+
+.. py:function:: serialize_distribution(distribution)
+
+   Serialize the DSP distribution with its embedded service and access URL.
+
+   :param distribution: Distribution profile to serialize.
+   :return: Fresh DSP distribution object.
+
+
+.. py:function:: serialize_dsp_dataset(profile)
+
+   Serialize one dataset in its DSP catalogue projection.
+
+   :param profile: Fixed provider catalogue profile.
+   :return: Fresh DSP dataset object.
+
+
+.. py:function:: serialize_dsp_catalogue(profile)
+
+   Serialize the fixed catalogue under the protected official DSP context.
+
+   :param profile: Fixed provider catalogue profile.
+   :return: Fresh DSP catalogue document.
+
+
+.. py:function:: serialize_dsp_dataset_document(profile)
+
+   Serialize one dataset as a DSP root response document.
+
+   :param profile: Fixed provider catalogue profile.
+   :return: Fresh DSP dataset document.
+
+
+.. py:function:: serialize_dcat_catalogue(profile)
+
+   Serialize the context-substituted DCAT-AP projection.
+
+   The common catalogue value is byte-for-byte derived from the DSP value;
+   only the top-level context is replaced. The owned context changes every
+   ``endpointURL`` string from an RDF literal to an RDF IRI.
+
+   :param profile: Fixed provider catalogue profile.
+   :return: Fresh DCAT-AP-compatible JSON-LD catalogue document.
+
+
+.. py:function:: serialize_agreement(agreement)
+
+   Serialize an immutable agreement record as a fresh JSON policy.
+
+   :param agreement: Agreement record to serialize.
+   :return: Fresh agreement policy object.
+
+
+.. py:function:: serialize_negotiation(record)
+
+   Serialize a negotiation process at its acknowledged state.
+
+   :param record: Negotiation snapshot to serialize.
+   :return: Fresh DSP contract-negotiation document.
+
+
+.. py:function:: serialize_transfer(record)
+
+   Serialize a transfer process at its acknowledged state.
+
+   :param record: Transfer snapshot to serialize.
+   :return: Fresh DSP transfer-process document.
+
+
+.. py:function:: version_document(service_id)
+
+   Serialize the DSP HTTPS version-discovery response.
+
+   :param service_id: Configured service identifier.
+   :return: Fresh protocol version document.
+
+

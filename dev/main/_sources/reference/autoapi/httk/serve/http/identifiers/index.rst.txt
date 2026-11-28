@@ -1,0 +1,57 @@
+httk.serve.http.identifiers
+===========================
+
+.. py:module:: httk.serve.http.identifiers
+
+.. autoapi-nested-parse::
+
+   Wire-format identifier and timestamp primitives shared across serving protocols.
+
+   These helpers carry no protocol vocabulary: they normalise a UUID factory
+   result to the ``urn:uuid:`` URN form, render a timezone-aware datetime as an
+   XSD/RFC 3339 UTC timestamp, and report whether a string is free of lone UTF-16
+   surrogate code points. Protocol packages such as :mod:`httk.serve.dsp` consume
+   them for on-the-wire message construction.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.http.identifiers.is_json_encodable_text
+   httk.serve.http.identifiers.urn_uuid
+   httk.serve.http.identifiers.xsd_utc_timestamp
+
+
+Module Contents
+---------------
+
+.. py:function:: is_json_encodable_text(value)
+
+   Report whether a string is free of lone UTF-16 surrogate code points.
+
+   :param value: String to test for lone surrogate code points.
+   :return: ``False`` when the string contains a lone surrogate, otherwise ``True``.
+
+
+.. py:function:: urn_uuid(value)
+
+   Normalise a UUID factory result to the required ``urn:uuid:`` URN form.
+
+   :param value: UUID factory output rendered to text before normalisation.
+   :return: The identifier in ``urn:uuid:`` form.
+   :raises RuntimeError: If the rendered value is blank or contains a lone surrogate.
+
+
+.. py:function:: xsd_utc_timestamp(value)
+
+   Render a timezone-aware datetime as an XSD/RFC 3339 UTC timestamp.
+
+   :param value: Timezone-aware datetime to render as a UTC XML Schema date-time.
+   :return: The value in UTC with a ``Z`` suffix.
+   :raises TypeError: If ``value`` is not a :class:`~datetime.datetime`.
+   :raises ValueError: If ``value`` is naive or lacks a UTC offset.
+
+

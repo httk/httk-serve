@@ -1,0 +1,55 @@
+httk.serve.optimade.engine.processing
+=====================================
+
+.. py:module:: httk.serve.optimade.engine.processing
+
+.. autoapi-nested-parse::
+
+   Endpoint dispatch: routes a validated OPTIMADE request to its reply generator.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.optimade.engine.processing.SnapshotCutoff
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.engine.processing.process
+
+
+Module Contents
+---------------
+
+.. py:type:: SnapshotCutoff
+   :canonical: Callable[[str, int], int | None]
+
+
+.. py:function:: process(request, query_function, version, config, schema, *, snapshot_cutoff_ns = None, debug = False)
+
+   Process one OPTIMADE query.
+
+   ``request`` carries the incoming request; only ``baseurl`` and
+   ``representation`` must be set, missing information is derived from
+   ``representation``. ``query_function`` is the callback used to execute
+   entry queries against the backend. ``schema`` describes the served entry
+   types and properties.
+
+   :param request: Raw request to validate and dispatch.
+   :param query_function: Backend callback used for entry queries.
+   :param version: API version selected for the request.
+   :param config: Service response configuration.
+   :param schema: Explicit served schema for endpoint validation.
+   :param snapshot_cutoff_ns: Optional stored-backend snapshot capability.
+   :param debug: Enable backend diagnostics.
+   :return: Endpoint response before web serialization.
+   :raises httk.serve.optimade.model.errors.OptimadeError: If request validation or endpoint processing fails.
+
+

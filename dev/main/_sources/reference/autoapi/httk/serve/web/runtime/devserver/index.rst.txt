@@ -1,0 +1,31 @@
+httk.serve.web.runtime.devserver
+================================
+
+.. py:module:: httk.serve.web.runtime.devserver
+
+.. autoapi-nested-parse::
+
+   Run a development ASGI server for a site application.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.runtime.devserver.run_dev_server
+
+
+Module Contents
+---------------
+
+.. py:function:: run_dev_server(*, app, host, port)
+
+   Run an application with the configured development server.
+
+   :param app: ASGI application to serve.
+   :param host: Interface on which to listen.
+   :param port: TCP port on which to listen.
+
+

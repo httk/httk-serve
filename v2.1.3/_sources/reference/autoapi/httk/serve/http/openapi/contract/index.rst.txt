@@ -1,0 +1,95 @@
+httk.serve.http.openapi.contract
+================================
+
+.. py:module:: httk.serve.http.openapi.contract
+
+.. autoapi-nested-parse::
+
+   Bundle a parsed OpenAPI contract with its offline schema registry.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.http.openapi.contract.OpenAPIContract
+
+
+Module Contents
+---------------
+
+.. py:class:: OpenAPIContract
+
+   Bundle a parsed OpenAPI contract with its offline JSON Schema registry.
+
+   :param operations: Supported operations in document order.
+   :param schemas: Offline schema registry for external body references.
+
+
+   .. py:attribute:: operations
+      :type:  tuple[httk.serve.http.openapi.app.OpenAPIOperation, ...]
+
+
+   .. py:attribute:: schemas
+      :type:  httk.serve.http.openapi.schemas.OpenAPISchemaRegistry
+
+
+   .. py:method:: from_package(package, *, contract = ('schemas', 'openapi.yaml'), schemas = ('schemas', ), schema_transform = None)
+      :classmethod:
+
+
+      Load and parse a packaged OpenAPI contract and its bundled schemas.
+
+      Results are cached by the exact ``package``, ``contract``, ``schemas``,
+      and ``schema_transform`` arguments, so repeated calls with the same
+      arguments do not re-parse or re-validate the packaged data.
+
+      :param package: Importable package that ships the contract as package data.
+      :param contract: Path segments below the package to the OpenAPI document.
+      :param schemas: Path segments below the package to the schema root.
+      :param schema_transform: Optional per-document transform applied to each
+          bundled JSON Schema document before it is registered. It is not
+          applied to the OpenAPI document itself. Must be a stable
+          module-level function: it is part of the cache key by identity,
+          so a lambda or closure never hits the cache and instead retains a
+          fully parsed contract for its own lifetime.
+      :return: The parsed contract and its offline schema registry.
+      :raises httk.serve.http.openapi.OpenAPIContractError: If the OpenAPI
+          document uses an unsupported construct.
+      :raises httk.serve.http.openapi.OpenAPISchemaError: If any bundled
+          schema document is invalid.
+
+
+
+   .. py:method:: document()
+
+      Return an independent deep copy of the parsed OpenAPI document.
+
+      :return: Caller-owned copy of the OpenAPI document mapping.
+
+
+
+   .. py:method:: operation(operation_id)
+
+      Return the operation registered under an operation id.
+
+      :param operation_id: Operation identifier to look up.
+      :return: The matching operation.
+      :raises httk.serve.http.openapi.OpenAPIContractError: If no operation
+          has that id.
+
+
+
+   .. py:method:: validate(schema_id, document)
+
+      Validate a JSON-compatible value against a bundled schema.
+
+      :param schema_id: Schema ``$id``.
+      :param document: JSON-compatible value to validate.
+      :raises httk.serve.http.openapi.OpenAPISchemaError: If the schema is
+          unavailable or validation fails.
+
+
+

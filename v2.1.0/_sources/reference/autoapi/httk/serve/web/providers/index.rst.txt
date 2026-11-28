@@ -1,0 +1,246 @@
+httk.serve.web.providers
+========================
+
+.. py:module:: httk.serve.web.providers
+
+.. autoapi-nested-parse::
+
+   Small, dependency-free contracts for site-local paginated data providers.
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   httk.serve.web.providers.MAX_CURSOR_CHARS
+   httk.serve.web.providers.MAX_ROW_DATA_BYTES
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   httk.serve.web.providers.ProviderContext
+   httk.serve.web.providers.TableRequest
+   httk.serve.web.providers.TableColumn
+   httk.serve.web.providers.TablePage
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.web.providers.immutable_mapping
+
+
+Module Contents
+---------------
+
+.. py:data:: MAX_CURSOR_CHARS
+   :value: 16384
+
+
+.. py:data:: MAX_ROW_DATA_BYTES
+   :value: 512000
+
+
+.. py:function:: immutable_mapping(values)
+
+   Snapshot mappings and standard containers into immutable values.
+
+   Other leaves are preserved as-is.
+
+   :param values: String-keyed mapping to snapshot.
+   :return: Mapping proxy containing immutable mappings and standard containers.
+
+
+.. py:class:: ProviderContext
+
+   Provide immutable site-local context to a table provider.
+
+   :param route: Route containing the table widget.
+   :param widget_id: Stable identifier of the table widget on the route.
+   :param query: Request query values.
+   :param page: Page context supplied by the site.
+   :param global_data: Site-global data supplied by startup code.
+
+
+   .. py:attribute:: route
+      :type:  str
+
+
+   .. py:attribute:: widget_id
+      :type:  str
+
+
+   .. py:attribute:: query
+      :type:  collections.abc.Mapping[str, str]
+
+
+   .. py:attribute:: page
+      :type:  collections.abc.Mapping[str, object]
+
+
+   .. py:attribute:: global_data
+      :type:  collections.abc.Mapping[str, object]
+
+
+   .. py:method:: url_for(route, *, query = None)
+
+      Build a site-local route URL without exposing the ASGI request.
+
+      :param route: Relative site route to link to.
+      :param query: Optional string query values.
+      :return: Site-local URL for the route.
+      :raises ValueError: If the route is not a safe relative site route.
+      :raises TypeError: If query keys or values are not strings.
+
+
+
+.. py:class:: TableRequest
+
+   Describe one bounded page request passed to a table provider.
+
+   :param page_size: Maximum number of rows requested.
+   :param cursor: Opaque provider cursor for continuation.
+   :param revision: Optional provider revision pinned across pages.
+
+
+   .. py:attribute:: page_size
+      :type:  int
+      :value: 50
+
+
+
+   .. py:attribute:: cursor
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: revision
+      :type:  str | None
+      :value: None
+
+
+
+.. py:class:: TableColumn
+
+   Describe one table column and its presentation-only metadata.
+
+   :param key: Stable row value key.
+   :param label: Accessible column label.
+   :param align: Optional horizontal alignment.
+   :param class_name: Optional whitespace-free CSS class name.
+
+
+   .. py:attribute:: key
+      :type:  str
+
+
+   .. py:attribute:: label
+      :type:  str
+
+
+   .. py:attribute:: align
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: class_name
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:method:: from_value(value)
+      :classmethod:
+
+
+      Adapt a compact column declaration to a table column.
+
+      :param value: Existing column, string key, or explicit field mapping.
+      :return: Normalized table column.
+      :raises TypeError: If the declaration has an unsupported shape.
+      :raises ValueError: If the declaration contains unknown or invalid fields.
+
+
+
+.. py:class:: TablePage
+
+   Represent one bounded page of presentation rows and opaque cursors.
+
+   :param rows: Presentation-only row mappings.
+   :param columns: Table columns.
+   :param next_cursor: Opaque cursor for the next page.
+   :param previous_cursor: Opaque cursor for the previous page.
+   :param total: Optional exact total row count.
+   :param revision: Optional provider revision for stable pagination.
+
+
+   .. py:attribute:: rows
+      :type:  tuple[collections.abc.Mapping[str, object], ...]
+
+
+   .. py:attribute:: columns
+      :type:  tuple[TableColumn, ...]
+
+
+   .. py:attribute:: next_cursor
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: previous_cursor
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:attribute:: total
+      :type:  int | None
+      :value: None
+
+
+
+   .. py:attribute:: revision
+      :type:  str | None
+      :value: None
+
+
+
+   .. py:method:: from_rows(rows, *, columns, next_cursor = None, previous_cursor = None, total = None, revision = None)
+      :classmethod:
+
+
+      Construct a page while adapting compact column declarations.
+
+      :param rows: Presentation-only row mappings.
+      :param columns: Column declarations.
+      :param next_cursor: Opaque cursor for the next page.
+      :param previous_cursor: Opaque cursor for the previous page.
+      :param total: Optional exact total row count.
+      :param revision: Optional provider revision for stable pagination.
+      :return: Normalized table page.
+
+
+
+   .. py:method:: from_result(value)
+      :classmethod:
+
+
+      Normalize a table page or equivalent explicit mapping.
+
+      :param value: Provider result to normalize.
+      :return: Normalized table page.
+      :raises TypeError: If the result is not a table page or mapping.
+      :raises ValueError: If the mapping contains invalid fields or values.
+
+
+

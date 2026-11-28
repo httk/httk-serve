@@ -1,0 +1,31 @@
+httk.serve.optimade.runtime.devserver
+=====================================
+
+.. py:module:: httk.serve.optimade.runtime.devserver
+
+.. autoapi-nested-parse::
+
+   Development-server entry point for an OPTIMADE ASGI application.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   httk.serve.optimade.runtime.devserver.run_dev_server
+
+
+Module Contents
+---------------
+
+.. py:function:: run_dev_server(*, app, host, port)
+
+   Run an ASGI application with Uvicorn.
+
+   :param app: ASGI application to serve.
+   :param host: Interface or hostname to bind.
+   :param port: TCP port to bind.
+
+
