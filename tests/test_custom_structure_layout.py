@@ -2,12 +2,15 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Annotated, Any, ClassVar
 
+import pytest
 from httk.atomistic import StructureEntry
 from httk.core.storage import (
     IdentitySkip,
     Indexed,
+    Inline,
     QueryContext,
     QueryExpression,
     QueryLiteralError,
@@ -108,3 +111,53 @@ def test_custom_sites_layout_serves_filters_and_response_fields() -> None:
             {"species_at_sites": ["Po"]},
         ]
     store.close()
+
+
+@dataclass(frozen=True)
+class _InlineSitesStructure:
+    """The same record with its sites stored Inline(): one child table, no element or link table."""
+
+    __httk_storage__: ClassVar[StorageInfo] = StorageInfo(storage_name="test_custom_layout_inline_structure")
+    __httk_stored_properties__: ClassVar[Mapping[str, StoredPropertyProjection]] = (
+        _SitesStructure.__httk_stored_properties__
+    )
+
+    basis: Annotated[tuple[tuple[float, ...], ...], Shape(3, 3)]
+    sites: Annotated[tuple[_Site, ...], Inline()]
+    id: Annotated[str | None, IdentitySkip(), Indexed()] = field(default=None, compare=False)
+    immutable_id: Annotated[str | None, IdentitySkip(), Unique()] = field(default=None, compare=False)
+
+    @property
+    def type(self) -> str:
+        return "structures"
+
+
+def test_inline_sites_layout_serves_what_the_link_layout_serves(tmp_path: Path) -> None:
+    pytest.importorskip("duckdb_engine")
+    queries = (
+        "/structures",
+        "/structures?filter=nsites>1",
+        '/structures?filter=elements HAS "Cl"',
+        '/structures?filter=NOT elements HAS "Cl"',
+        "/structures?response_fields=species_at_sites,nsites,elements",
+    )
+    served: list[list[Any]] = []
+    for record in (_SitesStructure, _InlineSitesStructure):
+        declaration = EntryFamilyDeclaration(
+            name="test-custom-layout-structures",
+            family=StructureEntry,
+            definition_id=StructureEntry.definition_id,
+            records=(EntryRecordDeclaration(name=f"test-custom-layout-{record.__name__.lower()}", record=record),),
+        )
+        # File-backed: the served app reads from another thread, which an in-memory DuckDB does not share.
+        database = Backend.duckdb(tmp_path / f"{record.__name__}.duckdb")
+        store = SqlStore(database, entry_families=(declaration,), entry_ids=EntryIdScheme("httk.test", "1"))
+        store.save(record(_cubic(5.64), (_Site(0.0, 0.0, 0.0, "Na"), _Site(0.5, 0.5, 0.5, "Cl"))))
+        store.save(record(_cubic(3.35), (_Site(0.0, 0.0, 0.0, "Po"),)))
+        with TestClient(create_asgi_app(store, baseurl="http://testserver"), base_url="http://testserver") as client:
+            responses = [client.get(query) for query in queries]
+        assert all(response.status_code == 200 for response in responses), [r.text for r in responses]
+        served.append([response.json()["data"] for response in responses])
+        store.close()
+    assert served[0] == served[1]
+    assert [entry["attributes"]["species_at_sites"] for entry in served[1][4]] == [["Na", "Cl"], ["Po"]]
