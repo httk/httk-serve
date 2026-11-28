@@ -180,9 +180,9 @@ as served (the semantic keys plus typed aliases such as
 
 `httk collect --into STORE` from *httk-workflow* stores job output files as
 `files` entries whose `url` is the fixed relative form
-`data/<workspace name>/<workspace-relative path>`. The URL is part of each
-file entry's content identity, so it does not depend on where a deployment
-keeps the files. The deployment chooses that at serving time, with one of two
+`data/<workspace name>/<workspace-relative path>`. The URL is metadata, not
+part of a file entry's content identity (its `format` and SHA-256), and its
+fixed form does not depend on where a deployment keeps the files. The deployment chooses that at serving time, with one of two
 exclusive options.
 
 `--data-path PATH` serves the bytes itself: the files are on disk at
